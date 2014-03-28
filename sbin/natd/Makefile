@@ -7,4 +7,6 @@ LDADD		= -lalias
 DPADD		= ${LIBALIAS}
 MAN		= natd.8
 
+CAN_PIE=1
+
 .include <bsd.prog.mk>

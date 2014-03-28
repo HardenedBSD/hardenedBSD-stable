@@ -44,6 +44,8 @@ MAN=	dhclient.8 dhclient.conf.5 dhclient.leases.5 dhcp-options.5 \
 DPADD=	${LIBUTIL}
 LDADD=	-lutil
 
+CAN_PIE=1
+
 WARNS?=	2
 
 .if ${MK_TESTS} != "no"

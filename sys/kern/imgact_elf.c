@@ -34,6 +34,7 @@ __FBSDID("$FreeBSD$");
 #include "opt_capsicum.h"
 #include "opt_compat.h"
 #include "opt_core.h"
+#include "opt_pax.h"
 
 #include <sys/param.h>
 #include <sys/capsicum.h>
@@ -47,7 +48,9 @@ __FBSDID("$FreeBSD$");
 #include <sys/mount.h>
 #include <sys/mman.h>
 #include <sys/namei.h>
+#include <sys/pax.h>
 #include <sys/pioctl.h>
+#include <sys/jail.h>
 #include <sys/proc.h>
 #include <sys/procfs.h>
 #include <sys/racct.h>
@@ -600,6 +603,9 @@ __elfN(load_file)(struct proc *p, const char *file, u_long *addr,
 	u_long rbase;
 	u_long base_addr = 0;
 	int error, i, numsegs;
+#ifdef PAX_ASLR
+    struct prison *pr;
+#endif
 
 #ifdef CAPABILITY_MODE
 	/*
@@ -655,11 +661,17 @@ __elfN(load_file)(struct proc *p, const char *file, u_long *addr,
 	hdr = (const Elf_Ehdr *)imgp->image_header;
 	if ((error = __elfN(check_header)(hdr)) != 0)
 		goto fail;
-	if (hdr->e_type == ET_DYN)
+	if (hdr->e_type == ET_DYN) {
 		rbase = *addr;
-	else if (hdr->e_type == ET_EXEC)
+#ifdef PAX_ASLR
+        if (pax_aslr_active(NULL, imgp->proc)) {
+            pr = pax_aslr_get_prison(NULL, imgp->proc);
+            rbase += round_page(PAX_ASLR_DELTA(arc4random(), PAX_ASLR_DELTA_EXEC_LSB, pr->pr_pax_aslr_exec_len));
+        }
+#endif
+    } else if (hdr->e_type == ET_EXEC) {
 		rbase = 0;
-	else {
+    } else {
 		error = ENOEXEC;
 		goto fail;
 	}
@@ -729,6 +741,9 @@ __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp)
 	Elf_Brandinfo *brand_info;
 	char *path;
 	struct sysentvec *sv;
+#ifdef PAX_ASLR
+    struct prison *pr;
+#endif
 
 	/*
 	 * Do we have a valid ELF header ?
@@ -793,10 +808,23 @@ __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp)
 		 * Honour the base load address from the dso if it is
 		 * non-zero for some reason.
 		 */
-		if (baddr == 0)
+		if (baddr == 0) {
+#ifdef PAX_ASLR
+            if (pax_aslr_active(NULL, imgp->proc)) {
+                pr = pax_aslr_get_prison(NULL, imgp->proc);
+                do {
+                    /* Do this in a loop to make sure we don't attempt a NULL page mapping */
+                    et_dyn_addr = trunc_page(PAX_ASLR_DELTA(arc4random(), PAX_ASLR_DELTA_EXEC_LSB, pr->pr_pax_aslr_exec_len));
+                } while (et_dyn_addr == 0);
+            } else {
+                et_dyn_addr = ET_DYN_LOAD_ADDR;
+            }
+#else
 			et_dyn_addr = ET_DYN_LOAD_ADDR;
-		else
+#endif
+        } else {
 			et_dyn_addr = 0;
+        }
 	} else
 		et_dyn_addr = 0;
 	sv = brand_info->sysvec;

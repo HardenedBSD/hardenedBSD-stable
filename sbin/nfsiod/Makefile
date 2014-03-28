@@ -4,4 +4,6 @@
 PROG=	nfsiod
 MAN=	nfsiod.8
 
+CAN_PIE=1
+
 .include <bsd.prog.mk>

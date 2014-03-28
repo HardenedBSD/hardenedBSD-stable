@@ -7,6 +7,8 @@ DPADD=	${LIBUTIL}
 LDADD=	-lutil
 MAN=	gettytab.5 ttys.5 getty.8
 
+CAN_PIE=1
+
 WARNS?=	1
 WFORMAT=0
 

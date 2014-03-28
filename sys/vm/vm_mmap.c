@@ -45,6 +45,7 @@ __FBSDID("$FreeBSD$");
 
 #include "opt_compat.h"
 #include "opt_hwpmc_hooks.h"
+#include "opt_pax.h"
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -90,6 +91,10 @@ __FBSDID("$FreeBSD$");
 #ifdef HWPMC_HOOKS
 #include <sys/pmckern.h>
 #endif
+
+#ifdef PAX_ASLR
+#include <sys/pax.h>
+#endif /* PAX_ASLR */
 
 int old_mlock = 0;
 SYSCTL_INT(_vm, OID_AUTO, old_mlock, CTLFLAG_RW | CTLFLAG_TUN, &old_mlock, 0,
@@ -203,6 +208,9 @@ sys_mmap(td, uap)
 	struct file *fp;
 	struct vnode *vp;
 	vm_offset_t addr;
+#ifdef PAX_ASLR
+	vm_offset_t orig_addr;
+#endif /* PAX_ASLR */
 	vm_size_t size, pageoff;
 	vm_prot_t cap_maxprot, prot, maxprot;
 	void *handle;
@@ -213,6 +221,9 @@ sys_mmap(td, uap)
 	cap_rights_t rights;
 
 	addr = (vm_offset_t) uap->addr;
+#ifdef PAX_ASLR
+	orig_addr = addr;
+#endif /* PAX_ASLR */
 	size = uap->len;
 	prot = uap->prot & VM_PROT_ALL;
 	flags = uap->flags;
@@ -309,9 +320,10 @@ sys_mmap(td, uap)
 		if (addr == 0 ||
 		    (addr >= round_page((vm_offset_t)vms->vm_taddr) &&
 		    addr < round_page((vm_offset_t)vms->vm_daddr +
-		    lim_max(td->td_proc, RLIMIT_DATA))))
-			addr = round_page((vm_offset_t)vms->vm_daddr +
-			    lim_max(td->td_proc, RLIMIT_DATA));
+		    lim_max(td->td_proc, RLIMIT_DATA)))) {
+                addr = round_page((vm_offset_t)vms->vm_daddr +
+                    lim_max(td->td_proc, RLIMIT_DATA));
+        }
 		PROC_UNLOCK(td->td_proc);
 	}
 	if (flags & MAP_ANON) {
@@ -414,6 +426,9 @@ sys_mmap(td, uap)
 map:
 	td->td_fpop = fp;
 	maxprot &= cap_maxprot;
+#ifdef PAX_ASLR
+	pax_aslr_mmap(td, &addr, orig_addr, flags);
+#endif /* PAX_ASLR */
 	error = vm_mmap(&vms->vm_map, &addr, size, prot, maxprot,
 	    flags, handle_type, handle, pos);
 	td->td_fpop = NULL;

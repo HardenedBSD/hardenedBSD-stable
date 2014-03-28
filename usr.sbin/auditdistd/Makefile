@@ -5,6 +5,8 @@
 OPENBSMDIR=${.CURDIR}/../../contrib/openbsm
 .PATH: ${OPENBSMDIR}/bin/auditdistd
 
+CAN_PIE=1
+
 # Addition of auditdistd because otherwise generated parse.c can't find
 # auditdistd.h.  This seems like a makefile non-feature.
 CFLAGS+=-I${OPENBSMDIR} -I${OPENBSMDIR}/bin/auditdistd

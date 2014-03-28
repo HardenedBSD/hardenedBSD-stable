@@ -22,6 +22,8 @@ PROG=	rtsol
 SRCS=	rtsold.c rtsol.c if.c probe.c dump.c rtsock.c
 NO_MAN=
 
+CAN_PIE=1
+
 WARNS?=	3
 CFLAGS+= -DHAVE_ARC4RANDOM -DHAVE_POLL_H -DSMALL
 

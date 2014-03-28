@@ -19,6 +19,8 @@ SRCS+=	token.l
 SRCS+=	y.tab.h
 MAN=	hastd.8 hast.conf.5
 
+CAN_PIE=1
+
 NO_WFORMAT=
 NO_WCAST_ALIGN=
 NO_WMISSING_VARIABLE_DECLARATIONS=

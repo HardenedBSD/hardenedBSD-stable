@@ -33,6 +33,7 @@ __FBSDID("$FreeBSD$");
 #include "opt_ddb.h"
 #include "opt_inet.h"
 #include "opt_inet6.h"
+#include "opt_pax.h"
 
 #include <sys/param.h>
 #include <sys/types.h>
@@ -60,6 +61,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/syscallsubr.h>
 #include <sys/sysctl.h>
 #include <sys/vnode.h>
+#include <sys/pax.h>
 
 #include <net/if.h>
 #include <net/if_var.h>
@@ -114,6 +116,20 @@ struct prison prison0 = {
 	.pr_flags	= PR_HOST|_PR_IP_SADDRSEL,
 #endif
 	.pr_allow	= PR_ALLOW_ALL,
+#ifdef PAX_ASLR
+    .pr_pax_set = 0,
+    .pr_pax_aslr_status = 0,
+    .pr_pax_aslr_debug = 0,
+    .pr_pax_aslr_mmap_len = PAX_ASLR_DELTA_MMAP_MIN_LEN,
+    .pr_pax_aslr_stack_len = PAX_ASLR_DELTA_STACK_MIN_LEN,
+    .pr_pax_aslr_exec_len = PAX_ASLR_DELTA_EXEC_MIN_LEN,
+#ifdef COMPAT_FREEBSD32
+    .pr_pax_aslr_compat_status = 0,
+    .pr_pax_aslr_compat_mmap_len = PAX_ASLR_COMPAT_DELTA_MMAP_MIN_LEN,
+    .pr_pax_aslr_compat_stack_len = PAX_ASLR_COMPAT_DELTA_STACK_MIN_LEN,
+    .pr_pax_aslr_compat_exec_len = PAX_ASLR_COMPAT_DELTA_EXEC_MIN_LEN,
+#endif /* COMPAT_FREEBSD32 */
+#endif /* PAX_ASLR */
 };
 MTX_SYSINIT(prison0, &prison0.pr_mtx, "jail mutex", MTX_DEF);
 

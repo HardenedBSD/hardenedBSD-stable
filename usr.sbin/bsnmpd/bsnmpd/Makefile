@@ -18,6 +18,8 @@ CLEANFILES= oid.h tree.c tree.h
 MAN=	bsnmpd.1 snmpmod.3
 NO_WERROR=
 
+CAN_PIE=1
+
 FILESGROUPS= BMIBS DEFS
 
 BMIBS=	FOKUS-MIB.txt BEGEMOT-MIB.txt BEGEMOT-SNMPD.txt

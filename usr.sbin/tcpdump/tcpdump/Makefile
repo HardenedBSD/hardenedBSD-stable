@@ -7,6 +7,8 @@ TCPDUMP_DISTDIR?= ${.CURDIR}/../../../contrib/tcpdump
 
 PROG=	tcpdump
 
+CAN_PIE=1
+
 SRCS=	addrtoname.c \
 	af.c \
 	checksum.c \

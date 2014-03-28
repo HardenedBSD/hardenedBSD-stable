@@ -30,6 +30,7 @@ __FBSDID("$FreeBSD$");
 #include "opt_compat.h"
 #include "opt_inet.h"
 #include "opt_inet6.h"
+#include "opt_pax.h"
 
 #define __ELF_WORD_SIZE 32
 
@@ -112,6 +113,10 @@ __FBSDID("$FreeBSD$");
 #include <compat/freebsd32/freebsd32_proto.h>
 
 FEATURE(compat_freebsd_32bit, "Compatible with 32-bit FreeBSD");
+
+#ifdef PAX_ASLR
+#include <sys/pax.h>
+#endif /* PAX_ASLR */
 
 #ifndef __mips__
 CTASSERT(sizeof(struct timeval32) == 8);
@@ -2861,6 +2866,9 @@ freebsd32_copyout_strings(struct image_params *imgp)
 {
 	int argc, envc, i;
 	u_int32_t *vectp;
+#ifdef PAX_ASLR
+	uintptr_t orig_destp;
+#endif /* PAX_ASLR */
 	char *stringp;
 	uintptr_t destp;
 	u_int32_t *stack_base;
@@ -2885,6 +2893,11 @@ freebsd32_copyout_strings(struct image_params *imgp)
 	else
 		szsigcode = 0;
 	destp =	(uintptr_t)arginfo;
+
+#ifdef PAX_ASLR
+	orig_destp = destp;
+	pax_aslr_stack(curthread, &destp, orig_destp);
+#endif /* PAX_ASLR */
 
 	/*
 	 * install sigcode

@@ -4,6 +4,8 @@ PROG=	rpc.statd
 MAN=	rpc.statd.8
 SRCS=	file.c sm_inter_svc.c sm_inter.h statd.c procs.c
 
+CAN_PIE=1
+
 CFLAGS+= -I.
 WARNS?= 2
 
