@@ -1,5 +1,4 @@
 Enable building of Position-Independent Executables (PIEs) for the following applications:
-    bin/sh
     libexec/getty
     sbin/casperd
     sbin/dhclient
