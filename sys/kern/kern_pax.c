@@ -30,8 +30,8 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
-#include "opt_pax.h"
 #include "opt_compat.h"
+#include "opt_pax.h"
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -501,6 +501,28 @@ pax_aslr_init_prison(struct prison *pr)
 }
 
 void
+_pax_aslr_init(struct vmspace *vm, struct prison *pr)
+{
+	vm->vm_aslr_delta_mmap = PAX_ASLR_DELTA(arc4random(),
+		PAX_ASLR_DELTA_MMAP_LSB, (pr != NULL) ? pr->pr_pax_aslr_mmap_len : pax_aslr_mmap_len);
+	vm->vm_aslr_delta_stack = PAX_ASLR_DELTA(arc4random(),
+		PAX_ASLR_DELTA_STACK_LSB, (pr != NULL) ? pr->pr_pax_aslr_stack_len : pax_aslr_stack_len);
+	vm->vm_aslr_delta_stack = ALIGN(vm->vm_aslr_delta_stack);
+}
+
+#ifdef COMPAT_FREEBSD32
+void
+_pax_aslr_init32(struct vmspace *vm, struct prison *pr)
+{
+        vm->vm_aslr_delta_mmap = PAX_ASLR_DELTA(arc4random(),
+            PAX_ASLR_COMPAT_DELTA_MMAP_LSB, (pr != NULL) ? pr->pr_pax_aslr_compat_mmap_len : pax_aslr_compat_mmap_len);
+        vm->vm_aslr_delta_stack = PAX_ASLR_DELTA(arc4random(),
+            PAX_ASLR_COMPAT_DELTA_STACK_LSB, (pr != NULL) ? pr->pr_pax_aslr_compat_stack_len : pax_aslr_compat_stack_len);
+        vm->vm_aslr_delta_stack = ALIGN(vm->vm_aslr_delta_stack);
+}
+#endif
+
+void
 pax_aslr_init(struct thread *td, struct image_params *imgp)
 {
     struct vmspace *vm;
@@ -522,27 +544,9 @@ pax_aslr_init(struct thread *td, struct image_params *imgp)
     vm = imgp->proc->p_vmspace;
     sv_flags = imgp->proc->p_sysent->sv_flags;
 
-#ifndef COMPAT_FREEBSD32
-    vm->vm_aslr_delta_mmap = PAX_ASLR_DELTA(arc4random(),
-        PAX_ASLR_DELTA_MMAP_LSB, (pr != NULL) ? pr->pr_pax_aslr_mmap_len : pax_aslr_mmap_len);
-    vm->vm_aslr_delta_stack = PAX_ASLR_DELTA(arc4random(),
-        PAX_ASLR_DELTA_STACK_LSB, (pr != NULL) ? pr->pr_pax_aslr_stack_len : pax_aslr_stack_len);
-    vm->vm_aslr_delta_stack = ALIGN(vm->vm_aslr_delta_stack);
-#else /* COMPAT_FREEBSD32 */
-    if ((sv_flags & SV_LP64) != 0) {
-        vm->vm_aslr_delta_mmap = PAX_ASLR_DELTA(arc4random(),
-            PAX_ASLR_DELTA_MMAP_LSB, (pr != NULL) ? pr->pr_pax_aslr_mmap_len : pax_aslr_mmap_len);
-        vm->vm_aslr_delta_stack = PAX_ASLR_DELTA(arc4random(),
-            PAX_ASLR_DELTA_STACK_LSB, (pr != NULL) ? pr->pr_pax_aslr_stack_len : pax_aslr_stack_len);
-        vm->vm_aslr_delta_stack = ALIGN(vm->vm_aslr_delta_stack);
-    } else {
-        vm->vm_aslr_delta_mmap = PAX_ASLR_DELTA(arc4random(),
-            PAX_ASLR_COMPAT_DELTA_MMAP_LSB, (pr != NULL) ? pr->pr_pax_aslr_compat_mmap_len : pax_aslr_compat_mmap_len);
-        vm->vm_aslr_delta_stack = PAX_ASLR_DELTA(arc4random(),
-            PAX_ASLR_COMPAT_DELTA_STACK_LSB, (pr != NULL) ? pr->pr_pax_aslr_compat_stack_len : pax_aslr_compat_stack_len);
-        vm->vm_aslr_delta_stack = ALIGN(vm->vm_aslr_delta_stack);
+    if (imgp->proc->p_sysent->sv_pax_aslr_init != NULL) {
+	    imgp->proc->p_sysent->sv_pax_aslr_init(vm, pr);
     }
-#endif /* !COMPAT_FREEBSD32 */
 }
 
 void

@@ -33,6 +33,7 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 #include "opt_compat.h"
+#include "opt_pax.h"
 
 #ifndef COMPAT_FREEBSD32
 #error "Unable to compile Linux-emulator due to missing COMPAT_FREEBSD32 option!"
@@ -51,6 +52,9 @@ __FBSDID("$FreeBSD$");
 #include <sys/malloc.h>
 #include <sys/module.h>
 #include <sys/mutex.h>
+#ifdef PAX_ASLR
+#include <sys/pax.h>
+#endif
 #include <sys/proc.h>
 #include <sys/resourcevar.h>
 #include <sys/signalvar.h>
@@ -1037,6 +1041,11 @@ struct sysentvec elf_linux_sysvec = {
 	.sv_shared_page_base = LINUX32_SHAREDPAGE,
 	.sv_shared_page_len = PAGE_SIZE,
 	.sv_schedtail	= linux_schedtail,
+#ifdef PAX_ASLR
+	.sv_pax_aslr_init = _pax_aslr_init32,
+#else
+	.sv_pax_aslr_init = NULL,
+#endif
 };
 INIT_SYSENTVEC(elf_sysvec, &elf_linux_sysvec);
 

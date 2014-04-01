@@ -27,6 +27,8 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
+#include "opt_pax.h"
+
 #include <sys/param.h>
 #include <sys/exec.h>
 #include <sys/imgact.h>
@@ -36,6 +38,9 @@ __FBSDID("$FreeBSD$");
 #include <sys/lock.h>
 #include <sys/malloc.h>
 #include <sys/mutex.h>
+#ifdef PAX_ASLR
+#include <sys/pax.h>
+#endif
 #include <sys/proc.h>
 #include <sys/racct.h>
 #include <sys/resourcevar.h>
@@ -99,6 +104,10 @@ struct sysentvec aout_sysvec = {
 	.sv_fetch_syscall_args = cpu_fetch_syscall_args,
 	.sv_syscallnames = syscallnames,
 	.sv_schedtail	= NULL,
+#ifdef PAX_ASLR
+	.sv_pax_aslr_init = _pax_aslr_init, /* XXXOP */
+#else
+	.sv_pax_aslr_init = NULL,
 };
 
 #elif defined(__amd64__)
@@ -143,6 +152,11 @@ struct sysentvec aout_sysvec = {
 	.sv_set_syscall_retval = ia32_set_syscall_retval,
 	.sv_fetch_syscall_args = ia32_fetch_syscall_args,
 	.sv_syscallnames = freebsd32_syscallnames,
+#ifdef PAX_ASLR
+	.sv_pax_aslr_init = _pax_aslr_init32, /* XXXOP */
+#else
+	.sv_pax_aslr_init = NULL,
+#endif
 };
 #else
 #error "Port me"

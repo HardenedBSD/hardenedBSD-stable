@@ -31,6 +31,8 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
+#include "opt_pax.h"
+
 #include <sys/param.h>
 #include <sys/kernel.h>
 #include <sys/systm.h>
@@ -40,6 +42,9 @@ __FBSDID("$FreeBSD$");
 #include <sys/module.h>
 #include <sys/sysent.h>
 #include <sys/signalvar.h>
+#ifdef PAX_ASLR
+#include <sys/pax.h>
+#endif
 #include <sys/proc.h>
 #include <sys/sx.h>
 
@@ -89,6 +94,11 @@ struct sysentvec ibcs2_svr3_sysvec = {
 	.sv_fetch_syscall_args = cpu_fetch_syscall_args,
 	.sv_syscallnames = NULL,
 	.sv_schedtail	= NULL,
+#ifdef PAX_ASLR
+	.sv_pax_aslr_init = _pax_aslr_init, /* XXXOP */
+#else
+	.sv_pax_aslr_init = NULL,
+#endif
 };
 
 static int

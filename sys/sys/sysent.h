@@ -77,9 +77,11 @@ struct sysent {			/* system call table */
 #define	SY_THR_INCR	0x8
 
 struct image_params;
+struct prison;
 struct __sigset;
 struct syscall_args;
 struct trapframe;
+struct vmspace;
 struct vnode;
 
 struct sysentvec {
@@ -130,6 +132,7 @@ struct sysentvec {
 	uint32_t	sv_timekeep_gen;
 	void		*sv_shared_page_obj;
 	void		(*sv_schedtail)(struct thread *);
+	void		(*sv_pax_aslr_init)(struct vmspace *vm, struct prison *pr);
 };
 
 #define	SV_ILP32	0x000100
