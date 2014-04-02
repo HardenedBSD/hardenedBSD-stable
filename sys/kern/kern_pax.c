@@ -552,8 +552,8 @@ pax_aslr_init(struct thread *td, struct image_params *imgp)
 
     vm = imgp->proc->p_vmspace;
 
-    if (imgp->proc->p_sysent->sv_pax_aslr_init != NULL) {
-	    imgp->proc->p_sysent->sv_pax_aslr_init(vm, pr);
+    if (imgp->sysent->sv_pax_aslr_init != NULL) {
+	    imgp->sysent->sv_pax_aslr_init(vm, pr);
     }
 }
 
