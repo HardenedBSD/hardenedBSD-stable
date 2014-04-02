@@ -809,22 +809,15 @@ __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp)
 		 * non-zero for some reason.
 		 */
 		if (baddr == 0) {
-#ifdef PAX_ASLR
-            if (pax_aslr_active(NULL, imgp->proc)) {
-                pr = pax_aslr_get_prison(NULL, imgp->proc);
-                do {
-                    /* Do this in a loop to make sure we don't attempt a NULL page mapping */
-                    et_dyn_addr = trunc_page(PAX_ASLR_DELTA(arc4random(), PAX_ASLR_DELTA_EXEC_LSB, pr->pr_pax_aslr_exec_len));
-                } while (et_dyn_addr == 0);
-            } else {
-                et_dyn_addr = ET_DYN_LOAD_ADDR;
-            }
-#else
 			et_dyn_addr = ET_DYN_LOAD_ADDR;
+#ifdef PAX_ASLR
+			if (pax_aslr_active(NULL, imgp->proc)) {
+				pr = pax_aslr_get_prison(NULL, imgp->proc);
+				et_dyn_addr += trunc_page(PAX_ASLR_DELTA(arc4random(), PAX_ASLR_DELTA_EXEC_LSB, pr->pr_pax_aslr_exec_len));
+			}
 #endif
-        } else {
+		} else
 			et_dyn_addr = 0;
-        }
 	} else
 		et_dyn_addr = 0;
 	sv = brand_info->sysvec;
