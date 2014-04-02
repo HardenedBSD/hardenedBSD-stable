@@ -526,7 +526,6 @@ void
 pax_aslr_init(struct thread *td, struct image_params *imgp)
 {
     struct vmspace *vm;
-    u_int sv_flags;
     struct prison *pr=NULL;
 
     pr = pax_aslr_get_prison(td, NULL);
@@ -542,7 +541,6 @@ pax_aslr_init(struct thread *td, struct image_params *imgp)
         return;
 
     vm = imgp->proc->p_vmspace;
-    sv_flags = imgp->proc->p_sysent->sv_flags;
 
     if (imgp->proc->p_sysent->sv_pax_aslr_init != NULL) {
 	    imgp->proc->p_sysent->sv_pax_aslr_init(vm, pr);
