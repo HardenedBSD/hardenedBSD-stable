@@ -666,7 +666,7 @@ __elfN(load_file)(struct proc *p, const char *file, u_long *addr,
 #ifdef PAX_ASLR
         if (pax_aslr_active(NULL, imgp->proc)) {
             pr = pax_aslr_get_prison(NULL, imgp->proc);
-            rbase += round_page(PAX_ASLR_DELTA(arc4random(), PAX_ASLR_DELTA_EXEC_LSB, pr->pr_pax_aslr_exec_len));
+            rbase += imgp->proc->p_vmspace->vm_aslr_delta_exec;
         }
 #endif
     } else if (hdr->e_type == ET_EXEC) {
@@ -804,22 +804,7 @@ __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp)
 	if (hdr->e_type == ET_DYN) {
 		if ((brand_info->flags & BI_CAN_EXEC_DYN) == 0)
 			return (ENOEXEC);
-		/*
-		 * Honour the base load address from the dso if it is
-		 * non-zero for some reason.
-		 */
-		if (baddr == 0) {
-			et_dyn_addr = ET_DYN_LOAD_ADDR;
-#ifdef PAX_ASLR
-			if (pax_aslr_active(NULL, imgp->proc)) {
-				pr = pax_aslr_get_prison(NULL, imgp->proc);
-				et_dyn_addr += trunc_page(PAX_ASLR_DELTA(arc4random(), PAX_ASLR_DELTA_EXEC_LSB, pr->pr_pax_aslr_exec_len));
-			}
-#endif
-		} else
-			et_dyn_addr = 0;
-	} else
-		et_dyn_addr = 0;
+	}
 	sv = brand_info->sysvec;
 	if (interp != NULL && brand_info->interp_newpath != NULL)
 		newinterp = brand_info->interp_newpath;
@@ -839,6 +824,24 @@ __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp)
 
 	error = exec_new_vmspace(imgp, sv);
 	imgp->proc->p_sysent = sv;
+
+	if (hdr->e_type == ET_DYN) {
+		/*
+		 * Honour the base load address from the dso if it is
+		 * non-zero for some reason.
+		 */
+		if (baddr == 0) {
+			et_dyn_addr = ET_DYN_LOAD_ADDR;
+#ifdef PAX_ASLR
+			if (pax_aslr_active(NULL, imgp->proc)) {
+				pr = pax_aslr_get_prison(NULL, imgp->proc);
+				et_dyn_addr += imgp->proc->p_vmspace->vm_aslr_delta_exec;
+			}
+#endif
+		} else
+			et_dyn_addr = 0;
+	} else
+		et_dyn_addr = 0;
 
 	vn_lock(imgp->vp, LK_EXCLUSIVE | LK_RETRY);
 	if (error)

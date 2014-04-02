@@ -243,6 +243,7 @@ struct vmspace {
 	caddr_t vm_maxsaddr;	/* user VA at max stack growth */
 	vm_size_t vm_aslr_delta_mmap;	/* mmap() random delta for ASLR */
 	vm_size_t vm_aslr_delta_stack;	/* stack random delta for ASLR */
+	vm_size_t vm_aslt_delta_exec;	/* exec base random delta for ASLR */
 	volatile int vm_refcnt;	/* number of references */
 	/*
 	 * Keep the PMAP last, so that CPU-specific variations of that
