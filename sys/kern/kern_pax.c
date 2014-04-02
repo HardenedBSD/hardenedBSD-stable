@@ -510,8 +510,8 @@ _pax_aslr_init(struct vmspace *vm, struct prison *pr)
 	vm->vm_aslr_delta_stack = ALIGN(vm->vm_aslr_delta_stack);
 
 	if (pax_aslr_debug) {
-		uprintf("[PaX ASLR] %s: vm_aslr_delta_mmap=%p", __func__, (void *) vm->vm_aslr_delta_mmap);
-		uprintf("[PaX ASLR] %s: vm_aslr_delta_stack=%p", __func__, (void *) vm->vm_aslr_delta_stack);
+		uprintf("[PaX ASLR] %s: vm_aslr_delta_mmap=%p\n", __func__, (void *) vm->vm_aslr_delta_mmap);
+		uprintf("[PaX ASLR] %s: vm_aslr_delta_stack=%p\n", __func__, (void *) vm->vm_aslr_delta_stack);
 	}
 }
 
@@ -526,8 +526,8 @@ _pax_aslr_init32(struct vmspace *vm, struct prison *pr)
         vm->vm_aslr_delta_stack = ALIGN(vm->vm_aslr_delta_stack);
 
 	if (pax_aslr_debug) {
-		uprintf("[PaX ASLR] %s: vm_aslr_delta_mmap=%p", __func__, (void *) vm->vm_aslr_delta_mmap);
-		uprintf("[PaX ASLR] %s: vm_aslr_delta_stack=%p", __func__, (void *) vm->vm_aslr_delta_stack);
+		uprintf("[PaX ASLR] %s: vm_aslr_delta_mmap=%p\n", __func__, (void *) vm->vm_aslr_delta_mmap);
+		uprintf("[PaX ASLR] %s: vm_aslr_delta_stack=%p\n", __func__, (void *) vm->vm_aslr_delta_stack);
 	}
 }
 #endif
