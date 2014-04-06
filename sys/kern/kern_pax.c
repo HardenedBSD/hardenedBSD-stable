@@ -484,7 +484,7 @@ pax_aslr_init_prison(struct prison *pr)
         return;
 
     if (pax_aslr_debug)
-        uprintf("[PaX ASLR] pax_aslr_init_prison: Setting prison %s ASLR variables\n", pr->pr_name);
+        uprintf("[PaX ASLR] %s: Setting prison %s ASLR variables\n", __func__, pr->pr_name);
 
     pr->pr_pax_aslr_status = pax_aslr_status;
     pr->pr_pax_aslr_debug = pax_aslr_debug;
@@ -577,18 +577,18 @@ pax_aslr_mmap(struct thread *td, vm_offset_t *addr, vm_offset_t orig_addr, int f
 
     if (!(flags & MAP_FIXED) && ((orig_addr == 0) || !(flags & MAP_ANON))) {
         if (pax_aslr_debug)
-            uprintf("[PaX ASLR] pax_aslr_mmap: applying to %p orig_addr=%p flags=%x\n",
-                (void *)*addr, (void *)orig_addr, flags);
+            uprintf("[PaX ASLR] %s: applying to %p orig_addr=%p flags=%x\n",
+                __func__, (void *)*addr, (void *)orig_addr, flags);
         if (!(td->td_proc->p_vmspace->vm_map.flags & MAP_ENTRY_GROWS_DOWN))
             *addr += td->td_proc->p_vmspace->vm_aslr_delta_mmap;
         else
             *addr -= td->td_proc->p_vmspace->vm_aslr_delta_mmap;
         if (pax_aslr_debug)
-            uprintf("[PaX ASLR] pax_aslr_mmap: result %p\n", (void *)*addr);
+            uprintf("[PaX ASLR] %s: result %p\n", __func__, (void *)*addr);
+    } else if (pax_aslr_debug) {
+        uprintf("[PaX ASLR] %s: not applying to %p orig_addr=%p flags=%x\n",
+     	   __func__, (void *)*addr, (void *)orig_addr, flags);
     }
-    else if (pax_aslr_debug)
-        uprintf("[PaX ASLR] pax_aslr_mmap: not applying to %p orig_addr=%p flags=%x\n",
-        (void *)*addr, (void *)orig_addr, flags);
 }
 
 void
@@ -603,6 +603,6 @@ pax_aslr_stack(struct thread *td, uintptr_t *addr, uintptr_t orig_addr)
 
     *addr -= td->td_proc->p_vmspace->vm_aslr_delta_stack;
     if ((pr) && pr->pr_pax_aslr_debug)
-        uprintf("[PaX ASLR] pax_aslr_stack: orig_addr=%p, new_addr=%p\n",
-            (void *)orig_addr, (void *)*addr);
+        uprintf("[PaX ASLR] %s: orig_addr=%p, new_addr=%p\n",
+            __func__, (void *)orig_addr, (void *)*addr);
 }
