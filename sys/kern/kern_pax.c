@@ -263,7 +263,7 @@ SYSCTL_NODE(_security_pax_aslr, OID_AUTO, compat, CTLFLAG_RD, 0,
     "Setting for COMPAT_FREEBSD32 and linuxulator.");
 
 SYSCTL_PROC(_security_pax_aslr_compat, OID_AUTO, status,
-    CTLTYPE_INT|CTLFLAG_RW|CTLFLAG_TUN|CTLFLAG_PRISON,
+    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON,
     NULL, 0, sysctl_pax_aslr_compat_status, "I",
     "Restrictions status. "
     "0 - disabled, "
@@ -273,21 +273,21 @@ SYSCTL_PROC(_security_pax_aslr_compat, OID_AUTO, status,
 TUNABLE_INT("security.pax.aslr.compat.status", &pax_aslr_compat_status);
 
 SYSCTL_PROC(_security_pax_aslr_compat, OID_AUTO, mmap_len,
-    CTLTYPE_INT|CTLFLAG_RW|CTLFLAG_RWTUN|CTLFLAG_PRISON,
+    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON,
     NULL, 0, sysctl_pax_aslr_compat_mmap, "I",
     "Number of bits randomized for mmap(2) calls. "
     "32 bit: [8,16]");
 TUNABLE_INT("security.pax.aslr.compat.mmap", &pax_aslr_compat_mmap_len);
 
 SYSCTL_PROC(_security_pax_aslr_compat, OID_AUTO, stack_len,
-    CTLTYPE_INT|CTLFLAG_RW|CTLFLAG_RWTUN|CTLFLAG_PRISON,
+    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON,
     NULL, 0, sysctl_pax_aslr_compat_stack, "I",
     "Number of bits randomized for the stack. "
     "32 bit: [6,12]");
 TUNABLE_INT("security.pax.aslr.compat.stack", &pax_aslr_compat_stack_len);
 
 SYSCTL_PROC(_security_pax_aslr_compat, OID_AUTO, exec_len,
-    CTLTYPE_INT|CTLFLAG_RW|CTLFLAG_RWTUN|CTLFLAG_PRISON,
+    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON,
     NULL, 0, sysctl_pax_aslr_compat_exec, "I",
     "Number of bits randomized for the PIE exec base. "
     "32 bit: [6,12]");
