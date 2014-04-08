@@ -566,7 +566,7 @@ pax_aslr_init(struct thread *td, struct image_params *imgp)
         pax_aslr_init_prison(pr);
 
     if (imgp == NULL) {
-        panic("[PaX ASLR] pax_aslr_init: imgp == NULL");
+        panic("[PaX ASLR] %s: imgp == NULL", __func__);
     }
 
     if (!pax_aslr_active(td, NULL))
