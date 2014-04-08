@@ -171,9 +171,8 @@ sysctl_pax_aslr_mmap(SYSCTL_HANDLER_ARGS)
         || val > PAX_ASLR_DELTA_MMAP_MAX_LEN)
         return (EINVAL);
 
-    if (pr == &prison0)
+    if (pr == NULL || pr == &prison0)
         pax_aslr_mmap_len = val;
-
     if (pr)
         pr->pr_pax_aslr_mmap_len = val;
 
@@ -201,7 +200,7 @@ sysctl_pax_aslr_stack(SYSCTL_HANDLER_ARGS)
         || val > PAX_ASLR_DELTA_STACK_MAX_LEN)
         return (EINVAL);
 
-    if (pr == &prison0)
+    if (pr == NULL || pr == &prison0)
         pax_aslr_stack_len = val;
     if (pr)
         pr->pr_pax_aslr_stack_len = val;
@@ -230,7 +229,7 @@ sysctl_pax_aslr_exec(SYSCTL_HANDLER_ARGS)
         || val > PAX_ASLR_DELTA_EXEC_MAX_LEN)
         return (EINVAL);
 
-    if (pr == &prison0)
+    if (pr == NULL || pr == &prison0)
         pax_aslr_exec_len = val;
     if (pr)
         pr->pr_pax_aslr_exec_len = val;
@@ -331,16 +330,15 @@ static int
 sysctl_pax_aslr_compat_mmap(SYSCTL_HANDLER_ARGS)
 {
     int err;
-    int val, *ptr;
+    int val;
     struct prison *pr=NULL;
 
     pr = pax_aslr_get_prison(req->td, NULL);
-    ptr = (pr != NULL) ? &(pr->pr_pax_aslr_compat_mmap_len) : &pax_aslr_compat_mmap_len;
 
     if ((pr) && !(pr->pr_pax_set))
         pax_aslr_init_prison(pr);
 
-    val = *ptr;
+    val = (pr != NULL) ? pr->pr_pax_aslr_compat_mmap_len : pax_aslr_compat_mmap_len;
     err = sysctl_handle_int(oidp, &val, sizeof(int), req);
     if (err || !req->newptr)
         return (err);
@@ -349,8 +347,10 @@ sysctl_pax_aslr_compat_mmap(SYSCTL_HANDLER_ARGS)
         || val > PAX_ASLR_COMPAT_DELTA_MMAP_MAX_LEN)
         return (EINVAL);
 
-    pax_aslr_compat_mmap_len = val;
-    *ptr = val;
+    if (pr == NULL || pr == &prison0)
+        pax_aslr_compat_mmap_len = val;
+    if (pr)
+        pr->pr_pax_aslr_compat_mmap_len = val;
 
     return (0);
 }
@@ -359,11 +359,10 @@ static int
 sysctl_pax_aslr_compat_stack(SYSCTL_HANDLER_ARGS)
 {
     int err;
-    int val, *ptr;
+    int val;
     struct prison *pr=NULL;
 
     pr = pax_aslr_get_prison(req->td, NULL);
-    ptr = (pr != NULL) ? &(pr->pr_pax_aslr_compat_stack_len) : &pax_aslr_compat_stack_len;
 
     if ((pr) && !(pr->pr_pax_set))
         pax_aslr_init_prison(pr);
@@ -377,8 +376,10 @@ sysctl_pax_aslr_compat_stack(SYSCTL_HANDLER_ARGS)
         || val > PAX_ASLR_COMPAT_DELTA_STACK_MAX_LEN)
         return (EINVAL);
 
-    pax_aslr_compat_stack_len = val;
-    *ptr = val;
+    if (pr == NULL || pr == &prison0)
+        pax_aslr_compat_stack_len = val;
+    if (pr)
+        pr->pr_pax_aslr_compat_stack_len = val;
 
     return (0);
 }
@@ -387,16 +388,15 @@ static int
 sysctl_pax_aslr_compat_exec(SYSCTL_HANDLER_ARGS)
 {
     int err;
-    int val, *ptr;
+    int val;
     struct prison *pr=NULL;
 
     pr = pax_aslr_get_prison(req->td, NULL);
-    ptr = (pr != NULL) ? &(pr->pr_pax_aslr_compat_exec_len) : &pax_aslr_compat_exec_len;
 
     if ((pr) && !(pr->pr_pax_set))
         pax_aslr_init_prison(pr);
 
-    val = *ptr;
+    val = (pr != NULL) ? pr->pr_pax_aslr_compat_exec_len : pax_aslr_compat_exec_len;
     err = sysctl_handle_int(oidp, &val, sizeof(int), req);
     if (err || !req->newptr)
         return (err);
@@ -405,11 +405,14 @@ sysctl_pax_aslr_compat_exec(SYSCTL_HANDLER_ARGS)
         || val > PAX_ASLR_COMPAT_DELTA_EXEC_MAX_LEN)
         return (EINVAL);
 
-    pax_aslr_compat_exec_len = val;
-    *ptr = val;
+    if (pr == NULL || pr == &prison0)
+        pax_aslr_compat_exec_len = val;
+    if (pr)
+        pr->pr_pax_aslr_compat_exec_len = val;
 
     return (0);
 }
+
 #endif /* COMPAT_FREEBSD32 */
 
 
