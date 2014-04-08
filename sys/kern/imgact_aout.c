@@ -38,9 +38,6 @@ __FBSDID("$FreeBSD$");
 #include <sys/lock.h>
 #include <sys/malloc.h>
 #include <sys/mutex.h>
-#ifdef PAX_ASLR
-#include <sys/pax.h>
-#endif
 #include <sys/proc.h>
 #include <sys/racct.h>
 #include <sys/resourcevar.h>
@@ -65,6 +62,10 @@ __FBSDID("$FreeBSD$");
 #include <compat/freebsd32/freebsd32_proto.h>
 #include <compat/freebsd32/freebsd32_syscall.h>
 #include <compat/ia32/ia32_signal.h>
+#endif
+
+#ifdef PAX_ASLR
+#include <sys/pax.h>
 #endif
 
 static int	exec_aout_imgact(struct image_params *imgp);

@@ -48,7 +48,6 @@ __FBSDID("$FreeBSD$");
 #include <sys/mount.h>
 #include <sys/mman.h>
 #include <sys/namei.h>
-#include <sys/pax.h>
 #include <sys/pioctl.h>
 #include <sys/jail.h>
 #include <sys/proc.h>
@@ -83,6 +82,10 @@ __FBSDID("$FreeBSD$");
 
 #include <machine/elf.h>
 #include <machine/md_var.h>
+
+#ifdef PAX_ASLR
+#include <sys/pax.h>
+#endif
 
 #define ELF_NOTE_ROUNDSIZE	4
 #define OLD_EI_BRAND	8
@@ -604,7 +607,7 @@ __elfN(load_file)(struct proc *p, const char *file, u_long *addr,
 	u_long base_addr = 0;
 	int error, i, numsegs;
 #ifdef PAX_ASLR
-    struct prison *pr;
+	struct prison *pr;
 #endif
 
 #ifdef CAPABILITY_MODE
@@ -664,21 +667,21 @@ __elfN(load_file)(struct proc *p, const char *file, u_long *addr,
 	if (hdr->e_type == ET_DYN) {
 		rbase = *addr;
 #ifdef PAX_ASLR
-        if (pax_aslr_active(NULL, imgp->proc)) {
-            pr = pax_aslr_get_prison(NULL, imgp->proc);
-            rbase += imgp->proc->p_vmspace->vm_aslr_delta_exec;
-        }
+		if (pax_aslr_active(NULL, imgp->proc)) {
+			pr = pax_aslr_get_prison(NULL, imgp->proc);
+			rbase += imgp->proc->p_vmspace->vm_aslr_delta_exec;
+		}
 #endif
-    } else if (hdr->e_type == ET_EXEC) {
+	} else if (hdr->e_type == ET_EXEC) {
 		rbase = 0;
-    } else {
+	} else {
 		error = ENOEXEC;
 		goto fail;
 	}
 
 	/* Only support headers that fit within first page for now      */
 	if ((hdr->e_phoff > PAGE_SIZE) ||
-	    (u_int)hdr->e_phentsize * hdr->e_phnum > PAGE_SIZE - hdr->e_phoff) {
+			(u_int)hdr->e_phentsize * hdr->e_phnum > PAGE_SIZE - hdr->e_phoff) {
 		error = ENOEXEC;
 		goto fail;
 	}
@@ -742,7 +745,7 @@ __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp)
 	char *path;
 	struct sysentvec *sv;
 #ifdef PAX_ASLR
-    struct prison *pr;
+	struct prison *pr;
 #endif
 
 	/*

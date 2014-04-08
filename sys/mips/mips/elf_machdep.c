@@ -38,9 +38,6 @@ __FBSDID("$FreeBSD$");
 #include <sys/linker.h>
 #include <sys/sysent.h>
 #include <sys/imgact_elf.h>
-#ifdef PAX_ASLR
-#include <sys/pax.h>
-#endif
 #include <sys/proc.h>
 #include <sys/syscall.h>
 #include <sys/signalvar.h>
@@ -53,6 +50,10 @@ __FBSDID("$FreeBSD$");
 #include <machine/elf.h>
 #include <machine/md_var.h>
 #include <machine/cache.h>
+
+#ifdef PAX_ASLR
+#include <sys/pax.h>
+#endif
 
 #ifdef __mips_n64
 struct sysentvec elf64_freebsd_sysvec = {

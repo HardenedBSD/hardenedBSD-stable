@@ -52,9 +52,6 @@ __FBSDID("$FreeBSD$");
 #include <sys/malloc.h>
 #include <sys/module.h>
 #include <sys/mutex.h>
-#ifdef PAX_ASLR
-#include <sys/pax.h>
-#endif
 #include <sys/proc.h>
 #include <sys/resourcevar.h>
 #include <sys/signalvar.h>
@@ -87,6 +84,10 @@ __FBSDID("$FreeBSD$");
 #include <compat/linux/linux_misc.h>
 #include <compat/linux/linux_signal.h>
 #include <compat/linux/linux_util.h>
+
+#ifdef PAX_ASLR
+#include <sys/pax.h>
+#endif
 
 MODULE_VERSION(linux, 1);
 

@@ -33,9 +33,6 @@
 #include <sys/exec.h>
 #include <sys/imgact.h>
 #include <sys/malloc.h>
-#ifdef PAX_ASLR
-#include <sys/pax.h>
-#endif
 #include <sys/proc.h>
 #include <sys/namei.h>
 #include <sys/fcntl.h>
@@ -53,6 +50,10 @@
 #include <machine/frame.h>
 #include <machine/md_var.h>
 #include <machine/unwind.h>
+
+#ifdef PAX_ASLR
+#include <sys/pax.h>
+#endif
 
 Elf_Addr link_elf_get_gp(linker_file_t);
 

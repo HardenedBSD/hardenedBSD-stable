@@ -36,9 +36,6 @@
 #include <sys/exec.h>
 #include <sys/imgact.h>
 #include <sys/malloc.h>
-#ifdef PAX_ASLR
-#include <sys/pax.h>
-#endif
 #include <sys/proc.h>
 #include <sys/namei.h>
 #include <sys/fcntl.h>
@@ -56,6 +53,10 @@
 #include <machine/elf.h>
 #include <machine/reg.h>
 #include <machine/md_var.h>
+
+#ifdef PAX_ASLR
+#include <sys/pax.h>
+#endif
 
 #ifdef __powerpc64__
 #include <compat/freebsd32/freebsd32_proto.h>

@@ -43,9 +43,6 @@ __FBSDID("$FreeBSD$");
 #include <sys/mutex.h>
 #include <sys/mman.h>
 #include <sys/namei.h>
-#ifdef PAX_ASLR
-#include <sys/pax.h>
-#endif
 #include <sys/pioctl.h>
 #include <sys/proc.h>
 #include <sys/procfs.h>
@@ -77,6 +74,10 @@ __FBSDID("$FreeBSD$");
 #include <machine/md_var.h>
 #include <machine/pcb.h>
 #include <machine/cpufunc.h>
+
+#ifdef PAX_ASLR
+#include <sys/pax.h>
+#endif
 
 CTASSERT(sizeof(struct ia32_mcontext) == 640);
 CTASSERT(sizeof(struct ia32_ucontext) == 704);

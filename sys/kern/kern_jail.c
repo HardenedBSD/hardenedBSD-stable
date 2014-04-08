@@ -61,7 +61,6 @@ __FBSDID("$FreeBSD$");
 #include <sys/syscallsubr.h>
 #include <sys/sysctl.h>
 #include <sys/vnode.h>
-#include <sys/pax.h>
 
 #include <net/if.h>
 #include <net/if_var.h>
@@ -75,6 +74,10 @@ __FBSDID("$FreeBSD$");
 #include <netinet6/in6_var.h>
 #endif /* INET6 */
 #endif /* DDB */
+
+#ifdef PAX_ASLR
+#include <sys/pax.h>
+#endif
 
 #include <security/mac/mac_framework.h>
 
@@ -117,18 +120,18 @@ struct prison prison0 = {
 #endif
 	.pr_allow	= PR_ALLOW_ALL,
 #ifdef PAX_ASLR
-    .pr_pax_set = 0,
-    .pr_pax_aslr_status = 0,
-    .pr_pax_aslr_debug = 0,
-    .pr_pax_aslr_mmap_len = PAX_ASLR_DELTA_MMAP_MIN_LEN,
-    .pr_pax_aslr_stack_len = PAX_ASLR_DELTA_STACK_MIN_LEN,
-    .pr_pax_aslr_exec_len = PAX_ASLR_DELTA_EXEC_MIN_LEN,
+	.pr_pax_set = 0,
+	.pr_pax_aslr_status = 0,
+	.pr_pax_aslr_debug = 0,
+	.pr_pax_aslr_mmap_len = PAX_ASLR_DELTA_MMAP_MIN_LEN,
+	.pr_pax_aslr_stack_len = PAX_ASLR_DELTA_STACK_MIN_LEN,
+	.pr_pax_aslr_exec_len = PAX_ASLR_DELTA_EXEC_MIN_LEN,
 #ifdef COMPAT_FREEBSD32
-    .pr_pax_aslr_compat_status = 0,
-    .pr_pax_aslr_compat_mmap_len = PAX_ASLR_COMPAT_DELTA_MMAP_MIN_LEN,
-    .pr_pax_aslr_compat_stack_len = PAX_ASLR_COMPAT_DELTA_STACK_MIN_LEN,
-    .pr_pax_aslr_compat_exec_len = PAX_ASLR_COMPAT_DELTA_EXEC_MIN_LEN,
-#endif /* COMPAT_FREEBSD32 */
+	.pr_pax_aslr_compat_status = 0,
+	.pr_pax_aslr_compat_mmap_len = PAX_ASLR_COMPAT_DELTA_MMAP_MIN_LEN,
+	.pr_pax_aslr_compat_stack_len = PAX_ASLR_COMPAT_DELTA_STACK_MIN_LEN,
+	.pr_pax_aslr_compat_exec_len = PAX_ASLR_COMPAT_DELTA_EXEC_MIN_LEN,
+#endif
 #endif /* PAX_ASLR */
 };
 MTX_SYSINIT(prison0, &prison0.pr_mtx, "jail mutex", MTX_DEF);

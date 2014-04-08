@@ -97,7 +97,7 @@ dtrace_execexit_func_t	dtrace_fasttrap_exec;
 
 #ifdef PAX_ASLR
 #include <sys/pax.h>
-#endif /* PAX_ASLR */
+#endif
 
 SDT_PROVIDER_DECLARE(proc);
 SDT_PROBE_DEFINE1(proc, kernel, , exec, "char *");
@@ -1062,7 +1062,7 @@ exec_new_vmspace(imgp, sv)
 
 #ifdef PAX_ASLR
 	pax_aslr_init(curthread, imgp);
-#endif /* PAX_ASLR */
+#endif
 
 	/* Map a shared page */
 	obj = sv->sv_shared_page_obj;
@@ -1240,9 +1240,9 @@ exec_copyout_strings(imgp)
 {
 	int argc, envc;
 	char **vectp;
-#ifdef	PAX_ASLR
+#ifdef PAX_ASLR
 	uintptr_t orig_destp;
-#endif /* PAX_ASLR */
+#endif
 	char *stringp;
 	uintptr_t destp;
 	register_t *stack_base;
@@ -1272,7 +1272,7 @@ exec_copyout_strings(imgp)
 #ifdef PAX_ASLR
 	orig_destp = destp;
 	pax_aslr_stack(curthread, &destp, orig_destp);
-#endif /* PAX_ASLR */
+#endif
 
 	/*
 	 * install sigcode

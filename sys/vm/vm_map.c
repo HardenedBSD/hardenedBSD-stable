@@ -295,7 +295,8 @@ vmspace_alloc(vm_offset_t min, vm_offset_t max, pmap_pinit_t pinit)
 	vm->vm_aslr_delta_mmap = 0;
 	vm->vm_aslr_delta_stack = 0;
 	vm->vm_aslr_delta_exec = 0;
-#endif /* PAX_ASLR */
+#endif
+
 	return (vm);
 }
 
