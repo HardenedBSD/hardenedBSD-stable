@@ -126,12 +126,12 @@ sysctl_pax_aslr_status(SYSCTL_HANDLER_ARGS)
 
     pr = pax_aslr_get_prison(req->td, NULL);
 
-    if ((pr) && !(pr->pr_pax_set))
+    if ((pr != NULL) && !(pr->pr_pax_set))
         pax_aslr_init_prison(pr);
 
     val = (pr != NULL) ? pr->pr_pax_aslr_status : pax_aslr_status;
     err = sysctl_handle_int(oidp, &val, sizeof(int), req);
-    if (err || !req->newptr)
+    if (err || (req->newptr == NULL))
         return (err);
 
     switch (val) {
@@ -139,9 +139,9 @@ sysctl_pax_aslr_status(SYSCTL_HANDLER_ARGS)
         case    PAX_ASLR_ENABLED:
         case    PAX_ASLR_GLOBAL_ENABLED:
         case    PAX_ASLR_FORCE_GLOBAL_ENABLED:
-	    if (pr == NULL || pr == &prison0)
+	    if ((pr == NULL) || (pr == &prison0))
                 pax_aslr_status = val;
-            if (pr)
+            if (pr != NULL)
                 pr->pr_pax_aslr_status = val;
             break;
         default:
@@ -160,7 +160,7 @@ sysctl_pax_aslr_mmap(SYSCTL_HANDLER_ARGS)
 
     pr = pax_aslr_get_prison(req->td, NULL);
 
-    if ((pr) && !(pr->pr_pax_set))
+    if ((pr != NULL) && !(pr->pr_pax_set))
         pax_aslr_init_prison(pr);
 
     val = (pr != NULL) ? pr->pr_pax_aslr_mmap_len : pax_aslr_mmap_len;
@@ -168,13 +168,13 @@ sysctl_pax_aslr_mmap(SYSCTL_HANDLER_ARGS)
     if (err || !req->newptr)
         return (err);
 
-    if (val < PAX_ASLR_DELTA_MMAP_MIN_LEN
-        || val > PAX_ASLR_DELTA_MMAP_MAX_LEN)
+    if (val < PAX_ASLR_DELTA_MMAP_MIN_LEN ||
+        val > PAX_ASLR_DELTA_MMAP_MAX_LEN)
         return (EINVAL);
 
-    if (pr == NULL || pr == &prison0)
+    if ((pr == NULL) || (pr == &prison0))
         pax_aslr_mmap_len = val;
-    if (pr)
+    if (pr != NULL)
         pr->pr_pax_aslr_mmap_len = val;
 
     return (0);
@@ -189,7 +189,7 @@ sysctl_pax_aslr_stack(SYSCTL_HANDLER_ARGS)
 
     pr = pax_aslr_get_prison(req->td, NULL);
 
-    if ((pr) && !(pr->pr_pax_set))
+    if ((pr != NULL) && !(pr->pr_pax_set))
         pax_aslr_init_prison(pr);
 
     val = (pr != NULL) ? pr->pr_pax_aslr_stack_len : pax_aslr_stack_len;
@@ -197,13 +197,13 @@ sysctl_pax_aslr_stack(SYSCTL_HANDLER_ARGS)
     if (err || !req->newptr)
         return (err);
 
-    if (val < PAX_ASLR_DELTA_STACK_MIN_LEN
-        || val > PAX_ASLR_DELTA_STACK_MAX_LEN)
+    if (val < PAX_ASLR_DELTA_STACK_MIN_LEN ||
+        val > PAX_ASLR_DELTA_STACK_MAX_LEN)
         return (EINVAL);
 
-    if (pr == NULL || pr == &prison0)
+    if ((pr == NULL) || (pr == &prison0))
         pax_aslr_stack_len = val;
-    if (pr)
+    if (pr != NULL)
         pr->pr_pax_aslr_stack_len = val;
 
     return (0);
@@ -218,21 +218,21 @@ sysctl_pax_aslr_exec(SYSCTL_HANDLER_ARGS)
 
     pr = pax_aslr_get_prison(req->td, NULL);
 
-    if ((pr) && !(pr->pr_pax_set))
+    if ((pr != NULL) && !(pr->pr_pax_set))
         pax_aslr_init_prison(pr);
 
     val = (pr != NULL) ? pr->pr_pax_aslr_exec_len : pax_aslr_exec_len;
     err = sysctl_handle_int(oidp, &val, sizeof(int), req);
-    if (err || !req->newptr)
+    if (err || (req->newptr == NULL))
         return (err);
 
-    if (val < PAX_ASLR_DELTA_EXEC_MIN_LEN
-        || val > PAX_ASLR_DELTA_EXEC_MAX_LEN)
+    if (val < PAX_ASLR_DELTA_EXEC_MIN_LEN ||
+        val > PAX_ASLR_DELTA_EXEC_MAX_LEN)
         return (EINVAL);
 
-    if (pr == NULL || pr == &prison0)
+    if ((pr == NULL) || (pr == &prison0))
         pax_aslr_exec_len = val;
-    if (pr)
+    if (pr != NULL)
         pr->pr_pax_aslr_exec_len = val;
 
     return (0);
@@ -302,12 +302,12 @@ sysctl_pax_aslr_compat_status(SYSCTL_HANDLER_ARGS)
 
     pr = pax_aslr_get_prison(req->td, NULL);
 
-    if ((pr) && !(pr->pr_pax_set))
+    if ((pr != NULL) && !(pr->pr_pax_set))
         pax_aslr_init_prison(pr);
 
     val = (pr != NULL) ? pr->pr_pax_aslr_compat_status : pax_aslr_compat_status;
     err = sysctl_handle_int(oidp, &val, sizeof(int), req);
-    if (err || !req->newptr)
+    if (err || (req->newptr == NULL))
         return (err);
 
     switch (val) {
@@ -315,9 +315,9 @@ sysctl_pax_aslr_compat_status(SYSCTL_HANDLER_ARGS)
         case    PAX_ASLR_ENABLED:
         case    PAX_ASLR_GLOBAL_ENABLED:
         case    PAX_ASLR_FORCE_GLOBAL_ENABLED:
-	    if (pr == NULL || pr == &prison0)
+	    if ((pr == NULL) || (pr == &prison0))
                 pax_aslr_compat_status = val;
-            if (pr)
+            if (pr != NULL)
                 pr->pr_pax_aslr_compat_status = val;
             break;
         default:
@@ -336,7 +336,7 @@ sysctl_pax_aslr_compat_mmap(SYSCTL_HANDLER_ARGS)
 
     pr = pax_aslr_get_prison(req->td, NULL);
 
-    if ((pr) && !(pr->pr_pax_set))
+    if ((pr != NULL) && !(pr->pr_pax_set))
         pax_aslr_init_prison(pr);
 
     val = (pr != NULL) ? pr->pr_pax_aslr_compat_mmap_len : pax_aslr_compat_mmap_len;
@@ -344,13 +344,13 @@ sysctl_pax_aslr_compat_mmap(SYSCTL_HANDLER_ARGS)
     if (err || !req->newptr)
         return (err);
 
-    if (val < PAX_ASLR_COMPAT_DELTA_MMAP_MIN_LEN
-        || val > PAX_ASLR_COMPAT_DELTA_MMAP_MAX_LEN)
+    if (val < PAX_ASLR_COMPAT_DELTA_MMAP_MIN_LEN ||
+        val > PAX_ASLR_COMPAT_DELTA_MMAP_MAX_LEN)
         return (EINVAL);
 
-    if (pr == NULL || pr == &prison0)
+    if ((pr == NULL) || (pr == &prison0))
         pax_aslr_compat_mmap_len = val;
-    if (pr)
+    if (pr != NULL)
         pr->pr_pax_aslr_compat_mmap_len = val;
 
     return (0);
@@ -365,7 +365,7 @@ sysctl_pax_aslr_compat_stack(SYSCTL_HANDLER_ARGS)
 
     pr = pax_aslr_get_prison(req->td, NULL);
 
-    if ((pr) && !(pr->pr_pax_set))
+    if ((pr != NULL) && !(pr->pr_pax_set))
         pax_aslr_init_prison(pr);
 
     val = (pr != NULL) ? pr->pr_pax_aslr_compat_stack_len : pax_aslr_compat_stack_len;
@@ -373,13 +373,13 @@ sysctl_pax_aslr_compat_stack(SYSCTL_HANDLER_ARGS)
     if (err || !req->newptr)
         return (err);
 
-    if (val < PAX_ASLR_COMPAT_DELTA_STACK_MIN_LEN
-        || val > PAX_ASLR_COMPAT_DELTA_STACK_MAX_LEN)
+    if (val < PAX_ASLR_COMPAT_DELTA_STACK_MIN_LEN ||
+        val > PAX_ASLR_COMPAT_DELTA_STACK_MAX_LEN)
         return (EINVAL);
 
-    if (pr == NULL || pr == &prison0)
+    if ((pr == NULL) || (pr == &prison0))
         pax_aslr_compat_stack_len = val;
-    if (pr)
+    if (pr != NULL)
         pr->pr_pax_aslr_compat_stack_len = val;
 
     return (0);
@@ -394,7 +394,7 @@ sysctl_pax_aslr_compat_exec(SYSCTL_HANDLER_ARGS)
 
     pr = pax_aslr_get_prison(req->td, NULL);
 
-    if ((pr) && !(pr->pr_pax_set))
+    if ((pr != NULL) && !(pr->pr_pax_set))
         pax_aslr_init_prison(pr);
 
     val = (pr != NULL) ? pr->pr_pax_aslr_compat_exec_len : pax_aslr_compat_exec_len;
@@ -402,13 +402,13 @@ sysctl_pax_aslr_compat_exec(SYSCTL_HANDLER_ARGS)
     if (err || !req->newptr)
         return (err);
 
-    if (val < PAX_ASLR_COMPAT_DELTA_EXEC_MIN_LEN
-        || val > PAX_ASLR_COMPAT_DELTA_EXEC_MAX_LEN)
+    if (val < PAX_ASLR_COMPAT_DELTA_EXEC_MIN_LEN ||
+        val > PAX_ASLR_COMPAT_DELTA_EXEC_MAX_LEN)
         return (EINVAL);
 
-    if (pr == NULL || pr == &prison0)
+    if ((pr == NULL) || (pr == &prison0))
         pax_aslr_compat_exec_len = val;
-    if (pr)
+    if (pr != NULL)
         pr->pr_pax_aslr_compat_exec_len = val;
 
     return (0);
@@ -429,7 +429,7 @@ pax_aslr_active(struct thread *td, struct proc *proc)
     uint32_t    flags;
 #endif /* notyet */
 
-    if (!(td) && !(proc))
+    if ((td == NULL) && (proc == NULL))
         return (true);
 
 #ifdef notyet
@@ -437,7 +437,7 @@ pax_aslr_active(struct thread *td, struct proc *proc)
 #endif /* notyet */
     pr = pax_aslr_get_prison(td, proc);
 
-    if ((pr) && !(pr->pr_pax_set))
+    if ((pr != NULL) && !(pr->pr_pax_set))
         pax_aslr_init_prison(pr);
 
     status = (pr != NULL) ? pr->pr_pax_aslr_status : pax_aslr_status;
@@ -469,14 +469,14 @@ pax_aslr_active(struct thread *td, struct proc *proc)
 struct prison *
 pax_aslr_get_prison(struct thread *td, struct proc *proc)
 {
-    if ((td)) {
+    if (td != NULL) {
         if ((td->td_proc) && (td->td_proc->p_ucred))
             return td->td_proc->p_ucred->cr_prison;
 
         return NULL;
     }
 
-    if (!(proc))
+    if (proc == NULL)
         return NULL;
 
     return proc->p_ucred->cr_prison;
@@ -485,7 +485,7 @@ pax_aslr_get_prison(struct thread *td, struct proc *proc)
 void
 pax_aslr_init_prison(struct prison *pr)
 {
-    if (!(pr))
+    if (pr == NULL)
         return;
 
     if (pr->pr_pax_set)
@@ -556,7 +556,7 @@ pax_aslr_init(struct thread *td, struct image_params *imgp)
 
     pr = pax_aslr_get_prison(td, NULL);
 
-    if ((pr) && !(pr->pr_pax_set))
+    if ((pr != NULL) && !(pr->pr_pax_set))
         pax_aslr_init_prison(pr);
 
     if (imgp == NULL) {
@@ -610,7 +610,7 @@ pax_aslr_stack(struct thread *td, uintptr_t *addr, uintptr_t orig_addr)
         return;
 
     *addr -= td->td_proc->p_vmspace->vm_aslr_delta_stack;
-    if ((pr) && pr->pr_pax_aslr_debug)
+    if ((pr != NULL) && pr->pr_pax_aslr_debug)
         uprintf("[PaX ASLR] %s: orig_addr=%p, new_addr=%p\n",
             __func__, (void *)orig_addr, (void *)*addr);
 }
