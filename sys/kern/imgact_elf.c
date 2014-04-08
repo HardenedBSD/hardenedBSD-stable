@@ -606,9 +606,6 @@ __elfN(load_file)(struct proc *p, const char *file, u_long *addr,
 	u_long rbase;
 	u_long base_addr = 0;
 	int error, i, numsegs;
-#ifdef PAX_ASLR
-	struct prison *pr;
-#endif
 
 #ifdef CAPABILITY_MODE
 	/*
@@ -668,7 +665,6 @@ __elfN(load_file)(struct proc *p, const char *file, u_long *addr,
 		rbase = *addr;
 #ifdef PAX_ASLR
 		if (pax_aslr_active(NULL, imgp->proc)) {
-			pr = pax_aslr_get_prison(NULL, imgp->proc);
 			rbase += imgp->proc->p_vmspace->vm_aslr_delta_exec;
 		}
 #endif
@@ -744,9 +740,6 @@ __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp)
 	Elf_Brandinfo *brand_info;
 	char *path;
 	struct sysentvec *sv;
-#ifdef PAX_ASLR
-	struct prison *pr;
-#endif
 
 	/*
 	 * Do we have a valid ELF header ?
@@ -837,7 +830,6 @@ __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp)
 			et_dyn_addr = ET_DYN_LOAD_ADDR;
 #ifdef PAX_ASLR
 			if (pax_aslr_active(NULL, imgp->proc)) {
-				pr = pax_aslr_get_prison(NULL, imgp->proc);
 				et_dyn_addr += imgp->proc->p_vmspace->vm_aslr_delta_exec;
 			}
 #endif
