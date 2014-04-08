@@ -139,7 +139,8 @@ sysctl_pax_aslr_status(SYSCTL_HANDLER_ARGS)
         case    PAX_ASLR_ENABLED:
         case    PAX_ASLR_GLOBAL_ENABLED:
         case    PAX_ASLR_FORCE_GLOBAL_ENABLED:
-            pax_aslr_status = val;
+	    if (pr == NULL | pr == &prison0)
+                pax_aslr_status = val;
             if (pr)
                 pr->pr_pax_aslr_status = val;
             break;
@@ -292,21 +293,19 @@ SYSCTL_PROC(_security_pax_aslr_compat, OID_AUTO, exec_len,
     "32 bit: [6,12]");
 TUNABLE_INT("security.pax.aslr.compat.stack", &pax_aslr_compat_exec_len);
 
-
 static int
 sysctl_pax_aslr_compat_status(SYSCTL_HANDLER_ARGS)
 {
     int err;
-    int val, *ptr;
+    int val;
     struct prison *pr=NULL;
 
     pr = pax_aslr_get_prison(req->td, NULL);
-    ptr = (pr != NULL) ? &(pr->pr_pax_aslr_compat_status) : &pax_aslr_compat_status;
 
     if ((pr) && !(pr->pr_pax_set))
         pax_aslr_init_prison(pr);
 
-    val = *ptr;
+    val = (pr != NULL) ? pr->pr_pax_aslr_compat_status : pax_aslr_compat_status;
     err = sysctl_handle_int(oidp, &val, sizeof(int), req);
     if (err || !req->newptr)
         return (err);
@@ -316,8 +315,10 @@ sysctl_pax_aslr_compat_status(SYSCTL_HANDLER_ARGS)
         case    PAX_ASLR_ENABLED:
         case    PAX_ASLR_GLOBAL_ENABLED:
         case    PAX_ASLR_FORCE_GLOBAL_ENABLED:
-            pax_aslr_compat_status = val;
-            *ptr = val;
+	    if (pr == NULL | pr == &prison0)
+                pax_aslr_compat_status = val;
+            if (pr)
+                pr->pr_pax_aslr_compat_status = val;
             break;
         default:
             return (EINVAL);
