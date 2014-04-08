@@ -139,7 +139,7 @@ sysctl_pax_aslr_status(SYSCTL_HANDLER_ARGS)
         case    PAX_ASLR_ENABLED:
         case    PAX_ASLR_GLOBAL_ENABLED:
         case    PAX_ASLR_FORCE_GLOBAL_ENABLED:
-	    if (pr == NULL | pr == &prison0)
+	    if (pr == NULL || pr == &prison0)
                 pax_aslr_status = val;
             if (pr)
                 pr->pr_pax_aslr_status = val;
@@ -315,7 +315,7 @@ sysctl_pax_aslr_compat_status(SYSCTL_HANDLER_ARGS)
         case    PAX_ASLR_ENABLED:
         case    PAX_ASLR_GLOBAL_ENABLED:
         case    PAX_ASLR_FORCE_GLOBAL_ENABLED:
-	    if (pr == NULL | pr == &prison0)
+	    if (pr == NULL || pr == &prison0)
                 pax_aslr_compat_status = val;
             if (pr)
                 pr->pr_pax_aslr_compat_status = val;
