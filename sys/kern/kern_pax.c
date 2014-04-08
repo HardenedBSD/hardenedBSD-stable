@@ -513,6 +513,9 @@ pax_aslr_init_prison(struct prison *pr)
 void
 _pax_aslr_init(struct vmspace *vm, struct prison *pr)
 {
+	if (vm == NULL)
+		panic("[PaX ASLR] %s: vm == NULL", __func__);
+
 	vm->vm_aslr_delta_mmap = PAX_ASLR_DELTA(arc4random(),
 		PAX_ASLR_DELTA_MMAP_LSB, (pr != NULL) ? pr->pr_pax_aslr_mmap_len : pax_aslr_mmap_len);
 	vm->vm_aslr_delta_stack = PAX_ASLR_DELTA(arc4random(),
@@ -532,6 +535,9 @@ _pax_aslr_init(struct vmspace *vm, struct prison *pr)
 void
 _pax_aslr_init32(struct vmspace *vm, struct prison *pr)
 {
+	if (vm == NULL)
+		panic("[PaX ASLR] %s: vm == NULL", __func__);
+
         vm->vm_aslr_delta_mmap = PAX_ASLR_DELTA(arc4random(),
             PAX_ASLR_COMPAT_DELTA_MMAP_LSB, (pr != NULL) ? pr->pr_pax_aslr_compat_mmap_len : pax_aslr_compat_mmap_len);
         vm->vm_aslr_delta_stack = PAX_ASLR_DELTA(arc4random(),
