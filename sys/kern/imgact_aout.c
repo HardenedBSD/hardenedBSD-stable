@@ -109,6 +109,7 @@ struct sysentvec aout_sysvec = {
 	.sv_pax_aslr_init = _pax_aslr_init, /* XXXOP */
 #else
 	.sv_pax_aslr_init = NULL,
+#endif
 };
 
 #elif defined(__amd64__)
