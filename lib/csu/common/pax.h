@@ -1,5 +1,5 @@
 /*-
- * Copyright 1996, 1997, 1998, 2000 John D. Polstra.
+ * Copyright 2013 Danilo Egea Gondolfo <danilogondolfo@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -21,25 +21,26 @@
  * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * $FreeBSD$
  */
 
-#include <machine/asm.h>
-__FBSDID("$FreeBSD$");
+#ifndef	CSU_PAX_H
+#define	CSU_PAX_H
 
-#include <pax.h>
+#define ELF_NOTE_PAX_NAMESZ		4 // "PaX\0"
+#define ELF_NOTE_PAX_DESCSZ		4 // sizeof(int32_t)
+#define ELF_NOTE_TYPE_PAX_TAG	3
+#define ELF_NOTE_PAX_NAME		"PaX\0"
 
-	.section .init,"ax",@progbits
-	.align	4
-	.globl	_init
-	.type	_init,@function
-_init:
-	sub	$12,%esp	/* re-align stack pointer */
+	.section ".note.freebsd.pax", "a"
+	.align 4
 
-	.section .fini,"ax",@progbits
-	.align	4
-	.globl	_fini
-	.type	_fini,@function
-_fini:
-	sub	$12,%esp	/* re-align stack pointer */
+	.long	ELF_NOTE_PAX_NAMESZ
+	.long	ELF_NOTE_PAX_DESCSZ
+	.long	ELF_NOTE_TYPE_PAX_TAG
+	.ascii	ELF_NOTE_PAX_NAME
+	.long	0
 
-	.section .note.GNU-stack,"",%progbits
+
+#endif

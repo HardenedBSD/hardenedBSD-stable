@@ -39,6 +39,7 @@ __FBSDID("$FreeBSD$");
 
 #include "opt_ktrace.h"
 #include "opt_kstack_pages.h"
+#include "opt_pax.h"
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -53,6 +54,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/lock.h>
 #include <sys/malloc.h>
 #include <sys/mutex.h>
+#include <sys/pax.h>
 #include <sys/priv.h>
 #include <sys/proc.h>
 #include <sys/procdesc.h>
@@ -102,6 +104,12 @@ sys_fork(struct thread *td, struct fork_args *uap)
 {
 	int error;
 	struct proc *p2;
+
+#ifdef PAX_SEGVGUARD
+    error =pax_segvguard(curthread, curthread->td_proc->p_textvp, td->td_proc->p_comm, 0);
+    if (error)
+        return (error);
+#endif
 
 	error = fork1(td, RFFDG | RFPROC, 0, &p2, NULL, 0);
 	if (error == 0) {
@@ -736,6 +744,8 @@ do_fork(struct thread *td, int flags, struct proc *p2, struct thread *td2,
 	if (p2_held)
 		_PRELE(p2);
 	PROC_UNLOCK(p2);
+
+    p2->p_pax = p1->p_pax;
 }
 
 int

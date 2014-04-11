@@ -400,6 +400,7 @@ do_execve(td, args, mac_p)
 	imgp->pagesizes = 0;
 	imgp->pagesizeslen = 0;
 	imgp->stack_prot = 0;
+    imgp->pax_flags = 0;
 
 #ifdef MAC
 	error = mac_execve_enter(imgp, mac_p);
@@ -504,6 +505,10 @@ interpret:
 		}
 		error = (*execsw[i]->ex_imgact)(imgp);
 	}
+
+#ifdef PAX_SEGVGUARD
+    error = pax_segvguard(curthread, imgp->vp, args->fname, 0);
+#endif
 
 	if (error) {
 		if (error == -1) {

@@ -196,8 +196,15 @@ struct prison {
 	int		 pr_pax_aslr_compat_mmap_len;	/* () XXX */
 	int		 pr_pax_aslr_compat_stack_len;	/* () XXX */
 	int		 pr_pax_aslr_compat_exec_len;	/* () XXX */
-#endif
+#endif /* COMPAT_FREEBSD32 */
 #endif /* PAX_ASLR */
+#ifdef PAX_SEGVGUARD
+    int pr_pax_segvguard_status;
+    int pr_pax_segvguard_debug;
+    int pr_pax_segvguard_expiry;
+    int pr_pax_segvguard_suspension;
+    int pr_pax_segvguard_maxcrashes;
+#endif /* PAX_SEGVGUARD */
 };
 
 struct prison_racct {
