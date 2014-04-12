@@ -94,7 +94,7 @@ __FBSDID("$FreeBSD$");
 
 #ifdef PAX_ASLR
 #include <sys/pax.h>
-#endif /* PAX_ASLR */
+#endif
 
 int old_mlock = 0;
 SYSCTL_INT(_vm, OID_AUTO, old_mlock, CTLFLAG_RW | CTLFLAG_TUN, &old_mlock, 0,
@@ -210,7 +210,7 @@ sys_mmap(td, uap)
 	vm_offset_t addr;
 #ifdef PAX_ASLR
 	vm_offset_t orig_addr;
-#endif /* PAX_ASLR */
+#endif
 	vm_size_t size, pageoff;
 	vm_prot_t cap_maxprot, prot, maxprot;
 	void *handle;
@@ -223,7 +223,7 @@ sys_mmap(td, uap)
 	addr = (vm_offset_t) uap->addr;
 #ifdef PAX_ASLR
 	orig_addr = addr;
-#endif /* PAX_ASLR */
+#endif
 	size = uap->len;
 	prot = uap->prot & VM_PROT_ALL;
 	flags = uap->flags;
@@ -428,7 +428,7 @@ map:
 	maxprot &= cap_maxprot;
 #ifdef PAX_ASLR
 	pax_aslr_mmap(td, &addr, orig_addr, flags);
-#endif /* PAX_ASLR */
+#endif
 	error = vm_mmap(&vms->vm_map, &addr, size, prot, maxprot,
 	    flags, handle_type, handle, pos);
 	td->td_fpop = NULL;
