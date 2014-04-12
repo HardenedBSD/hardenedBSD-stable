@@ -1,0 +1,4 @@
+include RPI-B
+
+options PAX_ASLR
+options VIMAGE
