@@ -114,34 +114,34 @@ pax_get_prison(struct thread *td, struct proc *proc)
 void
 pax_elf(struct image_params *imgp)
 {
-    int idx;
-    struct note_pax *notes;
-    const Elf_Shdr *shdr;
-    const Elf_Ehdr *hdr;
-    struct prison *pr;
+	int idx;
+	struct note_pax *notes;
+	const Elf_Shdr *shdr;
+	const Elf_Ehdr *hdr;
+	struct prison *pr;
 
-    pr = pax_get_prison(NULL, imgp->proc);
-    if (pr != NULL) {
-        if (!(pr->pr_pax_aslr_status))
-            return;
-    } else {
-        if (!pax_aslr_status)
-            return;
-    }
+	pr = pax_get_prison(NULL, imgp->proc);
+	if (pr != NULL) {
+		if (!(pr->pr_pax_aslr_status))
+			return;
+	} else {
+		if (!pax_aslr_status)
+			return;
+	}
 
-    hdr = (Elf_Ehdr *)(imgp->image_header);
-    shdr = (Elf_Shdr *)(imgp->image_header + hdr->e_shoff);
-    for (idx = 0; idx < hdr->e_shnum; idx++) {
-        if (shdr[idx].sh_type == SHT_NOTE && shdr[idx].sh_size == 20) {
-            notes = (struct note_pax *)(imgp->image_header + shdr[idx].sh_offset);
-            if (notes->pax_tag == ELF_NOTE_TYPE_PAX_TAG) {
-                imgp->pax_flags = notes->flags;
-                PROC_LOCK(imgp->proc);
-                imgp->proc->p_pax = notes->flags;
-                PROC_UNLOCK(imgp->proc);
-            }
-        }
-    }
+	hdr = (Elf_Ehdr *)(imgp->image_header);
+	shdr = (Elf_Shdr *)(imgp->image_header + hdr->e_shoff);
+	for (idx = 0; idx < hdr->e_shnum; idx++) {
+		if (shdr[idx].sh_type == SHT_NOTE && shdr[idx].sh_size == 20) {
+			notes = (struct note_pax *)(imgp->image_header + shdr[idx].sh_offset);
+			if (notes->pax_tag == ELF_NOTE_TYPE_PAX_TAG) {
+				imgp->pax_flags = notes->flags;
+				PROC_LOCK(imgp->proc);
+				imgp->proc->p_pax = notes->flags;
+				PROC_UNLOCK(imgp->proc);
+			}
+		}
+	}
 }
 
 void
@@ -157,6 +157,7 @@ pax_init_prison(struct prison *pr)
 		uprintf("[PaX ASLR/SEGVGUARD] %s: Setting prison %s ASLR variables\n",
 				__func__, pr->pr_name);
 
+#ifdef PAX_ASLR
 	pr->pr_pax_aslr_status = pax_aslr_status;
 	pr->pr_pax_aslr_debug = pax_aslr_debug;
 	pr->pr_pax_aslr_mmap_len = pax_aslr_mmap_len;
@@ -168,19 +169,24 @@ pax_init_prison(struct prison *pr)
 	pr->pr_pax_aslr_compat_mmap_len = pax_aslr_compat_mmap_len;
 	pr->pr_pax_aslr_compat_stack_len = pax_aslr_compat_stack_len;
 	pr->pr_pax_aslr_compat_exec_len = pax_aslr_compat_exec_len;
-#endif /* COMPAT_FREEBSD32 */
+#endif
+#endif
 
 #ifdef PAX_SEGVGUARD
-    pr->pr_pax_segvguard_status = pax_segvguard_status;
-    pr->pr_pax_segvguard_debug = pax_segvguard_debug;
-    pr->pr_pax_segvguard_expiry = pax_segvguard_expiry;
-    pr->pr_pax_segvguard_suspension = pax_segvguard_suspension;
-    pr->pr_pax_segvguard_maxcrashes = pax_segvguard_maxcrashes;
+	pr->pr_pax_segvguard_status = pax_segvguard_status;
+	pr->pr_pax_segvguard_debug = pax_segvguard_debug;
+	pr->pr_pax_segvguard_expiry = pax_segvguard_expiry;
+	pr->pr_pax_segvguard_suspension = pax_segvguard_suspension;
+	pr->pr_pax_segvguard_maxcrashes = pax_segvguard_maxcrashes;
 #endif
 
 	pr->pr_pax_set = 1;
 }
 
+
+/*
+ * sysctls and tunables
+ */
 SYSCTL_NODE(_security, OID_AUTO, pax, CTLFLAG_RD, 0,
     "PaX (exploit mitigation) features.");
 
@@ -190,9 +196,6 @@ static int sysctl_pax_aslr_mmap(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_stack(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_exec(SYSCTL_HANDLER_ARGS);
 
-/*
- * sysctls and tunables
- */
 int pax_aslr_status = PAX_ASLR_ENABLED;
 int pax_aslr_debug = 0;
 
@@ -681,18 +684,18 @@ pax_aslr_stack(struct thread *td, uintptr_t *addr, uintptr_t orig_addr)
 #ifdef PAX_SEGVGUARD
 
 struct pax_segvguard_uid_entry {
-    uid_t sue_uid;
-    size_t sue_ncrashes;
-    time_t sue_expiry;
-    time_t sue_suspended;
-    LIST_ENTRY(pax_segvguard_uid_entry) sue_list;
+	uid_t sue_uid;
+	size_t sue_ncrashes;
+	time_t sue_expiry;
+	time_t sue_suspended;
+	LIST_ENTRY(pax_segvguard_uid_entry) sue_list;
 };
 
 struct pax_segvguard_vnodes {
-    uint32_t sv_inode;
-    char sv_mntpoint[MNAMELEN];
-    LIST_ENTRY(pax_segvguard_vnodes) sv_list;
-    LIST_HEAD(, pax_segvguard_uid_entry) uid_list;
+	uint32_t sv_inode;
+	char sv_mntpoint[MNAMELEN];
+	LIST_ENTRY(pax_segvguard_vnodes) sv_list;
+	LIST_HEAD(, pax_segvguard_uid_entry) uid_list;
 };
 
 static LIST_HEAD(, pax_segvguard_vnodes) vnode_list = LIST_HEAD_INITIALIZER(&vnode_list);
@@ -793,10 +796,10 @@ sysctl_pax_segvguard_expiry(SYSCTL_HANDLER_ARGS)
 	if (err || (req->newptr == NULL))
 		return (err);
 
-    if ((pr == NULL) || (pr == &prison0))
-        pax_segvguard_expiry = val;
-    if (pr != NULL)
-        pr->pr_pax_segvguard_expiry = val;
+	if ((pr == NULL) || (pr == &prison0))
+		pax_segvguard_expiry = val;
+	if (pr != NULL)
+		pr->pr_pax_segvguard_expiry = val;
 
 	return (0);
 }
@@ -818,10 +821,10 @@ sysctl_pax_segvguard_suspension(SYSCTL_HANDLER_ARGS)
 	if (err || (req->newptr == NULL))
 		return (err);
 
-    if ((pr == NULL) || (pr == &prison0))
-        pax_segvguard_suspension = val;
-    if (pr != NULL)
-        pr->pr_pax_segvguard_suspension = val;
+	if ((pr == NULL) || (pr == &prison0))
+		pax_segvguard_suspension = val;
+	if (pr != NULL)
+		pr->pr_pax_segvguard_suspension = val;
 
 	return (0);
 }
@@ -843,10 +846,10 @@ sysctl_pax_segvguard_maxcrashes(SYSCTL_HANDLER_ARGS)
 	if (err || (req->newptr == NULL))
 		return (err);
 
-    if ((pr == NULL) || (pr == &prison0))
-        pax_segvguard_maxcrashes = val;
-    if (pr != NULL)
-        pr->pr_pax_segvguard_maxcrashes = val;
+	if ((pr == NULL) || (pr == &prison0))
+		pax_segvguard_maxcrashes = val;
+	if (pr != NULL)
+		pr->pr_pax_segvguard_maxcrashes = val;
 
 	return (0);
 }
@@ -868,10 +871,10 @@ sysctl_pax_segvguard_debug(SYSCTL_HANDLER_ARGS)
 	if (err || (req->newptr == NULL))
 		return (err);
 
-    if ((pr == NULL) || (pr == &prison0))
-        pax_segvguard_debug = val;
-    if (pr != NULL)
-        pr->pr_pax_segvguard_debug = val;
+	if ((pr == NULL) || (pr == &prison0))
+		pax_segvguard_debug = val;
+	if (pr != NULL)
+		pr->pr_pax_segvguard_debug = val;
 
 	return (0);
 }
@@ -920,94 +923,94 @@ pax_segvguard_active(struct thread *td, struct proc *proc)
 static void
 pax_segvguard_gc(void *args)
 {
-    struct pax_segvguard_vnodes *vn, *vn_saved;
-    struct pax_segvguard_uid_entry *up, *up_saved;
-    struct timeval tv;
+	struct pax_segvguard_vnodes *vn, *vn_saved;
+	struct pax_segvguard_uid_entry *up, *up_saved;
+	struct timeval tv;
 
-    up = NULL;
-    for (;;) {
-        microtime(&tv);
-        mtx_lock(&segvguard_mtx);
+	up = NULL;
+	for (;;) {
+		microtime(&tv);
+		mtx_lock(&segvguard_mtx);
 
-        vn = LIST_FIRST(&vnode_list);
-        if (vn != NULL)
-            up = LIST_FIRST(&vn->uid_list);
+		vn = LIST_FIRST(&vnode_list);
+		if (vn != NULL)
+			up = LIST_FIRST(&vn->uid_list);
 
-        up_saved = NULL;
-        vn_saved = NULL;
+		up_saved = NULL;
+		vn_saved = NULL;
 
-        while (vn != NULL) {
-            while (up != NULL) {
-                if (up->sue_expiry < tv.tv_sec && !(up->sue_suspended)) {
-                    up_saved = up;
-                    LIST_REMOVE(up, sue_list);
-                }
-                up = LIST_NEXT(up, sue_list);
-                if (up_saved != NULL)
-                    free(up_saved, M_PAX);
-            }
+		while (vn != NULL) {
+			while (up != NULL) {
+				if (up->sue_expiry < tv.tv_sec && !(up->sue_suspended)) {
+					up_saved = up;
+					LIST_REMOVE(up, sue_list);
+				}
+				up = LIST_NEXT(up, sue_list);
+				if (up_saved != NULL)
+					free(up_saved, M_PAX);
+			}
 
-            vn = LIST_NEXT(vn, sv_list);
-        }
-
-#if 0
-        if (!LIST_EMPTY(&vnode_list)) {
-            LIST_FOREACH(vn, &vnode_list, sv_list) {
-                LIST_FOREACH(up, &vn->uid_list, sue_list) {
-                    if (up->sue_expiry < tv.tv_sec && !up->sue_suspended) {
-                        LIST_REMOVE(up, sue_list);
-                        free(up, M_PAX);
-                        continue;
+			vn = LIST_NEXT(vn, sv_list);
+		}
 
 #if 0
-                        if (LIST_EMPTY(&vn->uid_list)) {
-                            LIST_REMOVE(vn, sv_list);
-                            free(vn, M_PAX);
-                        }
+		if (!LIST_EMPTY(&vnode_list)) {
+			LIST_FOREACH(vn, &vnode_list, sv_list) {
+				LIST_FOREACH(up, &vn->uid_list, sue_list) {
+					if (up->sue_expiry < tv.tv_sec && !up->sue_suspended) {
+						LIST_REMOVE(up, sue_list);
+						free(up, M_PAX);
+						continue;
+
+#if 0
+						if (LIST_EMPTY(&vn->uid_list)) {
+							LIST_REMOVE(vn, sv_list);
+							free(vn, M_PAX);
+						}
 #endif
-                    }
-                }
-            }
-        }
+					}
+				}
+			}
+		}
 #endif
 
-        mtx_unlock(&segvguard_mtx);
-        pause("-", 1000);
-    }
+		mtx_unlock(&segvguard_mtx);
+		pause("-", 1000);
+	}
 }
 
 static struct pax_segvguard_vnodes *
 pax_segvguard_add_file(struct vnode *vn, struct stat *sb)
 {
-    struct pax_segvguard_vnodes *v;
+	struct pax_segvguard_vnodes *v;
 
-    v = malloc(sizeof(struct pax_segvguard_vnodes), M_PAX, M_WAITOK);
-    LIST_INIT(&(v->uid_list));
+	v = malloc(sizeof(struct pax_segvguard_vnodes), M_PAX, M_WAITOK);
+	LIST_INIT(&(v->uid_list));
 
-    v->sv_inode = sb->st_ino;
-    strncpy(v->sv_mntpoint, vn->v_mount->mnt_stat.f_mntonname, MNAMELEN);
-    v->sv_mntpoint[MNAMELEN-1] = '\0';
+	v->sv_inode = sb->st_ino;
+	strncpy(v->sv_mntpoint, vn->v_mount->mnt_stat.f_mntonname, MNAMELEN);
+	v->sv_mntpoint[MNAMELEN-1] = '\0';
 
-    LIST_INSERT_HEAD(&vnode_list, v, sv_list);
+	LIST_INSERT_HEAD(&vnode_list, v, sv_list);
 
-    return v;
+	return v;
 }
 
 static void
 pax_segvguard_add_uid(struct thread *td, struct pax_segvguard_vnodes *vn, struct timeval *tv)
 {
-    struct pax_segvguard_uid_entry *up;
-    struct prison *pr;
+	struct pax_segvguard_uid_entry *up;
+	struct prison *pr;
 
-    pr = pax_get_prison(td, NULL);
+	pr = pax_get_prison(td, NULL);
 
-    up = malloc(sizeof(struct pax_segvguard_uid_entry), M_PAX, M_WAITOK);
-    up->sue_uid = td->td_ucred->cr_uid;
-    up->sue_ncrashes = 1;
-    up->sue_expiry = tv->tv_sec + ((pr != NULL) ? pr->pr_pax_segvguard_expiry : pax_segvguard_expiry);
-    up->sue_suspended = 0;
+	up = malloc(sizeof(struct pax_segvguard_uid_entry), M_PAX, M_WAITOK);
+	up->sue_uid = td->td_ucred->cr_uid;
+	up->sue_ncrashes = 1;
+	up->sue_expiry = tv->tv_sec + ((pr != NULL) ? pr->pr_pax_segvguard_expiry : pax_segvguard_expiry);
+	up->sue_suspended = 0;
 
-    LIST_INSERT_HEAD(&(vn->uid_list), up, sue_list);
+	LIST_INSERT_HEAD(&(vn->uid_list), up, sue_list);
 }
 
 int segvguard_gc_init = 0;
@@ -1015,111 +1018,112 @@ int segvguard_gc_init = 0;
 int
 pax_segvguard(struct thread *td, struct vnode *v, char *name, bool crashed)
 {
-    struct pax_segvguard_uid_entry *up;
-    struct pax_segvguard_vnodes *vn, *vn_saved;
-    struct timeval tv;
-    struct stat sb;
-    char *mntpoint;
-    struct vnode *vp;
-    bool vnode_found, uid_found;
-    struct prison *pr;
+	struct pax_segvguard_uid_entry *up;
+	struct pax_segvguard_vnodes *vn, *vn_saved;
+	struct timeval tv;
+	struct stat sb;
+	char *mntpoint;
+	struct vnode *vp;
+	bool vnode_found, uid_found;
+	struct prison *pr;
 
-    pr = pax_get_prison(td, NULL);
+	pr = pax_get_prison(td, NULL);
 
-    if (!segvguard_gc_init) {
-        struct proc *p;
-        mtx_init(&segvguard_mtx, "segvguard mutex", NULL, MTX_DEF);
-        kproc_create(pax_segvguard_gc, "PAX", &p, 0, 0, "segvguard_gc");
-        segvguard_gc_init = 1;
-    }
+	if (!segvguard_gc_init) {
+		struct proc *p;
+		mtx_init(&segvguard_mtx, "segvguard mutex", NULL, MTX_DEF);
+		kproc_create(pax_segvguard_gc, "PAX", &p, 0, 0, "segvguard_gc");
+		segvguard_gc_init = 1;
+	}
 
-    if (!pax_segvguard_active(td, NULL))
-        return (0);
+	if (!pax_segvguard_active(td, NULL))
+		return (0);
 
-    if (v == NULL)
-        return (EFAULT);
+	if (v == NULL)
+		return (EFAULT);
 
-    vp = v;
-    vn_stat(vp, &sb, td->td_ucred, NOCRED, curthread);
-    mntpoint = vp->v_mount->mnt_stat.f_mntonname;
+	vp = v;
+	vn_stat(vp, &sb, td->td_ucred, NOCRED, curthread);
+	mntpoint = vp->v_mount->mnt_stat.f_mntonname;
 
-    mtx_lock(&segvguard_mtx);
+	mtx_lock(&segvguard_mtx);
 
-    if (LIST_EMPTY(&vnode_list) && !crashed) {
-        mtx_unlock(&segvguard_mtx);
-        return (0);
-    }
+	if (LIST_EMPTY(&vnode_list) && !crashed) {
+		mtx_unlock(&segvguard_mtx);
+		return (0);
+	}
 
-    microtime(&tv);
+	microtime(&tv);
 
-    if (!LIST_EMPTY(&vnode_list) && !crashed) {
-        LIST_FOREACH(vn, &vnode_list, sv_list) {
-            if (vn->sv_inode == sb.st_ino && !strncmp(mntpoint, vn->sv_mntpoint, MNAMELEN)) {
-                LIST_FOREACH(up, &(vn->uid_list), sue_list) {
-                    if (td->td_ucred->cr_uid == up->sue_uid) {
-                        mtx_unlock(&segvguard_mtx);
-                        return (EPERM);
-                    }
-                }
-            }
-        }
-    }
+	if (!LIST_EMPTY(&vnode_list) && !crashed) {
+		LIST_FOREACH(vn, &vnode_list, sv_list) {
+			if (vn->sv_inode == sb.st_ino &&
+			    !strncmp(mntpoint, vn->sv_mntpoint, MNAMELEN)) {
+				LIST_FOREACH(up, &(vn->uid_list), sue_list) {
+					if (td->td_ucred->cr_uid == up->sue_uid) {
+						mtx_unlock(&segvguard_mtx);
+						return (EPERM);
+					}
+				}
+			}
+		}
+	}
 
-    /*
-     * If a program we don't know about crashed, we need to create a new entry for it
-     */
-    if (LIST_EMPTY(&vnode_list) && crashed) {
-        vn = pax_segvguard_add_file(vp, &sb);
-        pax_segvguard_add_uid(td, vn, &tv);
-        mtx_unlock(&segvguard_mtx);
-        return (0);
-    }
+	/*
+	 * If a program we don't know about crashed, we need to create a new entry for it
+	 */
+	if (LIST_EMPTY(&vnode_list) && crashed) {
+		vn = pax_segvguard_add_file(vp, &sb);
+		pax_segvguard_add_uid(td, vn, &tv);
+		mtx_unlock(&segvguard_mtx);
+		return (0);
+	}
 
-    vnode_found = uid_found = 0;
-    if (!LIST_EMPTY(&vnode_list) && crashed) {
-        LIST_FOREACH(vn, &vnode_list, sv_list) {
-            if (vn->sv_inode == sb.st_ino && !strncmp(mntpoint, vn->sv_mntpoint, MNAMELEN)) {
-                vnode_found = 1;
-                vn_saved = vn;
-                LIST_FOREACH(up, &(vn->uid_list), sue_list) {
-                    if (td->td_ucred->cr_uid == up->sue_uid) {
-                        if (up->sue_expiry < tv.tv_sec && up->sue_suspended <= tv.tv_sec) {
-                            up->sue_ncrashes = 1;
-                            up->sue_expiry = tv.tv_sec + ((pr != NULL) ? pr->pr_pax_segvguard_expiry : pax_segvguard_expiry);
-                            up->sue_suspended = 0;
+	vnode_found = uid_found = 0;
+	if (!LIST_EMPTY(&vnode_list) && crashed) {
+		LIST_FOREACH(vn, &vnode_list, sv_list) {
+			if (vn->sv_inode == sb.st_ino && !strncmp(mntpoint, vn->sv_mntpoint, MNAMELEN)) {
+				vnode_found = 1;
+				vn_saved = vn;
+				LIST_FOREACH(up, &(vn->uid_list), sue_list) {
+					if (td->td_ucred->cr_uid == up->sue_uid) {
+						if (up->sue_expiry < tv.tv_sec && up->sue_suspended <= tv.tv_sec) {
+							up->sue_ncrashes = 1;
+							up->sue_expiry = tv.tv_sec + ((pr != NULL) ? pr->pr_pax_segvguard_expiry : pax_segvguard_expiry);
+							up->sue_suspended = 0;
 
-                            mtx_unlock(&segvguard_mtx);
-                            return (0);
-                        }
+							mtx_unlock(&segvguard_mtx);
+							return (0);
+						}
 
-                        uid_found = 1;
-                        up->sue_ncrashes++;
-                        if (up->sue_ncrashes >= pax_segvguard_maxcrashes) {
-                            up->sue_suspended = tv.tv_sec + ((pr != NULL) ? pr->pr_pax_segvguard_suspension : pax_segvguard_suspension);
-                            up->sue_ncrashes = 0;
-                            up->sue_expiry = 0;
-                        }
+						uid_found = 1;
+						up->sue_ncrashes++;
+						if (up->sue_ncrashes >= pax_segvguard_maxcrashes) {
+							up->sue_suspended = tv.tv_sec + ((pr != NULL) ? pr->pr_pax_segvguard_suspension : pax_segvguard_suspension);
+							up->sue_ncrashes = 0;
+							up->sue_expiry = 0;
+						}
 
-                        mtx_unlock(&segvguard_mtx);
-                        return (0);
-                    }
-                }
-            }
-        }
-    }
+						mtx_unlock(&segvguard_mtx);
+						return (0);
+					}
+				}
+			}
+		}
+	}
 
-    if (crashed) {
-        if (!vnode_found) {
-            vn = pax_segvguard_add_file(vp, &sb);
-            pax_segvguard_add_uid(td, vn, &tv);
-        } else if (!uid_found) {
-            pax_segvguard_add_uid(td, vn_saved, &tv);
-        }
-    }
+	if (crashed) {
+		if (!vnode_found) {
+			vn = pax_segvguard_add_file(vp, &sb);
+			pax_segvguard_add_uid(td, vn, &tv);
+		} else if (!uid_found) {
+			pax_segvguard_add_uid(td, vn_saved, &tv);
+		}
+	}
 
-    mtx_unlock(&segvguard_mtx);
+	mtx_unlock(&segvguard_mtx);
 
-    return (0);
+	return (0);
 }
 
 #endif /* PAX_SEGVGUARD */

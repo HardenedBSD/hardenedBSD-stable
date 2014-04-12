@@ -78,7 +78,7 @@ struct image_params {
 	unsigned long pagesizes;
 	int pagesizeslen;
 	vm_prot_t stack_prot;
-    int pax_flags;
+	int pax_flags;
 };
 
 #ifdef _KERNEL

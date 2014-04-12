@@ -2930,8 +2930,8 @@ sigexit(td, sig)
 		PROC_UNLOCK(p);
 
 #ifdef PAX_SEGVGUARD
-    pax_segvguard(curthread, curthread->td_proc->p_textvp, p->p_comm, 1);
-#endif /* PAX_SEGVGUARD */
+	pax_segvguard(curthread, curthread->td_proc->p_textvp, p->p_comm, 1);
+#endif
 
 	exit1(td, W_EXITCODE(0, sig));
 	/* NOTREACHED */

@@ -106,9 +106,9 @@ sys_fork(struct thread *td, struct fork_args *uap)
 	struct proc *p2;
 
 #ifdef PAX_SEGVGUARD
-    error =pax_segvguard(curthread, curthread->td_proc->p_textvp, td->td_proc->p_comm, 0);
-    if (error)
-        return (error);
+	error =pax_segvguard(curthread, curthread->td_proc->p_textvp, td->td_proc->p_comm, 0);
+	if (error)
+		return (error);
 #endif
 
 	error = fork1(td, RFFDG | RFPROC, 0, &p2, NULL, 0);
@@ -745,7 +745,10 @@ do_fork(struct thread *td, int flags, struct proc *p2, struct thread *td2,
 		_PRELE(p2);
 	PROC_UNLOCK(p2);
 
-    p2->p_pax = p1->p_pax;
+	/*
+	 * XXXOP: PROC_LOCK ?
+	 */
+	p2->p_pax = p1->p_pax;
 }
 
 int
