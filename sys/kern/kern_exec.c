@@ -95,7 +95,7 @@ __FBSDID("$FreeBSD$");
 dtrace_execexit_func_t	dtrace_fasttrap_exec;
 #endif
 
-#ifdef PAX_ASLR
+#if defined(PAX_ASLR) || defined(PAX_SEGVGUARD)
 #include <sys/pax.h>
 #endif
 
