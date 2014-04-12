@@ -199,11 +199,11 @@ struct prison {
 #endif /* COMPAT_FREEBSD32 */
 #endif /* PAX_ASLR */
 #ifdef PAX_SEGVGUARD
-	int		pr_pax_segvguard_status;	/* () XXX */
-	int		pr_pax_segvguard_debug;		/* () XXX */
-	int		pr_pax_segvguard_expiry;	/* () XXX */
-	int		pr_pax_segvguard_suspension;	/* () XXX */
-	int		pr_pax_segvguard_maxcrashes;	/* () XXX */
+	int		 pr_pax_segvguard_status;	/* () XXX */
+	int		 pr_pax_segvguard_debug;	/* () XXX */
+	int		 pr_pax_segvguard_expiry;	/* () XXX */
+	int		 pr_pax_segvguard_suspension;	/* () XXX */
+	int		 pr_pax_segvguard_maxcrashes;	/* () XXX */
 #endif /* PAX_SEGVGUARD */
 };
 
