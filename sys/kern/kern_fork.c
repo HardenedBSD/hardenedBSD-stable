@@ -749,7 +749,7 @@ do_fork(struct thread *td, int flags, struct proc *p2, struct thread *td2,
 	 * XXXOP: PROC_LOCK ?
 	 */
 	p2->p_pax = p1->p_pax;
-    p2->p_haspax = 0;
+	p2->p_haspax = 0;
 }
 
 int

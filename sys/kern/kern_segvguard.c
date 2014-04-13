@@ -275,7 +275,7 @@ pax_segvguard_active(struct thread *td, struct proc *proc)
 	int status;
 	struct prison *pr=NULL;
 	uint32_t flags;
-    bool haspax;
+	bool haspax;
 
 	if ((td == NULL) && (proc == NULL))
 		return (true);
@@ -288,13 +288,13 @@ pax_segvguard_active(struct thread *td, struct proc *proc)
 
 	status = (pr != NULL) ? pr->pr_pax_segvguard_status : pax_segvguard_status;
 
-    if (td != NULL) {
-        if (td->td_proc->p_haspax)
-            haspax = 1;
-    } else {
-        if (proc->p_haspax)
-            haspax = 1;
-    }
+	if (td != NULL) {
+		if (td->td_proc->p_haspax)
+			haspax = 1;
+	} else {
+		if (proc->p_haspax)
+			haspax = 1;
+	}
 
 	switch (status) {
 	case    PAX_SEGVGUARD_DISABLED:

@@ -435,7 +435,7 @@ pax_aslr_active(struct thread *td, struct proc *proc)
 	int status;
 	struct prison *pr=NULL;
 	uint32_t flags;
-    bool haspax=0;
+	bool haspax=0;
 
 	if ((td == NULL) && (proc == NULL))
 		return (true);
@@ -448,17 +448,17 @@ pax_aslr_active(struct thread *td, struct proc *proc)
 
 	status = (pr != NULL) ? pr->pr_pax_aslr_status : pax_aslr_status;
 
-    if (td != NULL) {
-        if (td->td_proc->p_haspax)
-            haspax = 1;
-    } else {
-        if (proc->p_haspax)
-            haspax = 1;
-    }
+	if (td != NULL) {
+		if (td->td_proc->p_haspax)
+			haspax = 1;
+	} else {
+		if (proc->p_haspax)
+			haspax = 1;
+	}
 
-    if (pax_aslr_debug) {
-        uprintf("[PaX ASLR] Does the process have pax flags: %d\n", haspax);
-    }
+	if (pax_aslr_debug) {
+		uprintf("[PaX ASLR] Does the process have pax flags: %d\n", haspax);
+	}
 
 	switch (status) {
 	case    PAX_ASLR_DISABLED:
@@ -468,19 +468,19 @@ pax_aslr_active(struct thread *td, struct proc *proc)
 	case    PAX_ASLR_ENABLED:
 #if 0
 		if (haspax && (flags & ELF_NOTE_PAX_ASLR) == 0) {
-            if (pax_aslr_debug)
-                uprintf("[PaX ASLR] PAX is enabled, but executable does not have pax enabled\n");
+			if (pax_aslr_debug)
+				uprintf("[PaX ASLR] PAX is enabled, but executable does not have pax enabled\n");
 			return (false);
-        }
+		}
 #endif
 		break;
 	case    PAX_ASLR_GLOBAL_ENABLED:
 #if 0
 		if (haspax && (flags & ELF_NOTE_PAX_NOASLR) != 0) {
-            if (pax_aslr_debug)
-                uprintf("[PaX ASLR] PAX global is eanbled, but executable explicitly disabled pax\n");
+			if (pax_aslr_debug)
+				uprintf("[PaX ASLR] PAX global is eanbled, but executable explicitly disabled pax\n");
 			return (false);
-        }
+		}
 #endif
 		break;
 	default:

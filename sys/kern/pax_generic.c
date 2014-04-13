@@ -135,12 +135,12 @@ pax_elf(struct image_params *imgp)
 		}
 	}
 
-    if (!set) {
-        PROC_LOCK(imgp->proc);
-        imgp->proc->p_pax = 0;
-        imgp->proc->p_haspax = 0;
-        PROC_UNLOCK(imgp->proc);
-    }
+	if (!set) {
+		PROC_LOCK(imgp->proc);
+		imgp->proc->p_pax = 0;
+		imgp->proc->p_haspax = 0;
+		PROC_UNLOCK(imgp->proc);
+	}
 }
 
 void
