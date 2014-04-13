@@ -34,8 +34,6 @@ __FBSDID("$FreeBSD$");
 #include "opt_compat.h"
 #include "opt_pax.h"
 
-#define _PAX_INTERNAL 1
-
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/kernel.h>
@@ -84,6 +82,9 @@ extern int pax_segvguard_expiry;
 extern int pax_segvguard_suspension;
 extern int pax_segvguard_maxcrashes;
 #endif /* PAX_SEGVGUARD */
+
+SYSCTL_NODE(_security, OID_AUTO, pax, CTLFLAG_RD, 0,
+    "PaX (exploit mitigation) features.");
 
 struct prison *
 pax_get_prison(struct thread *td, struct proc *proc)

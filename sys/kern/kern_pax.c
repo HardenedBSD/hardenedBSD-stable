@@ -33,8 +33,6 @@ __FBSDID("$FreeBSD$");
 #include "opt_compat.h"
 #include "opt_pax.h"
 
-#define _PAX_INTERNAL 1
-
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/kernel.h>
