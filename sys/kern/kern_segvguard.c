@@ -2,6 +2,10 @@
  * Copyright (c) 2013, by Oliver Pinter <oliver.pntr at gmail.com>
  * All rights reserved.
  *
+ * Some parts ported to FreeBSD by
+ * Danilo Egea Gondolfo <danilogondolfo@gmail.com> and
+ * Shawn "lattera" Webb
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
