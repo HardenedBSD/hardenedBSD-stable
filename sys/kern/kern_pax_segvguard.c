@@ -98,6 +98,8 @@ static int sysctl_pax_segvguard_maxcrashes(SYSCTL_HANDLER_ARGS);
 
 static bool pax_segvguard_active(struct thread *td, struct proc *proc);
 
+SYSCTL_DECL(_security_pax);
+
 SYSCTL_NODE(_security_pax, OID_AUTO, segvguard, CTLFLAG_RD, 0, "PaX segvguard");
 
 SYSCTL_PROC(_security_pax_segvguard, OID_AUTO, status,

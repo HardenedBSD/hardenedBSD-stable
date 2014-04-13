@@ -95,6 +95,8 @@ static int sysctl_pax_aslr_exec(SYSCTL_HANDLER_ARGS);
 int pax_aslr_status = PAX_ASLR_ENABLED;
 int pax_aslr_debug = 0;
 
+SYSCTL_DECL(_security_pax);
+
 SYSCTL_NODE(_security_pax, OID_AUTO, aslr, CTLFLAG_RD, 0,
     "Address Space Layout Randomization.");
 
