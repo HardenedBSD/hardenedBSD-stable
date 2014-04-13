@@ -2836,7 +2836,7 @@ kern/kern_mtxpool.c		standard
 kern/kern_mutex.c		standard
 kern/kern_ntptime.c		standard
 kern/kern_osd.c			standard
-kern/kern_pax.c			optional pax_aslr
+kern/kern_pax.c			optional pax_aslr | pax_segvguard
 kern/kern_physio.c		standard
 kern/kern_pmc.c			standard
 kern/kern_poll.c		optional device_polling
@@ -2850,6 +2850,7 @@ kern/kern_resource.c		standard
 kern/kern_rmlock.c		standard
 kern/kern_rwlock.c		standard
 kern/kern_sdt.c			optional kdtrace_hooks
+kern/kern_segvguard.c   optional pax_segvguard
 kern/kern_sema.c		standard
 kern/kern_sharedpage.c		standard
 kern/kern_shutdown.c		standard
@@ -2872,6 +2873,7 @@ kern/linker_if.m		standard
 kern/md4c.c			optional netsmb
 kern/md5c.c			standard
 kern/p1003_1b.c			standard
+kern/pax_generic.c      optional pax_aslr | pax_segvguard
 kern/posix4_mib.c		standard
 kern/sched_4bsd.c		optional sched_4bsd
 kern/sched_ule.c		optional sched_ule

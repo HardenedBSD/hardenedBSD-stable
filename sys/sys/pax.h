@@ -36,6 +36,11 @@ struct thread;
 struct vmspace;
 struct vm_offset_t;
 
+#ifdef _PAX_INTERNAL
+SYSCTL_NODE(_security, OID_AUTO, pax, CTLFLAG_RD, 0,
+    "PaX (exploit mitigation) features.");
+#endif
+
 /*
  * used in sysctl handler
  */
