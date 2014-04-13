@@ -751,10 +751,6 @@ __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp)
 	    (hdr->e_type != ET_EXEC && hdr->e_type != ET_DYN))
 		return (-1);
 
-#if defined(PAX_MPROTECT) || defined(PAX_SEGVGUARD) || defined(PAX_ASLR)
-	pax_elf(imgp);
-#endif
-
 	/*
 	 * From here on down, we return an errno, not -1, as we've
 	 * detected an ELF file.
@@ -824,6 +820,10 @@ __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp)
 
 	error = exec_new_vmspace(imgp, sv);
 	imgp->proc->p_sysent = sv;
+
+#if defined(PAX_MPROTECT) || defined(PAX_SEGVGUARD) || defined(PAX_ASLR)
+	pax_elf(imgp);
+#endif
 
 	if (hdr->e_type == ET_DYN) {
 		/*

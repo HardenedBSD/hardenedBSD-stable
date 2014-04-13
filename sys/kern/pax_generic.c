@@ -69,6 +69,7 @@ __FBSDID("$FreeBSD$");
 extern int pax_aslr_mmap_len;
 extern int pax_aslr_stack_len;
 extern int pax_aslr_exec_len;
+extern int pax_aslr_status;
 #ifdef COMPAT_FREEBSD32
 extern int pax_aslr_compat_mmap_len;
 extern int pax_aslr_compat_stack_len;
@@ -137,6 +138,7 @@ pax_elf(struct image_params *imgp)
     if (!set) {
         PROC_LOCK(imgp->proc);
         imgp->proc->p_pax = 0;
+        imgp->proc->p_haspax = 0;
         PROC_UNLOCK(imgp->proc);
     }
 }
