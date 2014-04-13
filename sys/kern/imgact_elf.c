@@ -751,7 +751,7 @@ __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp)
 	    (hdr->e_type != ET_EXEC && hdr->e_type != ET_DYN))
 		return (-1);
 
-#if defined(PAX_MPROTECT) || defined(PAX_SEGVUARD) || defined(PAX_ASLR)
+#if defined(PAX_MPROTECT) || defined(PAX_SEGVGUARD) || defined(PAX_ASLR)
 	pax_elf(imgp);
 #endif
 
