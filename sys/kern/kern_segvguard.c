@@ -150,10 +150,10 @@ sysctl_pax_segvguard_status(SYSCTL_HANDLER_ARGS)
 		return (err);
 
 	switch (val) {
-	case    PAX_ASLR_DISABLED:
-	case    PAX_ASLR_ENABLED:
-	case    PAX_ASLR_GLOBAL_ENABLED:
-	case    PAX_ASLR_FORCE_GLOBAL_ENABLED:
+	case    PAX_SEGVGUARD_DISABLED:
+	case    PAX_SEGVGUARD_ENABLED:
+	case    PAX_SEGVGUARD_GLOBAL_ENABLED:
+	case    PAX_SEGVGUARD_FORCE_GLOBAL_ENABLED:
 		if ((pr == NULL) || (pr == &prison0))
 			pax_segvguard_status = val;
 		if (pr != NULL)
