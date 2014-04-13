@@ -184,27 +184,21 @@ struct prison {
 	char		 pr_hostname[MAXHOSTNAMELEN];	/* (p) jail hostname */
 	char		 pr_domainname[MAXHOSTNAMELEN];	/* (p) jail domainname */
 	char		 pr_hostuuid[HOSTUUIDLEN];	/* (p) jail hostuuid */
-#ifdef PAX_ASLR
 	int		 pr_pax_set;			/* () XXX */
 	int		 pr_pax_aslr_status;		/* () XXX */
 	int		 pr_pax_aslr_debug;		/* () XXX */
 	int		 pr_pax_aslr_mmap_len;		/* () XXX */
 	int		 pr_pax_aslr_stack_len;		/* () XXX */
 	int		 pr_pax_aslr_exec_len;		/* () XXX */
-#ifdef COMPAT_FREEBSD32
 	int		 pr_pax_aslr_compat_status;	/* () XXX */
 	int		 pr_pax_aslr_compat_mmap_len;	/* () XXX */
 	int		 pr_pax_aslr_compat_stack_len;	/* () XXX */
 	int		 pr_pax_aslr_compat_exec_len;	/* () XXX */
-#endif /* COMPAT_FREEBSD32 */
-#endif /* PAX_ASLR */
-#ifdef PAX_SEGVGUARD
 	int		 pr_pax_segvguard_status;	/* () XXX */
 	int		 pr_pax_segvguard_debug;	/* () XXX */
 	int		 pr_pax_segvguard_expiry;	/* () XXX */
 	int		 pr_pax_segvguard_suspension;	/* () XXX */
 	int		 pr_pax_segvguard_maxcrashes;	/* () XXX */
-#endif /* PAX_SEGVGUARD */
 };
 
 struct prison_racct {

@@ -275,6 +275,7 @@ pax_segvguard_active(struct thread *td, struct proc *proc)
 	int status;
 	struct prison *pr=NULL;
 	uint32_t flags;
+    bool haspax;
 
 	if ((td == NULL) && (proc == NULL))
 		return (true);
@@ -287,17 +288,25 @@ pax_segvguard_active(struct thread *td, struct proc *proc)
 
 	status = (pr != NULL) ? pr->pr_pax_segvguard_status : pax_segvguard_status;
 
+    if (td != NULL) {
+        if (td->td_proc->p_haspax)
+            haspax = 1;
+    } else {
+        if (proc->p_haspax)
+            haspax = 1;
+    }
+
 	switch (status) {
 	case    PAX_SEGVGUARD_DISABLED:
 		return (false);
 	case    PAX_SEGVGUARD_FORCE_GLOBAL_ENABLED:
 		return (true);
 	case    PAX_SEGVGUARD_ENABLED:
-		if ((flags & ELF_NOTE_PAX_GUARD) == 0)
+		if (haspax && (flags & ELF_NOTE_PAX_GUARD) == 0)
 			return (false);
 		break;
 	case    PAX_SEGVGUARD_GLOBAL_ENABLED:
-		if ((flags & ELF_NOTE_PAX_NOGUARD) != 0)
+		if (haspax && (flags & ELF_NOTE_PAX_NOGUARD) != 0)
 			return (false);
 		break;
 	default:

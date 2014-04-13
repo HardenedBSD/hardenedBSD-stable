@@ -435,6 +435,7 @@ pax_aslr_active(struct thread *td, struct proc *proc)
 	int status;
 	struct prison *pr=NULL;
 	uint32_t flags;
+    bool haspax;
 
 	if ((td == NULL) && (proc == NULL))
 		return (true);
@@ -447,17 +448,25 @@ pax_aslr_active(struct thread *td, struct proc *proc)
 
 	status = (pr != NULL) ? pr->pr_pax_aslr_status : pax_aslr_status;
 
+    if (td != NULL) {
+        if (td->td_proc->p_haspax)
+            haspax = 1;
+    } else {
+        if (proc->p_haspax)
+            haspax = 1;
+    }
+
 	switch (status) {
 	case    PAX_ASLR_DISABLED:
 		return (false);
 	case    PAX_ASLR_FORCE_GLOBAL_ENABLED:
 		return (true);
 	case    PAX_ASLR_ENABLED:
-		if ((flags & ELF_NOTE_PAX_ASLR) == 0)
+		if (haspax && (flags & ELF_NOTE_PAX_ASLR) == 0)
 			return (false);
 		break;
 	case    PAX_ASLR_GLOBAL_ENABLED:
-		if ((flags & ELF_NOTE_PAX_NOASLR) != 0)
+		if (haspax && (flags & ELF_NOTE_PAX_NOASLR) != 0)
 			return (false);
 		break;
 	default:

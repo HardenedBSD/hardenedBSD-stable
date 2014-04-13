@@ -103,7 +103,7 @@ pax_get_prison(struct thread *td, struct proc *proc)
 void
 pax_elf(struct image_params *imgp)
 {
-	int idx;
+	int idx, set=0;
 	struct note_pax *notes;
 	const Elf_Shdr *shdr;
 	const Elf_Ehdr *hdr;
@@ -127,10 +127,18 @@ pax_elf(struct image_params *imgp)
 				imgp->pax_flags = notes->flags;
 				PROC_LOCK(imgp->proc);
 				imgp->proc->p_pax = notes->flags;
+                imgp->proc->p_haspax = 1;
 				PROC_UNLOCK(imgp->proc);
+                set=1;
 			}
 		}
 	}
+
+    if (!set) {
+        PROC_LOCK(imgp->proc);
+        imgp->proc->p_pax = 0;
+        PROC_UNLOCK(imgp->proc);
+    }
 }
 
 void
