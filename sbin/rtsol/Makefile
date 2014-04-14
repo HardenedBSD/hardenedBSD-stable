@@ -20,7 +20,7 @@ SRCDIR=	${.CURDIR}/../../usr.sbin/rtsold
 
 PROG=	rtsol
 SRCS=	rtsold.c rtsol.c if.c probe.c dump.c rtsock.c
-NO_MAN=
+MAN=
 
 CAN_PIE=1
 
