@@ -83,7 +83,7 @@ __FBSDID("$FreeBSD$");
 #include <machine/elf.h>
 #include <machine/md_var.h>
 
-#ifdef PAX_ASLR
+#if defined(PAX_ASLR) || defined(PAX_SEGVGUARD)
 #include <sys/pax.h>
 #endif
 
