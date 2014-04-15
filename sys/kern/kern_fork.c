@@ -515,6 +515,12 @@ do_fork(struct thread *td, int flags, struct proc *p2, struct thread *td2,
 	}
 
 	/*
+	 * XXXOP: this is the right place?
+	 */
+	p2->p_pax = p1->p_pax;
+	p2->p_haspax = 0;
+
+	/*
 	 * p_limit is copy-on-write.  Bump its refcount.
 	 */
 	lim_fork(p1, p2);
@@ -738,12 +744,6 @@ do_fork(struct thread *td, int flags, struct proc *p2, struct thread *td2,
 	if (p2_held)
 		_PRELE(p2);
 	PROC_UNLOCK(p2);
-
-	/*
-	 * XXXOP: PROC_LOCK ?
-	 */
-	p2->p_pax = p1->p_pax;
-	p2->p_haspax = 0;
 }
 
 int
