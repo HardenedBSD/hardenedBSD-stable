@@ -400,7 +400,7 @@ do_execve(td, args, mac_p)
 	imgp->pagesizes = 0;
 	imgp->pagesizeslen = 0;
 	imgp->stack_prot = 0;
-    imgp->pax_flags = 0;
+	imgp->pax_flags = 0;
 
 #ifdef MAC
 	error = mac_execve_enter(imgp, mac_p);
