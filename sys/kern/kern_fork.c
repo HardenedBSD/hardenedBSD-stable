@@ -105,12 +105,6 @@ sys_fork(struct thread *td, struct fork_args *uap)
 	int error;
 	struct proc *p2;
 
-#ifdef PAX_SEGVGUARD
-	error =pax_segvguard(curthread, curthread->td_proc->p_textvp, td->td_proc->p_comm, 0);
-	if (error)
-		return (error);
-#endif
-
 	error = fork1(td, RFFDG | RFPROC, 0, &p2, NULL, 0);
 	if (error == 0) {
 		td->td_retval[0] = p2->p_pid;
@@ -766,6 +760,12 @@ fork1(struct thread *td, int flags, int pages, struct proc **procp,
 	static int curfail;
 	static struct timeval lastfail;
 	struct file *fp_procdesc = NULL;
+
+#ifdef PAX_SEGVGUARD
+	error = pax_segvguard(curthread, curthread->td_proc->p_textvp, td->td_proc->p_comm, 0);
+	if (error)
+		return (error);
+#endif
 
 	/* Check for the undefined or unimplemented flags. */
 	if ((flags & ~(RFFLAGS | RFTSIGFLAGS(RFTSIGMASK))) != 0)
