@@ -75,6 +75,10 @@ __FBSDID("$FreeBSD$");
 #include <sys/socketvar.h>
 #endif
 
+#ifdef ICL_KERNEL_PROXY
+FEATURE(cfiscsi_kernel_proxy, "iSCSI target built with ICL_KERNEL_PROXY");
+#endif
+
 static MALLOC_DEFINE(M_CFISCSI, "cfiscsi", "Memory used for CTL iSCSI frontend");
 static uma_zone_t cfiscsi_data_wait_zone;
 
@@ -1126,6 +1130,9 @@ cfiscsi_session_terminate(struct cfiscsi_session *cs)
 		return;
 	cs->cs_terminating = 1;
 	cv_signal(&cs->cs_maintenance_cv);
+#ifdef ICL_KERNEL_PROXY
+	cv_signal(&cs->cs_login_cv);
+#endif
 }
 
 static int
@@ -1346,7 +1353,7 @@ cfiscsi_module_event_handler(module_t mod, int what, void *arg)
 
 #ifdef ICL_KERNEL_PROXY
 static void
-cfiscsi_accept(struct socket *so)
+cfiscsi_accept(struct socket *so, struct sockaddr *sa, int portal_id)
 {
 	struct cfiscsi_session *cs;
 
@@ -1357,6 +1364,8 @@ cfiscsi_accept(struct socket *so)
 	}
 
 	icl_conn_handoff_sock(cs->cs_conn, so);
+	cs->cs_initiator_sa = sa;
+	cs->cs_portal_id = portal_id;
 	cs->cs_waiting_for_ctld = true;
 	cv_signal(&cfiscsi_softc.accept_cv);
 }
@@ -1419,9 +1428,7 @@ cfiscsi_ioctl_handoff(struct ctl_iscsi *ci)
 	struct cfiscsi_session *cs;
 	struct cfiscsi_target *ct;
 	struct ctl_iscsi_handoff_params *cihp;
-#ifndef ICL_KERNEL_PROXY
 	int error;
-#endif
 
 	cihp = (struct ctl_iscsi_handoff_params *)&(ci->data);
 	softc = &cfiscsi_softc;
@@ -1446,27 +1453,39 @@ cfiscsi_ioctl_handoff(struct ctl_iscsi *ci)
 	}
 
 #ifdef ICL_KERNEL_PROXY
-	mtx_lock(&cfiscsi_softc.lock);
-	TAILQ_FOREACH(cs, &cfiscsi_softc.sessions, cs_next) {
-		if (cs->cs_id == cihp->socket)
-			break;
-	}
-	if (cs == NULL) {
-		mtx_unlock(&cfiscsi_softc.lock);
-		snprintf(ci->error_str, sizeof(ci->error_str), "connection not found");
-		ci->status = CTL_ISCSI_ERROR;
-		cfiscsi_target_release(ct);
-		return;
-	}
-	mtx_unlock(&cfiscsi_softc.lock);
-#else
-	cs = cfiscsi_session_new(softc);
-	if (cs == NULL) {
-		ci->status = CTL_ISCSI_ERROR;
+	if (cihp->socket > 0 && cihp->connection_id > 0) {
 		snprintf(ci->error_str, sizeof(ci->error_str),
-		    "%s: cfiscsi_session_new failed", __func__);
+		    "both socket and connection_id set");
+		ci->status = CTL_ISCSI_ERROR;
 		cfiscsi_target_release(ct);
 		return;
+	}
+	if (cihp->socket == 0) {
+		mtx_lock(&cfiscsi_softc.lock);
+		TAILQ_FOREACH(cs, &cfiscsi_softc.sessions, cs_next) {
+			if (cs->cs_id == cihp->socket)
+				break;
+		}
+		if (cs == NULL) {
+			mtx_unlock(&cfiscsi_softc.lock);
+			snprintf(ci->error_str, sizeof(ci->error_str),
+			    "connection not found");
+			ci->status = CTL_ISCSI_ERROR;
+			cfiscsi_target_release(ct);
+			return;
+		}
+		mtx_unlock(&cfiscsi_softc.lock);
+	} else {
+#endif
+		cs = cfiscsi_session_new(softc);
+		if (cs == NULL) {
+			ci->status = CTL_ISCSI_ERROR;
+			snprintf(ci->error_str, sizeof(ci->error_str),
+			    "%s: cfiscsi_session_new failed", __func__);
+			cfiscsi_target_release(ct);
+			return;
+		}
+#ifdef ICL_KERNEL_PROXY
 	}
 #endif
 	cs->cs_target = ct;
@@ -1495,16 +1514,18 @@ cfiscsi_ioctl_handoff(struct ctl_iscsi *ci)
 	    cihp->initiator_alias, sizeof(cs->cs_initiator_alias));
 
 #ifdef ICL_KERNEL_PROXY
-	cs->cs_login_phase = false;
-#else
-	error = icl_conn_handoff(cs->cs_conn, cihp->socket);
-	if (error != 0) {
-		cfiscsi_session_delete(cs);
-		ci->status = CTL_ISCSI_ERROR;
-		snprintf(ci->error_str, sizeof(ci->error_str),
-		    "%s: icl_conn_handoff failed with error %d",
-		    __func__, error);
-		return;
+	if (cihp->socket > 0) {
+#endif
+		error = icl_conn_handoff(cs->cs_conn, cihp->socket);
+		if (error != 0) {
+			cfiscsi_session_delete(cs);
+			ci->status = CTL_ISCSI_ERROR;
+			snprintf(ci->error_str, sizeof(ci->error_str),
+			    "%s: icl_conn_handoff failed with error %d",
+			    __func__, error);
+			return;
+		}
+#ifdef ICL_KERNEL_PROXY
 	}
 #endif
 
@@ -1514,6 +1535,8 @@ cfiscsi_ioctl_handoff(struct ctl_iscsi *ci)
 	cfiscsi_session_register_initiator(cs);
 
 #ifdef ICL_KERNEL_PROXY
+	cs->cs_login_phase = false;
+
 	/*
 	 * First PDU of the Full Feature phase has likely already arrived.
 	 * We have to pick it up and execute properly.
@@ -1721,7 +1744,7 @@ cfiscsi_ioctl_listen(struct ctl_iscsi *ci)
 	}
 
 	error = icl_listen_add(cfiscsi_softc.listener, cilp->iser, cilp->domain,
-	    cilp->socktype, cilp->protocol, sa);
+	    cilp->socktype, cilp->protocol, sa, cilp->portal_id);
 	if (error != 0) {
 		free(sa, M_SONAME);
 		CFISCSI_DEBUG("icl_listen_add, error %d", error);
@@ -1765,6 +1788,17 @@ cfiscsi_ioctl_accept(struct ctl_iscsi *ci)
 	cs->cs_login_phase = true;
 
 	ciap->connection_id = cs->cs_id;
+	ciap->portal_id = cs->cs_portal_id;
+	ciap->initiator_addrlen = cs->cs_initiator_sa->sa_len;
+	error = copyout(cs->cs_initiator_sa, ciap->initiator_addr,
+	    cs->cs_initiator_sa->sa_len);
+	if (error != 0) {
+		snprintf(ci->error_str, sizeof(ci->error_str),
+		    "copyout failed with error %d", error);
+		ci->status = CTL_ISCSI_ERROR;
+		return;
+	}
+
 	ci->status = CTL_ISCSI_OK;
 }
 
@@ -1831,7 +1865,9 @@ cfiscsi_ioctl_send(struct ctl_iscsi *ci)
 		icl_pdu_append_data(ip, data, datalen, M_WAITOK);
 		free(data, M_CFISCSI);
 	}
+	CFISCSI_SESSION_LOCK(cs);
 	icl_pdu_queue(ip);
+	CFISCSI_SESSION_UNLOCK(cs);
 	ci->status = CTL_ISCSI_OK;
 }
 
@@ -1842,6 +1878,7 @@ cfiscsi_ioctl_receive(struct ctl_iscsi *ci)
 	struct cfiscsi_session *cs;
 	struct icl_pdu *ip;
 	void *data;
+	int error;
 
 	cirp = (struct ctl_iscsi_receive_params *)&(ci->data);
 
@@ -1852,7 +1889,8 @@ cfiscsi_ioctl_receive(struct ctl_iscsi *ci)
 	}
 	if (cs == NULL) {
 		mtx_unlock(&cfiscsi_softc.lock);
-		snprintf(ci->error_str, sizeof(ci->error_str), "connection not found");
+		snprintf(ci->error_str, sizeof(ci->error_str),
+		    "connection not found");
 		ci->status = CTL_ISCSI_ERROR;
 		return;
 	}
@@ -1864,12 +1902,21 @@ cfiscsi_ioctl_receive(struct ctl_iscsi *ci)
 #endif
 
 	CFISCSI_SESSION_LOCK(cs);
-	while (cs->cs_login_pdu == NULL &&
-	    cs->cs_terminating == false)
-		cv_wait(&cs->cs_login_cv, &cs->cs_lock);
+	while (cs->cs_login_pdu == NULL && cs->cs_terminating == false) {
+		error = cv_wait_sig(&cs->cs_login_cv, &cs->cs_lock);
+		if (error != 0) {
+			CFISCSI_SESSION_UNLOCK(cs);
+			snprintf(ci->error_str, sizeof(ci->error_str),
+			    "interrupted by signal");
+			ci->status = CTL_ISCSI_ERROR;
+			return;
+		}
+	}
+
 	if (cs->cs_terminating) {
 		CFISCSI_SESSION_UNLOCK(cs);
-		snprintf(ci->error_str, sizeof(ci->error_str), "connection terminating");
+		snprintf(ci->error_str, sizeof(ci->error_str),
+		    "connection terminating");
 		ci->status = CTL_ISCSI_ERROR;
 		return;
 	}
@@ -1879,7 +1926,8 @@ cfiscsi_ioctl_receive(struct ctl_iscsi *ci)
 
 	if (ip->ip_data_len > cirp->data_segment_len) {
 		icl_pdu_free(ip);
-		snprintf(ci->error_str, sizeof(ci->error_str), "data segment too big");
+		snprintf(ci->error_str, sizeof(ci->error_str),
+		    "data segment too big");
 		ci->status = CTL_ISCSI_ERROR;
 		return;
 	}
@@ -1896,13 +1944,6 @@ cfiscsi_ioctl_receive(struct ctl_iscsi *ci)
 	ci->status = CTL_ISCSI_OK;
 }
 
-static void
-cfiscsi_ioctl_close(struct ctl_iscsi *ci)
-{
-	/*
-	 * XXX
-	 */
-}
 #endif /* !ICL_KERNEL_PROXY */
 
 static int
@@ -1941,10 +1982,17 @@ cfiscsi_ioctl(struct cdev *dev,
 	case CTL_ISCSI_RECEIVE:
 		cfiscsi_ioctl_receive(ci);
 		break;
-	case CTL_ISCSI_CLOSE:
-		cfiscsi_ioctl_close(ci);
+#else
+	case CTL_ISCSI_LISTEN:
+	case CTL_ISCSI_ACCEPT:
+	case CTL_ISCSI_SEND:
+	case CTL_ISCSI_RECEIVE:
+		ci->status = CTL_ISCSI_ERROR;
+		snprintf(ci->error_str, sizeof(ci->error_str),
+		    "%s: CTL compiled without ICL_KERNEL_PROXY",
+		    __func__);
 		break;
-#endif /* ICL_KERNEL_PROXY */
+#endif /* !ICL_KERNEL_PROXY */
 	default:
 		ci->status = CTL_ISCSI_ERROR;
 		snprintf(ci->error_str, sizeof(ci->error_str),

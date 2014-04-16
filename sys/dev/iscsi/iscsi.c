@@ -66,6 +66,10 @@
 #include <sys/socketvar.h>
 #endif
 
+#ifdef ICL_KERNEL_PROXY
+FEATURE(iscsi_kernel_proxy, "iSCSI initiator built with ICL_KERNEL_PROXY");
+#endif
+
 /*
  * XXX: This is global so the iscsi_unload() can access it.
  * 	Think about how to do this properly.
@@ -1198,8 +1202,10 @@ iscsi_ioctl_daemon_wait(struct iscsi_softc *sc,
 	sx_slock(&sc->sc_lock);
 	for (;;) {
 		TAILQ_FOREACH(is, &sc->sc_sessions, is_next) {
+			ISCSI_SESSION_LOCK(is);
 			if (is->is_waiting_for_iscsid)
 				break;
+			ISCSI_SESSION_UNLOCK(is);
 		}
 
 		if (is == NULL) {
@@ -1214,7 +1220,6 @@ iscsi_ioctl_daemon_wait(struct iscsi_softc *sc,
 			continue;
 		}
 
-		ISCSI_SESSION_LOCK(is);
 		is->is_waiting_for_iscsid = false;
 		is->is_login_phase = true;
 		is->is_reason[0] = '\0';
@@ -1548,28 +1553,6 @@ iscsi_ioctl_daemon_receive(struct iscsi_softc *sc,
 
 	return (0);
 }
-
-static int
-iscsi_ioctl_daemon_close(struct iscsi_softc *sc,
-    struct iscsi_daemon_close *idc)
-{
-	struct iscsi_session *is;
-
-	sx_slock(&sc->sc_lock);
-	TAILQ_FOREACH(is, &sc->sc_sessions, is_next) {
-		if (is->is_id == idc->idc_session_id)
-			break;
-	}
-	if (is == NULL) {
-		sx_sunlock(&sc->sc_lock);
-		return (ESRCH);
-	}
-	sx_sunlock(&sc->sc_lock);
-
-	iscsi_session_reconnect(is);
-
-	return (0);
-}
 #endif /* ICL_KERNEL_PROXY */
 
 static void
@@ -1669,8 +1652,10 @@ iscsi_ioctl_session_add(struct iscsi_softc *sc, struct iscsi_session_add *isa)
 	/*
 	 * Trigger immediate reconnection.
 	 */
+	ISCSI_SESSION_LOCK(is);
 	is->is_waiting_for_iscsid = true;
 	strlcpy(is->is_reason, "Waiting for iscsid(8)", sizeof(is->is_reason));
+	ISCSI_SESSION_UNLOCK(is);
 	cv_signal(&sc->sc_cv);
 
 	sx_xunlock(&sc->sc_lock);
@@ -1800,9 +1785,6 @@ iscsi_ioctl(struct cdev *dev, u_long cmd, caddr_t arg, int mode,
 	case ISCSIDRECEIVE:
 		return (iscsi_ioctl_daemon_receive(sc,
 		    (struct iscsi_daemon_receive *)arg));
-	case ISCSIDCLOSE:
-		return (iscsi_ioctl_daemon_close(sc,
-		    (struct iscsi_daemon_close *)arg));
 #endif /* ICL_KERNEL_PROXY */
 	case ISCSISADD:
 		return (iscsi_ioctl_session_add(sc,
@@ -1990,7 +1972,6 @@ iscsi_action(struct cam_sim *sim, union ccb *ccb)
 	ISCSI_SESSION_LOCK_ASSERT(is);
 
 	if (is->is_terminating) {
-		ISCSI_SESSION_DEBUG(is, "called during termination");
 		ccb->ccb_h.status = CAM_DEV_NOT_THERE;
 		xpt_done(ccb);
 		return;
