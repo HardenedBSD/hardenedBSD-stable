@@ -105,6 +105,7 @@ pax_get_prison(struct thread *td, struct proc *proc)
 void
 pax_elf(struct image_params *imgp)
 {
+#if 0
 	int idx, set=0;
 	struct note_pax *notes;
 	const Elf_Shdr *shdr;
@@ -142,6 +143,7 @@ pax_elf(struct image_params *imgp)
 		imgp->proc->p_haspax = 0;
 		PROC_UNLOCK(imgp->proc);
 	}
+#endif
 }
 
 void
