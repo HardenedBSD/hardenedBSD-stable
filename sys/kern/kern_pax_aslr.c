@@ -453,24 +453,20 @@ pax_aslr_active(struct thread *td, struct proc *proc)
 	case    PAX_ASLR_FORCE_GLOBAL_ENABLED:
 		return (true);
 	case    PAX_ASLR_ENABLED:
-#if 0
-		if (haspax && (flags & ELF_NOTE_PAX_ASLR) == 0) {
+		if (flags && (flags & ELF_NOTE_PAX_ASLR) == 0) {
 			if (pax_aslr_debug)
 				uprintf("[PaX ASLR] %s: PAX is enabled, but executable does not have pax enabled\n",
 						__func__);
 			return (false);
 		}
-#endif
 		break;
 	case    PAX_ASLR_GLOBAL_ENABLED:
-#if 0
-		if (haspax && (flags & ELF_NOTE_PAX_NOASLR) != 0) {
+		if (flags && (flags & ELF_NOTE_PAX_NOASLR) != 0) {
 			if (pax_aslr_debug)
 				uprintf("[PaX ASLR] %s: PAX global is eanbled, but executable explicitly disabled pax\n",
 						__func__);
 			return (false);
 		}
-#endif
 		break;
 	default:
 		return (true);
