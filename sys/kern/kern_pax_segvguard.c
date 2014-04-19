@@ -279,7 +279,6 @@ pax_segvguard_active(struct thread *td, struct proc *proc)
 	int status;
 	struct prison *pr=NULL;
 	uint32_t flags;
-	bool haspax;
 
 	if ((td == NULL) && (proc == NULL))
 		return (true);
@@ -292,25 +291,17 @@ pax_segvguard_active(struct thread *td, struct proc *proc)
 
 	status = (pr != NULL) ? pr->pr_pax_segvguard_status : pax_segvguard_status;
 
-	if (td != NULL) {
-		if (td->td_proc->p_haspax)
-			haspax = 1;
-	} else {
-		if (proc->p_haspax)
-			haspax = 1;
-	}
-
 	switch (status) {
 	case    PAX_SEGVGUARD_DISABLED:
 		return (false);
 	case    PAX_SEGVGUARD_FORCE_GLOBAL_ENABLED:
 		return (true);
 	case    PAX_SEGVGUARD_ENABLED:
-		if (haspax && (flags & ELF_NOTE_PAX_GUARD) == 0)
+		if (flags && (flags & ELF_NOTE_PAX_GUARD) == 0)
 			return (false);
 		break;
 	case    PAX_SEGVGUARD_GLOBAL_ENABLED:
-		if (haspax && (flags & ELF_NOTE_PAX_NOGUARD) != 0)
+		if (flags && (flags & ELF_NOTE_PAX_NOGUARD) != 0)
 			return (false);
 		break;
 	default:
@@ -426,14 +417,14 @@ pax_segvguard(struct thread *td, struct vnode *v, char *name, bool crashed)
 	struct vnode *vp;
 	bool vnode_found, uid_found;
 	struct prison *pr;
+    struct proc *p;
 
 	pr = pax_get_prison(td, NULL);
 
 	if (!segvguard_gc_init) {
-		struct proc *p;
+		segvguard_gc_init = 1;
 		mtx_init(&segvguard_mtx, "segvguard mutex", NULL, MTX_DEF);
 		kproc_create(pax_segvguard_gc, "PAX", &p, 0, 0, "segvguard_gc");
-		segvguard_gc_init = 1;
 	}
 
 	if (!pax_segvguard_active(td, NULL))
@@ -480,7 +471,7 @@ pax_segvguard(struct thread *td, struct vnode *v, char *name, bool crashed)
 	}
 
 	vnode_found = uid_found = 0;
-	if (!LIST_EMPTY(&vnode_list) && crashed) {
+	if (crashed && !LIST_EMPTY(&vnode_list)) {
 		LIST_FOREACH(vn, &vnode_list, sv_list) {
 			if (vn->sv_inode == sb.st_ino && !strncmp(mntpoint, vn->sv_mntpoint, MNAMELEN)) {
 				vnode_found = 1;
