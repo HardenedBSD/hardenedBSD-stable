@@ -518,7 +518,6 @@ do_fork(struct thread *td, int flags, struct proc *p2, struct thread *td2,
 	 * XXXOP: this is the right place?
 	 */
 	p2->p_pax = p1->p_pax;
-	p2->p_haspax = 0;
 
 	/*
 	 * p_limit is copy-on-write.  Bump its refcount.

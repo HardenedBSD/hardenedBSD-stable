@@ -68,12 +68,14 @@ extern int pax_aslr_mmap_len;
 extern int pax_aslr_stack_len;
 extern int pax_aslr_exec_len;
 extern int pax_aslr_status;
+
 #ifdef COMPAT_FREEBSD32
 extern int pax_aslr_compat_mmap_len;
 extern int pax_aslr_compat_stack_len;
 extern int pax_aslr_compat_exec_len;
+
 #endif
-#endif /* PAX_ASLR */
+#endif					/* PAX_ASLR */
 
 #ifdef PAX_SEGVGUARD
 extern int pax_segvguard_status;
@@ -81,7 +83,8 @@ extern int pax_segvguard_debug;
 extern int pax_segvguard_expiry;
 extern int pax_segvguard_suspension;
 extern int pax_segvguard_maxcrashes;
-#endif /* PAX_SEGVGUARD */
+
+#endif					/* PAX_SEGVGUARD */
 
 SYSCTL_NODE(_security, OID_AUTO, pax, CTLFLAG_RD, 0,
     "PaX (exploit mitigation) features.");
@@ -95,7 +98,6 @@ pax_get_prison(struct thread *td, struct proc *proc)
 
 		return NULL;
 	}
-
 	if (proc == NULL)
 		return NULL;
 
@@ -105,45 +107,58 @@ pax_get_prison(struct thread *td, struct proc *proc)
 void
 pax_elf(struct image_params *imgp)
 {
-#if 0
-	int idx, set=0;
+	int idx, set = 0;
 	struct note_pax *notes;
 	const Elf_Shdr *shdr;
 	const Elf_Ehdr *hdr;
 	struct prison *pr;
+    u_int defaultflags=0;
+
+    if (imgp == NULL || imgp->proc == NULL)
+        return;
 
 	pr = pax_get_prison(NULL, imgp->proc);
 	if (pr != NULL) {
-		if (!(pr->pr_pax_aslr_status))
-			return;
+#if defined(PAX_ASLR)
+        if (pr->pr_pax_aslr_status)
+            defaultflags |= ELF_NOTE_PAX_ASLR;
+#endif
+#if defined(PAX_SEGVGUARD)
+        if (pr->pr_pax_segvguard_status)
+            defaultflags |= ELF_NOTE_PAX_GUARD;
+#endif
 	} else {
-		if (!pax_aslr_status)
-			return;
+#if defined(PAX_ASLR)
+        if (pax_aslr_status)
+            defaultflags |= ELF_NOTE_PAX_ASLR;
+#endif
+#if defined(PAX_SEGVGUARD)
+        if (pax_segvguard_status)
+            defaultflags |= ELF_NOTE_PAX_GUARD;
+#endif
 	}
 
-	hdr = (Elf_Ehdr *)(imgp->image_header);
-	shdr = (Elf_Shdr *)(imgp->image_header + hdr->e_shoff);
+	hdr = (Elf_Ehdr *) (imgp->image_header);
+	shdr = (Elf_Shdr *) (imgp->image_header + hdr->e_shoff);
 	for (idx = 0; idx < hdr->e_shnum; idx++) {
-		if (shdr[idx].sh_type == SHT_NOTE && shdr[idx].sh_size == 20) {
+		if (shdr[idx].sh_type == SHT_NOTE && shdr[idx].sh_size == sizeof(struct note_pax)) {
 			notes = (struct note_pax *)(imgp->image_header + shdr[idx].sh_offset);
 			if (notes->pax_tag == ELF_NOTE_TYPE_PAX_TAG) {
 				imgp->pax_flags = notes->flags;
 				PROC_LOCK(imgp->proc);
 				imgp->proc->p_pax = notes->flags;
-                imgp->proc->p_haspax = 1;
 				PROC_UNLOCK(imgp->proc);
-                set=1;
+				set = 1;
 			}
 		}
 	}
 
 	if (!set) {
+        imgp->pax_flags = defaultflags;
 		PROC_LOCK(imgp->proc);
-		imgp->proc->p_pax = 0;
-		imgp->proc->p_haspax = 0;
+		imgp->proc->p_pax = defaultflags;
 		PROC_UNLOCK(imgp->proc);
 	}
-#endif
 }
 
 void
@@ -157,7 +172,7 @@ pax_init_prison(struct prison *pr)
 
 	if (pax_aslr_debug)
 		uprintf("[PaX ASLR/SEGVGUARD] %s: Setting prison %s ASLR variables\n",
-				__func__, pr->pr_name);
+		    __func__, pr->pr_name);
 
 #ifdef PAX_ASLR
 	pr->pr_pax_aslr_status = pax_aslr_status;
@@ -184,4 +199,3 @@ pax_init_prison(struct prison *pr)
 
 	pr->pr_pax_set = 1;
 }
-
