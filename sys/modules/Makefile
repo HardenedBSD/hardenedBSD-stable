@@ -234,6 +234,7 @@ SUBDIR=	\
 	${_ncp} \
 	${_ncv} \
 	${_ndis} \
+	netfpga10g \
 	${_netgraph} \
 	${_nfe} \
 	nfs_common \
@@ -560,7 +561,9 @@ _acpi=		acpi
 .if ${MK_CRYPT} != "no" || defined(ALL_MODULES)
 _aesni=		aesni
 .endif
+.if ${MK_EISA} != "no"
 _ahb=		ahb
+.endif
 _amdsbwd=	amdsbwd
 _amdtemp=	amdtemp
 _arcmsr=	arcmsr
