@@ -410,7 +410,7 @@ int
 pax_segvguard(struct thread *td, struct vnode *v, char *name, bool crashed)
 {
 	struct pax_segvguard_uid_entry *up;
-	struct pax_segvguard_vnodes *vn, *vn_saved;
+	struct pax_segvguard_vnodes *vn, *vn_saved=NULL;
 	struct timeval tv;
 	struct stat sb;
 	char *mntpoint;
@@ -508,7 +508,8 @@ pax_segvguard(struct thread *td, struct vnode *v, char *name, bool crashed)
 			vn = pax_segvguard_add_file(vp, &sb);
 			pax_segvguard_add_uid(td, vn, &tv);
 		} else if (!uid_found) {
-			pax_segvguard_add_uid(td, vn_saved, &tv);
+            if (vn_saved)
+                pax_segvguard_add_uid(td, vn_saved, &tv);
 		}
 	}
 

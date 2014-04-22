@@ -63,20 +63,6 @@ __FBSDID("$FreeBSD$");
 
 #include <sys/pax.h>
 
-#ifdef PAX_ASLR
-extern int pax_aslr_mmap_len;
-extern int pax_aslr_stack_len;
-extern int pax_aslr_exec_len;
-extern int pax_aslr_status;
-
-#ifdef COMPAT_FREEBSD32
-extern int pax_aslr_compat_mmap_len;
-extern int pax_aslr_compat_stack_len;
-extern int pax_aslr_compat_exec_len;
-
-#endif
-#endif					/* PAX_ASLR */
-
 #ifdef PAX_SEGVGUARD
 extern int pax_segvguard_status;
 extern int pax_segvguard_debug;
@@ -108,7 +94,7 @@ void
 pax_elf(struct image_params *imgp)
 {
 	int idx, set = 0;
-	struct note_pax *notes;
+	const struct note_pax *notes;
 	const Elf_Shdr *shdr;
 	const Elf_Ehdr *hdr;
 	struct prison *pr;
@@ -138,11 +124,11 @@ pax_elf(struct image_params *imgp)
 #endif
 	}
 
-	hdr = (Elf_Ehdr *) (imgp->image_header);
-	shdr = (Elf_Shdr *) (imgp->image_header + hdr->e_shoff);
+	hdr = (const Elf_Ehdr *) (imgp->image_header);
+	shdr = (const Elf_Shdr *) (imgp->image_header + hdr->e_shoff);
 	for (idx = 0; idx < hdr->e_shnum; idx++) {
 		if (shdr[idx].sh_type == SHT_NOTE && shdr[idx].sh_size == sizeof(struct note_pax)) {
-			notes = (struct note_pax *)(imgp->image_header + shdr[idx].sh_offset);
+			notes = (const struct note_pax *)(imgp->image_header + shdr[idx].sh_offset);
 			if (notes->pax_tag == ELF_NOTE_TYPE_PAX_TAG) {
 				imgp->pax_flags = notes->flags;
 				PROC_LOCK(imgp->proc);
