@@ -611,7 +611,7 @@ pax_aslr_stack(struct thread *td, uintptr_t *addr, uintptr_t orig_addr)
 		return;
 
 	*addr -= td->td_proc->p_vmspace->vm_aslr_delta_stack;
-	if ((pr != NULL) && pr->pr_pax_aslr_debug)
+	if (pax_aslr_debug)
 		uprintf("[PaX ASLR] %s: orig_addr=%p, new_addr=%p\n",
 				__func__, (void *)orig_addr, (void *)*addr);
 }
