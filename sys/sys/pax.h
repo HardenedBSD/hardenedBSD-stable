@@ -157,12 +157,12 @@ extern int pax_aslr_debug;
 extern int pax_aslr_mmap_len;
 extern int pax_aslr_stack_len;
 extern int pax_aslr_exec_len;
-#ifdef FREEBSD_COMPAT32
+#ifdef COMPAT_FREEBSD32
 extern int pax_aslr_compat_status;
 extern int pax_aslr_compat_mmap_len;
 extern int pax_aslr_compat_stack_len;
 extern int pax_aslr_compat_exec_len;
-#endif /* FREEBSD_COMPAT32 */
+#endif /* COMPAT_FREEBSD32 */
 #endif /* PAX_ASLR */
 
 #define ELF_NOTE_TYPE_PAX_TAG   3

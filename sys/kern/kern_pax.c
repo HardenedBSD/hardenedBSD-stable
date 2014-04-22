@@ -97,53 +97,40 @@ pax_elf(struct image_params *imgp)
 	const struct note_pax *notes;
 	const Elf_Shdr *shdr;
 	const Elf_Ehdr *hdr;
-	struct prison *pr;
-    u_int defaultflags=0;
 
-    if (imgp == NULL || imgp->proc == NULL)
-        return;
-
-	pr = pax_get_prison(NULL, imgp->proc);
-	if (pr != NULL) {
-#if defined(PAX_ASLR)
-        if (pr->pr_pax_aslr_status)
-            defaultflags |= ELF_NOTE_PAX_ASLR;
-#endif
-#if defined(PAX_SEGVGUARD)
-        if (pr->pr_pax_segvguard_status)
-            defaultflags |= ELF_NOTE_PAX_GUARD;
-#endif
-	} else {
-#if defined(PAX_ASLR)
-        if (pax_aslr_status)
-            defaultflags |= ELF_NOTE_PAX_ASLR;
-#endif
-#if defined(PAX_SEGVGUARD)
-        if (pax_segvguard_status)
-            defaultflags |= ELF_NOTE_PAX_GUARD;
-#endif
-	}
+    if (imgp == NULL || imgp->image_header == NULL)
+        goto end;
 
 	hdr = (const Elf_Ehdr *) (imgp->image_header);
+    if (hdr->e_shoff == 0 || hdr->e_shnum == 0)
+        goto end;
+
 	shdr = (const Elf_Shdr *) (imgp->image_header + hdr->e_shoff);
 	for (idx = 0; idx < hdr->e_shnum; idx++) {
 		if (shdr[idx].sh_type == SHT_NOTE && shdr[idx].sh_size == sizeof(struct note_pax)) {
 			notes = (const struct note_pax *)(imgp->image_header + shdr[idx].sh_offset);
 			if (notes->pax_tag == ELF_NOTE_TYPE_PAX_TAG) {
 				imgp->pax_flags = notes->flags;
-				PROC_LOCK(imgp->proc);
-				imgp->proc->p_pax = notes->flags;
-				PROC_UNLOCK(imgp->proc);
+                if (imgp->proc != NULL) {
+                    PROC_LOCK(imgp->proc);
+                    imgp->proc->p_pax = notes->flags;
+                    PROC_UNLOCK(imgp->proc);
+                }
 				set = 1;
 			}
 		}
 	}
 
+end:
 	if (!set) {
-        imgp->pax_flags = defaultflags;
-		PROC_LOCK(imgp->proc);
-		imgp->proc->p_pax = defaultflags;
-		PROC_UNLOCK(imgp->proc);
+        if (imgp != NULL) {
+            imgp->pax_flags = 0;
+            if (imgp->proc != NULL) {
+                PROC_LOCK(imgp->proc);
+                imgp->proc->p_pax = 0;
+                PROC_UNLOCK(imgp->proc);
+            }
+        }
 	}
 }
 
