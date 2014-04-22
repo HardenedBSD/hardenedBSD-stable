@@ -484,7 +484,7 @@ pax_aslr_active(struct thread *td, struct proc *proc)
 		return (true);
 	case    PAX_ASLR_ENABLED:
 		if (flags && (flags & ELF_NOTE_PAX_ASLR) == 0) {
-			if (pax_aslr_debug)
+			if ((pr != NULL) && pr->pr_pax_aslr_debug)
 				uprintf("[PaX ASLR] %s: PAX is enabled, but executable does not have pax enabled\n",
 						__func__);
 			return (false);
@@ -492,7 +492,7 @@ pax_aslr_active(struct thread *td, struct proc *proc)
 		break;
 	case    PAX_ASLR_GLOBAL_ENABLED:
 		if (flags && (flags & ELF_NOTE_PAX_NOASLR) != 0) {
-			if (pax_aslr_debug)
+			if ((pr != NULL) && pr->pr_pax_aslr_debug)
 				uprintf("[PaX ASLR] %s: PAX global is eanbled, but executable explicitly disabled pax\n",
 						__func__);
 			return (false);
@@ -519,7 +519,7 @@ _pax_aslr_init(struct vmspace *vm, struct prison *pr)
 	vm->vm_aslr_delta_exec = PAX_ASLR_DELTA(arc4random(),
 			PAX_ASLR_DELTA_EXEC_LSB, (pr != NULL) ? pr->pr_pax_aslr_exec_len : pax_aslr_exec_len);
 
-	if (pax_aslr_debug) {
+	if ((pr != NULL) && pr->pr_pax_aslr_debug) {
 		uprintf("[PaX ASLR] %s: vm_aslr_delta_mmap=%p\n", __func__, (void *) vm->vm_aslr_delta_mmap);
 		uprintf("[PaX ASLR] %s: vm_aslr_delta_stack=%p\n", __func__, (void *) vm->vm_aslr_delta_stack);
 		uprintf("[PaX ASLR] %s: vm_aslr_delta_exec=%p\n", __func__, (void *) vm->vm_aslr_delta_stack);
@@ -541,7 +541,7 @@ _pax_aslr_init32(struct vmspace *vm, struct prison *pr)
 	vm->vm_aslr_delta_exec = PAX_ASLR_DELTA(arc4random(),
 			PAX_ASLR_DELTA_EXEC_LSB, (pr != NULL) ? pr->pr_pax_aslr_compat_exec_len : pax_aslr_compat_exec_len);
 
-	if (pax_aslr_debug) {
+	if ((pr != NULL) && pr->pr_pax_aslr_debug) {
 		uprintf("[PaX ASLR] %s: vm_aslr_delta_mmap=%p\n", __func__, (void *) vm->vm_aslr_delta_mmap);
 		uprintf("[PaX ASLR] %s: vm_aslr_delta_stack=%p\n", __func__, (void *) vm->vm_aslr_delta_stack);
 		uprintf("[PaX ASLR] %s: vm_aslr_delta_exec=%p\n", __func__, (void *) vm->vm_aslr_delta_stack);
@@ -585,16 +585,16 @@ pax_aslr_mmap(struct thread *td, vm_offset_t *addr, vm_offset_t orig_addr, int f
 		return;
 
 	if (!(flags & MAP_FIXED) && ((orig_addr == 0) || !(flags & MAP_ANON))) {
-		if (pax_aslr_debug)
+		if ((pr != NULL) && pr->pr_pax_aslr_debug)
 			uprintf("[PaX ASLR] %s: applying to %p orig_addr=%p flags=%x\n",
 					__func__, (void *)*addr, (void *)orig_addr, flags);
 		if (!(td->td_proc->p_vmspace->vm_map.flags & MAP_ENTRY_GROWS_DOWN))
 			*addr += td->td_proc->p_vmspace->vm_aslr_delta_mmap;
 		else
 			*addr -= td->td_proc->p_vmspace->vm_aslr_delta_mmap;
-		if (pax_aslr_debug)
+		if ((pr != NULL) && pr->pr_pax_aslr_debug)
 			uprintf("[PaX ASLR] %s: result %p\n", __func__, (void *)*addr);
-	} else if (pax_aslr_debug) {
+	} else if ((pr != NULL) && pr->pr_pax_aslr_debug) {
 		uprintf("[PaX ASLR] %s: not applying to %p orig_addr=%p flags=%x\n",
 				__func__, (void *)*addr, (void *)orig_addr, flags);
 	}
@@ -611,7 +611,7 @@ pax_aslr_stack(struct thread *td, uintptr_t *addr, uintptr_t orig_addr)
 		return;
 
 	*addr -= td->td_proc->p_vmspace->vm_aslr_delta_stack;
-	if (pax_aslr_debug)
+	if ((pr != NULL) && pr->pr_pax_aslr_debug)
 		uprintf("[PaX ASLR] %s: orig_addr=%p, new_addr=%p\n",
 				__func__, (void *)orig_addr, (void *)*addr);
 }
