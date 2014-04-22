@@ -103,7 +103,7 @@ SYSCTL_DECL(_security_pax);
 SYSCTL_NODE(_security_pax, OID_AUTO, segvguard, CTLFLAG_RD, 0, "PaX segvguard");
 
 SYSCTL_PROC(_security_pax_segvguard, OID_AUTO, status,
-    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON,
+    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_segvguard_status, "I",
     "Guard status. "
     "0 - disabled, "
@@ -113,25 +113,25 @@ SYSCTL_PROC(_security_pax_segvguard, OID_AUTO, status,
 TUNABLE_INT("security.pax.segvguard.status", &pax_segvguard_status);
 
 SYSCTL_PROC(_security_pax_segvguard, OID_AUTO, debug,
-    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON,
+    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_segvguard_debug, "I",
     "Debug mode.");
 TUNABLE_INT("security.pax.segvguard.debug", &pax_segvguard_debug);
 
 SYSCTL_PROC(_security_pax_segvguard, OID_AUTO, expiry_timeout,
-    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON,
+    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_segvguard_expiry, "I",
     "Entry expiry timeout (in seconds).");
 TUNABLE_INT("security.pax.segvguard.expiry_timeout", &pax_segvguard_expiry);
 
 SYSCTL_PROC(_security_pax_segvguard, OID_AUTO, suspend_timeout,
-    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON,
+    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_segvguard_suspension, "I",
     "Entry suspension timeout (int seconds).");
 TUNABLE_INT("security.pax.segvguard.suspend_timeout", &pax_segvguard_suspension);
 
 SYSCTL_PROC(_security_pax_segvguard, OID_AUTO, max_crashes,
-    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON,
+    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_segvguard_maxcrashes, "I",
     "Max number of crashes before expiry.");
 TUNABLE_INT("security.pax.segvguard.max_crashes", &pax_segvguard_maxcrashes);
