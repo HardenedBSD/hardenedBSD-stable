@@ -87,6 +87,7 @@ int pax_aslr_compat_exec_len = PAX_ASLR_COMPAT_DELTA_EXEC_MIN_LEN;
 /*
  * sysctls and tunables
  */
+static int sysctl_pax_aslr_debug(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_status(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_mmap(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_stack(SYSCTL_HANDLER_ARGS);
@@ -110,9 +111,10 @@ SYSCTL_PROC(_security_pax_aslr, OID_AUTO, status,
     "3 - force global enabled");
 TUNABLE_INT("security.pax.aslr.status", &pax_aslr_status);
 
-SYSCTL_INT(_security_pax_aslr, OID_AUTO, debug,
-    CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
-    &pax_aslr_debug, 0, "ASLR debug mode");
+SYSCTL_PROC(_security_pax_aslr, OID_AUTO, debug,
+    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
+    NULL, 0, sysctl_pax_aslr_debug, "I",
+    "ASLR debug mode");
 TUNABLE_INT("security.pax.aslr.debug", &pax_aslr_debug);
 
 SYSCTL_PROC(_security_pax_aslr, OID_AUTO, mmap_len,
@@ -166,6 +168,34 @@ sysctl_pax_aslr_status(SYSCTL_HANDLER_ARGS)
 	default:
 		return (EINVAL);
 	}
+
+	return (0);
+}
+
+static int
+sysctl_pax_aslr_debug(SYSCTL_HANDLER_ARGS)
+{
+	int err;
+	int val;
+	struct prison *pr=NULL;
+
+	pr = pax_get_prison(req->td, NULL);
+
+	if ((pr != NULL) && !(pr->pr_pax_set))
+		pax_init_prison(pr);
+
+	val = (pr != NULL) ? pr->pr_pax_aslr_debug : pax_aslr_debug;
+	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
+	if (err || !req->newptr)
+		return (err);
+
+	if (val != 0 || val != 1)
+		return (EINVAL);
+
+	if ((pr == NULL) || (pr == &prison0))
+		pax_aslr_debug = val;
+	if (pr != NULL)
+		pr->pr_pax_aslr_debug = val;
 
 	return (0);
 }
