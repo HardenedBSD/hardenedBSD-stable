@@ -93,10 +93,16 @@ pax_get_prison(struct thread *td, struct proc *proc)
 void
 pax_elf(struct image_params *imgp)
 {
-	int idx, set = 0;
+	int set = 0;
 	const struct note_pax *notes;
 	const Elf_Shdr *shdr;
 	const Elf_Ehdr *hdr;
+    unsigned long idx;
+
+#if __ELF_WORD_SIZE == 32
+    /* Setting PaX flags on a 32bit system isn't supported, yet */
+    goto end;
+#endif
 
     if (imgp == NULL || imgp->image_header == NULL)
         goto end;
@@ -117,6 +123,7 @@ pax_elf(struct image_params *imgp)
                     PROC_UNLOCK(imgp->proc);
                 }
 				set = 1;
+                break;
 			}
 		}
 	}
