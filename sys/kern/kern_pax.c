@@ -94,41 +94,13 @@ void
 pax_elf(struct image_params *imgp)
 {
 	int set = 0;
-	const struct note_pax *notes;
-	const Elf_Shdr *shdr;
-	const Elf_Ehdr *hdr;
-    unsigned long idx;
 
-#if __ELF_WORD_SIZE == 32
-    /* Setting PaX flags on a 32bit system isn't supported, yet */
-    goto end;
-#endif
+    /*
+     * At the point this function is called, the section headers aren't loaded.
+     *
+     * Keep this function around for now, for planned use later on.
+     */
 
-    if (imgp == NULL || imgp->image_header == NULL)
-        goto end;
-
-	hdr = (const Elf_Ehdr *) (imgp->image_header);
-    if (hdr->e_shoff == 0 || hdr->e_shnum == 0)
-        goto end;
-
-	shdr = (const Elf_Shdr *) (imgp->image_header + hdr->e_shoff);
-	for (idx = 0; idx < hdr->e_shnum; idx++) {
-		if (shdr[idx].sh_type == SHT_NOTE && shdr[idx].sh_size == sizeof(struct note_pax)) {
-			notes = (const struct note_pax *)(imgp->image_header + shdr[idx].sh_offset);
-			if (notes->pax_tag == ELF_NOTE_TYPE_PAX_TAG) {
-				imgp->pax_flags = notes->flags;
-                if (imgp->proc != NULL) {
-                    PROC_LOCK(imgp->proc);
-                    imgp->proc->p_pax = notes->flags;
-                    PROC_UNLOCK(imgp->proc);
-                }
-				set = 1;
-                break;
-			}
-		}
-	}
-
-end:
 	if (!set) {
         if (imgp != NULL) {
             imgp->pax_flags = 0;
