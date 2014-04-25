@@ -51,6 +51,9 @@
 #define	MBI_ADMIN	010000
 #define	MBI_STAT	020000
 #define	MBI_APPEND	040000
+#define MBI_FORCE_ASLR_ENABLED  0x1
+#define MBI_FORCE_ASLR_DISABLED 0x2
+#define MBI_ALLPAX (MBI_FORCE_ASLR_ENABLED | MBI_FORCE_ASLR_DISABLED)
 #define	MBI_ALLPERM	(MBI_EXEC | MBI_WRITE | MBI_READ | MBI_ADMIN | \
 			    MBI_STAT | MBI_APPEND)
 
@@ -109,6 +112,7 @@ struct mac_bsdextended_rule {
 	struct mac_bsdextended_subject	mbr_subject;
 	struct mac_bsdextended_object	mbr_object;
 	mode_t				mbr_mode;	/* maximum access */
+    uint32_t                        mbr_pax;
 };
 
 #endif /* _SYS_SECURITY_MAC_BSDEXTENDED_H */

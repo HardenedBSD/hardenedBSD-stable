@@ -65,7 +65,7 @@ ugidfw_vnode_check_access(struct ucred *cred, struct vnode *vp,
     struct label *vplabel, accmode_t accmode)
 {
 
-	return (ugidfw_check_vp(cred, vp, ugidfw_accmode2mbi(accmode)));
+	return (ugidfw_check_vp(cred, vp, ugidfw_accmode2mbi(accmode), NULL));
 }
 
 int
@@ -73,7 +73,7 @@ ugidfw_vnode_check_chdir(struct ucred *cred, struct vnode *dvp,
     struct label *dvplabel)
 {
 
-	return (ugidfw_check_vp(cred, dvp, MBI_EXEC));
+	return (ugidfw_check_vp(cred, dvp, MBI_EXEC, NULL));
 }
 
 int
@@ -81,7 +81,7 @@ ugidfw_vnode_check_chroot(struct ucred *cred, struct vnode *dvp,
     struct label *dvplabel)
 {
 
-	return (ugidfw_check_vp(cred, dvp, MBI_EXEC));
+	return (ugidfw_check_vp(cred, dvp, MBI_EXEC, NULL));
 }
 
 int
@@ -89,7 +89,7 @@ ugidfw_check_create_vnode(struct ucred *cred, struct vnode *dvp,
     struct label *dvplabel, struct componentname *cnp, struct vattr *vap)
 {
 
-	return (ugidfw_check_vp(cred, dvp, MBI_WRITE));
+	return (ugidfw_check_vp(cred, dvp, MBI_WRITE, NULL));
 }
 
 int
@@ -97,7 +97,7 @@ ugidfw_vnode_check_deleteacl(struct ucred *cred, struct vnode *vp,
     struct label *vplabel, acl_type_t type)
 {
 
-	return (ugidfw_check_vp(cred, vp, MBI_ADMIN));
+	return (ugidfw_check_vp(cred, vp, MBI_ADMIN, NULL));
 }
 
 int
@@ -105,7 +105,7 @@ ugidfw_vnode_check_deleteextattr(struct ucred *cred, struct vnode *vp,
     struct label *vplabel, int attrnamespace, const char *name)
 {
 
-	return (ugidfw_check_vp(cred, vp, MBI_WRITE));
+	return (ugidfw_check_vp(cred, vp, MBI_WRITE, NULL));
 }
 
 int
@@ -114,7 +114,7 @@ ugidfw_vnode_check_exec(struct ucred *cred, struct vnode *vp,
     struct label *execlabel)
 {
 
-	return (ugidfw_check_vp(cred, vp, MBI_READ|MBI_EXEC));
+	return (ugidfw_check_vp(cred, vp, MBI_READ|MBI_EXEC, imgp));
 }
 
 int
@@ -122,7 +122,7 @@ ugidfw_vnode_check_getacl(struct ucred *cred, struct vnode *vp,
     struct label *vplabel, acl_type_t type)
 {
 
-	return (ugidfw_check_vp(cred, vp, MBI_STAT));
+	return (ugidfw_check_vp(cred, vp, MBI_STAT, NULL));
 }
 
 int
@@ -130,7 +130,7 @@ ugidfw_vnode_check_getextattr(struct ucred *cred, struct vnode *vp,
     struct label *vplabel, int attrnamespace, const char *name)
 {
 
-	return (ugidfw_check_vp(cred, vp, MBI_READ));
+	return (ugidfw_check_vp(cred, vp, MBI_READ, NULL));
 }
 
 int
@@ -140,10 +140,10 @@ ugidfw_vnode_check_link(struct ucred *cred, struct vnode *dvp,
 {
 	int error;
 
-	error = ugidfw_check_vp(cred, dvp, MBI_WRITE);
+	error = ugidfw_check_vp(cred, dvp, MBI_WRITE, NULL);
 	if (error)
 		return (error);
-	error = ugidfw_check_vp(cred, vp, MBI_WRITE);
+	error = ugidfw_check_vp(cred, vp, MBI_WRITE, NULL);
 	if (error)
 		return (error);
 	return (0);
@@ -154,7 +154,7 @@ ugidfw_vnode_check_listextattr(struct ucred *cred, struct vnode *vp,
     struct label *vplabel, int attrnamespace)
 {
 
-	return (ugidfw_check_vp(cred, vp, MBI_READ));
+	return (ugidfw_check_vp(cred, vp, MBI_READ, NULL));
 }
 
 int
@@ -162,7 +162,7 @@ ugidfw_vnode_check_lookup(struct ucred *cred, struct vnode *dvp,
     struct label *dvplabel, struct componentname *cnp)
 {
 
-	return (ugidfw_check_vp(cred, dvp, MBI_EXEC));
+	return (ugidfw_check_vp(cred, dvp, MBI_EXEC, NULL));
 }
 
 int
@@ -170,7 +170,7 @@ ugidfw_vnode_check_open(struct ucred *cred, struct vnode *vp,
     struct label *vplabel, accmode_t accmode)
 {
 
-	return (ugidfw_check_vp(cred, vp, ugidfw_accmode2mbi(accmode)));
+	return (ugidfw_check_vp(cred, vp, ugidfw_accmode2mbi(accmode), NULL));
 }
 
 int
@@ -178,7 +178,7 @@ ugidfw_vnode_check_readdir(struct ucred *cred, struct vnode *dvp,
     struct label *dvplabel)
 {
 
-	return (ugidfw_check_vp(cred, dvp, MBI_READ));
+	return (ugidfw_check_vp(cred, dvp, MBI_READ, NULL));
 }
 
 int
@@ -186,7 +186,7 @@ ugidfw_vnode_check_readdlink(struct ucred *cred, struct vnode *vp,
     struct label *vplabel)
 {
 
-	return (ugidfw_check_vp(cred, vp, MBI_READ));
+	return (ugidfw_check_vp(cred, vp, MBI_READ, NULL));
 }
 
 int
@@ -196,10 +196,10 @@ ugidfw_vnode_check_rename_from(struct ucred *cred, struct vnode *dvp,
 {
 	int error;
 
-	error = ugidfw_check_vp(cred, dvp, MBI_WRITE);
+	error = ugidfw_check_vp(cred, dvp, MBI_WRITE, NULL);
 	if (error)
 		return (error);
-	return (ugidfw_check_vp(cred, vp, MBI_WRITE));
+	return (ugidfw_check_vp(cred, vp, MBI_WRITE, NULL));
 }
 
 int
@@ -209,11 +209,11 @@ ugidfw_vnode_check_rename_to(struct ucred *cred, struct vnode *dvp,
 {
 	int error;
 
-	error = ugidfw_check_vp(cred, dvp, MBI_WRITE);
+	error = ugidfw_check_vp(cred, dvp, MBI_WRITE, NULL);
 	if (error)
 		return (error);
 	if (vp != NULL)
-		error = ugidfw_check_vp(cred, vp, MBI_WRITE);
+		error = ugidfw_check_vp(cred, vp, MBI_WRITE, NULL);
 	return (error);
 }
 
@@ -222,7 +222,7 @@ ugidfw_vnode_check_revoke(struct ucred *cred, struct vnode *vp,
     struct label *vplabel)
 {
 
-	return (ugidfw_check_vp(cred, vp, MBI_ADMIN));
+	return (ugidfw_check_vp(cred, vp, MBI_ADMIN, NULL));
 }
 
 int
@@ -230,7 +230,7 @@ ugidfw_check_setacl_vnode(struct ucred *cred, struct vnode *vp,
     struct label *vplabel, acl_type_t type, struct acl *acl)
 {
 
-	return (ugidfw_check_vp(cred, vp, MBI_ADMIN));
+	return (ugidfw_check_vp(cred, vp, MBI_ADMIN, NULL));
 }
 
 int
@@ -238,7 +238,7 @@ ugidfw_vnode_check_setextattr(struct ucred *cred, struct vnode *vp,
     struct label *vplabel, int attrnamespace, const char *name)
 {
 
-	return (ugidfw_check_vp(cred, vp, MBI_WRITE));
+	return (ugidfw_check_vp(cred, vp, MBI_WRITE, NULL));
 }
 
 int
@@ -246,7 +246,7 @@ ugidfw_vnode_check_setflags(struct ucred *cred, struct vnode *vp,
     struct label *vplabel, u_long flags)
 {
 
-	return (ugidfw_check_vp(cred, vp, MBI_ADMIN));
+	return (ugidfw_check_vp(cred, vp, MBI_ADMIN, NULL));
 }
 
 int
@@ -254,7 +254,7 @@ ugidfw_vnode_check_setmode(struct ucred *cred, struct vnode *vp,
     struct label *vplabel, mode_t mode)
 {
 
-	return (ugidfw_check_vp(cred, vp, MBI_ADMIN));
+	return (ugidfw_check_vp(cred, vp, MBI_ADMIN, NULL));
 }
 
 int
@@ -262,7 +262,7 @@ ugidfw_vnode_check_setowner(struct ucred *cred, struct vnode *vp,
     struct label *vplabel, uid_t uid, gid_t gid)
 {
 
-	return (ugidfw_check_vp(cred, vp, MBI_ADMIN));
+	return (ugidfw_check_vp(cred, vp, MBI_ADMIN, NULL));
 }
 
 int
@@ -270,7 +270,7 @@ ugidfw_vnode_check_setutimes(struct ucred *cred, struct vnode *vp,
     struct label *vplabel, struct timespec atime, struct timespec utime)
 {
 
-	return (ugidfw_check_vp(cred, vp, MBI_ADMIN));
+	return (ugidfw_check_vp(cred, vp, MBI_ADMIN, NULL));
 }
 
 int
@@ -278,7 +278,7 @@ ugidfw_vnode_check_stat(struct ucred *active_cred,
     struct ucred *file_cred, struct vnode *vp, struct label *vplabel)
 {
 
-	return (ugidfw_check_vp(active_cred, vp, MBI_STAT));
+	return (ugidfw_check_vp(active_cred, vp, MBI_STAT, NULL));
 }
 
 int
@@ -288,8 +288,8 @@ ugidfw_vnode_check_unlink(struct ucred *cred, struct vnode *dvp,
 {
 	int error;
 
-	error = ugidfw_check_vp(cred, dvp, MBI_WRITE);
+	error = ugidfw_check_vp(cred, dvp, MBI_WRITE, NULL);
 	if (error)
 		return (error);
-	return (ugidfw_check_vp(cred, vp, MBI_WRITE));
+	return (ugidfw_check_vp(cred, vp, MBI_WRITE, NULL));
 }

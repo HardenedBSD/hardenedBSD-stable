@@ -822,7 +822,7 @@ __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp)
 	imgp->proc->p_sysent = sv;
 
 #if defined(PAX_MPROTECT) || defined(PAX_SEGVGUARD) || defined(PAX_ASLR)
-	pax_elf(imgp);
+	pax_elf(imgp, 0);
 #endif
 
 	if (hdr->e_type == ET_DYN) {

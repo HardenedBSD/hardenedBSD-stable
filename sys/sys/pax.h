@@ -195,7 +195,7 @@ void pax_aslr_mmap(struct thread *td, vm_offset_t *addr,
 			vm_offset_t orig_addr, int flags);
 void pax_aslr_stack(struct thread *td, uintptr_t *addr, uintptr_t orig_addr);
 struct prison *pax_get_prison(struct thread *td, struct proc *proc);
-void pax_elf(struct image_params *);
+void pax_elf(struct image_params *, uint32_t);
 int pax_segvguard(struct thread *, struct vnode *, char *, bool);
 
 #endif /* __SYS_PAX_H */

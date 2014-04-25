@@ -63,6 +63,8 @@ __FBSDID("$FreeBSD$");
 
 #include <sys/pax.h>
 
+#include <security/mac_bsdextended/mac_bsdextended.h>
+
 #ifdef PAX_SEGVGUARD
 extern int pax_segvguard_status;
 extern int pax_segvguard_debug;
@@ -91,26 +93,32 @@ pax_get_prison(struct thread *td, struct proc *proc)
 }
 
 void
-pax_elf(struct image_params *imgp)
+pax_elf(struct image_params *imgp, uint32_t mode)
 {
-	int set = 0;
-
+    u_int flags = 0;
     /*
      * At the point this function is called, the section headers aren't loaded.
      *
      * Keep this function around for now, for planned use later on.
      */
 
-	if (!set) {
-        if (imgp != NULL) {
-            imgp->pax_flags = 0;
-            if (imgp->proc != NULL) {
-                PROC_LOCK(imgp->proc);
-                imgp->proc->p_pax = 0;
-                PROC_UNLOCK(imgp->proc);
-            }
+    if ((mode & MBI_ALLPAX) == MBI_ALLPAX)
+        goto end;
+
+    if (mode & MBI_FORCE_ASLR_ENABLED)
+        flags |= ELF_NOTE_PAX_ASLR;
+    else if (mode & MBI_FORCE_ASLR_DISABLED)
+        flags |= ELF_NOTE_PAX_NOASLR;
+
+end:
+    if (imgp != NULL) {
+        imgp->pax_flags = flags;
+        if (imgp->proc != NULL) {
+            PROC_LOCK(imgp->proc);
+            imgp->proc->p_pax = flags;
+            PROC_UNLOCK(imgp->proc);
         }
-	}
+    }
 }
 
 void

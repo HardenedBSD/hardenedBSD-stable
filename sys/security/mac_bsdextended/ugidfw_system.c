@@ -66,7 +66,7 @@ ugidfw_system_check_acct(struct ucred *cred, struct vnode *vp,
 {
 
 	if (vp != NULL)
-		return (ugidfw_check_vp(cred, vp, MBI_WRITE));
+		return (ugidfw_check_vp(cred, vp, MBI_WRITE, NULL));
 	else
 		return (0);
 }
@@ -77,7 +77,7 @@ ugidfw_system_check_auditctl(struct ucred *cred, struct vnode *vp,
 {
 
 	if (vp != NULL)
-		return (ugidfw_check_vp(cred, vp, MBI_WRITE));
+		return (ugidfw_check_vp(cred, vp, MBI_WRITE, NULL));
 	else
 		return (0);
 }
@@ -87,5 +87,5 @@ ugidfw_system_check_swapon(struct ucred *cred, struct vnode *vp,
     struct label *vplabel)
 {
 
-	return (ugidfw_check_vp(cred, vp, MBI_WRITE));
+	return (ugidfw_check_vp(cred, vp, MBI_WRITE, NULL));
 }

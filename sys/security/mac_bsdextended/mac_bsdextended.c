@@ -47,6 +47,8 @@
  * firewall-like rules regarding users and file system objects.
  */
 
+#include "opt_pax.h"
+
 #include <sys/param.h>
 #include <sys/acl.h>
 #include <sys/kernel.h>
@@ -63,6 +65,10 @@
 #include <sys/sysctl.h>
 #include <sys/syslog.h>
 #include <sys/stat.h>
+
+#ifdef PAX_ASLR
+#include <sys/pax.h>
+#endif
 
 #include <security/mac/mac_policy.h>
 #include <security/mac_bsdextended/mac_bsdextended.h>
@@ -117,20 +123,37 @@ SYSCTL_INT(_security_mac_bsdextended, OID_AUTO, firstmatch_enabled,
 static int
 ugidfw_rule_valid(struct mac_bsdextended_rule *rule)
 {
-
-	if ((rule->mbr_subject.mbs_flags | MBS_ALL_FLAGS) != MBS_ALL_FLAGS)
+	if ((rule->mbr_subject.mbs_flags | MBS_ALL_FLAGS) != MBS_ALL_FLAGS) {
+        uprintf("Encountered an illegal value with the subject flags\n");
 		return (EINVAL);
-	if ((rule->mbr_subject.mbs_neg | MBS_ALL_FLAGS) != MBS_ALL_FLAGS)
+    }
+	if ((rule->mbr_subject.mbs_neg | MBS_ALL_FLAGS) != MBS_ALL_FLAGS) {
+        uprintf("Encountered an illegal value with the subject neg\n");
 		return (EINVAL);
-	if ((rule->mbr_object.mbo_flags | MBO_ALL_FLAGS) != MBO_ALL_FLAGS)
+    }
+	if ((rule->mbr_object.mbo_flags | MBO_ALL_FLAGS) != MBO_ALL_FLAGS) {
+        uprintf("Encontered an illegal value with the object flags\n");
 		return (EINVAL);
-	if ((rule->mbr_object.mbo_neg | MBO_ALL_FLAGS) != MBO_ALL_FLAGS)
+    }
+	if ((rule->mbr_object.mbo_neg | MBO_ALL_FLAGS) != MBO_ALL_FLAGS) {
+        uprintf("Encountered an illegal value with the object neg\n");
 		return (EINVAL);
+    }
 	if ((rule->mbr_object.mbo_neg | MBO_TYPE_DEFINED) &&
-	    (rule->mbr_object.mbo_type | MBO_ALL_TYPE) != MBO_ALL_TYPE)
+	    (rule->mbr_object.mbo_type | MBO_ALL_TYPE) != MBO_ALL_TYPE) {
+        uprintf("Encountered an illegal value with the type\n");
 		return (EINVAL);
-	if ((rule->mbr_mode | MBI_ALLPERM) != MBI_ALLPERM)
+    }
+#ifdef PAX_ASLR
+    if ((rule->mbr_pax | MBI_ALLPAX) != MBI_ALLPAX) {
+        uprintf("Encountered an illegal value with PaX mac settings\n");
+        return (EINVAL);
+    }
+#endif
+	if ((rule->mbr_mode | MBI_ALLPERM) != MBI_ALLPERM) {
+        uprintf("Encountered an illegal value with the mode perms\n");
 		return (EINVAL);
+    }
 	return (0);
 }
 
@@ -227,7 +250,7 @@ ugidfw_destroy(struct mac_policy_conf *mpc)
 
 static int
 ugidfw_rulecheck(struct mac_bsdextended_rule *rule,
-    struct ucred *cred, struct vnode *vp, struct vattr *vap, int acc_mode)
+    struct ucred *cred, struct vnode *vp, struct vattr *vap, int acc_mode, struct image_params *imgp)
 {
 	int mac_granted, match, priv_granted;
 	int i;
@@ -413,6 +436,11 @@ ugidfw_rulecheck(struct mac_bsdextended_rule *rule,
 		return (EACCES);
 	}
 
+#ifdef PAX_ASLR
+    if (imgp != NULL)
+        pax_elf(imgp, rule->mbr_pax);
+#endif
+
 	/*
 	 * If the rule matched, permits access, and first match is enabled,
 	 * return success.
@@ -425,7 +453,7 @@ ugidfw_rulecheck(struct mac_bsdextended_rule *rule,
 
 int
 ugidfw_check(struct ucred *cred, struct vnode *vp, struct vattr *vap,
-    int acc_mode)
+    int acc_mode, struct image_params *imgp)
 {
 	int error, i;
 
@@ -441,7 +469,7 @@ ugidfw_check(struct ucred *cred, struct vnode *vp, struct vattr *vap,
 		if (rules[i] == NULL)
 			continue;
 		error = ugidfw_rulecheck(rules[i], cred,
-		    vp, vap, acc_mode);
+		    vp, vap, acc_mode, imgp);
 		if (error == EJUSTRETURN)
 			break;
 		if (error) {
@@ -454,7 +482,7 @@ ugidfw_check(struct ucred *cred, struct vnode *vp, struct vattr *vap,
 }
 
 int
-ugidfw_check_vp(struct ucred *cred, struct vnode *vp, int acc_mode)
+ugidfw_check_vp(struct ucred *cred, struct vnode *vp, int acc_mode, struct image_params *imgp)
 {
 	int error;
 	struct vattr vap;
@@ -464,7 +492,7 @@ ugidfw_check_vp(struct ucred *cred, struct vnode *vp, int acc_mode)
 	error = VOP_GETATTR(vp, &vap, cred);
 	if (error)
 		return (error);
-	return (ugidfw_check(cred, vp, &vap, acc_mode));
+	return (ugidfw_check(cred, vp, &vap, acc_mode, imgp));
 }
 
 int

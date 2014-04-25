@@ -483,6 +483,22 @@ bsde_rule_to_string(struct mac_bsdextended_rule *rule, char *buf, size_t buflen)
 		left -= len;
 		cur += len;
 	}
+	if (rule->mbr_pax & MBI_FORCE_ASLR_ENABLED) {
+		len = snprintf(cur, left, "L");
+		if (len < 0 || len > left)
+			goto truncated;
+
+		left -= len;
+		cur += len;
+	}
+	if (rule->mbr_pax & MBI_FORCE_ASLR_DISABLED) {
+		len = snprintf(cur, left, "l");
+		if (len < 0 || len > left)
+			goto truncated;
+
+		left -= len;
+		cur += len;
+	}
 	if (!anymode) {
 		len = snprintf(cur, left, "n");
 		if (len < 0 || len > left)
@@ -943,7 +959,7 @@ bsde_parse_object(int argc, char *argv[],
 }
 
 int
-bsde_parse_mode(int argc, char *argv[], mode_t *mode, size_t buflen,
+bsde_parse_mode(int argc, char *argv[], mode_t *mode, uint32_t *pax, size_t buflen,
     char *errstr)
 {
 	size_t len;
@@ -977,6 +993,12 @@ bsde_parse_mode(int argc, char *argv[], mode_t *mode, size_t buflen,
 		case 'x':
 			*mode |= MBI_EXEC;
 			break;
+        case 'L':
+            *pax |= MBI_FORCE_ASLR_ENABLED;
+            break;
+        case 'l':
+            *pax |= MBI_FORCE_ASLR_DISABLED;
+            break;
 		case 'n':
 			/* ignore */
 			break;
@@ -1054,7 +1076,7 @@ bsde_parse_rule(int argc, char *argv[], struct mac_bsdextended_rule *rule,
 		return (-1);
 
 	error = bsde_parse_mode(mode_elements_length, argv + mode_elements,
-	    &rule->mbr_mode, buflen, errstr);
+	    &rule->mbr_mode, &rule->mbr_pax, buflen, errstr);
 	if (error)
 		return (-1);
 
