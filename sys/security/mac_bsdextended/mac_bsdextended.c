@@ -123,37 +123,24 @@ SYSCTL_INT(_security_mac_bsdextended, OID_AUTO, firstmatch_enabled,
 static int
 ugidfw_rule_valid(struct mac_bsdextended_rule *rule)
 {
-	if ((rule->mbr_subject.mbs_flags | MBS_ALL_FLAGS) != MBS_ALL_FLAGS) {
-        uprintf("Encountered an illegal value with the subject flags\n");
+	if ((rule->mbr_subject.mbs_flags | MBS_ALL_FLAGS) != MBS_ALL_FLAGS)
 		return (EINVAL);
-    }
-	if ((rule->mbr_subject.mbs_neg | MBS_ALL_FLAGS) != MBS_ALL_FLAGS) {
-        uprintf("Encountered an illegal value with the subject neg\n");
+	if ((rule->mbr_subject.mbs_neg | MBS_ALL_FLAGS) != MBS_ALL_FLAGS)
 		return (EINVAL);
-    }
-	if ((rule->mbr_object.mbo_flags | MBO_ALL_FLAGS) != MBO_ALL_FLAGS) {
-        uprintf("Encontered an illegal value with the object flags\n");
+	if ((rule->mbr_object.mbo_flags | MBO_ALL_FLAGS) != MBO_ALL_FLAGS)
 		return (EINVAL);
-    }
-	if ((rule->mbr_object.mbo_neg | MBO_ALL_FLAGS) != MBO_ALL_FLAGS) {
-        uprintf("Encountered an illegal value with the object neg\n");
+	if ((rule->mbr_object.mbo_neg | MBO_ALL_FLAGS) != MBO_ALL_FLAGS)
 		return (EINVAL);
-    }
 	if ((rule->mbr_object.mbo_neg | MBO_TYPE_DEFINED) &&
-	    (rule->mbr_object.mbo_type | MBO_ALL_TYPE) != MBO_ALL_TYPE) {
-        uprintf("Encountered an illegal value with the type\n");
+	    (rule->mbr_object.mbo_type | MBO_ALL_TYPE) != MBO_ALL_TYPE)
 		return (EINVAL);
-    }
 #ifdef PAX_ASLR
-    if ((rule->mbr_pax | MBI_ALLPAX) != MBI_ALLPAX) {
-        uprintf("Encountered an illegal value with PaX mac settings\n");
+    if ((rule->mbr_pax | MBI_ALLPAX) != MBI_ALLPAX)
         return (EINVAL);
-    }
 #endif
-	if ((rule->mbr_mode | MBI_ALLPERM) != MBI_ALLPERM) {
-        uprintf("Encountered an illegal value with the mode perms\n");
+	if ((rule->mbr_mode | MBI_ALLPERM) != MBI_ALLPERM)
 		return (EINVAL);
-    }
+
 	return (0);
 }
 
