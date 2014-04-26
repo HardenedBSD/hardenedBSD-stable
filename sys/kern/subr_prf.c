@@ -983,7 +983,7 @@ msgbufinit(void *ptr, int size)
 	oldp = msgbufp;
 }
 
-static int unprivileged_read_msgbuf = 1;
+int unprivileged_read_msgbuf = 1;
 SYSCTL_INT(_security_bsd, OID_AUTO, unprivileged_read_msgbuf,
     CTLFLAG_RW, &unprivileged_read_msgbuf, 0,
     "Unprivileged processes may read the kernel message buffer");
