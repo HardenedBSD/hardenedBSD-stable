@@ -1032,9 +1032,9 @@ msgbufinit(void *ptr, int size)
 }
 
 #ifdef PAX_HARDENING
-static int unprivileged_read_msgbuf = 0;
+int unprivileged_read_msgbuf = 0;
 #else
-static int unprivileged_read_msgbuf = 1;
+int unprivileged_read_msgbuf = 1;
 #endif
 SYSCTL_INT(_security_bsd, OID_AUTO, unprivileged_read_msgbuf,
     CTLFLAG_RW, &unprivileged_read_msgbuf, 0,
