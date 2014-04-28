@@ -177,14 +177,6 @@ extern int pax_aslr_compat_exec_len;
 #define PAX_SEGVGUARD_SUSPENSION    (10 * 60)
 #define PAX_SEGVGUARD_MAXCRASHES    5
 
-struct note_pax {
-	int namesz;
-	int descsz;
-	int pax_tag;
-	char name[4];
-	int flags;
-};
-
 void pax_init(void);
 void pax_init_prison(struct prison *pr);
 bool pax_aslr_active(struct thread *td, struct proc *proc);
