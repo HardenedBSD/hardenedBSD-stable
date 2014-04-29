@@ -663,11 +663,6 @@ __elfN(load_file)(struct proc *p, const char *file, u_long *addr,
 		goto fail;
 	if (hdr->e_type == ET_DYN) {
 		rbase = *addr;
-#ifdef PAX_ASLR
-		if (pax_aslr_active(NULL, imgp->proc)) {
-			rbase += imgp->proc->p_vmspace->vm_aslr_delta_exec;
-		}
-#endif
 	} else if (hdr->e_type == ET_EXEC) {
 		rbase = 0;
 	} else {
