@@ -483,22 +483,6 @@ bsde_rule_to_string(struct mac_bsdextended_rule *rule, char *buf, size_t buflen)
 		left -= len;
 		cur += len;
 	}
-	if (rule->mbr_pax & MBI_FORCE_ASLR_ENABLED) {
-		len = snprintf(cur, left, "L");
-		if (len < 0 || len > left)
-			goto truncated;
-
-		left -= len;
-		cur += len;
-	}
-	if (rule->mbr_pax & MBI_FORCE_ASLR_DISABLED) {
-		len = snprintf(cur, left, "l");
-		if (len < 0 || len > left)
-			goto truncated;
-
-		left -= len;
-		cur += len;
-	}
 	if (!anymode) {
 		len = snprintf(cur, left, "n");
 		if (len < 0 || len > left)
@@ -515,6 +499,50 @@ bsde_rule_to_string(struct mac_bsdextended_rule *rule, char *buf, size_t buflen)
 		left -= len;
 		cur += len;
 	}
+
+    if (rule->mbr_pax) {
+        len = snprintf(cur, left, " paxflags ");
+        if (len < 0 || len > left)
+            goto truncated;
+        left -= len;
+        cur += len;
+
+        if (rule->mbr_pax & MBI_FORCE_ASLR_ENABLED) {
+            len = snprintf(cur, left, "A");
+            if (len < 0 || len > left)
+                goto truncated;
+
+            left -= len;
+            cur += len;
+        }
+
+        if (rule->mbr_pax & MBI_FORCE_ASLR_DISABLED) {
+            len = snprintf(cur, left, "a");
+            if (len < 0 || len > left)
+                goto truncated;
+
+            left -= len;
+            cur += len;
+        }
+
+        if (rule->mbr_pax & MBI_FORCE_SEGVGUARD_ENABLED) {
+            len = snprintf(cur, left, "S");
+            if (len < 0 || len > left)
+                goto truncated;
+
+            left -= len;
+            cur += len;
+        }
+
+        if (rule->mbr_pax & MBI_FORCE_SEGVGUARD_DISABLED) {
+            len = snprintf(cur, left, "s");
+            if (len < 0 || len > left)
+                goto truncated;
+
+            left -= len;
+            cur += len;
+        }
+    }
 
 	return (0);
 
@@ -959,7 +987,7 @@ bsde_parse_object(int argc, char *argv[],
 }
 
 int
-bsde_parse_mode(int argc, char *argv[], mode_t *mode, uint32_t *pax, size_t buflen,
+bsde_parse_mode(int argc, char *argv[], mode_t *mode, size_t buflen,
     char *errstr)
 {
 	size_t len;
@@ -993,15 +1021,51 @@ bsde_parse_mode(int argc, char *argv[], mode_t *mode, uint32_t *pax, size_t bufl
 		case 'x':
 			*mode |= MBI_EXEC;
 			break;
-        case 'L':
-            *pax |= MBI_FORCE_ASLR_ENABLED;
-            break;
-        case 'l':
-            *pax |= MBI_FORCE_ASLR_DISABLED;
-            break;
 		case 'n':
 			/* ignore */
 			break;
+		default:
+			len = snprintf(errstr, buflen, "Unknown mode letter: %c",
+			    argv[0][i]);
+			return (-1);
+		} 
+	}
+
+	return (0);
+}
+
+int
+bsde_parse_paxflags(int argc, char *argv[], uint32_t *pax, size_t buflen,
+    char *errstr)
+{
+	size_t len;
+	int i;
+
+	if (argc == 0) {
+		len = snprintf(errstr, buflen, "paxflags expects mode value");
+		return (-1);
+	}
+
+	if (argc != 1) {
+		len = snprintf(errstr, buflen, "'%s' unexpected", argv[1]);
+		return (-1);
+	}
+
+	*pax = 0;
+	for (i = 0; i < strlen(argv[0]); i++) {
+		switch (argv[0][i]) {
+        case 'A':
+            *pax |= MBI_FORCE_ASLR_ENABLED;
+            break;
+        case 'a':
+            *pax |= MBI_FORCE_ASLR_DISABLED;
+            break;
+        case 'S':
+            *pax |= MBI_FORCE_SEGVGUARD_ENABLED;
+            break;
+        case 's':
+            *pax |= MBI_FORCE_SEGVGUARD_DISABLED;
+            break;
 		default:
 			len = snprintf(errstr, buflen, "Unknown mode letter: %c",
 			    argv[0][i]);
@@ -1019,6 +1083,7 @@ bsde_parse_rule(int argc, char *argv[], struct mac_bsdextended_rule *rule,
 	int subject, subject_elements, subject_elements_length;
 	int object, object_elements, object_elements_length;
 	int mode, mode_elements, mode_elements_length;
+    int paxflags, paxflags_elements, paxflags_elements_length=0;
 	int error, i;
 	size_t len;
 
@@ -1059,11 +1124,22 @@ bsde_parse_rule(int argc, char *argv[], struct mac_bsdextended_rule *rule,
 		return (-1);
 	}
 
+    /* Search forward for paxflags */
+    paxflags = -1;
+    for (i = 1; i < argc; i++)
+        if (strcmp(argv[i], "paxflags") == 0)
+            paxflags = i;
+
+    if (paxflags >= 0) {
+        paxflags_elements = paxflags + 1;
+        paxflags_elements_length = argc - paxflags_elements;
+    }
+
 	subject_elements_length = object - subject - 1;
 	object_elements = object + 1;
 	object_elements_length = mode - object_elements;
 	mode_elements = mode + 1;
-	mode_elements_length = argc - mode_elements;
+	mode_elements_length = argc - mode_elements - (paxflags_elements_length ? paxflags_elements_length+1 : 0);
 
 	error = bsde_parse_subject(subject_elements_length,
 	    argv + subject_elements, &rule->mbr_subject, buflen, errstr);
@@ -1076,9 +1152,16 @@ bsde_parse_rule(int argc, char *argv[], struct mac_bsdextended_rule *rule,
 		return (-1);
 
 	error = bsde_parse_mode(mode_elements_length, argv + mode_elements,
-	    &rule->mbr_mode, &rule->mbr_pax, buflen, errstr);
+	    &rule->mbr_mode, buflen, errstr);
 	if (error)
 		return (-1);
+
+    if (paxflags >= 0) {
+        error = bsde_parse_paxflags(paxflags_elements_length, argv + paxflags_elements,
+            &rule->mbr_pax, buflen, errstr);
+        if (error)
+            return (-1);
+    }
 
 	return (0);
 }
