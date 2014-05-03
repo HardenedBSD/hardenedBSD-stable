@@ -840,15 +840,13 @@ bsde_parse_fsid(char *spec, struct fsid *fsid, ino_t *inode, size_t buflen, char
     if (strcmp(buf.f_fstypename, "devfs") != 0) {
         bufsz = sizeof(int);
         if (!sysctlbyname("security.pax.aslr.status", &paxstatus, &bufsz, NULL, 0)) {
-            if (paxstatus) {
-                fd = open(spec, O_RDONLY);
-                if (fd != -1) {
-                    if (fstat(fd, &sb) == 0)
-                        if(S_ISDIR(sb.st_mode) == 0)
-                            *inode = sb.st_ino;
+            fd = open(spec, O_RDONLY);
+            if (fd != -1) {
+                if (fstat(fd, &sb) == 0)
+                    if(S_ISDIR(sb.st_mode) == 0)
+                        *inode = sb.st_ino;
 
-                    close(fd);
-                }
+                close(fd);
             }
         }
     }
