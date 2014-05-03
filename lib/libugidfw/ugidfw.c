@@ -38,6 +38,7 @@
 #include <sys/mount.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/sysctl.h>
 
 #include <security/mac_bsdextended/mac_bsdextended.h>
 
@@ -333,14 +334,18 @@ bsde_rule_to_string(struct mac_bsdextended_rule *rule, char *buf, size_t buflen)
 			cur += len;
 		}
 		if (rule->mbr_object.mbo_flags & MBO_FSID_DEFINED) {
-			numfs = getmntinfo(&mntbuf, MNT_NOWAIT);
-			for (i = 0; i < numfs; i++)
-				if (memcmp(&(rule->mbr_object.mbo_fsid),
-				    &(mntbuf[i].f_fsid),
-				    sizeof(mntbuf[i].f_fsid)) == 0)
-					break;
-			len = snprintf(cur, left, "filesys %s ", 
-			    i == numfs ? "???" : mntbuf[i].f_mntonname);
+            if (rule->mbr_object.mbo_inode == 0) {
+                numfs = getmntinfo(&mntbuf, MNT_NOWAIT);
+                for (i = 0; i < numfs; i++)
+                    if (memcmp(&(rule->mbr_object.mbo_fsid),
+                        &(mntbuf[i].f_fsid),
+                        sizeof(mntbuf[i].f_fsid)) == 0)
+                        break;
+                len = snprintf(cur, left, "filesys %s ", 
+                    i == numfs ? "???" : mntbuf[i].f_mntonname);
+            } else {
+                len = snprintf(cur, left, "filesys %s ", rule->mbr_object.mbo_paxpath);
+            }
 			if (len < 0 || len > left)
 				goto truncated;
 			left -= len;
@@ -819,7 +824,8 @@ bsde_parse_fsid(char *spec, struct fsid *fsid, ino_t *inode, size_t buflen, char
 	size_t len;
 	struct statfs buf;
     struct stat sb;
-    int fd;
+    int fd, paxstatus;
+    size_t bufsz;
 
     *inode = 0;
 
@@ -832,13 +838,18 @@ bsde_parse_fsid(char *spec, struct fsid *fsid, ino_t *inode, size_t buflen, char
 	*fsid = buf.f_fsid;
 
     if (strcmp(buf.f_fstypename, "devfs") != 0) {
-        fd = open(spec, O_RDONLY);
-        if (fd != -1) {
-            if (fstat(fd, &sb) == 0)
-                if(S_ISDIR(sb.st_mode) == 0)
-                    *inode = sb.st_ino;
+        bufsz = sizeof(int);
+        if (!sysctlbyname("security.pax.aslr.status", &paxstatus, &bufsz, NULL, 0)) {
+            if (paxstatus) {
+                fd = open(spec, O_RDONLY);
+                if (fd != -1) {
+                    if (fstat(fd, &sb) == 0)
+                        if(S_ISDIR(sb.st_mode) == 0)
+                            *inode = sb.st_ino;
 
-            close(fd);
+                    close(fd);
+                }
+            }
         }
     }
 
@@ -922,6 +933,10 @@ bsde_parse_object(int argc, char *argv[],
 				neg ^= MBO_FSID_DEFINED;
 				nextnot = 0;
 			}
+            if (object->mbo_inode)
+                snprintf(object->mbo_paxpath, MAXPATHLEN, "%s", argv[current+1]);
+            else
+                memset(object->mbo_paxpath, 0x00, MAXPATHLEN);
 			current += 2;
 		} else if (strcmp(argv[current], "suid") == 0) {
 			flags |= MBO_SUID;

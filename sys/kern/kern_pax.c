@@ -55,6 +55,9 @@ __FBSDID("$FreeBSD$");
 #include <sys/exec.h>
 #include <sys/kthread.h>
 
+#include <sys/syslimits.h>
+#include <sys/param.h>
+
 #include <vm/pmap.h>
 #include <vm/vm_map.h>
 #include <vm/vm_extern.h>

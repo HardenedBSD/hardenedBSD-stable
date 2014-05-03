@@ -111,6 +111,7 @@ struct mac_bsdextended_object {
 	struct fsid mbo_fsid;
 	int	mbo_type;
     ino_t mbo_inode;
+    char mbo_paxpath[MAXPATHLEN];
 };
 
 struct mac_bsdextended_rule {
