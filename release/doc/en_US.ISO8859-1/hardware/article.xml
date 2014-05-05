@@ -29,6 +29,7 @@
       <year>2011</year>
       <year>2012</year>
       <year>2013</year>
+      <year>2014</year>
       <holder role="mailto:doc@FreeBSD.org">The &os; Documentation Project</holder>
     </copyright>
 
@@ -732,6 +733,8 @@
 
       &hwlist.mly;
 
+      &hwlist.mpr;
+
       &hwlist.mps;
 
       &hwlist.mpt;
@@ -1009,6 +1012,8 @@
 
       &hwlist.ral;
 
+      &hwlist.rsu;
+
       &hwlist.rum;
 
       &hwlist.run;
@@ -1020,6 +1025,8 @@
       &hwlist.ural;
 
       &hwlist.urtw;
+
+      &hwlist.urtwn;
 
       <para>[&arch.amd64;, &arch.i386;, &arch.pc98;] Lucent
 	Technologies WaveLAN/IEEE 802.11b wireless network adapters

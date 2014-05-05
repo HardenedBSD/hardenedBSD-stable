@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2009 "Bjoern A. Zeeb" <bz@FreeBSD.org>
+ * Copyright (c) 2009 Yahoo! Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -22,52 +22,32 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
+ * $FreeBSD$
  */
 
-/*
- * "lindev" is supposed to be a collection of linux-specific devices
- * that we also support, just not by default.
- * While currently there is only "/dev/full", we are planning to see
- * more in the future.
- * This file is only the container to load/unload all supported devices;
- * the implementation of each should go into its own file.
- */
+#ifndef _MPR_TABLE_H
+#define _MPR_TABLE_H
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
+struct mpr_table_lookup {
+	char	*string;
+	u_int	code;
+};
 
-#include <sys/param.h>
-#include <sys/conf.h>
-#include <sys/kernel.h>
-#include <sys/module.h>
+char * mpr_describe_table(struct mpr_table_lookup *table, u_int code);
+void mpr_describe_devinfo(uint32_t devinfo, char *string, int len);
 
-#include <dev/lindev/lindev.h>
+extern struct mpr_table_lookup mpr_event_names[];
+extern struct mpr_table_lookup mpr_phystatus_names[];
+extern struct mpr_table_lookup mpr_linkrate_names[];
 
-/* ARGSUSED */
-static int
-lindev_modevent(module_t mod, int type, void *data)
-{
-	int error;
-
-	switch(type) {
-	case MOD_LOAD:
-		error = lindev_modevent_full(mod, type, data);
-		break;
-
-	case MOD_UNLOAD:
-		error = lindev_modevent_full(mod, type, data);
-		break;
-
-	case MOD_SHUTDOWN:
-		error = lindev_modevent_full(mod, type, data);
-		break;
-
-	default:
-		return (EOPNOTSUPP);
-	}
-
-	return (error);
-}
-
-DEV_MODULE(lindev, lindev_modevent, NULL);
-MODULE_VERSION(lindev, 1);
+void mpr_print_iocfacts(struct mpr_softc *, MPI2_IOC_FACTS_REPLY *);
+void mpr_print_portfacts(struct mpr_softc *, MPI2_PORT_FACTS_REPLY *);
+void mpr_print_event(struct mpr_softc *, MPI2_EVENT_NOTIFICATION_REPLY *);
+void mpr_print_sasdev0(struct mpr_softc *, MPI2_CONFIG_PAGE_SAS_DEV_0 *);
+void mpr_print_evt_sas(struct mpr_softc *, MPI2_EVENT_NOTIFICATION_REPLY *);
+void mpr_print_expander1(struct mpr_softc *, MPI2_CONFIG_PAGE_EXPANDER_1 *);
+void mpr_print_sasphy0(struct mpr_softc *, MPI2_CONFIG_PAGE_SAS_PHY_0 *);
+void mpr_print_sgl(struct mpr_softc *, struct mpr_command *, int);
+void mpr_print_scsiio_cmd(struct mpr_softc *, struct mpr_command *);
+#endif
