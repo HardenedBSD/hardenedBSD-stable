@@ -334,18 +334,18 @@ bsde_rule_to_string(struct mac_bsdextended_rule *rule, char *buf, size_t buflen)
 			cur += len;
 		}
 		if (rule->mbr_object.mbo_flags & MBO_FSID_DEFINED) {
-            if (rule->mbr_object.mbo_inode == 0) {
-                numfs = getmntinfo(&mntbuf, MNT_NOWAIT);
-                for (i = 0; i < numfs; i++)
-                    if (memcmp(&(rule->mbr_object.mbo_fsid),
-                        &(mntbuf[i].f_fsid),
-                        sizeof(mntbuf[i].f_fsid)) == 0)
-                        break;
-                len = snprintf(cur, left, "filesys %s ", 
-                    i == numfs ? "???" : mntbuf[i].f_mntonname);
-            } else {
-                len = snprintf(cur, left, "filesys %s ", rule->mbr_object.mbo_paxpath);
-            }
+			if (rule->mbr_object.mbo_inode == 0) {
+				numfs = getmntinfo(&mntbuf, MNT_NOWAIT);
+				for (i = 0; i < numfs; i++)
+					if (memcmp(&(rule->mbr_object.mbo_fsid),
+								&(mntbuf[i].f_fsid),
+								sizeof(mntbuf[i].f_fsid)) == 0)
+						break;
+				len = snprintf(cur, left, "filesys %s ", 
+						i == numfs ? "???" : mntbuf[i].f_mntonname);
+			} else {
+				len = snprintf(cur, left, "filesys %s ", rule->mbr_object.mbo_paxpath);
+			}
 			if (len < 0 || len > left)
 				goto truncated;
 			left -= len;
@@ -931,10 +931,10 @@ bsde_parse_object(int argc, char *argv[],
 				neg ^= MBO_FSID_DEFINED;
 				nextnot = 0;
 			}
-            if (object->mbo_inode)
-                snprintf(object->mbo_paxpath, MAXPATHLEN, "%s", argv[current+1]);
-            else
-                memset(object->mbo_paxpath, 0x00, MAXPATHLEN);
+			if (object->mbo_inode)
+				snprintf(object->mbo_paxpath, MAXPATHLEN, "%s", argv[current+1]);
+			else
+				memset(object->mbo_paxpath, 0x00, MAXPATHLEN);
 			current += 2;
 		} else if (strcmp(argv[current], "suid") == 0) {
 			flags |= MBO_SUID;
