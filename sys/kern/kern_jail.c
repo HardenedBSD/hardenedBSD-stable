@@ -119,24 +119,33 @@ struct prison prison0 = {
 	.pr_flags	= PR_HOST|_PR_IP_SADDRSEL,
 #endif
 	.pr_allow	= PR_ALLOW_ALL,
-#ifdef PAX_ASLR
+#if defined(PAX_ASLR) || defined(PAX_SEGVGUARD)
 	.pr_pax_set		= 0,
-	.pr_pax_aslr_status	= 0,
+	.pr_pax_aslr_status	= PAX_ASLR_ENABLED,
 	.pr_pax_aslr_debug	= 0,
 	.pr_pax_aslr_mmap_len	= PAX_ASLR_DELTA_MMAP_MIN_LEN,
 	.pr_pax_aslr_stack_len	= PAX_ASLR_DELTA_STACK_MIN_LEN,
 	.pr_pax_aslr_exec_len	= PAX_ASLR_DELTA_EXEC_MIN_LEN,
-#ifdef COMPAT_FREEBSD32
-	.pr_pax_aslr_compat_status	= 0,
+	.pr_pax_aslr_compat_status	= PAX_ASLR_ENABLED,
 	.pr_pax_aslr_compat_mmap_len	= PAX_ASLR_COMPAT_DELTA_MMAP_MIN_LEN,
 	.pr_pax_aslr_compat_stack_len	= PAX_ASLR_COMPAT_DELTA_STACK_MIN_LEN,
 	.pr_pax_aslr_compat_exec_len	= PAX_ASLR_COMPAT_DELTA_EXEC_MIN_LEN,
-#endif
-#endif /* PAX_ASLR */
-#ifdef PAX_SEGVGUARD
-	/*
-	 * XXXOP
-	 */
+	.pr_pax_segvguard_status	= PAX_SEGVGUARD_ENABLED,
+	.pr_pax_segvguard_debug		= 0,
+	.pr_pax_segvguard_expiry	= PAX_SEGVGUARD_EXPIRY,
+	.pr_pax_segvguard_suspension	= PAX_SEGVGUARD_SUSPENSION,
+	.pr_pax_segvguard_maxcrashes	= PAX_SEGVGUARD_MAXCRASHES,
+#else
+	.pr_pax_set		= 0,
+	.pr_pax_aslr_status	= 0,
+	.pr_pax_aslr_debug	= 0,
+	.pr_pax_aslr_mmap_len	= 0,
+	.pr_pax_aslr_stack_len	= 0,
+	.pr_pax_aslr_exec_len	= 0,
+	.pr_pax_aslr_compat_status	= 0,
+	.pr_pax_aslr_compat_mmap_len	= 0,
+	.pr_pax_aslr_compat_stack_len	= 0,
+	.pr_pax_aslr_compat_exec_len	= 0,
 	.pr_pax_segvguard_status	= 0,
 	.pr_pax_segvguard_debug		= 0,
 	.pr_pax_segvguard_expiry	= 0,
