@@ -81,7 +81,7 @@ struct pax_segvguard_uid_entry {
 };
 
 struct pax_segvguard_vnodes {
-	uint32_t sv_inode;
+	ino_t sv_inode;
 	char sv_mntpoint[MNAMELEN];
 	LIST_ENTRY(pax_segvguard_vnodes) sv_list;
 	LIST_HEAD(, pax_segvguard_uid_entry) uid_list;
