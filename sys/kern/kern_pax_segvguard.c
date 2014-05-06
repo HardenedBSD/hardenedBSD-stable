@@ -66,7 +66,7 @@ __FBSDID("$FreeBSD$");
 
 #include <sys/pax.h>
 
-int pax_segvguard_status = 0;
+int pax_segvguard_status = PAX_SEGVGUARD_ENABLED;
 int pax_segvguard_debug = 0;
 int pax_segvguard_expiry = PAX_SEGVGUARD_EXPIRY;
 int pax_segvguard_suspension = PAX_SEGVGUARD_SUSPENSION;
@@ -311,83 +311,28 @@ pax_segvguard_active(struct thread *td, struct proc *proc)
 	return (true);
 }
 
-static void
-pax_segvguard_gc(void *args)
-{
-	struct pax_segvguard_vnodes *vn, *vn_saved;
-	struct pax_segvguard_uid_entry *up, *up_saved;
-	struct timeval tv;
-
-	up = NULL;
-	for (;;) {
-		microtime(&tv);
-		mtx_lock(&segvguard_mtx);
-
-		vn = LIST_FIRST(&vnode_list);
-		if (vn != NULL)
-			up = LIST_FIRST(&vn->uid_list);
-
-		up_saved = NULL;
-		vn_saved = NULL;
-
-		while (vn != NULL) {
-			while (up != NULL) {
-				if (up->sue_expiry < tv.tv_sec && !(up->sue_suspended)) {
-					up_saved = up;
-					LIST_REMOVE(up, sue_list);
-				}
-				up = LIST_NEXT(up, sue_list);
-				if (up_saved != NULL)
-					free(up_saved, M_PAX);
-			}
-
-			vn = LIST_NEXT(vn, sv_list);
-		}
-
-#if 0
-		if (!LIST_EMPTY(&vnode_list)) {
-			LIST_FOREACH(vn, &vnode_list, sv_list) {
-				LIST_FOREACH(up, &vn->uid_list, sue_list) {
-					if (up->sue_expiry < tv.tv_sec && !up->sue_suspended) {
-						LIST_REMOVE(up, sue_list);
-						free(up, M_PAX);
-						continue;
-
-#if 0
-						if (LIST_EMPTY(&vn->uid_list)) {
-							LIST_REMOVE(vn, sv_list);
-							free(vn, M_PAX);
-						}
-#endif
-					}
-				}
-			}
-		}
-#endif
-
-		mtx_unlock(&segvguard_mtx);
-		pause("-", 1000);
-	}
-}
-
 static struct pax_segvguard_vnodes *
 pax_segvguard_add_file(struct vnode *vn, struct stat *sb)
 {
 	struct pax_segvguard_vnodes *v;
 
-	v = malloc(sizeof(struct pax_segvguard_vnodes), M_PAX, M_WAITOK);
+	v = malloc(sizeof(struct pax_segvguard_vnodes), M_PAX, M_NOWAIT);
+
+	if(!v)
+		return NULL;
+
 	LIST_INIT(&(v->uid_list));
 
 	v->sv_inode = sb->st_ino;
 	strncpy(v->sv_mntpoint, vn->v_mount->mnt_stat.f_mntonname, MNAMELEN);
-	v->sv_mntpoint[MNAMELEN-1] = '\0';
+	v->sv_mntpoint[MNAMELEN-1] = '\0'; /* IS IT NECESSARY??? */
 
 	LIST_INSERT_HEAD(&vnode_list, v, sv_list);
 
 	return v;
 }
 
-static void
+static int
 pax_segvguard_add_uid(struct thread *td, struct pax_segvguard_vnodes *vn, struct timeval *tv)
 {
 	struct pax_segvguard_uid_entry *up;
@@ -395,16 +340,20 @@ pax_segvguard_add_uid(struct thread *td, struct pax_segvguard_vnodes *vn, struct
 
 	pr = pax_get_prison(td, NULL);
 
-	up = malloc(sizeof(struct pax_segvguard_uid_entry), M_PAX, M_WAITOK);
+	up = malloc(sizeof(struct pax_segvguard_uid_entry), M_PAX, M_NOWAIT);
+
+	if(!up)
+		return ENOMEM;
+
 	up->sue_uid = td->td_ucred->cr_uid;
 	up->sue_ncrashes = 1;
 	up->sue_expiry = tv->tv_sec + ((pr != NULL) ? pr->pr_pax_segvguard_expiry : pax_segvguard_expiry);
 	up->sue_suspended = 0;
 
 	LIST_INSERT_HEAD(&(vn->uid_list), up, sue_list);
-}
 
-int segvguard_gc_init = 0;
+	return 0;
+}
 
 int
 pax_segvguard(struct thread *td, struct vnode *v, char *name, bool crashed)
@@ -417,15 +366,9 @@ pax_segvguard(struct thread *td, struct vnode *v, char *name, bool crashed)
 	struct vnode *vp;
 	bool vnode_found, uid_found;
 	struct prison *pr;
-    struct proc *p;
+	int error = 0;
 
 	pr = pax_get_prison(td, NULL);
-
-	if (!segvguard_gc_init) {
-		segvguard_gc_init = 1;
-		mtx_init(&segvguard_mtx, "segvguard mutex", NULL, MTX_DEF);
-		kproc_create(pax_segvguard_gc, "PAX", &p, 0, 0, "segvguard_gc");
-	}
 
 	if (!pax_segvguard_active(td, NULL))
 		return (0);
@@ -452,8 +395,12 @@ pax_segvguard(struct thread *td, struct vnode *v, char *name, bool crashed)
 			    !strncmp(mntpoint, vn->sv_mntpoint, MNAMELEN)) {
 				LIST_FOREACH(up, &(vn->uid_list), sue_list) {
 					if (td->td_ucred->cr_uid == up->sue_uid) {
-						mtx_unlock(&segvguard_mtx);
-						return (EPERM);
+						if(up->sue_suspended > tv.tv_sec) {
+							printf("PaX Segvguard: [%s] Preventing "
+									"execution due to repeated segfaults.\n", name);
+							mtx_unlock(&segvguard_mtx);
+							return (EPERM);
+						}
 					}
 				}
 			}
@@ -465,9 +412,11 @@ pax_segvguard(struct thread *td, struct vnode *v, char *name, bool crashed)
 	 */
 	if (LIST_EMPTY(&vnode_list) && crashed) {
 		vn = pax_segvguard_add_file(vp, &sb);
-		pax_segvguard_add_uid(td, vn, &tv);
+		if(vn == NULL)
+			return ENOMEM;
+		error = pax_segvguard_add_uid(td, vn, &tv);
 		mtx_unlock(&segvguard_mtx);
-		return (0);
+		return error;
 	}
 
 	vnode_found = uid_found = 0;
@@ -479,6 +428,8 @@ pax_segvguard(struct thread *td, struct vnode *v, char *name, bool crashed)
 				LIST_FOREACH(up, &(vn->uid_list), sue_list) {
 					if (td->td_ucred->cr_uid == up->sue_uid) {
 						if (up->sue_expiry < tv.tv_sec && up->sue_suspended <= tv.tv_sec) {
+							printf("PaX Segvguard: [%s] Suspension "
+									"expired.\n", name ? name : "unknown");
 							up->sue_ncrashes = 1;
 							up->sue_expiry = tv.tv_sec + ((pr != NULL) ? pr->pr_pax_segvguard_expiry : pax_segvguard_expiry);
 							up->sue_suspended = 0;
@@ -490,6 +441,10 @@ pax_segvguard(struct thread *td, struct vnode *v, char *name, bool crashed)
 						uid_found = 1;
 						up->sue_ncrashes++;
 						if (up->sue_ncrashes >= pax_segvguard_maxcrashes) {
+							printf("PaX Segvguard: [%s] Suspending "
+									"execution for %d seconds after %zu crashes.\n",
+									name, pax_segvguard_suspension,
+									up->sue_ncrashes);
 							up->sue_suspended = tv.tv_sec + ((pr != NULL) ? pr->pr_pax_segvguard_suspension : pax_segvguard_suspension);
 							up->sue_ncrashes = 0;
 							up->sue_expiry = 0;
@@ -506,14 +461,31 @@ pax_segvguard(struct thread *td, struct vnode *v, char *name, bool crashed)
 	if (crashed) {
 		if (!vnode_found) {
 			vn = pax_segvguard_add_file(vp, &sb);
-			pax_segvguard_add_uid(td, vn, &tv);
+			if(vn == NULL){
+				mtx_unlock(&segvguard_mtx);
+				return ENOMEM;
+			}
+			error = pax_segvguard_add_uid(td, vn, &tv);
+			if(error) {
+				mtx_unlock(&segvguard_mtx);
+				return ENOMEM;
+			}
 		} else if (!uid_found) {
             if (vn_saved)
-                pax_segvguard_add_uid(td, vn_saved, &tv);
+                error = pax_segvguard_add_uid(td, vn_saved, &tv);
 		}
 	}
 
 	mtx_unlock(&segvguard_mtx);
 
-	return (0);
+	return error;
 }
+
+static void
+pax_segvguard_init(void) {
+
+	mtx_init(&segvguard_mtx, "segvguard mutex", NULL, MTX_DEF);
+
+}
+
+SYSINIT(pax_segvguard_init, SI_SUB_LOCK, SI_ORDER_ANY, pax_segvguard_init, NULL);
