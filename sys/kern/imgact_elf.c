@@ -670,9 +670,9 @@ __elfN(load_file)(struct proc *p, const char *file, u_long *addr,
 		goto fail;
 	}
 
-	/* Only support headers that fit within first page for now      */
+	/* Only support headers that fit within first page for now */
 	if ((hdr->e_phoff > PAGE_SIZE) ||
-			(u_int)hdr->e_phentsize * hdr->e_phnum > PAGE_SIZE - hdr->e_phoff) {
+	    (u_int)hdr->e_phentsize * hdr->e_phnum > PAGE_SIZE - hdr->e_phoff) {
 		error = ENOEXEC;
 		goto fail;
 	}
