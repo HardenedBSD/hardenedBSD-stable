@@ -321,9 +321,9 @@ sys_mmap(td, uap)
 		    (addr >= round_page((vm_offset_t)vms->vm_taddr) &&
 		    addr < round_page((vm_offset_t)vms->vm_daddr +
 		    lim_max(td->td_proc, RLIMIT_DATA)))) {
-                addr = round_page((vm_offset_t)vms->vm_daddr +
-                    lim_max(td->td_proc, RLIMIT_DATA));
-        }
+			addr = round_page((vm_offset_t)vms->vm_daddr +
+			    lim_max(td->td_proc, RLIMIT_DATA));
+		}
 		PROC_UNLOCK(td->td_proc);
 	}
 	if (flags & MAP_ANON) {
