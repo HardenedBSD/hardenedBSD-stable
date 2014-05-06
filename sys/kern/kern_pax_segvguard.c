@@ -319,7 +319,7 @@ pax_segvguard_add_file(struct vnode *vn, struct stat *sb)
 	v = malloc(sizeof(struct pax_segvguard_vnodes), M_PAX, M_NOWAIT);
 
 	if(!v)
-		return NULL;
+		return (NULL);
 
 	LIST_INIT(&(v->uid_list));
 
@@ -329,7 +329,7 @@ pax_segvguard_add_file(struct vnode *vn, struct stat *sb)
 
 	LIST_INSERT_HEAD(&vnode_list, v, sv_list);
 
-	return v;
+	return (v);
 }
 
 static int
@@ -341,9 +341,8 @@ pax_segvguard_add_uid(struct thread *td, struct pax_segvguard_vnodes *vn, struct
 	pr = pax_get_prison(td, NULL);
 
 	up = malloc(sizeof(struct pax_segvguard_uid_entry), M_PAX, M_NOWAIT);
-
-	if(!up)
-		return ENOMEM;
+	if (!up)
+		return (ENOMEM);
 
 	up->sue_uid = td->td_ucred->cr_uid;
 	up->sue_ncrashes = 1;
@@ -352,7 +351,7 @@ pax_segvguard_add_uid(struct thread *td, struct pax_segvguard_vnodes *vn, struct
 
 	LIST_INSERT_HEAD(&(vn->uid_list), up, sue_list);
 
-	return 0;
+	return (0);
 }
 
 int
@@ -412,11 +411,11 @@ pax_segvguard(struct thread *td, struct vnode *v, char *name, bool crashed)
 	 */
 	if (LIST_EMPTY(&vnode_list) && crashed) {
 		vn = pax_segvguard_add_file(vp, &sb);
-		if(vn == NULL)
-			return ENOMEM;
+		if (vn == NULL)
+			return (ENOMEM);
 		error = pax_segvguard_add_uid(td, vn, &tv);
 		mtx_unlock(&segvguard_mtx);
-		return error;
+		return (error);
 	}
 
 	vnode_found = uid_found = 0;
@@ -461,24 +460,24 @@ pax_segvguard(struct thread *td, struct vnode *v, char *name, bool crashed)
 	if (crashed) {
 		if (!vnode_found) {
 			vn = pax_segvguard_add_file(vp, &sb);
-			if(vn == NULL){
+			if (vn == NULL){
 				mtx_unlock(&segvguard_mtx);
-				return ENOMEM;
+				return (ENOMEM);
 			}
 			error = pax_segvguard_add_uid(td, vn, &tv);
-			if(error) {
+			if (error) {
 				mtx_unlock(&segvguard_mtx);
-				return ENOMEM;
+				return (ENOMEM);
 			}
 		} else if (!uid_found) {
-            if (vn_saved)
-                error = pax_segvguard_add_uid(td, vn_saved, &tv);
+			if (vn_saved)
+				error = pax_segvguard_add_uid(td, vn_saved, &tv);
 		}
 	}
 
 	mtx_unlock(&segvguard_mtx);
 
-	return error;
+	return (error);
 }
 
 static void
