@@ -62,6 +62,8 @@ struct vm_offset_t;
  * 	+-------+--------+--------+
  * 	| MIN	|  8 bit | 16 bit |
  * 	+-------+--------+--------+
+ * 	| DEF	|  8 bit | 21 bit |
+ * 	+-------+--------+--------+
  * 	| MAX   | 16 bit | 32 bit |
  * 	+-------+--------+--------+
  *
@@ -69,12 +71,16 @@ struct vm_offset_t;
  * 	+-------+--------+--------+
  * 	| MIN	|  6 bit | 12 bit |
  * 	+-------+--------+--------+
+ * 	| DEF	|  6 bit | 16 bit |
+ * 	+-------+--------+--------+
  * 	| MAX   | 10 bit | 21 bit |
  * 	+-------+--------+--------+
  *
  *  	EXEC	| 32 bit | 64 bit |
  * 	+-------+--------+--------+
  * 	| MIN	|  6 bit | 12 bit |
+ * 	+-------+--------+--------+
+ * 	| DEF	|  6 bit | 21 bit |
  * 	+-------+--------+--------+
  * 	| MAX   | 10 bit | 21 bit |
  * 	+-------+--------+--------+
@@ -115,6 +121,31 @@ struct vm_offset_t;
 #ifndef PAX_ASLR_DELTA_EXEC_MAX_LEN
 #define PAX_ASLR_DELTA_EXEC_MAX_LEN	((sizeof(void *) * NBBY) / 3)
 #endif /* PAX_ASLR_DELTA_EXEC_MAX_LEN */
+
+/*
+ * ASLR default values for native host
+ */
+#ifdef __amd64__
+#ifndef PAX_ASLR_DELTA_MMAP_DEF_LEN
+#define PAX_ASLR_DELTA_MMAP_DEF_LEN	21
+#endif /* PAX_ASLR_DELTA_MMAP_DEF_LEN */
+#ifndef PAX_ASLR_DELTA_STACK_DEF_LEN
+#define PAX_ASLR_DELTA_STACK_DEF_LEN	16
+#endif /* PAX_ASLR_DELTA_STACK_DEF_LEN */
+#ifndef PAX_ASLR_DELTA_EXEC_DEF_LEN
+#define PAX_ASLR_DELTA_EXEC_DEF_LEN	21
+#endif /* PAX_ASLR_DELTA_EXEC_DEF_LEN */
+#else
+#ifndef PAX_ASLR_DELTA_MMAP_DEF_LEN	PAX_ASLR_DELTA_MMAP_MIN_LEN
+#define PAX_ASLR_DELTA_MMAP_DEF_LEN
+#endif /* PAX_ASLR_DELTA_MMAP_DEF_LEN */
+#ifndef PAX_ASLR_DELTA_STACK_DEF_LEN
+#define PAX_ASLR_DELTA_STACK_DEF_LEN	PAX_ASLR_DELTA_STACK_MIN_LEN
+#endif /* PAX_ASLR_DELTA_STACK_DEF_LEN */
+#ifndef PAX_ASLR_DELTA_EXEC_DEF_LEN
+#define PAX_ASLR_DELTA_EXEC_DEF_LEN	PAX_ASLR_DELTA_EXEC_MIN_LEN
+#endif /* PAX_ASLR_DELTA_EXEC_DEF_LEN */
+#endif /* __amd64__ */
 
 /*
  * ASLR values for COMPAT_FREEBSD32 and COMPAT_LINUX

@@ -67,9 +67,9 @@ int pax_aslr_mmap_len = PAX_ASLR_DELTA_MMAP_MAX_LEN;
 int pax_aslr_stack_len = PAX_ASLR_DELTA_STACK_MAX_LEN;
 int pax_aslr_exec_len = PAX_ASLR_DELTA_EXEC_MAX_LEN;
 #else
-int pax_aslr_mmap_len = PAX_ASLR_DELTA_MMAP_MIN_LEN;
-int pax_aslr_stack_len = PAX_ASLR_DELTA_STACK_MIN_LEN;
-int pax_aslr_exec_len = PAX_ASLR_DELTA_EXEC_MIN_LEN;
+int pax_aslr_mmap_len = PAX_ASLR_DELTA_MMAP_DEF_LEN;
+int pax_aslr_stack_len = PAX_ASLR_DELTA_STACK_DEF_LEN;
+int pax_aslr_exec_len = PAX_ASLR_DELTA_EXEC_DEF_LEN;
 #endif /* PAX_ASLR_MAX_SEC */
 
 #ifdef COMPAT_FREEBSD32
