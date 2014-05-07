@@ -127,7 +127,7 @@ TUNABLE_INT("security.pax.segvguard.expiry_timeout", &pax_segvguard_expiry);
 SYSCTL_PROC(_security_pax_segvguard, OID_AUTO, suspend_timeout,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_segvguard_suspension, "I",
-    "Entry suspension timeout (int seconds).");
+    "Entry suspension timeout (in seconds).");
 TUNABLE_INT("security.pax.segvguard.suspend_timeout", &pax_segvguard_suspension);
 
 SYSCTL_PROC(_security_pax_segvguard, OID_AUTO, max_crashes,
