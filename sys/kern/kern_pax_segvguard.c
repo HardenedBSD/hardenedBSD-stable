@@ -75,8 +75,8 @@ int pax_segvguard_maxcrashes = PAX_SEGVGUARD_MAXCRASHES;
 struct pax_segvguard_uid_entry {
 	uid_t sue_uid;
 	size_t sue_ncrashes;
-	time_t sue_expiry;
-	time_t sue_suspended;
+	sbintime_t sue_expiry;
+	sbintime_t sue_suspended;
 	LIST_ENTRY(pax_segvguard_uid_entry) sue_list;
 };
 
@@ -333,7 +333,7 @@ pax_segvguard_add_file(struct vnode *vn, struct stat *sb)
 }
 
 static int
-pax_segvguard_add_uid(struct thread *td, struct pax_segvguard_vnodes *vn, struct timeval *tv)
+pax_segvguard_add_uid(struct thread *td, struct pax_segvguard_vnodes *vn, sbintime_t sbt)
 {
 	struct pax_segvguard_uid_entry *up;
 	struct prison *pr;
@@ -346,7 +346,7 @@ pax_segvguard_add_uid(struct thread *td, struct pax_segvguard_vnodes *vn, struct
 
 	up->sue_uid = td->td_ucred->cr_uid;
 	up->sue_ncrashes = 1;
-	up->sue_expiry = tv->tv_sec + ((pr != NULL) ? pr->pr_pax_segvguard_expiry : pax_segvguard_expiry);
+	up->sue_expiry = sbt + ((pr != NULL) ? pr->pr_pax_segvguard_expiry : pax_segvguard_expiry) * SBT_1S;
 	up->sue_suspended = 0;
 
 	LIST_INSERT_HEAD(&(vn->uid_list), up, sue_list);
@@ -359,7 +359,7 @@ pax_segvguard(struct thread *td, struct vnode *v, char *name, bool crashed)
 {
 	struct pax_segvguard_uid_entry *up;
 	struct pax_segvguard_vnodes *vn, *vn_saved=NULL;
-	struct timeval tv;
+	sbintime_t sbt;
 	struct stat sb;
 	char *mntpoint;
 	struct vnode *vp;
@@ -386,7 +386,7 @@ pax_segvguard(struct thread *td, struct vnode *v, char *name, bool crashed)
 		return (0);
 	}
 
-	microtime(&tv);
+	sbt = sbinuptime();
 
 	if (!LIST_EMPTY(&vnode_list) && !crashed) {
 		LIST_FOREACH(vn, &vnode_list, sv_list) {
@@ -394,7 +394,7 @@ pax_segvguard(struct thread *td, struct vnode *v, char *name, bool crashed)
 			    !strncmp(mntpoint, vn->sv_mntpoint, MNAMELEN)) {
 				LIST_FOREACH(up, &(vn->uid_list), sue_list) {
 					if (td->td_ucred->cr_uid == up->sue_uid) {
-						if(up->sue_suspended > tv.tv_sec) {
+						if(up->sue_suspended > sbt) {
 							printf("PaX Segvguard: [%s] Preventing "
 									"execution due to repeated segfaults.\n", name);
 							mtx_unlock(&segvguard_mtx);
@@ -413,7 +413,7 @@ pax_segvguard(struct thread *td, struct vnode *v, char *name, bool crashed)
 		vn = pax_segvguard_add_file(vp, &sb);
 		if (vn == NULL)
 			return (ENOMEM);
-		error = pax_segvguard_add_uid(td, vn, &tv);
+		error = pax_segvguard_add_uid(td, vn, sbt);
 		mtx_unlock(&segvguard_mtx);
 		return (error);
 	}
@@ -426,11 +426,11 @@ pax_segvguard(struct thread *td, struct vnode *v, char *name, bool crashed)
 				vn_saved = vn;
 				LIST_FOREACH(up, &(vn->uid_list), sue_list) {
 					if (td->td_ucred->cr_uid == up->sue_uid) {
-						if (up->sue_expiry < tv.tv_sec && up->sue_suspended <= tv.tv_sec) {
+						if (up->sue_expiry < sbt && up->sue_suspended <= sbt) {
 							printf("PaX Segvguard: [%s] Suspension "
 									"expired.\n", name ? name : "unknown");
 							up->sue_ncrashes = 1;
-							up->sue_expiry = tv.tv_sec + ((pr != NULL) ? pr->pr_pax_segvguard_expiry : pax_segvguard_expiry);
+							up->sue_expiry = sbt + ((pr != NULL) ? pr->pr_pax_segvguard_expiry : pax_segvguard_expiry) * SBT_1S;
 							up->sue_suspended = 0;
 
 							mtx_unlock(&segvguard_mtx);
@@ -444,7 +444,7 @@ pax_segvguard(struct thread *td, struct vnode *v, char *name, bool crashed)
 									"execution for %d seconds after %zu crashes.\n",
 									name, pax_segvguard_suspension,
 									up->sue_ncrashes);
-							up->sue_suspended = tv.tv_sec + ((pr != NULL) ? pr->pr_pax_segvguard_suspension : pax_segvguard_suspension);
+							up->sue_suspended = sbt + ((pr != NULL) ? pr->pr_pax_segvguard_suspension : pax_segvguard_suspension) * SBT_1S;
 							up->sue_ncrashes = 0;
 							up->sue_expiry = 0;
 						}
@@ -464,14 +464,14 @@ pax_segvguard(struct thread *td, struct vnode *v, char *name, bool crashed)
 				mtx_unlock(&segvguard_mtx);
 				return (ENOMEM);
 			}
-			error = pax_segvguard_add_uid(td, vn, &tv);
+			error = pax_segvguard_add_uid(td, vn, sbt);
 			if (error) {
 				mtx_unlock(&segvguard_mtx);
 				return (ENOMEM);
 			}
 		} else if (!uid_found) {
 			if (vn_saved)
-				error = pax_segvguard_add_uid(td, vn_saved, &tv);
+				error = pax_segvguard_add_uid(td, vn_saved, sbt);
 		}
 	}
 
