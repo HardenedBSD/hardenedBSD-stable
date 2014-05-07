@@ -106,9 +106,9 @@ SYSCTL_PROC(_security_pax_aslr, OID_AUTO, status,
     NULL, 0, sysctl_pax_aslr_status, "I",
     "Restrictions status. "
     "0 - disabled, "
-    "1 - enabled,  "
-    "2 - global enabled, "
-    "3 - force global enabled");
+    "1 - opt-in,  "
+    "2 - opt-out, "
+    "3 - force enabled");
 TUNABLE_INT("security.pax.aslr.status", &pax_aslr_status);
 
 SYSCTL_PROC(_security_pax_aslr, OID_AUTO, debug,
