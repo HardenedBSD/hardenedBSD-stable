@@ -183,7 +183,8 @@ mprsas_startup_increment(struct mprsas_softc *sassc)
 			/* just starting, freeze the simq */
 			mpr_dprint(sassc->sc, MPR_INIT,
 			    "%s freezing simq\n", __func__);
-#if __FreeBSD_version >= 1000039
+#if (__FreeBSD_version >= 1000039) || \
+    ((__FreeBSD_version < 1000000) && (__FreeBSD_version >= 902502))
 			xpt_hold_boot();
 #endif
 			xpt_freeze_simq(sassc->sim, 1);
@@ -217,7 +218,8 @@ mprsas_startup_decrement(struct mprsas_softc *sassc)
 			    "%s releasing simq\n", __func__);
 			sassc->flags &= ~MPRSAS_IN_STARTUP;
 			xpt_release_simq(sassc->sim, 1);
-#if __FreeBSD_version >= 1000039
+#if (__FreeBSD_version >= 1000039) || \
+    ((__FreeBSD_version < 1000000) && (__FreeBSD_version >= 902502))
 			xpt_release_boot();
 #else
 			mprsas_rescan_target(sassc->sc, NULL);
@@ -813,8 +815,49 @@ mpr_attach_sas(struct mpr_softc *sc)
 #else
 		event = AC_FOUND_DEVICE;
 #endif
+
+		/*
+		 * Prior to the CAM locking improvements, we can't call
+		 * xpt_register_async() with a particular path specified.
+		 *
+		 * If a path isn't specified, xpt_register_async() will
+		 * generate a wildcard path and acquire the XPT lock while
+		 * it calls xpt_action() to execute the XPT_SASYNC_CB CCB.
+		 * It will then drop the XPT lock once that is done.
+		 * 
+		 * If a path is specified for xpt_register_async(), it will
+		 * not acquire and drop the XPT lock around the call to
+		 * xpt_action().  xpt_action() asserts that the caller
+		 * holds the SIM lock, so the SIM lock has to be held when
+		 * calling xpt_register_async() when the path is specified.
+		 * 
+		 * But xpt_register_async calls xpt_for_all_devices(),
+		 * which calls xptbustraverse(), which will acquire each
+		 * SIM lock.  When it traverses our particular bus, it will
+		 * necessarily acquire the SIM lock, which will lead to a
+		 * recursive lock acquisition.
+		 * 
+		 * The CAM locking changes fix this problem by acquiring
+		 * the XPT topology lock around bus traversal in
+		 * xptbustraverse(), so the caller can hold the SIM lock
+		 * and it does not cause a recursive lock acquisition.
+		 *
+		 * These __FreeBSD_version values are approximate, especially
+		 * for stable/10, which is two months later than the actual
+		 * change.
+		 */
+
+#if (__FreeBSD_version < 1000703) || \
+    ((__FreeBSD_version >= 1100000) && (__FreeBSD_version < 1100002))
+		mpr_unlock(sc);
+		status = xpt_register_async(event, mprsas_async, sc,
+					    NULL);
+		mpr_lock(sc);
+#else
 		status = xpt_register_async(event, mprsas_async, sc,
 					    sassc->path);
+#endif
+
 		if (status != CAM_REQ_CMP) {
 			mpr_dprint(sc, MPR_ERROR,
 			    "Error %#x registering async handler for "
@@ -933,7 +976,8 @@ mprsas_action(struct cam_sim *sim, union ccb *ccb)
 		cpi->version_num = 1;
 		cpi->hba_inquiry = PI_SDTR_ABLE|PI_TAG_ABLE|PI_WIDE_16;
 		cpi->target_sprt = 0;
-#if __FreeBSD_version >= 1000039
+#if (__FreeBSD_version >= 1000039) || \
+    ((__FreeBSD_version < 1000000) && (__FreeBSD_version >= 902502))
 		cpi->hba_misc = PIM_NOBUSRESET | PIM_UNMAPPED | PIM_NOSCAN;
 #else
 		cpi->hba_misc = PIM_NOBUSRESET | PIM_UNMAPPED;
@@ -2314,8 +2358,9 @@ mprsas_scsiio_complete(struct mpr_softc *sc, struct mpr_command *cm)
 		    (csio->cdb_io.cdb_bytes[1] & SI_EVPD) &&
 		    (csio->cdb_io.cdb_bytes[2] == SVPD_SUPPORTED_PAGE_LIST) &&
 		    ((csio->ccb_h.flags & CAM_DATA_MASK) == CAM_DATA_VADDR) &&
-		    (csio->data_ptr != NULL) && (((uint8_t *)cm->cm_data)[0] ==
-		    T_SEQUENTIAL) && (sc->control_TLR) &&
+		    (csio->data_ptr != NULL) &&
+		    ((csio->data_ptr[0] & 0x1f) == T_SEQUENTIAL) &&
+		    (sc->control_TLR) &&
 		    (sc->mapping_table[csio->ccb_h.target_id].device_info &
 		    MPI2_SAS_DEVICE_INFO_SSP_TARGET)) {
 			vpd_list = (struct scsi_vpd_supported_page_list *)
@@ -2326,6 +2371,7 @@ mprsas_scsiio_complete(struct mpr_softc *sc, struct mpr_command *cm)
 			TLR_on = (u8)MPI2_SCSIIO_CONTROL_TLR_ON;
 			alloc_len = ((u16)csio->cdb_io.cdb_bytes[3] << 8) +
 			    csio->cdb_io.cdb_bytes[4];
+			alloc_len -= csio->resid;
 			for (i = 0; i < MIN(vpd_list->length, alloc_len); i++) {
 				if (vpd_list->list[i] == 0x90) {
 					*TLR_bits = TLR_on;
@@ -2501,7 +2547,8 @@ mprsas_send_smpcmd(struct mprsas_softc *sassc, union ccb *ccb,
 	sg = NULL;
 	error = 0;
 
-#if __FreeBSD_version >= 1000029
+#if (__FreeBSD_version >= 1000028) || \
+    ((__FreeBSD_version >= 902001) && (__FreeBSD_version < 1000000))
 	switch (ccb->ccb_h.flags & CAM_DATA_MASK) {
 	case CAM_DATA_PADDR:
 	case CAM_DATA_SG_PADDR:
@@ -2561,7 +2608,7 @@ mprsas_send_smpcmd(struct mprsas_softc *sassc, union ccb *ccb,
 		xpt_done(ccb);
 		return;
 	}
-#else //__FreeBSD_version < 1000029
+#else /* __FreeBSD_version < 1000028 */
 	/*
 	 * XXX We don't yet support physical addresses here.
 	 */
@@ -2604,7 +2651,7 @@ mprsas_send_smpcmd(struct mprsas_softc *sassc, union ccb *ccb,
 			bus_dma_segment_t *req_sg;
 
 			req_sg = (bus_dma_segment_t *)ccb->smpio.smp_request;
-			request = (uint8_t *)req_sg[0].ds_addr;
+			request = (uint8_t *)(uintptr_t)req_sg[0].ds_addr;
 		} else
 			request = ccb->smpio.smp_request;
 
@@ -2612,14 +2659,14 @@ mprsas_send_smpcmd(struct mprsas_softc *sassc, union ccb *ccb,
 			bus_dma_segment_t *rsp_sg;
 
 			rsp_sg = (bus_dma_segment_t *)ccb->smpio.smp_response;
-			response = (uint8_t *)rsp_sg[0].ds_addr;
+			response = (uint8_t *)(uintptr_t)rsp_sg[0].ds_addr;
 		} else
 			response = ccb->smpio.smp_response;
 	} else {
 		request = ccb->smpio.smp_request;
 		response = ccb->smpio.smp_response;
 	}
-#endif //__FreeBSD_version >= 1000029
+#endif /* __FreeBSD_version < 1000028 */
 
 	cm = mpr_alloc_command(sc);
 	if (cm == NULL) {
@@ -2987,6 +3034,18 @@ mprsas_async(void *callback_arg, uint32_t code, struct cam_path *path,
 			break;
 
 		/*
+		 * See the comment in mpr_attach_sas() for a detailed
+		 * explanation.  In these versions of FreeBSD we register
+		 * for all events and filter out the events that don't
+		 * apply to us.
+		 */
+#if (__FreeBSD_version < 1000703) || \
+    ((__FreeBSD_version >= 1100000) && (__FreeBSD_version < 1100002))
+		if (xpt_path_path_id(path) != sassc->sim->path_id)
+			break;
+#endif
+
+		/*
 		 * We should have a handle for this, but check to make sure.
 		 */
 		KASSERT(xpt_path_target_id(path) < sassc->maxtargets,
@@ -3043,8 +3102,21 @@ mprsas_async(void *callback_arg, uint32_t code, struct cam_path *path,
 	case AC_FOUND_DEVICE: {
 		struct ccb_getdev *cgd;
 
+		/*
+		 * See the comment in mpr_attach_sas() for a detailed
+		 * explanation.  In these versions of FreeBSD we register
+		 * for all events and filter out the events that don't
+		 * apply to us.
+		 */
+#if (__FreeBSD_version < 1000703) || \
+    ((__FreeBSD_version >= 1100000) && (__FreeBSD_version < 1100002))
+		if (xpt_path_path_id(path) != sc->sassc->sim->path_id)
+			break;
+#endif
+
 		cgd = arg;
 		mprsas_prepare_ssu(sc, path, cgd);
+
 #if (__FreeBSD_version < 901503) || \
     ((__FreeBSD_version >= 1000000) && (__FreeBSD_version < 1000006))
 		mprsas_check_eedp(sc, path, cgd);

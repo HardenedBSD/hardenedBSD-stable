@@ -1,6 +1,6 @@
 # $FreeBSD$
 
-.include <bsd.own.mk>
+.include <src.opts.mk>
 
 # Modules that include binary-only blobs of microcode should be selectable by
 # MK_SOURCELESS_UCODE option (see below).
@@ -219,6 +219,7 @@ SUBDIR=	\
 	mps \
 	mpt \
 	mqueue \
+	mrsas \
 	msdosfs \
 	msdosfs_iconv \
 	${_mse} \
