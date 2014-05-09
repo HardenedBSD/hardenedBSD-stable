@@ -110,15 +110,15 @@ struct mac_bsdextended_object {
 	gid_t	mbo_gid_max;
 	struct fsid mbo_fsid;
 	int	mbo_type;
-    ino_t mbo_inode;
-    char mbo_paxpath[MAXPATHLEN];
+	ino_t	mbo_inode;
+	char	mbo_paxpath[MAXPATHLEN];
 };
 
 struct mac_bsdextended_rule {
 	struct mac_bsdextended_subject	mbr_subject;
 	struct mac_bsdextended_object	mbr_object;
 	mode_t				mbr_mode;	/* maximum access */
-    uint32_t                        mbr_pax;
+	uint32_t			mbr_pax;
 };
 
 #endif /* _SYS_SECURITY_MAC_BSDEXTENDED_H */
