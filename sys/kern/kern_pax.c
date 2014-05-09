@@ -98,30 +98,30 @@ pax_get_prison(struct thread *td, struct proc *proc)
 void
 pax_elf(struct image_params *imgp, uint32_t mode)
 {
-    u_int flags = 0;
+	u_int flags = 0;
 
-    if ((mode & MBI_ALLPAX) == MBI_ALLPAX)
-        goto end;
+	if ((mode & MBI_ALLPAX) == MBI_ALLPAX)
+		goto end;
 
-    if (mode & MBI_FORCE_ASLR_ENABLED)
-        flags |= ELF_NOTE_PAX_ASLR;
-    else if (mode & MBI_FORCE_ASLR_DISABLED)
-        flags |= ELF_NOTE_PAX_NOASLR;
+	if (mode & MBI_FORCE_ASLR_ENABLED)
+		flags |= ELF_NOTE_PAX_ASLR;
+	else if (mode & MBI_FORCE_ASLR_DISABLED)
+		flags |= ELF_NOTE_PAX_NOASLR;
 
-    if (mode & MBI_FORCE_SEGVGUARD_ENABLED)
-        flags |= ELF_NOTE_PAX_GUARD;
-    else if (mode & MBI_FORCE_SEGVGUARD_DISABLED)
-        flags |= ELF_NOTE_PAX_NOGUARD;
+	if (mode & MBI_FORCE_SEGVGUARD_ENABLED)
+		flags |= ELF_NOTE_PAX_GUARD;
+	else if (mode & MBI_FORCE_SEGVGUARD_DISABLED)
+		flags |= ELF_NOTE_PAX_NOGUARD;
 
 end:
-    if (imgp != NULL) {
-        imgp->pax_flags = flags;
-        if (imgp->proc != NULL) {
-            PROC_LOCK(imgp->proc);
-            imgp->proc->p_pax = flags;
-            PROC_UNLOCK(imgp->proc);
-        }
-    }
+	if (imgp != NULL) {
+		imgp->pax_flags = flags;
+		if (imgp->proc != NULL) {
+			PROC_LOCK(imgp->proc);
+			imgp->proc->p_pax = flags;
+			PROC_UNLOCK(imgp->proc);
+		}
+	}
 }
 
 void
