@@ -317,7 +317,6 @@ pax_segvguard_add_file(struct vnode *vn, struct stat *sb)
 	struct pax_segvguard_vnodes *v;
 
 	v = malloc(sizeof(struct pax_segvguard_vnodes), M_PAX, M_NOWAIT);
-
 	if(!v)
 		return (NULL);
 
@@ -481,7 +480,8 @@ pax_segvguard(struct thread *td, struct vnode *v, char *name, bool crashed)
 }
 
 static void
-pax_segvguard_init(void) {
+pax_segvguard_init(void)
+{
 
 	mtx_init(&segvguard_mtx, "segvguard mutex", NULL, MTX_DEF);
 
