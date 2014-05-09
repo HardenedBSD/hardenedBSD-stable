@@ -1187,12 +1187,12 @@ bsde_parse_rule(int argc, char *argv[], struct mac_bsdextended_rule *rule,
 	if (error)
 		return (-1);
 
-    if (paxflags >= 0) {
-        error = bsde_parse_paxflags(paxflags_elements_length, argv + paxflags_elements,
-            &rule->mbr_pax, buflen, errstr);
-        if (error)
-            return (-1);
-    }
+	if (paxflags >= 0) {
+		error = bsde_parse_paxflags(paxflags_elements_length, argv + paxflags_elements,
+				&rule->mbr_pax, buflen, errstr);
+		if (error)
+			return (-1);
+	}
 
 	return (0);
 }
