@@ -74,8 +74,7 @@ extern int pax_segvguard_debug;
 extern int pax_segvguard_expiry;
 extern int pax_segvguard_suspension;
 extern int pax_segvguard_maxcrashes;
-
-#endif					/* PAX_SEGVGUARD */
+#endif /* PAX_SEGVGUARD */
 
 SYSCTL_NODE(_security, OID_AUTO, pax, CTLFLAG_RD, 0,
     "PaX (exploit mitigation) features.");
