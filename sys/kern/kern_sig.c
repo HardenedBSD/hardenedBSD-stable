@@ -65,7 +65,6 @@ __FBSDID("$FreeBSD$");
 #include <sys/pioctl.h>
 #include <sys/racct.h>
 #include <sys/resourcevar.h>
-#include <sys/pax.h>
 #include <sys/sdt.h>
 #include <sys/sbuf.h>
 #include <sys/sleepqueue.h>
@@ -89,6 +88,10 @@ __FBSDID("$FreeBSD$");
 #include <machine/cpu.h>
 
 #include <security/audit/audit.h>
+
+#if defined(PAX_ASLR) || defined(PAX_SEGVGUARD)
+#include <sys/pax.h>
+#endif
 
 #define	ONSIG	32		/* NSIG for osig* syscalls.  XXX. */
 
