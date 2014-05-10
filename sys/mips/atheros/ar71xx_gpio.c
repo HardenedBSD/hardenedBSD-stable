@@ -352,7 +352,6 @@ ar71xx_gpio_attach(device_t dev)
 	int error = 0;
 	int i, j, maxpin;
 	int mask, pinon;
-	int old = 0;
 
 	KASSERT((device_get_unit(dev) == 0),
 	    ("ar71xx_gpio: Only one gpio module supported"));
@@ -391,19 +390,12 @@ ar71xx_gpio_attach(device_t dev)
 	    "function_set", &mask) == 0) {
 		device_printf(dev, "function_set: 0x%x\n", mask);
 		ar71xx_gpio_function_enable(sc, mask);
-		old = 1;
 	}
 	/* Disable function bits that are required */
 	if (resource_int_value(device_get_name(dev), device_get_unit(dev),
 	    "function_clear", &mask) == 0) {
 		device_printf(dev, "function_clear: 0x%x\n", mask);
 		ar71xx_gpio_function_disable(sc, mask);
-		old = 1;
-	}
-	/* Handle previous behaviour */
-	if (old == 0) {
-		ar71xx_gpio_function_enable(sc, GPIO_FUNC_SPI_CS1_EN);
-		ar71xx_gpio_function_enable(sc, GPIO_FUNC_SPI_CS2_EN);
 	}
 
 	/* Configure all pins as input */
@@ -437,10 +429,13 @@ ar71xx_gpio_attach(device_t dev)
 		ar71xx_gpio_pin_configure(sc, &sc->gpio_pins[i], DEFAULT_CAPS);
 		i++;
 	}
+	/* Turn on the hinted pins. */
 	for (i = 0; i < sc->gpio_npins; i++) {
 		j = sc->gpio_pins[i].gp_pin;
-		if ((pinon & (1 << j)) != 0)
+		if ((pinon & (1 << j)) != 0) {
+			ar71xx_gpio_pin_setflags(dev, j, GPIO_PIN_OUTPUT);
 			ar71xx_gpio_pin_set(dev, j, 1);
+		}
 	}
 	device_add_child(dev, "gpioc", device_get_unit(dev));
 	device_add_child(dev, "gpiobus", device_get_unit(dev));
@@ -454,8 +449,6 @@ ar71xx_gpio_detach(device_t dev)
 
 	KASSERT(mtx_initialized(&sc->gpio_mtx), ("gpio mutex not initialized"));
 
-	ar71xx_gpio_function_disable(sc, GPIO_FUNC_SPI_CS1_EN);
-	ar71xx_gpio_function_disable(sc, GPIO_FUNC_SPI_CS2_EN);
 	bus_generic_detach(dev);
 
 	if (sc->gpio_mem_res)
