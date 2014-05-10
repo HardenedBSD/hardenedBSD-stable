@@ -183,7 +183,7 @@ _EXTRADEPEND:
 .endif
 .else
 	echo ${PROG}: ${LIBC} ${DPADD} >> ${DEPENDFILE}
-.if defined(PROG_CXX) && !defined(EARLY_BUILD)
+.if defined(PROG_CXX)
 .if ${COMPILER_TYPE} == "clang" && empty(CXXFLAGS:M-stdlib=libstdc++)
 	echo ${PROG}: ${LIBCPLUSPLUS} >> ${DEPENDFILE}
 .else
@@ -286,7 +286,3 @@ ${OBJS}: ${SRCS:M*.h}
 .include <bsd.obj.mk>
 
 .include <bsd.sys.mk>
-
-.if defined(PORTNAME)
-.include <bsd.pkg.mk>
-.endif
