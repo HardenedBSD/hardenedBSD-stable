@@ -341,8 +341,7 @@ pax_segvguard_add(struct thread *td, struct stat *sb, struct vnode *vn, sbintime
 	pr = pax_get_prison(td, NULL);
 
 	v = malloc(sizeof(struct pax_segvguard_entry), M_PAX, M_NOWAIT);
-
-	if(!v)
+	if (!v)
 		return (NULL);
 
 	v->se_inode = sb->st_ino;
@@ -374,8 +373,9 @@ pax_segvguard_lookup(struct thread *td, struct stat *sb, struct vnode *vn)
 
 	LIST_FOREACH(v, PAX_SEGVGUARD_HASH(sk), se_entry) {
 		if (v->se_inode == sb->st_ino &&
-				!strncmp(sk.se_mntpoint, v->se_mntpoint, MNAMELEN) &&
-				td->td_ucred->cr_uid == v->se_uid) {
+		    !strncmp(sk.se_mntpoint, v->se_mntpoint, MNAMELEN) &&
+		    td->td_ucred->cr_uid == v->se_uid) {
+
 			return (v);
 		}
 	}
@@ -390,7 +390,6 @@ pax_segvguard(struct thread *td, struct vnode *v, char *name, bool crashed)
 	struct prison *pr;
 	struct stat sb;
 	sbintime_t sbt;
-
 
 	if (v == NULL)
 		return (EFAULT);
@@ -408,15 +407,17 @@ pax_segvguard(struct thread *td, struct vnode *v, char *name, bool crashed)
 
 	se = pax_segvguard_lookup(td, &sb, v);
 
-	if(!crashed && se == NULL) {
+	if (!crashed && se == NULL) {
+
 		mtx_unlock(&segvguard_mtx);
 		return (0);
 	}
 
 	if (!crashed && se != NULL) {
-		if(se->se_suspended > sbt) {
+		if (se->se_suspended > sbt) {
 			printf("PaX Segvguard: [%s (%d)] Preventing "
 					"execution due to repeated segfaults.\n", name, td->td_proc->p_pid);
+
 			mtx_unlock(&segvguard_mtx);
 			return (EPERM);
 		}
@@ -427,6 +428,7 @@ pax_segvguard(struct thread *td, struct vnode *v, char *name, bool crashed)
 	 */
 	if (crashed && se == NULL) {
 		pax_segvguard_add(td, &sb, v, sbt);
+
 		mtx_unlock(&segvguard_mtx);
 		return (0);
 	}
@@ -460,7 +462,6 @@ pax_segvguard(struct thread *td, struct vnode *v, char *name, bool crashed)
 	}
 
 	mtx_unlock(&segvguard_mtx);
-
 	return (0);
 }
 
@@ -471,7 +472,6 @@ pax_segvguard_init(void)
 	mtx_init(&segvguard_mtx, "segvguard mutex", NULL, MTX_DEF);
 
 	pax_segvguard_hashtbl = hashinit(pax_segvguard_hashsize, M_PAX, &pax_segvguard_hashmask);
-
 }
 
 SYSINIT(pax_segvguard_init, SI_SUB_LOCK, SI_ORDER_ANY, pax_segvguard_init, NULL);
