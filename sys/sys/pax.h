@@ -39,15 +39,15 @@ struct vm_offset_t;
 /*
  * used in sysctl handler
  */
-#define	PAX_ASLR_DISABLED		0
-#define PAX_ASLR_ENABLED		1
-#define PAX_ASLR_GLOBAL_ENABLED		2
-#define	PAX_ASLR_FORCE_GLOBAL_ENABLED	3
+#define PAX_ASLR_DISABLED	0
+#define PAX_ASLR_OPTIN		1
+#define PAX_ASLR_OPTOUT		2
+#define PAX_ASLR_FORCE_ENABLED	3
 
-#define PAX_SEGVGUARD_DISABLED              0
-#define PAX_SEGVGUARD_ENABLED               1
-#define PAX_SEGVGUARD_GLOBAL_ENABLED        2
-#define PAX_SEGVGUARD_FORCE_GLOBAL_ENABLED  3
+#define PAX_SEGVGUARD_DISABLED		0
+#define PAX_SEGVGUARD_OPTIN		1
+#define PAX_SEGVGUARD_OPTOUT		2
+#define PAX_SEGVGUARD_FORCE_ENABLED	3
 
 #ifndef PAX_ASLR_DELTA
 #define	PAX_ASLR_DELTA(delta, lsb, len)	\

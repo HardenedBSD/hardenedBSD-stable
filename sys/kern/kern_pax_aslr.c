@@ -93,7 +93,7 @@ static int sysctl_pax_aslr_mmap(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_stack(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_exec(SYSCTL_HANDLER_ARGS);
 
-int pax_aslr_status = PAX_ASLR_ENABLED;
+int pax_aslr_status = PAX_ASLR_OPTIN;
 int pax_aslr_debug = 0;
 
 SYSCTL_DECL(_security_pax);
@@ -157,9 +157,9 @@ sysctl_pax_aslr_status(SYSCTL_HANDLER_ARGS)
 
 	switch (val) {
 	case    PAX_ASLR_DISABLED:
-	case    PAX_ASLR_ENABLED:
-	case    PAX_ASLR_GLOBAL_ENABLED:
-	case    PAX_ASLR_FORCE_GLOBAL_ENABLED:
+	case    PAX_ASLR_OPTIN:
+	case    PAX_ASLR_OPTOUT:
+	case    PAX_ASLR_FORCE_ENABLED:
 		if ((pr == NULL) || (pr == &prison0))
 			pax_aslr_status = val;
 		if (pr != NULL)
@@ -291,7 +291,7 @@ sysctl_pax_aslr_exec(SYSCTL_HANDLER_ARGS)
  * COMPAT_FREEBSD32 and linuxulator..
  */
 #ifdef COMPAT_FREEBSD32
-int pax_aslr_compat_status = PAX_ASLR_ENABLED;
+int pax_aslr_compat_status = PAX_ASLR_OPTIN;
 
 static int sysctl_pax_aslr_compat_status(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_compat_mmap(SYSCTL_HANDLER_ARGS);
@@ -351,9 +351,9 @@ sysctl_pax_aslr_compat_status(SYSCTL_HANDLER_ARGS)
 
 	switch (val) {
 	case    PAX_ASLR_DISABLED:
-	case    PAX_ASLR_ENABLED:
-	case    PAX_ASLR_GLOBAL_ENABLED:
-	case    PAX_ASLR_FORCE_GLOBAL_ENABLED:
+	case    PAX_ASLR_OPTIN:
+	case    PAX_ASLR_OPTOUT:
+	case    PAX_ASLR_FORCE_ENABLED:
 		if ((pr == NULL) || (pr == &prison0))
 			pax_aslr_compat_status = val;
 		if (pr != NULL)
@@ -480,9 +480,9 @@ pax_aslr_active(struct thread *td, struct proc *proc)
 	switch (status) {
 	case    PAX_ASLR_DISABLED:
 		return (false);
-	case    PAX_ASLR_FORCE_GLOBAL_ENABLED:
+	case    PAX_ASLR_FORCE_ENABLED:
 		return (true);
-	case    PAX_ASLR_ENABLED:
+	case    PAX_ASLR_OPTIN:
 		if (flags && (flags & ELF_NOTE_PAX_ASLR) == 0) {
 			if ((pr != NULL) && pr->pr_pax_aslr_debug)
 				uprintf("[PaX ASLR] %s: PAX is enabled, but executable does not have pax enabled\n",
@@ -490,7 +490,7 @@ pax_aslr_active(struct thread *td, struct proc *proc)
 			return (false);
 		}
 		break;
-	case    PAX_ASLR_GLOBAL_ENABLED:
+	case    PAX_ASLR_OPTOUT:
 		if (flags && (flags & ELF_NOTE_PAX_NOASLR) != 0) {
 			if ((pr != NULL) && pr->pr_pax_aslr_debug)
 				uprintf("[PaX ASLR] %s: PAX global is eanbled, but executable explicitly disabled pax\n",

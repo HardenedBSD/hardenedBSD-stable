@@ -67,7 +67,7 @@ __FBSDID("$FreeBSD$");
 
 #include <sys/pax.h>
 
-int pax_segvguard_status = PAX_SEGVGUARD_ENABLED;
+int pax_segvguard_status = PAX_SEGVGUARD_OPTIN;
 int pax_segvguard_debug = 0;
 int pax_segvguard_expiry = PAX_SEGVGUARD_EXPIRY;
 int pax_segvguard_suspension = PAX_SEGVGUARD_SUSPENSION;
@@ -174,9 +174,9 @@ sysctl_pax_segvguard_status(SYSCTL_HANDLER_ARGS)
 
 	switch (val) {
 	case    PAX_SEGVGUARD_DISABLED:
-	case    PAX_SEGVGUARD_ENABLED:
-	case    PAX_SEGVGUARD_GLOBAL_ENABLED:
-	case    PAX_SEGVGUARD_FORCE_GLOBAL_ENABLED:
+	case    PAX_SEGVGUARD_OPTIN:
+	case    PAX_SEGVGUARD_OPTOUT:
+	case    PAX_SEGVGUARD_FORCE_ENABLED:
 		if ((pr == NULL) || (pr == &prison0))
 			pax_segvguard_status = val;
 		if (pr != NULL)
@@ -314,14 +314,14 @@ pax_segvguard_active(struct thread *td, struct vnode *vn, struct proc *proc)
 	switch (status) {
 	case    PAX_SEGVGUARD_DISABLED:
 		return (false);
-	case    PAX_SEGVGUARD_FORCE_GLOBAL_ENABLED:
+	case    PAX_SEGVGUARD_FORCE_ENABLED:
 		return (true);
-	case    PAX_SEGVGUARD_ENABLED:
+	case    PAX_SEGVGUARD_OPTIN:
 		/* TODO: The ugidfw flags isn't working */
 		if ((vap.va_mode & (S_ISUID | S_ISGID)) == 0)
 			return (false);
 		break;
-	case    PAX_SEGVGUARD_GLOBAL_ENABLED:
+	case    PAX_SEGVGUARD_OPTOUT:
 		if (flags && (flags & ELF_NOTE_PAX_NOGUARD) != 0)
 			return (false);
 		break;
