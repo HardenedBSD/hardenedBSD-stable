@@ -2929,12 +2929,21 @@ sigexit(td, sig)
 			    td->td_ucred ? td->td_ucred->cr_uid : -1,
 			    sig &~ WCOREFLAG,
 			    sig & WCOREFLAG ? " (core dumped)" : "");
-	} else
-		PROC_UNLOCK(p);
-
 #ifdef PAX_SEGVGUARD
-	pax_segvguard(curthread, curthread->td_proc->p_textvp, p->p_comm, 1);
+		pax_segvguard(curthread, curthread->td_proc->p_textvp, 
+				p->p_comm, PAX_SEGVGUARD_CRASHED);
 #endif
+	} else {
+		/*
+		 *  XXX-op
+		 *
+		 * pax_segvguard(curthread, curthread->td_proc->p_textvp,
+		 * 	 p->p_comm, PAX_SEGVGUARD_CLEANUP_IF_CRASHED_NOT_FOUND);
+		 *
+		 * aka: Clean up the properly exited thread, instead of running a GC?
+		 */
+		PROC_UNLOCK(p);
+	}
 
 	exit1(td, W_EXITCODE(0, sig));
 	/* NOTREACHED */

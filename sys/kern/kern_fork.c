@@ -762,7 +762,8 @@ fork1(struct thread *td, int flags, int pages, struct proc **procp,
 
 #ifdef PAX_SEGVGUARD
 	if (td->td_proc->p_pid != 0) {
-		error = pax_segvguard(curthread, curthread->td_proc->p_textvp, td->td_proc->p_comm, 0);
+		error = pax_segvguard(curthread, curthread->td_proc->p_textvp, 
+				td->td_proc->p_comm, PAX_SEGVGUARD_NOTCRASHED);
 		if (error)
 			return (error);
 	}

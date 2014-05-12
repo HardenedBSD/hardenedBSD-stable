@@ -207,6 +207,8 @@ extern int pax_aslr_compat_exec_len;
 #define PAX_SEGVGUARD_EXPIRY        (2 * 60)
 #define PAX_SEGVGUARD_SUSPENSION    (10 * 60)
 #define PAX_SEGVGUARD_MAXCRASHES    5
+#define PAX_SEGVGUARD_NOTCRASHED	0
+#define PAX_SEGVGUARD_CRASHED		1
 
 void pax_init(void);
 void pax_init_prison(struct prison *pr);
