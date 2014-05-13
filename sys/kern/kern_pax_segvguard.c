@@ -302,8 +302,12 @@ pax_segvguard_active(struct thread *td, struct vnode *vn, struct proc *proc)
 		return (true);
 
 	flags = (td != NULL) ? td->td_proc->p_pax : proc->p_pax;
-	pr = pax_get_prison(td, proc);
+	if (((flags & 0xaaaaaaaa) & ((flags & 0x55555555) << 1)) != 0) {
+		uprintf("PAX: inconsistent paxflags: %x\n", flags);
+		return (true);
+	}
 
+	pr = pax_get_prison(td, proc);
 	if ((pr != NULL) && !(pr->pr_pax_set))
 		pax_init_prison(pr);
 
