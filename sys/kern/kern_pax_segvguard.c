@@ -322,7 +322,7 @@ pax_segvguard_active(struct thread *td, struct vnode *vn, struct proc *proc)
 			return (false);
 		break;
 	case    PAX_SEGVGUARD_OPTOUT:
-		if (flags && (flags & ELF_NOTE_PAX_NOGUARD) != 0)
+		if (flags && (flags & PAX_NOTE_NOGUARD) != 0)
 			return (false);
 		break;
 	default:

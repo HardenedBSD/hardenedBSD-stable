@@ -197,12 +197,12 @@ extern int pax_aslr_compat_exec_len;
 #endif /* PAX_ASLR */
 
 #define ELF_NOTE_TYPE_PAX_TAG   3
-#define ELF_NOTE_PAX_MPROTECT   0x01
-#define ELF_NOTE_PAX_NOMPROTECT 0x02
-#define ELF_NOTE_PAX_GUARD      0x04
-#define ELF_NOTE_PAX_NOGUARD    0x08
-#define ELF_NOTE_PAX_ASLR       0x10
-#define ELF_NOTE_PAX_NOASLR     0x20
+#define PAX_NOTE_MPROTECT   0x01
+#define PAX_NOTE_NOMPROTECT 0x02
+#define PAX_NOTE_GUARD      0x04
+#define PAX_NOTE_NOGUARD    0x08
+#define PAX_NOTE_ASLR       0x10
+#define PAX_NOTE_NOASLR     0x20
 
 #define PAX_SEGVGUARD_EXPIRY        (2 * 60)
 #define PAX_SEGVGUARD_SUSPENSION    (10 * 60)
