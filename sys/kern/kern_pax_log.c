@@ -31,6 +31,7 @@
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/types.h>
+#include <sys/kernel.h>
 #include <sys/pax.h>
 #include <sys/sbuf.h>
 #include <sys/jail.h>
@@ -88,6 +89,89 @@ pax_ulog_##name(struct prison *pr, const char *caller_name, const char* fmt, ...
 }
 
 
-__PAX_LOG_TEMPLATE(ASLR, aslr)
+static int sysctl_pax_log_log(SYSCTL_HANDLER_ARGS);
+static int sysctl_pax_log_ulog(SYSCTL_HANDLER_ARGS);
 
+int pax_log_log = PAX_LOG_LOG;
+int pax_log_ulog = PAX_LOG_ULOG;
+
+SYSCTL_DECL(_security_pax);
+
+SYSCTL_NODE(_security_pax, OID_AUTO, log, CTLFLAG_RD, 0,
+    "PAX related logging facility.");
+
+SYSCTL_PROC(_security_pax_log, OID_AUTO, log,
+    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
+    NULL, 0, sysctl_pax_log_log, "I",
+    "log to syslog "
+    "0 - disabled, "
+    "1 - enabled ");
+TUNABLE_INT("security.pax.log.log", &pax_log_log);
+
+SYSCTL_PROC(_security_pax_log, OID_AUTO, ulog,
+    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
+    NULL, 0, sysctl_pax_log_ulog, "I",
+    "log to user terminal"
+    "0 - disabled, "
+    "1 - enabled ");
+TUNABLE_INT("security.pax.log.ulog", &pax_log_ulog);
+
+static int
+sysctl_pax_log_log(SYSCTL_HANDLER_ARGS)
+{
+	int err;
+	int val;
+	struct prison *pr=NULL;
+
+	pr = pax_get_prison(req->td, NULL);
+
+	if ((pr != NULL) && !(pr->pr_pax_set))
+		pax_init_prison(pr);
+
+	val = (pr != NULL) ? pr->pr_pax_log_log : pax_log_log;
+	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
+	if (err || !req->newptr)
+		return (err);
+
+	if (val != 0 || val != 1)
+		return (EINVAL);
+
+	if ((pr == NULL) || (pr == &prison0))
+		pax_log_log = val;
+	if (pr != NULL)
+		pr->pr_pax_log_log = val;
+
+	return (0);
+}
+
+static int
+sysctl_pax_log_ulog(SYSCTL_HANDLER_ARGS)
+{
+	int err;
+	int val;
+	struct prison *pr=NULL;
+
+	pr = pax_get_prison(req->td, NULL);
+
+	if ((pr != NULL) && !(pr->pr_pax_set))
+		pax_init_prison(pr);
+
+	val = (pr != NULL) ? pr->pr_pax_log_ulog : pax_log_ulog;
+	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
+	if (err || !req->newptr)
+		return (err);
+
+	if (val != 0 || val != 1)
+		return (EINVAL);
+
+	if ((pr == NULL) || (pr == &prison0))
+		pax_log_ulog = val;
+	if (pr != NULL)
+		pr->pr_pax_log_ulog = val;
+
+	return (0);
+}
+
+
+__PAX_LOG_TEMPLATE(ASLR, aslr)
 __PAX_LOG_TEMPLATE(SEGVGUARD, segvguard)
