@@ -230,6 +230,6 @@ int pax_segvguard(struct thread *, struct vnode *, char *, bool);
 void pax_log_aslr(struct prison *pr, const char *func, const char *fmt, ...);
 void pax_ulog_aslr(struct prison *pr, const char *func, const char *fmt, ...);
 void pax_log_segvguard(struct prison *pr, const char *func, const char *fmt, ...);
-void pax_ulog_segvuard(struct prison *pr, const char *func, const char *fmt, ...);
+void pax_ulog_segvguard(struct prison *pr, const char *func, const char *fmt, ...);
 
 #endif /* __SYS_PAX_H */

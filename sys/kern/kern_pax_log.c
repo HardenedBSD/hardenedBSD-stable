@@ -87,4 +87,7 @@ pax_ulog_##name(struct prison *pr, const char *caller_name, const char* fmt, ...
 	sbuf_delete(sb);							\
 }
 
+
 __PAX_LOG_TEMPLATE(ASLR, aslr)
+
+__PAX_LOG_TEMPLATE(SEGVGUARD, segvguard)
