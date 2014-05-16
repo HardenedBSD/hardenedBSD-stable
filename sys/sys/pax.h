@@ -33,6 +33,7 @@
 struct image_params;
 struct prison;
 struct thread;
+struct vnode;
 struct vmspace;
 struct vm_offset_t;
 
@@ -210,6 +211,9 @@ extern int pax_aslr_compat_exec_len;
 #define PAX_SEGVGUARD_NOTCRASHED	0
 #define PAX_SEGVGUARD_CRASHED		1
 
+#define PAX_LOG_LOG		0
+#define PAX_LOG_ULOG		0
+
 void pax_init(void);
 void pax_init_prison(struct prison *pr);
 bool pax_aslr_active(struct thread *td, struct proc *proc);
@@ -222,5 +226,10 @@ void pax_aslr_stack(struct thread *td, uintptr_t *addr);
 struct prison *pax_get_prison(struct thread *td, struct proc *proc);
 void pax_elf(struct image_params *, uint32_t);
 int pax_segvguard(struct thread *, struct vnode *, char *, bool);
+
+void pax_log_aslr(struct prison *pr, const char *func, const char *fmt, ...);
+void pax_ulog_aslr(struct prison *pr, const char *func, const char *fmt, ...);
+void pax_log_segvguard(struct prison *pr, const char *func, const char *fmt, ...);
+void pax_ulog_segvuard(struct prison *pr, const char *func, const char *fmt, ...);
 
 #endif /* __SYS_PAX_H */

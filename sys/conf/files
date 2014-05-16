@@ -2899,6 +2899,7 @@ kern/kern_ntptime.c		standard
 kern/kern_osd.c			standard
 kern/kern_pax.c			optional pax_aslr | pax_segvguard
 kern/kern_pax_aslr.c		optional pax_aslr
+kern/kern_pax_log.c		optional pax_aslr | pax_segvguard
 kern/kern_pax_segvguard.c	optional pax_segvguard
 kern/kern_physio.c		standard
 kern/kern_pmc.c			standard

@@ -200,6 +200,8 @@ struct prison {
 	int		 pr_pax_segvguard_expiry;	/* (p) Number of seconds to expire an entry */
 	int		 pr_pax_segvguard_suspension;	/* (p) Number of seconds to suspend an application */
 	int		 pr_pax_segvguard_maxcrashes;	/* (p) Maximum number of crashes before suspending application */
+	int		 pr_pax_log_log;		/* (p) XXX */
+	int		 pr_pax_log_ulog;		/* (p) XXX */
 };
 
 struct prison_racct {

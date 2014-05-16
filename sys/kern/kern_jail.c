@@ -135,6 +135,8 @@ struct prison prison0 = {
 	.pr_pax_segvguard_expiry	= PAX_SEGVGUARD_EXPIRY,
 	.pr_pax_segvguard_suspension	= PAX_SEGVGUARD_SUSPENSION,
 	.pr_pax_segvguard_maxcrashes	= PAX_SEGVGUARD_MAXCRASHES,
+	.pr_pax_log_log			= PAX_LOG_LOG,
+	.pr_pax_log_ulog		= PAX_LOG_ULOG,
 #else
 	.pr_pax_set		= 0,
 	.pr_pax_aslr_status	= 0,
@@ -151,6 +153,8 @@ struct prison prison0 = {
 	.pr_pax_segvguard_expiry	= 0,
 	.pr_pax_segvguard_suspension	= 0,
 	.pr_pax_segvguard_maxcrashes	= 0,
+	.pr_pax_log_log			= 0,
+	.pr_pax_log_ulog		= 0,
 #endif
 };
 MTX_SYSINIT(prison0, &prison0.pr_mtx, "jail mutex", MTX_DEF);
