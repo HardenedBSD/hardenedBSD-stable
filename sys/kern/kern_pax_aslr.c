@@ -469,15 +469,16 @@ pax_aslr_active(struct thread *td, struct proc *proc)
 	if ((td == NULL) && (proc == NULL))
 		return (true);
 
-	flags = (td != NULL) ? td->td_proc->p_pax : proc->p_pax;
-	if (((flags & 0xaaaaaaaa) & ((flags & 0x55555555) << 1)) != 0) {
-		uprintf("PAX: inconsistent paxflags: %x\n", flags);
-		return (true);
-	}
-
 	pr = pax_get_prison(td, proc);
 	if ((pr != NULL) && !(pr->pr_pax_set))
 		pax_init_prison(pr);
+
+	flags = (td != NULL) ? td->td_proc->p_pax : proc->p_pax;
+	if (((flags & 0xaaaaaaaa) & ((flags & 0x55555555) << 1)) != 0) {
+		pax_log_aslr(pr, __func__, "inconsistent paxflags: %x\n", flags);
+		pax_ulog_aslr(pr, NULL, "inconsistent paxflags: %x\n", flags);
+		return (true);
+	}
 
 	status = (pr != NULL) ? pr->pr_pax_aslr_status : pax_aslr_status;
 
@@ -488,17 +489,19 @@ pax_aslr_active(struct thread *td, struct proc *proc)
 		return (true);
 	case    PAX_ASLR_OPTIN:
 		if (flags && (flags & PAX_NOTE_ASLR) == 0) {
-			if ((pr != NULL) && pr->pr_pax_aslr_debug)
-				uprintf("[PaX ASLR] %s: PAX is enabled, but executable does not have pax enabled\n",
-						__func__);
+			pax_log_aslr(pr, __func__,
+			    "ASLR is opt-in, and executable does not have ASLR enabled\n");
+			pax_ulog_aslr(pr, NULL,
+			    "ASLR is opt-in, and executable does not have ASLR enabled\n");
 			return (false);
 		}
 		break;
 	case    PAX_ASLR_OPTOUT:
 		if (flags && (flags & PAX_NOTE_NOASLR) != 0) {
-			if ((pr != NULL) && pr->pr_pax_aslr_debug)
-				uprintf("[PaX ASLR] %s: PAX global is eanbled, but executable explicitly disabled pax\n",
-						__func__);
+			pax_log_aslr(pr, __func__,
+			    "ASLR is opt-out, and executable explicitly disabled ASLR\n");
+			pax_ulog_aslr(pr, NULL,
+			    "ASLR is opt-out, and executable explicitly disabled ASLR\n");
 			return (false);
 		}
 		break;
@@ -524,9 +527,12 @@ _pax_aslr_init(struct vmspace *vm, struct prison *pr)
 			PAX_ASLR_DELTA_EXEC_LSB, (pr != NULL) ? pr->pr_pax_aslr_exec_len : pax_aslr_exec_len);
 
 	if ((pr != NULL) && pr->pr_pax_aslr_debug) {
-		uprintf("[PaX ASLR] %s: vm_aslr_delta_mmap=%p\n", __func__, (void *) vm->vm_aslr_delta_mmap);
-		uprintf("[PaX ASLR] %s: vm_aslr_delta_stack=%p\n", __func__, (void *) vm->vm_aslr_delta_stack);
-		uprintf("[PaX ASLR] %s: vm_aslr_delta_exec=%p\n", __func__, (void *) vm->vm_aslr_delta_exec);
+		pax_log_aslr(pr, __func__, "vm_aslr_delta_mmap=%p\n", (void *) vm->vm_aslr_delta_mmap);
+		pax_log_aslr(pr, __func__, "vm_aslr_delta_stack=%p\n", (void *) vm->vm_aslr_delta_stack);
+		pax_log_aslr(pr, __func__, "vm_aslr_delta_exec=%p\n", (void *) vm->vm_aslr_delta_exec);
+		pax_ulog_aslr(pr, NULL, "vm_aslr_delta_mmap=%p\n", (void *) vm->vm_aslr_delta_mmap);
+		pax_ulog_aslr(pr, NULL, "vm_aslr_delta_stack=%p\n", (void *) vm->vm_aslr_delta_stack);
+		pax_ulog_aslr(pr, NULL, "vm_aslr_delta_exec=%p\n", (void *) vm->vm_aslr_delta_exec);
 	}
 }
 
@@ -546,9 +552,12 @@ _pax_aslr_init32(struct vmspace *vm, struct prison *pr)
 			PAX_ASLR_DELTA_EXEC_LSB, (pr != NULL) ? pr->pr_pax_aslr_compat_exec_len : pax_aslr_compat_exec_len);
 
 	if ((pr != NULL) && pr->pr_pax_aslr_debug) {
-		uprintf("[PaX ASLR] %s: vm_aslr_delta_mmap=%p\n", __func__, (void *) vm->vm_aslr_delta_mmap);
-		uprintf("[PaX ASLR] %s: vm_aslr_delta_stack=%p\n", __func__, (void *) vm->vm_aslr_delta_stack);
-		uprintf("[PaX ASLR] %s: vm_aslr_delta_exec=%p\n", __func__, (void *) vm->vm_aslr_delta_exec);
+		pax_log_aslr(pr, __func__, "vm_aslr_delta_mmap=%p\n", (void *) vm->vm_aslr_delta_mmap);
+		pax_log_aslr(pr, __func__, "vm_aslr_delta_stack=%p\n", (void *) vm->vm_aslr_delta_stack);
+		pax_log_aslr(pr, __func__, "vm_aslr_delta_exec=%p\n", (void *) vm->vm_aslr_delta_exec);
+		pax_ulog_aslr(pr, NULL, "vm_aslr_delta_mmap=%p\n", (void *) vm->vm_aslr_delta_mmap);
+		pax_ulog_aslr(pr, NULL, "vm_aslr_delta_stack=%p\n", (void *) vm->vm_aslr_delta_stack);
+		pax_ulog_aslr(pr, NULL, "vm_aslr_delta_exec=%p\n", (void *) vm->vm_aslr_delta_exec);
 	}
 }
 #endif
@@ -556,8 +565,8 @@ _pax_aslr_init32(struct vmspace *vm, struct prison *pr)
 void
 pax_aslr_init(struct thread *td, struct image_params *imgp)
 {
+	struct prison *pr;
 	struct vmspace *vm;
-	struct prison *pr=NULL;
 
 	pr = pax_get_prison(td, NULL);
 
@@ -581,43 +590,42 @@ pax_aslr_init(struct thread *td, struct image_params *imgp)
 void
 pax_aslr_mmap(struct thread *td, vm_offset_t *addr, vm_offset_t orig_addr, int flags)
 {
-	struct prison *pr=NULL;
-
-	pr = pax_get_prison(td, NULL);
+	struct prison *pr;
 
 	if (!pax_aslr_active(td, NULL))
 		return;
 
+	pr = pax_get_prison(td, NULL);
+
 	if (!(flags & MAP_FIXED) && ((orig_addr == 0) || !(flags & MAP_ANON))) {
-		if ((pr != NULL) && pr->pr_pax_aslr_debug)
-			uprintf("[PaX ASLR] %s: applying to %p orig_addr=%p flags=%x\n",
-					__func__, (void *)*addr, (void *)orig_addr, flags);
+		pax_log_aslr(pr, __func__, "applying to %p orig_addr=%p flags=%x\n",
+		    (void *)*addr, (void *)orig_addr, flags);
+
 		if (!(td->td_proc->p_vmspace->vm_map.flags & MAP_ENTRY_GROWS_DOWN))
 			*addr += td->td_proc->p_vmspace->vm_aslr_delta_mmap;
 		else
 			*addr -= td->td_proc->p_vmspace->vm_aslr_delta_mmap;
-		if ((pr != NULL) && pr->pr_pax_aslr_debug)
-			uprintf("[PaX ASLR] %s: result %p\n", __func__, (void *)*addr);
-	} else if ((pr != NULL) && pr->pr_pax_aslr_debug) {
-		uprintf("[PaX ASLR] %s: not applying to %p orig_addr=%p flags=%x\n",
-				__func__, (void *)*addr, (void *)orig_addr, flags);
-	}
+		pax_log_aslr(pr, __func__, "result %p\n", (void *)*addr);
+	} else
+		pax_log_aslr(pr, __func__, "not applying to %p orig_addr=%p flags=%x\n",
+		    (void *)*addr, (void *)orig_addr, flags);
 }
 
 void
 pax_aslr_stack(struct thread *td, uintptr_t *addr)
 {
-	struct prison *pr=NULL;
+	struct prison *pr;
 	uintptr_t orig_addr;
-
-	pr = pax_get_prison(td, NULL);
 
 	if (!pax_aslr_active(td, NULL))
 		return;
 
+	pr = pax_get_prison(td, NULL);
+
 	orig_addr = *addr;
 	*addr -= td->td_proc->p_vmspace->vm_aslr_delta_stack;
-	if (pax_aslr_debug)
-		uprintf("[PaX ASLR] %s: orig_addr=%p, new_addr=%p\n",
-				__func__, (void *)orig_addr, (void *)*addr);
+	pax_log_aslr(pr, __func__, "orig_addr=%p, new_addr=%p\n",
+	    (void *)orig_addr, (void *)*addr);
+	pax_ulog_aslr(pr, NULL, "orig_addr=%p, new_addr=%p\n",
+	    (void *)orig_addr, (void *)*addr);
 }
