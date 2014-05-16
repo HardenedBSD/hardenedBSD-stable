@@ -1255,9 +1255,6 @@ exec_copyout_strings(imgp)
 {
 	int argc, envc;
 	char **vectp;
-#ifdef PAX_ASLR
-	uintptr_t orig_destp;
-#endif
 	char *stringp;
 	uintptr_t destp;
 	register_t *stack_base;
@@ -1285,8 +1282,7 @@ exec_copyout_strings(imgp)
 	}
 	destp =	(uintptr_t)arginfo;
 #ifdef PAX_ASLR
-	orig_destp = destp;
-	pax_aslr_stack(curthread, &destp, orig_destp);
+	pax_aslr_stack(curthread, &destp);
 #endif
 
 	/*
