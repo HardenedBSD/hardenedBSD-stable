@@ -84,7 +84,7 @@ pax_ulog_##name(struct prison *pr, const char *caller_name, const char* fmt, ...
 	if (sbuf_finish(sb) != 0)						\
 		panic("%s: Could not generate message", __func__);		\
 										\
-	printf("%s", sbuf_data(sb));						\
+	uprintf("%s", sbuf_data(sb));						\
 	sbuf_delete(sb);							\
 }
 
