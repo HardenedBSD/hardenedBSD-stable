@@ -8,8 +8,6 @@ CFLAGS+=	-I${.CURDIR}/../../sys/dev/iscsi
 #CFLAGS+=	-DICL_KERNEL_PROXY
 MAN=		iscsid.8
 
-CAN_PIE=1
-
 DPADD=		${LIBUTIL}
 LDADD=		-lcrypto -lssl -lutil
 

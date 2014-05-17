@@ -5,8 +5,6 @@
 OPENBSMDIR=${.CURDIR}/../../contrib/openbsm
 .PATH: ${OPENBSMDIR}/bin/auditd
 
-CAN_PIE=1
-
 CFLAGS+=	-I${OPENBSMDIR}
 
 PROG=	auditd

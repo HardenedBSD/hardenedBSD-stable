@@ -7,8 +7,6 @@ SRCS=	casperd.c zygote.c
 DPADD=	${LIBCASPER} ${LIBCAPSICUM} ${LIBNV} ${LIBPJDLOG} ${LIBUTIL}
 LDADD=	-lcasper -lcapsicum -lnv -lpjdlog -lutil
 
-CAN_PIE=	1
-
 MAN=	casperd.8
 
 CFLAGS+=-I${.CURDIR}

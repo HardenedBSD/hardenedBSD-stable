@@ -9,8 +9,6 @@ PROG=	syslogd
 MAN=	syslog.conf.5 syslogd.8
 SRCS=	syslogd.c ttymsg.c
 
-CAN_PIE=1
-
 DPADD=	${LIBUTIL}
 LDADD=	-lutil
 

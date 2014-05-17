@@ -5,8 +5,6 @@ MAN=	apmd.8
 MANSUBDIR= /i386
 SRCS=	apmd.c apmdlex.l apmdparse.y y.tab.h
 
-CAN_PIE=1
-
 WARNS?=	3
 
 DPADD=	${LIBL}

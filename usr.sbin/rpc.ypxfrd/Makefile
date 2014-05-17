@@ -7,8 +7,6 @@ MAN=	rpc.ypxfrd.8
 SRCS=	ypxfrd_svc.c ypxfrd.h ypxfrd_server.c yp_error.c \
 	yp_access.c ypxfrd_main.c
 
-CAN_PIE=1
-
 CFLAGS+= -I. -DXFRBLOCKSIZE=65535
 
 WARNS?=	2

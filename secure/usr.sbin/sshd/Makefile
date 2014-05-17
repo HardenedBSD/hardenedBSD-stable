@@ -22,8 +22,6 @@ SRCS=	sshd.c auth-rhosts.c auth-passwd.c auth-rsa.c auth-rh-rsa.c \
 # gss-genr.c really belongs in libssh; see src/secure/lib/libssh/Makefile
 SRCS+=	gss-genr.c
 
-CAN_PIE=1
-
 MAN=	sshd.8 sshd_config.5
 CFLAGS+=-I${SSHDIR} -include ssh_namespace.h
 
