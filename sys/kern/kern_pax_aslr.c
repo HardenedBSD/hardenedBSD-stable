@@ -189,8 +189,14 @@ sysctl_pax_aslr_debug(SYSCTL_HANDLER_ARGS)
 	if (err || !req->newptr)
 		return (err);
 
-	if (val != 0 || val != 1)
+	switch (val) {
+	case	0:
+	case	1:
+		break;
+	default:
 		return (EINVAL);
+
+	}
 
 	if ((pr == NULL) || (pr == &prison0))
 		pax_aslr_debug = val;
