@@ -197,6 +197,9 @@ extern int pax_aslr_compat_exec_len;
 #endif /* COMPAT_FREEBSD32 */
 #endif /* PAX_ASLR */
 
+extern int pax_log_log;
+extern int pax_log_ulog;
+
 #define ELF_NOTE_TYPE_PAX_TAG   3
 #define PAX_NOTE_MPROTECT   0x01
 #define PAX_NOTE_NOMPROTECT 0x02
