@@ -93,7 +93,7 @@ static int sysctl_pax_aslr_mmap(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_stack(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_exec(SYSCTL_HANDLER_ARGS);
 
-int pax_aslr_status = PAX_ASLR_OPTIN;
+int pax_aslr_status = PAX_ASLR_OPTOUT;
 int pax_aslr_debug = 0;
 
 SYSCTL_DECL(_security_pax);
@@ -297,7 +297,7 @@ sysctl_pax_aslr_exec(SYSCTL_HANDLER_ARGS)
  * COMPAT_FREEBSD32 and linuxulator..
  */
 #ifdef COMPAT_FREEBSD32
-int pax_aslr_compat_status = PAX_ASLR_OPTIN;
+int pax_aslr_compat_status = PAX_ASLR_OPTOUT;
 
 static int sysctl_pax_aslr_compat_status(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_compat_mmap(SYSCTL_HANDLER_ARGS);
