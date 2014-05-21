@@ -494,7 +494,7 @@ pax_aslr_active(struct thread *td, struct proc *proc)
 	case    PAX_ASLR_FORCE_ENABLED:
 		return (true);
 	case    PAX_ASLR_OPTIN:
-		if (flags && (flags & PAX_NOTE_ASLR) == 0) {
+		if ((flags & PAX_NOTE_ASLR) == 0) {
 			pax_log_aslr(pr, __func__,
 			    "ASLR is opt-in, and executable does not have ASLR enabled\n");
 			pax_ulog_aslr(pr, NULL,
@@ -503,7 +503,7 @@ pax_aslr_active(struct thread *td, struct proc *proc)
 		}
 		break;
 	case    PAX_ASLR_OPTOUT:
-		if (flags && (flags & PAX_NOTE_NOASLR) != 0) {
+		if ((flags & PAX_NOTE_NOASLR) != 0) {
 			pax_log_aslr(pr, __func__,
 			    "ASLR is opt-out, and executable explicitly disabled ASLR\n");
 			pax_ulog_aslr(pr, NULL,
