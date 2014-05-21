@@ -184,21 +184,22 @@ struct prison {
 	char		 pr_hostname[MAXHOSTNAMELEN];	/* (p) jail hostname */
 	char		 pr_domainname[MAXHOSTNAMELEN];	/* (p) jail domainname */
 	char		 pr_hostuuid[HOSTUUIDLEN];	/* (p) jail hostuuid */
-	int		 pr_pax_set;			/* () XXX */
-	int		 pr_pax_aslr_status;		/* () XXX */
-	int		 pr_pax_aslr_debug;		/* () XXX */
-	int		 pr_pax_aslr_mmap_len;		/* () XXX */
-	int		 pr_pax_aslr_stack_len;		/* () XXX */
-	int		 pr_pax_aslr_exec_len;		/* () XXX */
-	int		 pr_pax_aslr_compat_status;	/* () XXX */
-	int		 pr_pax_aslr_compat_mmap_len;	/* () XXX */
-	int		 pr_pax_aslr_compat_stack_len;	/* () XXX */
-	int		 pr_pax_aslr_compat_exec_len;	/* () XXX */
-	int		 pr_pax_segvguard_status;	/* () XXX */
-	int		 pr_pax_segvguard_debug;	/* () XXX */
-	int		 pr_pax_segvguard_expiry;	/* () XXX */
-	int		 pr_pax_segvguard_suspension;	/* () XXX */
-	int		 pr_pax_segvguard_maxcrashes;	/* () XXX */
+    /* Lock only needed for pax_* if pr_pax_set == 0 */
+	int		 pr_pax_set;			/* (p) PaX settings initialized */
+	int		 pr_pax_aslr_status;		/* (p) PaX ASLR enabled */
+	int		 pr_pax_aslr_debug;		/* (p) PaX ASLR debug */
+	int		 pr_pax_aslr_mmap_len;		/* (p) Number of bits randomized with mmap */
+	int		 pr_pax_aslr_stack_len;		/* (p) Number of bits randomized with stack */
+	int		 pr_pax_aslr_exec_len;		/* (p) Number of bits randomized with the execbase */
+	int		 pr_pax_aslr_compat_status;	/* (p) PaX ASLR enabled (compat32) */
+	int		 pr_pax_aslr_compat_mmap_len;	/* (p) Number of bits randomized with mmap (compat32) */
+	int		 pr_pax_aslr_compat_stack_len;	/* (p) Number of bits randomized with stack (compat32) */
+	int		 pr_pax_aslr_compat_exec_len;	/* (p) Number of bits randomized with the execbase (compat32) */
+	int		 pr_pax_segvguard_status;	/* (p) PaX segvguard enabled */
+	int		 pr_pax_segvguard_debug;	/* (p) PaX segvguard debug */
+	int		 pr_pax_segvguard_expiry;	/* (p) Number of seconds to expire an entry */
+	int		 pr_pax_segvguard_suspension;	/* (p) Number of seconds to suspend an application */
+	int		 pr_pax_segvguard_maxcrashes;	/* (p) Maximum number of crashes before suspending application */
 };
 
 struct prison_racct {

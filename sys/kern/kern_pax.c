@@ -38,6 +38,8 @@ __FBSDID("$FreeBSD$");
 #include <sys/kernel.h>
 #include <sys/imgact.h>
 #include <sys/imgact_elf.h>
+#include <sys/lock.h>
+#include <sys/mutex.h>
 #include <sys/sysent.h>
 #include <sys/stat.h>
 #include <sys/proc.h>
@@ -131,6 +133,8 @@ pax_init_prison(struct prison *pr)
 	if (pr->pr_pax_set)
 		return;
 
+    mtx_lock(&(pr->pr_mtx));
+
 	if (pax_aslr_debug)
 		uprintf("[PaX ASLR/SEGVGUARD] %s: Setting prison %s ASLR variables\n",
 		    __func__, pr->pr_name);
@@ -159,4 +163,6 @@ pax_init_prison(struct prison *pr)
 #endif
 
 	pr->pr_pax_set = 1;
+
+    mtx_unlock(&(pr->pr_mtx));
 }
