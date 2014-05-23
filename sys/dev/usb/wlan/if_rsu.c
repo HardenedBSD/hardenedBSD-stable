@@ -128,7 +128,10 @@ static const STRUCT_USB_HOST_ID rsu_devs[] = {
 static device_probe_t   rsu_match;
 static device_attach_t  rsu_attach;
 static device_detach_t  rsu_detach;
-static usb_callback_t   rsu_bulk_tx_callback;
+static usb_callback_t   rsu_bulk_tx_callback_0;
+static usb_callback_t   rsu_bulk_tx_callback_1;
+static usb_callback_t   rsu_bulk_tx_callback_2;
+static usb_callback_t   rsu_bulk_tx_callback_3;
 static usb_callback_t   rsu_bulk_rx_callback;
 static usb_error_t	rsu_do_request(struct rsu_softc *,
 			    struct usb_device_request *, void *);
@@ -187,7 +190,6 @@ static int	rsu_raw_xmit(struct ieee80211_node *, struct mbuf *,
 		    const struct ieee80211_bpf_params *);
 static void	rsu_init(void *);
 static void	rsu_init_locked(struct rsu_softc *);
-static void	rsu_watchdog(void *);
 static int	rsu_tx_start(struct rsu_softc *, struct ieee80211_node *, 
 		    struct mbuf *, struct rsu_data *);
 static void	rsu_start(struct ifnet *);
@@ -241,7 +243,7 @@ static const struct usb_config rsu_config[RSU_N_TRANSFER] = {
 			.pipe_bof = 1,
 			.force_short_xfer = 1
 		},
-		.callback = rsu_bulk_tx_callback,
+		.callback = rsu_bulk_tx_callback_0,
 		.timeout = RSU_TX_TIMEOUT
 	},
 	[RSU_BULK_TX_BK] = {
@@ -254,7 +256,7 @@ static const struct usb_config rsu_config[RSU_N_TRANSFER] = {
 			.pipe_bof = 1,
 			.force_short_xfer = 1
 		},
-		.callback = rsu_bulk_tx_callback,
+		.callback = rsu_bulk_tx_callback_1,
 		.timeout = RSU_TX_TIMEOUT
 	},
 	[RSU_BULK_TX_VI] = {
@@ -267,7 +269,7 @@ static const struct usb_config rsu_config[RSU_N_TRANSFER] = {
 			.pipe_bof = 1,
 			.force_short_xfer = 1
 		},
-		.callback = rsu_bulk_tx_callback,
+		.callback = rsu_bulk_tx_callback_2,
 		.timeout = RSU_TX_TIMEOUT
 	},
 	[RSU_BULK_TX_VO] = {
@@ -280,7 +282,7 @@ static const struct usb_config rsu_config[RSU_N_TRANSFER] = {
 			.pipe_bof = 1,
 			.force_short_xfer = 1
 		},
-		.callback = rsu_bulk_tx_callback,
+		.callback = rsu_bulk_tx_callback_3,
 		.timeout = RSU_TX_TIMEOUT
 	},
 };
@@ -316,7 +318,20 @@ rsu_attach(device_t self)
 	    MTX_DEF);
 	TIMEOUT_TASK_INIT(taskqueue_thread, &sc->calib_task, 0, 
 	    rsu_calib_task, sc);
-	callout_init(&sc->sc_watchdog_ch, 0);
+
+	/* Allocate Tx/Rx buffers. */
+	error = rsu_alloc_rx_list(sc);
+	if (error != 0) {
+		device_printf(sc->sc_dev, "could not allocate Rx buffers\n");
+		goto fail_usb;
+	}
+
+	error = rsu_alloc_tx_list(sc);
+	if (error != 0) {
+		device_printf(sc->sc_dev, "could not allocate Tx buffers\n");
+		rsu_free_rx_list(sc);
+		goto fail_usb;
+	}
 
 	iface_index = 0;
 	error = usbd_transfer_setup(uaa->device, &iface_index, sc->sc_xfer,
@@ -428,7 +443,6 @@ rsu_detach(device_t self)
 	usbd_transfer_unsetup(sc->sc_xfer, RSU_N_TRANSFER);
 	ieee80211_ifdetach(ic);
 
-	callout_drain(&sc->sc_watchdog_ch);
 	taskqueue_drain_timeout(taskqueue_thread, &sc->calib_task);
 
 	/* Free Tx/Rx buffers. */
@@ -598,9 +612,12 @@ rsu_alloc_tx_list(struct rsu_softc *sc)
 	if (error != 0)
 		return (error);
 
-	STAILQ_INIT(&sc->sc_tx_active);
 	STAILQ_INIT(&sc->sc_tx_inactive);
-	STAILQ_INIT(&sc->sc_tx_pending);
+
+	for (i = 0; i != RSU_MAX_TX_EP; i++) {
+		STAILQ_INIT(&sc->sc_tx_active[i]);
+		STAILQ_INIT(&sc->sc_tx_pending[i]);
+	}
 
 	for (i = 0; i < RSU_TX_LIST_COUNT; i++) {
 		STAILQ_INSERT_HEAD(&sc->sc_tx_inactive, &sc->sc_tx[i], next);
@@ -612,12 +629,26 @@ rsu_alloc_tx_list(struct rsu_softc *sc)
 static void
 rsu_free_tx_list(struct rsu_softc *sc)
 {
+	int i;
+
+	/* prevent further allocations from TX list(s) */
+	STAILQ_INIT(&sc->sc_tx_inactive);
+
+	for (i = 0; i != RSU_MAX_TX_EP; i++) {
+		STAILQ_INIT(&sc->sc_tx_active[i]);
+		STAILQ_INIT(&sc->sc_tx_pending[i]);
+	}
+
 	rsu_free_list(sc, sc->sc_tx, RSU_TX_LIST_COUNT);
 }
 
 static void
 rsu_free_rx_list(struct rsu_softc *sc)
 {
+	/* prevent further allocations from RX list(s) */
+	STAILQ_INIT(&sc->sc_rx_inactive);
+	STAILQ_INIT(&sc->sc_rx_active);
+
 	rsu_free_list(sc, sc->sc_rx, RSU_RX_LIST_COUNT);
 }
 
@@ -843,10 +874,12 @@ rsu_read_rom(struct rsu_softc *sc)
 static int
 rsu_fw_cmd(struct rsu_softc *sc, uint8_t code, void *buf, int len)
 {
+	const uint8_t which = RSU_BULK_TX_VO - RSU_BULK_TX_BE;
 	struct rsu_data *data;
 	struct r92s_tx_desc *txd;
 	struct r92s_fw_cmd_hdr *cmd;
-	int cmdsz, xferlen;
+	int cmdsz;
+	int xferlen;
 
 	data = rsu_getbuf(sc);
 	if (data == NULL)
@@ -879,8 +912,8 @@ rsu_fw_cmd(struct rsu_softc *sc, uint8_t code, void *buf, int len)
 
 	DPRINTFN(2, "Tx cmd code=0x%x len=0x%x\n", code, cmdsz);
 	data->buflen = xferlen;
-	STAILQ_INSERT_TAIL(&sc->sc_tx_pending, data, next);
-	usbd_transfer_start(sc->sc_xfer[RSU_BULK_TX_VO]);
+	STAILQ_INSERT_TAIL(&sc->sc_tx_pending[which], data, next);
+	usbd_transfer_start(sc->sc_xfer[which + RSU_BULK_TX_BE]);
 
 	return (0);
 }
@@ -1574,13 +1607,13 @@ rsu_txeof(struct usb_xfer *xfer, struct rsu_data *data)
 		ieee80211_free_node(data->ni);
 		data->ni = NULL;
 	}
-	sc->sc_tx_timer = 0;
 	ifp->if_opackets++;
 	ifp->if_drv_flags &= ~IFF_DRV_OACTIVE;
 }
 
 static void
-rsu_bulk_tx_callback(struct usb_xfer *xfer, usb_error_t error)
+rsu_bulk_tx_callback_sub(struct usb_xfer *xfer, usb_error_t error,
+    uint8_t which)
 {
 	struct rsu_softc *sc = usbd_xfer_softc(xfer);
 	struct ifnet *ifp = sc->sc_ifp;
@@ -1590,43 +1623,66 @@ rsu_bulk_tx_callback(struct usb_xfer *xfer, usb_error_t error)
 
 	switch (USB_GET_STATE(xfer)) {
 	case USB_ST_TRANSFERRED:
-		data = STAILQ_FIRST(&sc->sc_tx_active);
+		data = STAILQ_FIRST(&sc->sc_tx_active[which]);
 		if (data == NULL)
 			goto tr_setup;
 		DPRINTF("transfer done %p\n", data);
-		STAILQ_REMOVE_HEAD(&sc->sc_tx_active, next);
+		STAILQ_REMOVE_HEAD(&sc->sc_tx_active[which], next);
 		rsu_txeof(xfer, data);
 		STAILQ_INSERT_TAIL(&sc->sc_tx_inactive, data, next);
 		/* FALLTHROUGH */
 	case USB_ST_SETUP:
 tr_setup:
-		data = STAILQ_FIRST(&sc->sc_tx_pending);
+		data = STAILQ_FIRST(&sc->sc_tx_pending[which]);
 		if (data == NULL) {
 			DPRINTF("empty pending queue sc %p\n", sc);
 			return;
 		}
-		STAILQ_REMOVE_HEAD(&sc->sc_tx_pending, next);
-		STAILQ_INSERT_TAIL(&sc->sc_tx_active, data, next);
+		STAILQ_REMOVE_HEAD(&sc->sc_tx_pending[which], next);
+		STAILQ_INSERT_TAIL(&sc->sc_tx_active[which], data, next);
 		usbd_xfer_set_frame_data(xfer, 0, data->buf, data->buflen);
 		DPRINTF("submitting transfer %p\n", data);
 		usbd_transfer_submit(xfer);
-		rsu_start_locked(ifp);
 		break;
 	default:
-		data = STAILQ_FIRST(&sc->sc_tx_active);
-		if (data == NULL)
-			goto tr_setup;
-		if (data->ni != NULL) {
-			ieee80211_free_node(data->ni);
-			data->ni = NULL;
-			ifp->if_oerrors++;
+		data = STAILQ_FIRST(&sc->sc_tx_active[which]);
+		if (data != NULL) {
+			STAILQ_REMOVE_HEAD(&sc->sc_tx_active[which], next);
+			rsu_txeof(xfer, data);
+			STAILQ_INSERT_TAIL(&sc->sc_tx_inactive, data, next);
 		}
+		ifp->if_oerrors++;
+
 		if (error != USB_ERR_CANCELLED) {
 			usbd_xfer_set_stall(xfer);
 			goto tr_setup;
 		}
 		break;
 	}
+}
+
+static void
+rsu_bulk_tx_callback_0(struct usb_xfer *xfer, usb_error_t error)
+{
+	rsu_bulk_tx_callback_sub(xfer, error, 0);
+}
+
+static void
+rsu_bulk_tx_callback_1(struct usb_xfer *xfer, usb_error_t error)
+{
+	rsu_bulk_tx_callback_sub(xfer, error, 1);
+}
+
+static void
+rsu_bulk_tx_callback_2(struct usb_xfer *xfer, usb_error_t error)
+{
+	rsu_bulk_tx_callback_sub(xfer, error, 2);
+}
+
+static void
+rsu_bulk_tx_callback_3(struct usb_xfer *xfer, usb_error_t error)
+{
+	rsu_bulk_tx_callback_sub(xfer, error, 3);
 }
 
 static int
@@ -1639,15 +1695,11 @@ rsu_tx_start(struct rsu_softc *sc, struct ieee80211_node *ni,
 	struct ieee80211_frame *wh;
 	struct ieee80211_key *k = NULL;
 	struct r92s_tx_desc *txd;
-	struct usb_xfer *xfer;
-	uint8_t type, tid = 0;
-	int hasqos, xferlen;
-	struct usb_xfer *rsu_pipes[4] = {
-		sc->sc_xfer[RSU_BULK_TX_BE],
-		sc->sc_xfer[RSU_BULK_TX_BK],
-		sc->sc_xfer[RSU_BULK_TX_VI],
-		sc->sc_xfer[RSU_BULK_TX_VO]
-	};
+	uint8_t type;
+	uint8_t tid = 0;
+	uint8_t which;
+	int hasqos;
+	int xferlen;
 
 	RSU_ASSERT_LOCKED(sc);
 
@@ -1668,12 +1720,12 @@ rsu_tx_start(struct rsu_softc *sc, struct ieee80211_node *ni,
 	switch (type) {
 	case IEEE80211_FC0_TYPE_CTL:
 	case IEEE80211_FC0_TYPE_MGT:
-		xfer = sc->sc_xfer[RSU_BULK_TX_VO];
+		which = RSU_BULK_TX_VO - RSU_BULK_TX_BE;
 		break;
 	default:
-		KASSERT(M_WME_GETAC(m0) < 4,
-		    ("unsupported WME pipe %d", M_WME_GETAC(m0)));
-		xfer = rsu_pipes[M_WME_GETAC(m0)];
+		which = M_WME_GETAC(m0);
+		KASSERT(which < RSU_MAX_TX_EP,
+		    ("unsupported WME pipe %d", which));
 		break;
 	}
 	hasqos = 0;
@@ -1735,9 +1787,10 @@ rsu_tx_start(struct rsu_softc *sc, struct ieee80211_node *ni,
 	data->buflen = xferlen;
 	data->ni = ni;
 	data->m = m0;
-	STAILQ_INSERT_TAIL(&sc->sc_tx_pending, data, next);
-	usbd_transfer_start(xfer);
+	STAILQ_INSERT_TAIL(&sc->sc_tx_pending[which], data, next);
 
+	/* start transfer, if any */
+	usbd_transfer_start(sc->sc_xfer[which + RSU_BULK_TX_BE]);
 	return (0);
 }
 
@@ -1759,8 +1812,8 @@ rsu_start_locked(struct ifnet *ifp)
 {
 	struct rsu_softc *sc = ifp->if_softc;
 	struct ieee80211_node *ni;
-	struct mbuf *m;
 	struct rsu_data *bf;
+	struct mbuf *m;
 
 	RSU_ASSERT_LOCKED(sc);
 
@@ -1768,39 +1821,19 @@ rsu_start_locked(struct ifnet *ifp)
 		IFQ_DRV_DEQUEUE(&ifp->if_snd, m);
 		if (m == NULL)
 			break;
-		bf = rsu_getbuf(sc);
-		if (bf == NULL) {
-			IFQ_DRV_PREPEND(&ifp->if_snd, m);
-			break;
-		}
 		ni = (struct ieee80211_node *)m->m_pkthdr.rcvif;
 		m->m_pkthdr.rcvif = NULL;
 
-		if (rsu_tx_start(sc, ni, m, bf) != 0) {
+		bf = rsu_getbuf(sc);
+		if (bf == NULL) {
+			ifp->if_iqdrops++;
+			m_freem(m);
+			ieee80211_free_node(ni);
+		} else if (rsu_tx_start(sc, ni, m, bf) != 0) {
 			ifp->if_oerrors++;
 			STAILQ_INSERT_HEAD(&sc->sc_tx_inactive, bf, next);
 			ieee80211_free_node(ni);
-			break;
 		}
-		sc->sc_tx_timer = 5;
-		callout_reset(&sc->sc_watchdog_ch, hz, rsu_watchdog, sc);
-	}
-}
-
-static void
-rsu_watchdog(void *arg)
-{
-	struct rsu_softc *sc = arg;
-	struct ifnet *ifp = sc->sc_ifp;
-
-	if (sc->sc_tx_timer > 0) {
-		if (--sc->sc_tx_timer == 0) {
-			device_printf(sc->sc_dev, "device timeout\n");
-			/* rsu_init(ifp); XXX needs a process context! */
-			ifp->if_oerrors++;
-			return;
-		}
-		callout_reset(&sc->sc_watchdog_ch, hz, rsu_watchdog, sc);
 	}
 }
 
@@ -1932,7 +1965,7 @@ rsu_power_on_bcut(struct rsu_softc *sc)
 
 	/* Prevent eFuse leakage. */
 	rsu_write_1(sc, 0x37, 0xb0);
-	usb_pause_mtx(&sc->sc_mtx, 10);
+	usb_pause_mtx(&sc->sc_mtx, hz / 100);
 	rsu_write_1(sc, 0x37, 0x30);
 
 	/* Switch the control path to hardware. */
@@ -2044,7 +2077,7 @@ rsu_power_off(struct rsu_softc *sc)
 {
 	/* Turn RF off. */
 	rsu_write_1(sc, R92S_RF_CTRL, 0x00);
-	usb_pause_mtx(&sc->sc_mtx, 5);
+	usb_pause_mtx(&sc->sc_mtx, hz / 200);
 
 	/* Turn MAC off. */
 	/* Switch control path. */
@@ -2072,6 +2105,7 @@ rsu_power_off(struct rsu_softc *sc)
 static int
 rsu_fw_loadsection(struct rsu_softc *sc, const uint8_t *buf, int len)
 {
+	const uint8_t which = RSU_BULK_TX_VO - RSU_BULK_TX_BE;
 	struct rsu_data *data;
 	struct r92s_tx_desc *txd;
 	int mlen;
@@ -2092,12 +2126,11 @@ rsu_fw_loadsection(struct rsu_softc *sc, const uint8_t *buf, int len)
 		memcpy(&txd[1], buf, mlen);
 		data->buflen = sizeof(*txd) + mlen;
 		DPRINTF("starting transfer %p\n", data);
-		STAILQ_INSERT_TAIL(&sc->sc_tx_pending, data, next);
+		STAILQ_INSERT_TAIL(&sc->sc_tx_pending[which], data, next);
 		buf += mlen;
 		len -= mlen;
 	}
-	usbd_transfer_start(sc->sc_xfer[RSU_BULK_TX_VO]);
-
+	usbd_transfer_start(sc->sc_xfer[RSU_BULK_TX_BE + which]);
 	return (0);
 }
 
@@ -2167,15 +2200,14 @@ rsu_load_firmware(struct rsu_softc *sc)
 		goto fail;
 	}
 	/* Wait for load to complete. */
-	for (ntries = 0; ntries < 10; ntries++) {
-		usb_pause_mtx(&sc->sc_mtx, 10);
+	for (ntries = 0; ntries != 50; ntries++) {
+		usb_pause_mtx(&sc->sc_mtx, hz / 100);
 		reg = rsu_read_2(sc, R92S_TCR);
 		if (reg & R92S_TCR_IMEM_CODE_DONE)
 			break;
 	}
-	if (ntries == 10 || !(reg & R92S_TCR_IMEM_CHK_RPT)) {
-		device_printf(sc->sc_dev, "timeout waiting for %s transfer\n",
-		    "IMEM");
+	if (ntries == 50) {
+		device_printf(sc->sc_dev, "timeout waiting for IMEM transfer\n");
 		error = ETIMEDOUT;
 		goto fail;
 	}
@@ -2188,15 +2220,14 @@ rsu_load_firmware(struct rsu_softc *sc)
 		goto fail;
 	}
 	/* Wait for load to complete. */
-	for (ntries = 0; ntries < 10; ntries++) {
-		usb_pause_mtx(&sc->sc_mtx, 10);
+	for (ntries = 0; ntries != 50; ntries++) {
+		usb_pause_mtx(&sc->sc_mtx, hz / 100);
 		reg = rsu_read_2(sc, R92S_TCR);
 		if (reg & R92S_TCR_EMEM_CODE_DONE)
 			break;
 	}
-	if (ntries == 10 || !(reg & R92S_TCR_EMEM_CHK_RPT)) {
-		device_printf(sc->sc_dev, "timeout waiting for %s transfer\n",
-		    "EMEM");
+	if (ntries == 50) {
+		device_printf(sc->sc_dev, "timeout waiting for EMEM transfer\n");
 		error = ETIMEDOUT;
 		goto fail;
 	}
@@ -2234,7 +2265,7 @@ rsu_load_firmware(struct rsu_softc *sc)
 	dmem = __DECONST(struct r92s_fw_priv *, &hdr->priv);
 	memset(dmem, 0, sizeof(*dmem));
 	dmem->hci_sel = R92S_HCI_SEL_USB | R92S_HCI_SEL_8172;
-	dmem->nendpoints = sc->npipes;
+	dmem->nendpoints = 0;
 	dmem->rf_config = 0x12;	/* 1T2R */
 	dmem->vcs_type = R92S_VCS_TYPE_AUTO;
 	dmem->vcs_mode = R92S_VCS_MODE_RTS_CTS;
@@ -2311,7 +2342,6 @@ rsu_raw_xmit(struct ieee80211_node *ni, struct mbuf *m,
 		return (EIO);
 	}
 	RSU_UNLOCK(sc);
-	sc->sc_tx_timer = 5;
 
 	return (0);
 }
@@ -2332,22 +2362,11 @@ rsu_init_locked(struct rsu_softc *sc)
 	struct ifnet *ifp = sc->sc_ifp;
 	struct r92s_set_pwr_mode cmd;
 	int error;
+	int i;
 
 	/* Init host async commands ring. */
 	sc->cmdq.cur = sc->cmdq.next = sc->cmdq.queued = 0;
 
-	/* Allocate Tx/Rx buffers. */
-	error = rsu_alloc_rx_list(sc);
-	if (error != 0) {
-		device_printf(sc->sc_dev, "could not allocate Rx buffers\n");
-		return;
-	}
-	error = rsu_alloc_tx_list(sc);
-	if (error != 0) {
-		device_printf(sc->sc_dev, "could not allocate Tx buffers\n");
-		rsu_free_rx_list(sc);
-		return;
-	}
 	/* Power on adapter. */
 	if (sc->cut == 1)
 		rsu_power_on_acut(sc);
@@ -2432,14 +2451,11 @@ rsu_init_locked(struct rsu_softc *sc)
 	/* We're ready to go. */
 	ifp->if_drv_flags &= ~IFF_DRV_OACTIVE;
 	ifp->if_drv_flags |= IFF_DRV_RUNNING;
-
-	callout_reset(&sc->sc_watchdog_ch, hz, rsu_watchdog, sc);
-
 	return;
 fail:
-	rsu_free_rx_list(sc);
-	rsu_free_tx_list(sc);
-	return;
+	/* Need to stop all failed transfers, if any */
+	for (i = 0; i != RSU_N_TRANSFER; i++)
+		usbd_transfer_stop(sc->sc_xfer[i]);
 }
 
 static void
@@ -2459,7 +2475,6 @@ rsu_stop_locked(struct ifnet *ifp, int disable __unused)
 	int i;
 
 	ifp->if_drv_flags &= ~(IFF_DRV_RUNNING | IFF_DRV_OACTIVE);
-	callout_stop(&sc->sc_watchdog_ch);
 	sc->sc_calibrating = 0;
 	taskqueue_cancel_timeout(taskqueue_thread, &sc->calib_task, NULL);
 
