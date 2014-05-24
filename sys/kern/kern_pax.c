@@ -83,6 +83,7 @@ SYSCTL_NODE(_security, OID_AUTO, pax, CTLFLAG_RD, 0,
 struct prison *
 pax_get_prison(struct thread *td, struct proc *proc)
 {
+
 	if (td != NULL) {
 		if ((td->td_proc) && (td->td_proc->p_ucred))
 			return td->td_proc->p_ucred->cr_prison;
@@ -127,13 +128,14 @@ end:
 void
 pax_init_prison(struct prison *pr)
 {
+
 	if (pr == NULL)
 		return;
 
 	if (pr->pr_pax_set)
 		return;
 
-    mtx_lock(&(pr->pr_mtx));
+	mtx_lock(&(pr->pr_mtx));
 
 	if (pax_aslr_debug)
 		uprintf("[PaX ASLR/SEGVGUARD] %s: Setting prison %s ASLR variables\n",
@@ -167,5 +169,5 @@ pax_init_prison(struct prison *pr)
 
 	pr->pr_pax_set = 1;
 
-    mtx_unlock(&(pr->pr_mtx));
+	mtx_unlock(&(pr->pr_mtx));
 }
