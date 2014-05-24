@@ -2971,3 +2971,6 @@ options 	RANDOM_RWFILE	# Read and write entropy cache
 
 # Module to enable execution of application via emulators like QEMU
 options         IMAGACT_BINMISC
+
+# Address Space Layout Randomization (ASLR)
+options		PAX_ASLR
