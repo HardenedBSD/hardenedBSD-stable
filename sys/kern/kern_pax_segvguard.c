@@ -157,12 +157,9 @@ sysctl_pax_segvguard_status(SYSCTL_HANDLER_ARGS)
 {
 	int err;
 	int val;
-	struct prison *pr=NULL;
+	struct prison *pr;
 
 	pr = pax_get_prison(req->td, NULL);
-
-	if ((pr != NULL) && !(pr->pr_pax_set))
-		pax_init_prison(pr);
 
 	val = (pr != NULL) ? pr->pr_pax_segvguard_status : pax_segvguard_status;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -191,12 +188,9 @@ sysctl_pax_segvguard_expiry(SYSCTL_HANDLER_ARGS)
 {
 	int err;
 	int val;
-	struct prison *pr=NULL;
+	struct prison *pr;
 
 	pr = pax_get_prison(req->td, NULL);
-
-	if ((pr != NULL) && !(pr->pr_pax_set))
-		pax_init_prison(pr);
 
 	val = (pr != NULL) ? pr->pr_pax_segvguard_expiry : pax_segvguard_expiry;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -216,12 +210,9 @@ sysctl_pax_segvguard_suspension(SYSCTL_HANDLER_ARGS)
 {
 	int err;
 	int val;
-	struct prison *pr=NULL;
+	struct prison *pr;
 
 	pr = pax_get_prison(req->td, NULL);
-
-	if ((pr != NULL) && !(pr->pr_pax_set))
-		pax_init_prison(pr);
 
 	val = (pr != NULL) ? pr->pr_pax_segvguard_suspension : pax_segvguard_suspension;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -241,12 +232,9 @@ sysctl_pax_segvguard_maxcrashes(SYSCTL_HANDLER_ARGS)
 {
 	int err;
 	int val;
-	struct prison *pr=NULL;
+	struct prison *pr;
 
 	pr = pax_get_prison(req->td, NULL);
-
-	if ((pr != NULL) && !(pr->pr_pax_set))
-		pax_init_prison(pr);
 
 	val = (pr != NULL) ? pr->pr_pax_segvguard_maxcrashes : pax_segvguard_maxcrashes;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -266,12 +254,9 @@ sysctl_pax_segvguard_debug(SYSCTL_HANDLER_ARGS)
 {
 	int err;
 	int val;
-	struct prison *pr=NULL;
+	struct prison *pr;
 
 	pr = pax_get_prison(req->td, NULL);
-
-	if ((pr != NULL) && !(pr->pr_pax_set))
-		pax_init_prison(pr);
 
 	val = (pr != NULL) ? pr->pr_pax_segvguard_debug : pax_segvguard_debug;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -291,7 +276,7 @@ static bool
 pax_segvguard_active(struct thread *td, struct vnode *vn, struct proc *proc)
 {
 	int status;
-	struct prison *pr=NULL;
+	struct prison *pr;
 	struct vattr vap;
 	uint32_t flags;
 
@@ -305,8 +290,6 @@ pax_segvguard_active(struct thread *td, struct vnode *vn, struct proc *proc)
 	}
 
 	pr = pax_get_prison(td, proc);
-	if ((pr != NULL) && !(pr->pr_pax_set))
-		pax_init_prison(pr);
 
 	status = (pr != NULL) ? pr->pr_pax_segvguard_status : pax_segvguard_status;
 
