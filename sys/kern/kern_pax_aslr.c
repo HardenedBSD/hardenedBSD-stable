@@ -62,6 +62,9 @@ __FBSDID("$FreeBSD$");
 
 #include <sys/pax.h>
 
+int pax_aslr_status = PAX_ASLR_OPTOUT;
+int pax_aslr_debug = 0;
+
 #ifdef PAX_ASLR_MAX_SEC
 int pax_aslr_mmap_len = PAX_ASLR_DELTA_MMAP_MAX_LEN;
 int pax_aslr_stack_len = PAX_ASLR_DELTA_STACK_MAX_LEN;
@@ -73,6 +76,7 @@ int pax_aslr_exec_len = PAX_ASLR_DELTA_EXEC_DEF_LEN;
 #endif /* PAX_ASLR_MAX_SEC */
 
 #ifdef COMPAT_FREEBSD32
+int pax_aslr_compat_status = PAX_ASLR_OPTOUT;
 #ifdef PAX_ASLR_MAX_SEC
 int pax_aslr_compat_mmap_len = PAX_ASLR_COMPAT_DELTA_MMAP_MAX_LEN;
 int pax_aslr_compat_stack_len = PAX_ASLR_COMPAT_DELTA_STACK_MAX_LEN;
@@ -84,6 +88,20 @@ int pax_aslr_compat_exec_len = PAX_ASLR_COMPAT_DELTA_EXEC_MIN_LEN;
 #endif /* PAX_ASLR_MAX_SEC */
 #endif /* COMPAT_FREEBSD32 */
 
+TUNABLE_INT("security.pax.aslr.status", &pax_aslr_status);
+TUNABLE_INT("security.pax.aslr.mmap_len", &pax_aslr_mmap_len);
+TUNABLE_INT("security.pax.aslr.debug", &pax_aslr_debug);
+TUNABLE_INT("security.pax.aslr.stack_len", &pax_aslr_stack_len);
+TUNABLE_INT("security.pax.aslr.exec_len", &pax_aslr_exec_len);
+#ifdef COMPAT_FREEBSD32
+TUNABLE_INT("security.pax.aslr.compat.status", &pax_aslr_compat_status);
+TUNABLE_INT("security.pax.aslr.compat.mmap", &pax_aslr_compat_mmap_len);
+TUNABLE_INT("security.pax.aslr.compat.stack", &pax_aslr_compat_stack_len);
+TUNABLE_INT("security.pax.aslr.compat.stack", &pax_aslr_compat_exec_len);
+#endif
+
+
+#ifdef PAX_SYSCTLS
 /*
  * sysctls and tunables
  */
@@ -92,9 +110,6 @@ static int sysctl_pax_aslr_status(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_mmap(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_stack(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_exec(SYSCTL_HANDLER_ARGS);
-
-int pax_aslr_status = PAX_ASLR_OPTOUT;
-int pax_aslr_debug = 0;
 
 SYSCTL_DECL(_security_pax);
 
@@ -109,34 +124,29 @@ SYSCTL_PROC(_security_pax_aslr, OID_AUTO, status,
     "1 - opt-in,  "
     "2 - opt-out, "
     "3 - force enabled");
-TUNABLE_INT("security.pax.aslr.status", &pax_aslr_status);
 
 SYSCTL_PROC(_security_pax_aslr, OID_AUTO, debug,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_aslr_debug, "I",
     "ASLR debug mode");
-TUNABLE_INT("security.pax.aslr.debug", &pax_aslr_debug);
 
 SYSCTL_PROC(_security_pax_aslr, OID_AUTO, mmap_len,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_aslr_mmap, "I",
     "Number of bits randomized for mmap(2) calls. "
     "32 bit: [8,16] 64 bit: [16,32]");
-TUNABLE_INT("security.pax.aslr.mmap_len", &pax_aslr_mmap_len);
 
 SYSCTL_PROC(_security_pax_aslr, OID_AUTO, stack_len,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_aslr_stack, "I",
     "Number of bits randomized for the stack. "
     "32 bit: [6,12] 64 bit: [12,21]");
-TUNABLE_INT("security.pax.aslr.stack_len", &pax_aslr_stack_len);
 
 SYSCTL_PROC(_security_pax_aslr, OID_AUTO, exec_len,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_aslr_exec, "I",
     "Number of bits randomized for the PIE exec base. "
     "32 bit: [6,12] 64 bit: [12,21]");
-TUNABLE_INT("security.pax.aslr.exec_len", &pax_aslr_exec_len);
 
 static int
 sysctl_pax_aslr_status(SYSCTL_HANDLER_ARGS)
@@ -318,8 +328,6 @@ sysctl_pax_aslr_exec(SYSCTL_HANDLER_ARGS)
  * COMPAT_FREEBSD32 and linuxulator..
  */
 #ifdef COMPAT_FREEBSD32
-int pax_aslr_compat_status = PAX_ASLR_OPTOUT;
-
 static int sysctl_pax_aslr_compat_status(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_compat_mmap(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_compat_stack(SYSCTL_HANDLER_ARGS);
@@ -336,28 +344,24 @@ SYSCTL_PROC(_security_pax_aslr_compat, OID_AUTO, status,
     "1 - enabled,  "
     "2 - global enabled, "
     "3 - force global enabled");
-TUNABLE_INT("security.pax.aslr.compat.status", &pax_aslr_compat_status);
 
 SYSCTL_PROC(_security_pax_aslr_compat, OID_AUTO, mmap_len,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON,
     NULL, 0, sysctl_pax_aslr_compat_mmap, "I",
     "Number of bits randomized for mmap(2) calls. "
     "32 bit: [8,16]");
-TUNABLE_INT("security.pax.aslr.compat.mmap", &pax_aslr_compat_mmap_len);
 
 SYSCTL_PROC(_security_pax_aslr_compat, OID_AUTO, stack_len,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON,
     NULL, 0, sysctl_pax_aslr_compat_stack, "I",
     "Number of bits randomized for the stack. "
     "32 bit: [6,12]");
-TUNABLE_INT("security.pax.aslr.compat.stack", &pax_aslr_compat_stack_len);
 
 SYSCTL_PROC(_security_pax_aslr_compat, OID_AUTO, exec_len,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON,
     NULL, 0, sysctl_pax_aslr_compat_exec, "I",
     "Number of bits randomized for the PIE exec base. "
     "32 bit: [6,12]");
-TUNABLE_INT("security.pax.aslr.compat.stack", &pax_aslr_compat_exec_len);
 
 static int
 sysctl_pax_aslr_compat_status(SYSCTL_HANDLER_ARGS)
@@ -488,6 +492,7 @@ sysctl_pax_aslr_compat_exec(SYSCTL_HANDLER_ARGS)
 }
 
 #endif /* COMPAT_FREEBSD32 */
+#endif /* PAX_SYSCTLS */
 
 
 /*
