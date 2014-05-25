@@ -197,6 +197,14 @@ extern int pax_aslr_compat_exec_len;
 #endif /* COMPAT_FREEBSD32 */
 #endif /* PAX_ASLR */
 
+#ifdef PAX_SEGVGUARD
+extern int pax_segvguard_status;
+extern int pax_segvguard_debug;
+extern int pax_segvguard_expiry;
+extern int pax_segvguard_suspension;
+extern int pax_segvguard_maxcrashes;
+#endif /* PAX_SEGVGUARD */
+
 extern int pax_log_log;
 extern int pax_log_ulog;
 
