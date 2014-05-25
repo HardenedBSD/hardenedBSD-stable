@@ -141,13 +141,10 @@ TUNABLE_INT("security.pax.aslr.exec_len", &pax_aslr_exec_len);
 static int
 sysctl_pax_aslr_status(SYSCTL_HANDLER_ARGS)
 {
-	struct prison *pr=NULL;
+	struct prison *pr;
 	int err, val;
 
 	pr = pax_get_prison(req->td, NULL);
-
-	if ((pr != NULL) && !(pr->pr_pax_set))
-		pax_init_prison(pr);
 
 	val = (pr != NULL) ? pr->pr_pax_aslr_status : pax_aslr_status;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -365,14 +362,10 @@ TUNABLE_INT("security.pax.aslr.compat.stack", &pax_aslr_compat_exec_len);
 static int
 sysctl_pax_aslr_compat_status(SYSCTL_HANDLER_ARGS)
 {
-	struct prison *pr=NULL;
+	struct prison *pr;
 	int err, val;
 
 	pr = pax_get_prison(req->td, NULL);
-
-	if ((pr != NULL) && !(pr->pr_pax_set)) {
-		pax_init_prison(pr);
-	}
 
 	val = (pr != NULL) ?pr->pr_pax_aslr_compat_status : pax_aslr_compat_status;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -404,14 +397,10 @@ sysctl_pax_aslr_compat_status(SYSCTL_HANDLER_ARGS)
 static int
 sysctl_pax_aslr_compat_mmap(SYSCTL_HANDLER_ARGS)
 {
-	struct prison *pr=NULL;
+	struct prison *pr;
 	int err, val;
 
 	pr = pax_get_prison(req->td, NULL);
-
-	if ((pr != NULL) && !(pr->pr_pax_set)) {
-		pax_init_prison(pr);
-	}
 
 	val = (pr != NULL) ? pr->pr_pax_aslr_compat_mmap_len : pax_aslr_compat_mmap_len;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -439,14 +428,10 @@ sysctl_pax_aslr_compat_mmap(SYSCTL_HANDLER_ARGS)
 static int
 sysctl_pax_aslr_compat_stack(SYSCTL_HANDLER_ARGS)
 {
-	struct prison *pr=NULL;
+	struct prison *pr;
 	int err, val;
 
 	pr = pax_get_prison(req->td, NULL);
-
-	if ((pr != NULL) && !(pr->pr_pax_set)) {
-		pax_init_prison(pr);
-	}
 
 	val = (pr != NULL) ? pr->pr_pax_aslr_compat_stack_len : pax_aslr_compat_stack_len;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -474,14 +459,10 @@ sysctl_pax_aslr_compat_stack(SYSCTL_HANDLER_ARGS)
 static int
 sysctl_pax_aslr_compat_exec(SYSCTL_HANDLER_ARGS)
 {
-	struct prison *pr=NULL;
+	struct prison *pr;
 	int err, val;
 
 	pr = pax_get_prison(req->td, NULL);
-
-	if ((pr != NULL) && !(pr->pr_pax_set)) {
-		pax_init_prison(pr);
-	}
 
 	val = (pr != NULL) ? pr->pr_pax_aslr_compat_exec_len : pax_aslr_compat_exec_len;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -516,7 +497,7 @@ bool
 pax_aslr_active(struct thread *td, struct proc *proc)
 {
 	int status;
-	struct prison *pr=NULL;
+	struct prison *pr;
 	uint32_t flags;
 
 	if ((td == NULL) && (proc == NULL)) {
@@ -524,9 +505,6 @@ pax_aslr_active(struct thread *td, struct proc *proc)
 	}
 
 	pr = pax_get_prison(td, proc);
-	if ((pr != NULL) && !(pr->pr_pax_set)) {
-		pax_init_prison(pr);
-	}
 
 	flags = (td != NULL) ? td->td_proc->p_pax : proc->p_pax;
 	if (((flags & 0xaaaaaaaa) & ((flags & 0x55555555) << 1)) != 0) {
@@ -626,10 +604,6 @@ pax_aslr_init(struct thread *td, struct image_params *imgp)
 	struct vmspace *vm;
 
 	pr = pax_get_prison(td, NULL);
-
-	if ((pr != NULL) && !(pr->pr_pax_set)) {
-		pax_init_prison(pr);
-	}
 
 	if (imgp == NULL) {
 		panic("[PaX ASLR] %s: imgp == NULL", __func__);
