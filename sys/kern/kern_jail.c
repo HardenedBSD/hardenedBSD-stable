@@ -1349,6 +1349,10 @@ kern_jail_set(struct thread *td, struct uio *optuio, int flags)
 			goto done_releroot;
 		}
 
+#if defined(PAX_ASLR) || defined(PAX_SEGVGUARD)
+		pax_init_prison(pr);
+#endif
+
 		mtx_lock(&pr->pr_mtx);
 		/*
 		 * New prisons do not yet have a reference, because we do not
