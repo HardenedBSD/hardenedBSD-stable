@@ -121,6 +121,85 @@ end:
 	}
 }
 
+
+/*
+ * print out PaX settings on boot time, and validate some of them
+ */
+void
+pax_init(void)
+{
+#if defined(PAX_ASLR) || defined(PAX_SEGVGUARD)
+	const char *status_str[] = {
+		[0] = "disabled",
+		[1] = "opt-in",
+		[2] = "opt-out",
+		[3] = "force enabled",
+		[4] = "UNKNOWN -> changed to \"force enabled\""
+	};
+#endif
+
+#ifdef PAX_ASLR
+	switch (pax_aslr_status) {
+	case	0:
+	case	1:
+	case	2:
+	case	3:
+		break;
+	default:
+		printf("[PAX ASLR] WARNING, not valid PAX settings in loader.conf!"
+		    "(pax_aslr_status = %d)\n", pax_aslr_status);
+		pax_aslr_status = 3;
+		break;
+	}
+	printf("[PAX ASLR] status: %s\n", status_str[pax_aslr_status]);
+	printf("[PAX ASLR] mmap: %d bit\n", pax_aslr_mmap_len);
+	printf("[PAX ASLR] exec base: %d bit\n", pax_aslr_exec_len);
+	printf("[PAX ASLR] stack: %d bit\n", pax_aslr_stack_len);
+
+#ifdef COMPAT_FREEBSD32
+	switch (pax_aslr_compat_status) {
+	case	0:
+	case	1:
+	case	2:
+	case	3:
+		break;
+	default:
+		printf("[PAX ASLR (compat)] WARNING, not valid PAX settings in loader.conf! "
+		    "(pax_aslr_compat_status = %d)\n", pax_aslr_compat_status);
+		pax_aslr_compat_status = 3;
+		break;
+	}
+	printf("[PAX ASLR (compat)] status: %s\n", status_str[pax_aslr_compat_status]);
+	printf("[PAX ASLR (compat)] mmap: %d bit\n", pax_aslr_compat_mmap_len);
+	printf("[PAX ASLR (compat)] exec base: %d bit\n", pax_aslr_compat_exec_len);
+	printf("[PAX ASLR (compat)] stack: %d bit\n", pax_aslr_compat_stack_len);
+#endif
+#endif
+
+#ifdef PAX_SEGVGUARD
+	switch (pax_segvguard_status) {
+	case	0:
+	case	1:
+	case	2:
+	case	3:
+		break;
+	default:
+		printf("[PAX SEGVGUARD] WARNING, not valid PAX settings in loader.conf! "
+		    "(pax_segvguard_status = %d)\n", pax_segvguard_status);
+		pax_segvguard_status = 3;
+		break;
+	}
+	printf("[PAX SEGVGUARD] status: %s\n", status_str[pax_segvguard_status]);
+	printf("[PAX SEGVGUARD] maxcrashes: %d\n", pax_segvguard_maxcrashes);
+	printf("[PAX SEGVGUARD] expriry: %d sec\n", pax_segvguard_expiry);
+	printf("[PAX SEGVGUARD] suspension: %d sec\n", pax_segvguard_suspension);
+#endif
+
+	printf("[PAX LOG] logging to system: %d\n", pax_log_log);
+	printf("[PAX LOG] logging to user: %d\n", pax_log_ulog);
+}
+SYSINIT(pax, SI_SUB_SETTINGS, SI_ORDER_ANY, pax_init, NULL);
+
 void
 pax_init_prison(struct prison *pr)
 {
