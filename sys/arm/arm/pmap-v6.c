@@ -464,7 +464,7 @@ static const uint32_t pc_freemask[_NPCM] = {
 static SYSCTL_NODE(_vm, OID_AUTO, pmap, CTLFLAG_RD, 0, "VM/pmap parameters");
 
 /* Superpages utilization enabled = 1 / disabled = 0 */
-static int sp_enabled = 0;
+static int sp_enabled = 1;
 SYSCTL_INT(_vm_pmap, OID_AUTO, sp_enabled, CTLFLAG_RDTUN, &sp_enabled, 0,
     "Are large page mappings enabled?");
 
@@ -2405,9 +2405,9 @@ pmap_kenter_internal(vm_offset_t va, vm_offset_t pa, int flags)
 	if (flags & KENTER_CACHE)
 		*ptep = L2_S_PROTO | l2s_mem_types[PTE_CACHE] | pa | L2_S_REF;
 	else if (flags & KENTER_DEVICE)
-		*ptep = L2_S_PROTO |l2s_mem_types[PTE_DEVICE] | pa | L2_S_REF;
+		*ptep = L2_S_PROTO | l2s_mem_types[PTE_DEVICE] | pa | L2_S_REF;
 	else
-		*ptep =L2_S_PROTO | l2s_mem_types[PTE_NOCACHE] | pa | L2_S_REF;
+		*ptep = L2_S_PROTO | l2s_mem_types[PTE_NOCACHE] | pa | L2_S_REF;
 
 	if (flags & KENTER_CACHE) {
 		pmap_set_prot(ptep, VM_PROT_READ | VM_PROT_WRITE,
