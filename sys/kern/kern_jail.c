@@ -158,6 +158,7 @@ struct prison prison0 = {
 #endif
 };
 MTX_SYSINIT(prison0, &prison0.pr_mtx, "jail mutex", MTX_DEF);
+SYSINIT(pax, SI_SUB_PAX, SI_ORDER_MIDDLE, pax_init_prison, (void *) &prison0);
 
 /* allprison, allprison_racct and lastprid are protected by allprison_lock. */
 struct	sx allprison_lock;

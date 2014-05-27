@@ -198,7 +198,7 @@ pax_init(void)
 	printf("[PAX LOG] logging to system: %d\n", pax_log_log);
 	printf("[PAX LOG] logging to user: %d\n", pax_log_ulog);
 }
-SYSINIT(pax, SI_SUB_SETTINGS, SI_ORDER_ANY, pax_init, NULL);
+SYSINIT(pax, SI_SUB_PAX, SI_ORDER_FIRST, pax_init, NULL);
 
 void
 pax_init_prison(struct prison *pr)
