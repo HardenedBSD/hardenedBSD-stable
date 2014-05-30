@@ -1122,6 +1122,9 @@ exec_new_vmspace(imgp, sv)
 	 */
 	vmspace->vm_ssize = sgrowsiz >> PAGE_SHIFT;
 	vmspace->vm_maxsaddr = (char *)sv->sv_usrstack - ssiz;
+#ifdef PAX_ASLR
+	vmspace->vm_maxsaddr -= vmspace->vm_aslr_delta_stack;
+#endif
 
 	return (0);
 }
