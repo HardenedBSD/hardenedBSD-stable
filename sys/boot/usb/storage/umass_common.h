@@ -1,6 +1,11 @@
 /* $FreeBSD$ */
 /*-
- * Copyright (c) 2008 Hans Petter Selasky. All rights reserved.
+ * Copyright (c) 2014 Hans Petter Selasky <hselasky@FreeBSD.org>
+ * All rights reserved.
+ *
+ * This software was developed by SRI International and the University of
+ * Cambridge Computer Laboratory under DARPA/AFRL contract (FA8750-10-C-0237)
+ * ("CTSRD"), as part of the DARPA CRASH research programme.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,32 +29,13 @@
  * SUCH DAMAGE.
  */
 
-#ifndef _USB_MSCTEST_H_
-#define	_USB_MSCTEST_H_
+#ifndef _UMASS_COMMON_H_
+#define	_UMASS_COMMON_H_
 
-enum {
-	MSC_EJECT_STOPUNIT,
-	MSC_EJECT_REZERO,
-	MSC_EJECT_ZTESTOR,
-	MSC_EJECT_CMOTECH,
-	MSC_EJECT_HUAWEI,
-	MSC_EJECT_TCT,
-};
+struct usb_attach_arg;
+struct devsw;
 
-int usb_iface_is_cdrom(struct usb_device *udev,
-	    uint8_t iface_index);
-usb_error_t usb_msc_eject(struct usb_device *udev,
-	    uint8_t iface_index, int method);
-usb_error_t usb_msc_auto_quirk(struct usb_device *udev,
-	    uint8_t iface_index);
-usb_error_t usb_msc_read_10(struct usb_device *udev,
-	    uint8_t iface_index, uint32_t lba, uint32_t blocks,
-	    void *buffer);
-usb_error_t usb_msc_write_10(struct usb_device *udev,
-	    uint8_t iface_index, uint32_t lba, uint32_t blocks,
-	    void *buffer);
-usb_error_t usb_msc_read_capacity(struct usb_device *udev,
-	    uint8_t iface_index, uint32_t *lba_last,
-	    uint32_t *block_size);
+extern struct usb_attach_arg umass_uaa;
+extern struct devsw umass_disk;
 
-#endif					/* _USB_MSCTEST_H_ */
+#endif			/* _UMASS_COMMON_H_ */

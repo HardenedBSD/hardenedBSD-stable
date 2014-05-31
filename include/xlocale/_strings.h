@@ -1,6 +1,6 @@
-/* $FreeBSD$ */
 /*-
- * Copyright (c) 2008 Hans Petter Selasky. All rights reserved.
+ * Copyright (c) 2011, 2012 The FreeBSD Foundation
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -22,34 +22,27 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
+ * $FreeBSD$
  */
 
-#ifndef _USB_MSCTEST_H_
-#define	_USB_MSCTEST_H_
+#ifndef _LOCALE_T_DEFINED
+#define _LOCALE_T_DEFINED
+typedef struct	_xlocale *locale_t;
+#endif
 
-enum {
-	MSC_EJECT_STOPUNIT,
-	MSC_EJECT_REZERO,
-	MSC_EJECT_ZTESTOR,
-	MSC_EJECT_CMOTECH,
-	MSC_EJECT_HUAWEI,
-	MSC_EJECT_TCT,
-};
+/*
+ * This file is included from both strings.h and xlocale.h.  We need to expose
+ * the declarations unconditionally if we are included from xlocale.h, but only
+ * if we are in POSIX2008 mode if included from string.h.
+ */
 
-int usb_iface_is_cdrom(struct usb_device *udev,
-	    uint8_t iface_index);
-usb_error_t usb_msc_eject(struct usb_device *udev,
-	    uint8_t iface_index, int method);
-usb_error_t usb_msc_auto_quirk(struct usb_device *udev,
-	    uint8_t iface_index);
-usb_error_t usb_msc_read_10(struct usb_device *udev,
-	    uint8_t iface_index, uint32_t lba, uint32_t blocks,
-	    void *buffer);
-usb_error_t usb_msc_write_10(struct usb_device *udev,
-	    uint8_t iface_index, uint32_t lba, uint32_t blocks,
-	    void *buffer);
-usb_error_t usb_msc_read_capacity(struct usb_device *udev,
-	    uint8_t iface_index, uint32_t *lba_last,
-	    uint32_t *block_size);
+#ifndef _XLOCALE_STRINGS1_H
+#define _XLOCALE_STRINGS1_H
 
-#endif					/* _USB_MSCTEST_H_ */
+/*
+ * POSIX2008 functions
+ */
+int	 strcasecmp_l(const char *, const char *, locale_t);
+int	 strncasecmp_l(const char *, const char *, size_t, locale_t);
+#endif /* _XLOCALE_STRINGS1_H */

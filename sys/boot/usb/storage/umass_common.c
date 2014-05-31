@@ -1,5 +1,6 @@
+/* $FreeBSD$ */
 /*-
- * Copyright (c) 2011-2014 Robert N. M. Watson
+ * Copyright (c) 2014 Hans Petter Selasky <hselasky@FreeBSD.org>
  * All rights reserved.
  *
  * This software was developed by SRI International and the University of
@@ -26,56 +27,61 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- * $FreeBSD$
  */
 
-INCLUDE ../common/common.ldscript
+#include USB_GLOBAL_INCLUDE_FILE
 
-/*
- * Location where loader will execute.
- */
-__loader_base__ = 0x20000;
-__loader_base_vaddr__ = __mips64_xkphys_cached__ + __loader_base__;
+#include "umass_common.h"
 
-/*
- * Highest address the loader is allowed to use below the kernel.
- */
-__loader_end__ = 0x100000;
-__loader_end_vaddr__ = __mips64_xkphys_cached__ + __loader_end__;
+struct usb_attach_arg umass_uaa;
 
-OUTPUT_FORMAT("elf64-tradbigmips");
-OUTPUT_ARCH(mips)
-ENTRY(start)
-SECTIONS
+static device_probe_t umass_probe;
+static device_attach_t umass_attach;
+static device_detach_t umass_detach;
+
+static devclass_t umass_devclass;
+
+static device_method_t umass_methods[] = {
+	/* Device interface */
+	DEVMETHOD(device_probe, umass_probe),
+	DEVMETHOD(device_attach, umass_attach),
+	DEVMETHOD(device_detach, umass_detach),
+
+	DEVMETHOD_END
+};
+
+static driver_t umass_driver = {
+	.name = "umass",
+	.methods = umass_methods,
+};
+
+DRIVER_MODULE(umass, uhub, umass_driver, umass_devclass, NULL, 0);
+
+static int
+umass_probe(device_t dev)
 {
-	/*
-	 * We rely on boot2 having (a) configured a stack, and (b) loaded us
-	 * to an appropriate bit of physical/virtual memory such that no
-	 * self-relocating code is required here.
-	 */
-	. = __loader_base_vaddr__;
-	. += SIZEOF_HEADERS;
+	struct usb_attach_arg *uaa = device_get_ivars(dev);
 
-	.text ALIGN(0x8): {
-		start.o(.text*)
-		*(EXCLUDE_FILE (start.o) .text*)
-		*(.rodata*)
+	if (uaa->usb_mode != USB_MODE_HOST ||
+	    uaa->info.bInterfaceClass != UICLASS_MASS ||
+	    uaa->info.bInterfaceSubClass != UISUBCLASS_SCSI ||
+	    uaa->info.bInterfaceProtocol != UIPROTO_MASS_BBB ||
+	    device_get_unit(dev) != 0)
+		return (ENXIO);
+	return (0);
+}
 
-		__start_set_Xcommand_set = .;
-		KEEP(*(set_Xcommand_set))
-		__stop_set_Xcommand_set = .;
-	}
-	.data ALIGN(0x8): { *(.data*)}
-	.bss ALIGN(0x8): { *(.bss*) }
+static int
+umass_attach(device_t dev)
+{
+	struct usb_attach_arg *uaa = device_get_ivars(dev);
+	umass_uaa = *uaa;
+	return (0);			/* success */
+}
 
-	__heap = ALIGN(0x8);	/* 64-bit aligned heap pointer */
-	__data_end = .;
-	__boot_loader_len__ = . - __loader_base_vaddr__;
-	__bss_start = ADDR(.bss);
-	__bss_end = ALIGN(__bss_start + SIZEOF(.bss), 0x8);
-
-	__heap_start = .;
-	__heap_end = __loader_end_vaddr__;
-	__heap_len = __heap_end - __heap_start;
+static int
+umass_detach(device_t dev)
+{
+	memset(&umass_uaa, 0, sizeof(umass_uaa));
+	return (0);
 }
