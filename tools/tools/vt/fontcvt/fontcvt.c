@@ -30,6 +30,8 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
+#include <sys/types.h>
+#include <sys/fnv_hash.h>
 #include <sys/endian.h>
 #include <sys/param.h>
 #include <sys/queue.h>
@@ -39,20 +41,24 @@ __FBSDID("$FreeBSD$");
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #define VFNT_MAPS 4
 #define VFNT_MAP_NORMAL 0
 #define VFNT_MAP_BOLD 2
 
-static unsigned int width, wbytes, height;
+static unsigned int width = 8, wbytes, height = 16;
 
 struct glyph {
 	TAILQ_ENTRY(glyph)	 g_list;
+	SLIST_ENTRY(glyph)	 g_hash;
 	uint8_t			*g_data;
 	unsigned int		 g_index;
 };
 
+#define	FONTCVT_NHASH 4096
 TAILQ_HEAD(glyph_list, glyph);
+static SLIST_HEAD(, glyph) glyph_hash[FONTCVT_NHASH];
 static struct glyph_list glyphs[VFNT_MAPS] = {
     TAILQ_HEAD_INITIALIZER(glyphs[0]),
     TAILQ_HEAD_INITIALIZER(glyphs[1]),
@@ -83,7 +89,7 @@ usage(void)
 {
 
 	fprintf(stderr,
-"usage: fontcvt width height normal.bdf bold.bdf out.fnt\n");
+"usage: fontcvt [-w width] [-h height] normal.bdf [bold.bdf] out.fnt\n");
 	exit(1);
 }
 
@@ -146,17 +152,16 @@ static struct glyph *
 add_glyph(const uint8_t *bytes, unsigned int map_idx, int fallback)
 {
 	struct glyph *gl;
-	unsigned int i;
+	int hash;
 
 	glyph_total++;
 	glyph_count[map_idx]++;
 
-	for (i = 0; i < VFNT_MAPS; i++) {
-		TAILQ_FOREACH(gl, &glyphs[i], g_list) {
-			if (memcmp(gl->g_data, bytes, wbytes * height) == 0) {
-				glyph_dupe++;
-				return (gl);
-			}
+	hash = fnv_32_buf(bytes, wbytes * height, FNV1_32_INIT) % FONTCVT_NHASH;
+	SLIST_FOREACH(gl, &glyph_hash[hash], g_hash) {
+		if (memcmp(gl->g_data, bytes, wbytes * height) == 0) {
+			glyph_dupe++;
+			return (gl);
 		}
 	}
 
@@ -167,6 +172,7 @@ add_glyph(const uint8_t *bytes, unsigned int map_idx, int fallback)
 		TAILQ_INSERT_HEAD(&glyphs[map_idx], gl, g_list);
 	else
 		TAILQ_INSERT_TAIL(&glyphs[map_idx], gl, g_list);
+	SLIST_INSERT_HEAD(&glyph_hash[hash], gl, g_hash);
 
 	glyph_unique++;
 	return (gl);
@@ -384,27 +390,48 @@ write_fnt(const char *filename)
 int
 main(int argc, char *argv[])
 {
+	int ch;
 
 	assert(sizeof(struct file_header) == 32);
 	assert(sizeof(struct file_mapping) == 8);
 
-	if (argc != 6)
-		usage();
-	
-	width = atoi(argv[1]);
-	wbytes = howmany(width, 8);
-	height = atoi(argv[2]);
+	while ((ch = getopt(argc, argv, "h:w:")) != -1) {
+		switch (ch) {
+		case 'h':
+			height = atoi(optarg);
+			break;
+		case 'w':
+			height = atoi(optarg);
+			break;
+		case '?':
+		default:
+			usage();
+		}
+	}
+	argc -= optind;
+	argv += optind;
 
-	if (parse_bdf(argv[3], VFNT_MAP_NORMAL) != 0)
+	if (argc < 2 || argc > 3)
+		usage();
+
+	wbytes = howmany(width, 8);
+
+	if (parse_bdf(argv[0], VFNT_MAP_NORMAL) != 0)
 		return (1);
-	if (parse_bdf(argv[4], VFNT_MAP_BOLD) != 0)
-		return (1);
+	argc--;
+	argv++;
+	if (argc == 2) {
+		if (parse_bdf(argv[0], VFNT_MAP_BOLD) != 0)
+			return (1);
+		argc--;
+		argv++;
+	}
 	number_glyphs();
 	fold_mappings(0);
 	fold_mappings(1);
 	fold_mappings(2);
 	fold_mappings(3);
-	if (write_fnt(argv[5]) != 0)
+	if (write_fnt(argv[0]) != 0)
 		return (1);
 	
 	printf(
