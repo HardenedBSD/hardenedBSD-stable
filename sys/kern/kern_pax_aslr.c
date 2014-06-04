@@ -64,6 +64,8 @@ __FBSDID("$FreeBSD$");
 
 #include <sys/pax.h>
 
+FEATURE(aslr, "Address Space Layout Randomization.");
+
 int pax_aslr_status = PAX_ASLR_OPTOUT;
 int pax_aslr_debug = 0;
 
