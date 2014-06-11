@@ -79,9 +79,8 @@ pax_get_prison(struct thread *td, struct proc *proc)
 {
 
 	if (td != NULL) {
-		if ((td->td_proc != NULL) && (td->td_proc->p_ucred != NULL)) {
+		if ((td->td_proc != NULL) && (td->td_proc->p_ucred != NULL))
 			return (td->td_proc->p_ucred->cr_prison);
-		}
 
 		return (NULL);
 	}
@@ -96,21 +95,18 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 {
 	u_int flags = 0;
 
-	if ((mode & MBI_ALLPAX) == MBI_ALLPAX) {
+	if ((mode & MBI_ALLPAX) == MBI_ALLPAX)
 		goto end;
-	}
 
-	if (mode & MBI_FORCE_ASLR_ENABLED) {
+	if (mode & MBI_FORCE_ASLR_ENABLED)
 		flags |= PAX_NOTE_ASLR;
-	} else if (mode & MBI_FORCE_ASLR_DISABLED) {
+	else if (mode & MBI_FORCE_ASLR_DISABLED)
 		flags |= PAX_NOTE_NOASLR;
-	}
 
-	if (mode & MBI_FORCE_SEGVGUARD_ENABLED) {
+	if (mode & MBI_FORCE_SEGVGUARD_ENABLED)
 		flags |= PAX_NOTE_GUARD;
-	} else if (mode & MBI_FORCE_SEGVGUARD_DISABLED) {
+	else if (mode & MBI_FORCE_SEGVGUARD_DISABLED)
 		flags |= PAX_NOTE_NOGUARD;
-	}
 
 end:
 	if (imgp != NULL) {
@@ -148,8 +144,8 @@ pax_init(void)
 	case	3:
 		break;
 	default:
-		printf("[PAX ASLR] WARNING, not valid PAX settings in loader.conf!"
-		    "(pax_aslr_status = %d)\n", pax_aslr_status);
+		printf("[PAX ASLR] WARNING, invalid PAX settings in loader.conf!"
+		    " (pax_aslr_status = %d)\n", pax_aslr_status);
 		pax_aslr_status = 3;
 		break;
 	}
@@ -166,7 +162,7 @@ pax_init(void)
 	case	3:
 		break;
 	default:
-		printf("[PAX ASLR (compat)] WARNING, not valid PAX settings in loader.conf! "
+		printf("[PAX ASLR (compat)] WARNING, invalid PAX settings in loader.conf! "
 		    "(pax_aslr_compat_status = %d)\n", pax_aslr_compat_status);
 		pax_aslr_compat_status = 3;
 		break;
@@ -175,8 +171,8 @@ pax_init(void)
 	printf("[PAX ASLR (compat)] mmap: %d bit\n", pax_aslr_compat_mmap_len);
 	printf("[PAX ASLR (compat)] exec base: %d bit\n", pax_aslr_compat_exec_len);
 	printf("[PAX ASLR (compat)] stack: %d bit\n", pax_aslr_compat_stack_len);
-#endif
-#endif
+#endif /* COMPAT_FREEBSD32 */
+#endif /* PAX_ASLR */
 
 #ifdef PAX_SEGVGUARD
 	switch (pax_segvguard_status) {
@@ -186,7 +182,7 @@ pax_init(void)
 	case	3:
 		break;
 	default:
-		printf("[PAX SEGVGUARD] WARNING, not valid PAX settings in loader.conf! "
+		printf("[PAX SEGVGUARD] WARNING, invalid PAX settings in loader.conf! "
 		    "(pax_segvguard_status = %d)\n", pax_segvguard_status);
 		pax_segvguard_status = 3;
 		break;
@@ -206,20 +202,17 @@ void
 pax_init_prison(struct prison *pr)
 {
 
-	if (pr == NULL) {
+	if (pr == NULL)
 		return;
-	}
 
-	if (pr->pr_pax_set) {
+	if (pr->pr_pax_set)
 		return;
-	}
 
 	mtx_lock(&(pr->pr_mtx));
 
-	if (pax_aslr_debug) {
+	if (pax_aslr_debug)
 		uprintf("[PaX ASLR/SEGVGUARD] %s: Setting prison %s ASLR variables\n",
 		    __func__, pr->pr_name);
-	}
 
 #ifdef PAX_ASLR
 	pr->pr_pax_aslr_status = pax_aslr_status;
@@ -233,8 +226,8 @@ pax_init_prison(struct prison *pr)
 	pr->pr_pax_aslr_compat_mmap_len = pax_aslr_compat_mmap_len;
 	pr->pr_pax_aslr_compat_stack_len = pax_aslr_compat_stack_len;
 	pr->pr_pax_aslr_compat_exec_len = pax_aslr_compat_exec_len;
-#endif
-#endif
+#endif /* COMPAT_FREEBSD32 */
+#endif /* PAX_ASLR */
 
 #ifdef PAX_SEGVGUARD
 	pr->pr_pax_segvguard_status = pax_segvguard_status;

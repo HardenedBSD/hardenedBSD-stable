@@ -849,6 +849,7 @@ __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp)
 	pax_elf(imgp, 0);
 #endif
 
+	et_dyn_addr = 0;
 	if (hdr->e_type == ET_DYN) {
 		/*
 		 * Honour the base load address from the dso if it is
@@ -857,14 +858,11 @@ __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp)
 		if (baddr == 0) {
 			et_dyn_addr = ET_DYN_LOAD_ADDR;
 #ifdef PAX_ASLR
-			if (pax_aslr_active(NULL, imgp->proc)) {
+			if (pax_aslr_active(NULL, imgp->proc))
 				et_dyn_addr += imgp->proc->p_vmspace->vm_aslr_delta_exec;
-			}
 #endif
-		} else
-			et_dyn_addr = 0;
-	} else
-		et_dyn_addr = 0;
+		}
+	}
 
 	vn_lock(imgp->vp, LK_EXCLUSIVE | LK_RETRY);
 	if (error)

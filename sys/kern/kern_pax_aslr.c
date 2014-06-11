@@ -170,9 +170,9 @@ sysctl_pax_aslr_status(SYSCTL_HANDLER_ARGS)
 	case    PAX_ASLR_OPTIN:
 	case    PAX_ASLR_OPTOUT:
 	case    PAX_ASLR_FORCE_ENABLED:
-		if ((pr == NULL) || (pr == &prison0)) {
+		if ((pr == NULL) || (pr == &prison0))
 			pax_aslr_status = val;
-		}
+
 		if (pr != NULL) {
 			mtx_lock(&(pr->pr_mtx));
 			pr->pr_pax_aslr_status = val;
@@ -194,9 +194,8 @@ sysctl_pax_aslr_debug(SYSCTL_HANDLER_ARGS)
 
 	pr = pax_get_prison(req->td, NULL);
 
-	if ((pr != NULL) && !(pr->pr_pax_set)) {
+	if ((pr != NULL) && !(pr->pr_pax_set))
 		pax_init_prison(pr);
-	}
 
 	val = (pr != NULL) ? pr->pr_pax_aslr_debug : pax_aslr_debug;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -212,9 +211,9 @@ sysctl_pax_aslr_debug(SYSCTL_HANDLER_ARGS)
 
 	}
 
-	if ((pr == NULL) || (pr == &prison0)) {
+	if ((pr == NULL) || (pr == &prison0))
 		pax_aslr_debug = val;
-	}
+
 	if (pr != NULL) {
 		mtx_lock(&(pr->pr_mtx));
 		pr->pr_pax_aslr_debug = val;
@@ -232,24 +231,21 @@ sysctl_pax_aslr_mmap(SYSCTL_HANDLER_ARGS)
 
 	pr = pax_get_prison(req->td, NULL);
 
-	if ((pr != NULL) && !(pr->pr_pax_set)) {
+	if ((pr != NULL) && !(pr->pr_pax_set))
 		pax_init_prison(pr);
-	}
 
 	val = (pr != NULL) ? pr->pr_pax_aslr_mmap_len : pax_aslr_mmap_len;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
-	if (err || !req->newptr) {
+	if (err || !req->newptr)
 		return (err);
-	}
 
 	if (val < PAX_ASLR_DELTA_MMAP_MIN_LEN ||
-	    val > PAX_ASLR_DELTA_MMAP_MAX_LEN) {
+	    val > PAX_ASLR_DELTA_MMAP_MAX_LEN)
 		return (EINVAL);
-	}
 
-	if ((pr == NULL) || (pr == &prison0)) {
+	if ((pr == NULL) || (pr == &prison0))
 		pax_aslr_mmap_len = val;
-	}
+
 	if (pr != NULL) {
 		mtx_lock(&(pr->pr_mtx));
 		pr->pr_pax_aslr_mmap_len = val;
@@ -267,24 +263,21 @@ sysctl_pax_aslr_stack(SYSCTL_HANDLER_ARGS)
 
 	pr = pax_get_prison(req->td, NULL);
 
-	if ((pr != NULL) && !(pr->pr_pax_set)) {
+	if ((pr != NULL) && !(pr->pr_pax_set))
 		pax_init_prison(pr);
-	}
 
 	val = (pr != NULL) ? pr->pr_pax_aslr_stack_len : pax_aslr_stack_len;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
-	if (err || !req->newptr) {
+	if (err || !req->newptr)
 		return (err);
-	}
 
 	if (val < PAX_ASLR_DELTA_STACK_MIN_LEN ||
-	    val > PAX_ASLR_DELTA_STACK_MAX_LEN) {
+	    val > PAX_ASLR_DELTA_STACK_MAX_LEN)
 		return (EINVAL);
-	}
 
-	if ((pr == NULL) || (pr == &prison0)) {
+	if ((pr == NULL) || (pr == &prison0))
 		pax_aslr_stack_len = val;
-	}
+
 	if (pr != NULL) {
 		mtx_lock(&(pr->pr_mtx));
 		pr->pr_pax_aslr_stack_len = val;
@@ -307,18 +300,16 @@ sysctl_pax_aslr_exec(SYSCTL_HANDLER_ARGS)
 
 	val = (pr != NULL) ? pr->pr_pax_aslr_exec_len : pax_aslr_exec_len;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
-	if (err || (req->newptr == NULL)) {
+	if (err || (req->newptr == NULL))
 		return (err);
-	}
 
 	if (val < PAX_ASLR_DELTA_EXEC_MIN_LEN ||
-	    val > PAX_ASLR_DELTA_EXEC_MAX_LEN) {
+	    val > PAX_ASLR_DELTA_EXEC_MAX_LEN)
 		return (EINVAL);
-	}
 
-	if ((pr == NULL) || (pr == &prison0)) {
+	if ((pr == NULL) || (pr == &prison0))
 		pax_aslr_exec_len = val;
-	}
+
 	if (pr != NULL) {
 		mtx_lock(&(pr->pr_mtx));
 		pr->pr_pax_aslr_exec_len = val;
@@ -377,18 +368,17 @@ sysctl_pax_aslr_compat_status(SYSCTL_HANDLER_ARGS)
 
 	val = (pr != NULL) ?pr->pr_pax_aslr_compat_status : pax_aslr_compat_status;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
-	if (err || (req->newptr == NULL)) {
+	if (err || (req->newptr == NULL))
 		return (err);
-	}
 
 	switch (val) {
 	case    PAX_ASLR_DISABLED:
 	case    PAX_ASLR_OPTIN:
 	case    PAX_ASLR_OPTOUT:
 	case    PAX_ASLR_FORCE_ENABLED:
-		if ((pr == NULL) || (pr == &prison0)) {
+		if ((pr == NULL) || (pr == &prison0))
 			pax_aslr_compat_status = val;
-		}
+
 		if (pr != NULL) {
 			mtx_lock(&(pr->pr_mtx));
 			pr->pr_pax_aslr_compat_status = val;
@@ -412,18 +402,16 @@ sysctl_pax_aslr_compat_mmap(SYSCTL_HANDLER_ARGS)
 
 	val = (pr != NULL) ? pr->pr_pax_aslr_compat_mmap_len : pax_aslr_compat_mmap_len;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
-	if (err || !req->newptr) {
+	if (err || !req->newptr)
 		return (err);
-	}
 
 	if (val < PAX_ASLR_COMPAT_DELTA_MMAP_MIN_LEN ||
-	    val > PAX_ASLR_COMPAT_DELTA_MMAP_MAX_LEN) {
+	    val > PAX_ASLR_COMPAT_DELTA_MMAP_MAX_LEN)
 		return (EINVAL);
-	}
 
-	if ((pr == NULL) || (pr == &prison0)) {
+	if ((pr == NULL) || (pr == &prison0))
 		pax_aslr_compat_mmap_len = val;
-	}
+
 	if (pr != NULL) {
 		mtx_lock(&(pr->pr_mtx));
 		pr->pr_pax_aslr_compat_mmap_len = val;
@@ -443,18 +431,16 @@ sysctl_pax_aslr_compat_stack(SYSCTL_HANDLER_ARGS)
 
 	val = (pr != NULL) ? pr->pr_pax_aslr_compat_stack_len : pax_aslr_compat_stack_len;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
-	if (err || !req->newptr) {
+	if (err || !req->newptr)
 		return (err);
-	}
 
 	if (val < PAX_ASLR_COMPAT_DELTA_STACK_MIN_LEN ||
-	    val > PAX_ASLR_COMPAT_DELTA_STACK_MAX_LEN) {
+	    val > PAX_ASLR_COMPAT_DELTA_STACK_MAX_LEN)
 		return (EINVAL);
-	}
 
-	if ((pr == NULL) || (pr == &prison0)) {
+	if ((pr == NULL) || (pr == &prison0))
 		pax_aslr_compat_stack_len = val;
-	}
+
 	if (pr != NULL) {
 		mtx_lock(&(pr->pr_mtx));
 		pr->pr_pax_aslr_compat_stack_len = val;
@@ -472,20 +458,22 @@ sysctl_pax_aslr_compat_exec(SYSCTL_HANDLER_ARGS)
 
 	pr = pax_get_prison(req->td, NULL);
 
-	val = (pr != NULL) ? pr->pr_pax_aslr_compat_exec_len : pax_aslr_compat_exec_len;
+	if (pr != NULL)
+		val = pr->pr_pax_aslr_compat_exec_len;
+	else
+		val = pax_aslr_compat_exec_len;
+
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
-	if (err || !req->newptr) {
+	if (err || !req->newptr)
 		return (err);
-	}
 
 	if (val < PAX_ASLR_COMPAT_DELTA_EXEC_MIN_LEN ||
-	    val > PAX_ASLR_COMPAT_DELTA_EXEC_MAX_LEN) {
+	    val > PAX_ASLR_COMPAT_DELTA_EXEC_MAX_LEN)
 		return (EINVAL);
-	}
 
-	if ((pr == NULL) || (pr == &prison0)) {
+	if ((pr == NULL) || (pr == &prison0))
 		pax_aslr_compat_exec_len = val;
-	}
+
 	if (pr != NULL) {
 		mtx_lock(&(pr->pr_mtx));
 		pr->pr_pax_aslr_compat_exec_len = val;
@@ -509,9 +497,8 @@ pax_aslr_active(struct thread *td, struct proc *proc)
 	struct prison *pr;
 	uint32_t flags;
 
-	if ((td == NULL) && (proc == NULL)) {
+	if ((td == NULL) && (proc == NULL))
 		return (true);
-	}
 
 	pr = pax_get_prison(td, proc);
 
@@ -522,7 +509,10 @@ pax_aslr_active(struct thread *td, struct proc *proc)
 		return (true);
 	}
 
-	status = (pr != NULL) ? pr->pr_pax_aslr_status : pax_aslr_status;
+	if (pr != NULL)
+		status = pr->pr_pax_aslr_status;
+	else
+		status = pax_aslr_status;
 
 	switch (status) {
 	case    PAX_ASLR_DISABLED:
@@ -557,25 +547,36 @@ pax_aslr_active(struct thread *td, struct proc *proc)
 void
 _pax_aslr_init(struct vmspace *vm, struct prison *pr)
 {
-	if (vm == NULL) {
+	if (vm == NULL)
 		panic("[PaX ASLR] %s: vm == NULL", __func__);
-	}
 
 	vm->vm_aslr_delta_mmap = PAX_ASLR_DELTA(arc4random(),
-			PAX_ASLR_DELTA_MMAP_LSB, (pr != NULL) ? pr->pr_pax_aslr_mmap_len : pax_aslr_mmap_len);
+	    PAX_ASLR_DELTA_MMAP_LSB, (pr != NULL) ?
+	    pr->pr_pax_aslr_mmap_len :
+	    pax_aslr_mmap_len);
 	vm->vm_aslr_delta_stack = PAX_ASLR_DELTA(arc4random(),
-			PAX_ASLR_DELTA_STACK_LSB, (pr != NULL) ? pr->pr_pax_aslr_stack_len : pax_aslr_stack_len);
+	    PAX_ASLR_DELTA_STACK_LSB, (pr != NULL) ?
+	    pr->pr_pax_aslr_stack_len :
+	    pax_aslr_stack_len);
 	vm->vm_aslr_delta_stack = ALIGN(vm->vm_aslr_delta_stack);
 	vm->vm_aslr_delta_exec = PAX_ASLR_DELTA(arc4random(),
-			PAX_ASLR_DELTA_EXEC_LSB, (pr != NULL) ? pr->pr_pax_aslr_exec_len : pax_aslr_exec_len);
+	    PAX_ASLR_DELTA_EXEC_LSB, (pr != NULL) ?
+	    pr->pr_pax_aslr_exec_len :
+	    pax_aslr_exec_len);
 
 	if ((pr != NULL) && pr->pr_pax_aslr_debug) {
-		pax_log_aslr(pr, __func__, "vm_aslr_delta_mmap=%p\n", (void *) vm->vm_aslr_delta_mmap);
-		pax_log_aslr(pr, __func__, "vm_aslr_delta_stack=%p\n", (void *) vm->vm_aslr_delta_stack);
-		pax_log_aslr(pr, __func__, "vm_aslr_delta_exec=%p\n", (void *) vm->vm_aslr_delta_exec);
-		pax_ulog_aslr(pr, NULL, "vm_aslr_delta_mmap=%p\n", (void *) vm->vm_aslr_delta_mmap);
-		pax_ulog_aslr(pr, NULL, "vm_aslr_delta_stack=%p\n", (void *) vm->vm_aslr_delta_stack);
-		pax_ulog_aslr(pr, NULL, "vm_aslr_delta_exec=%p\n", (void *) vm->vm_aslr_delta_exec);
+		pax_log_aslr(pr, __func__, "vm_aslr_delta_mmap=%p\n",
+		    (void *) vm->vm_aslr_delta_mmap);
+		pax_log_aslr(pr, __func__, "vm_aslr_delta_stack=%p\n",
+		    (void *) vm->vm_aslr_delta_stack);
+		pax_log_aslr(pr, __func__, "vm_aslr_delta_exec=%p\n",
+		    (void *) vm->vm_aslr_delta_exec);
+		pax_ulog_aslr(pr, NULL, "vm_aslr_delta_mmap=%p\n",
+		    (void *) vm->vm_aslr_delta_mmap);
+		pax_ulog_aslr(pr, NULL, "vm_aslr_delta_stack=%p\n",
+		    (void *) vm->vm_aslr_delta_stack);
+		pax_ulog_aslr(pr, NULL, "vm_aslr_delta_exec=%p\n",
+		    (void *) vm->vm_aslr_delta_exec);
 	}
 }
 
@@ -583,25 +584,36 @@ _pax_aslr_init(struct vmspace *vm, struct prison *pr)
 void
 _pax_aslr_init32(struct vmspace *vm, struct prison *pr)
 {
-	if (vm == NULL) {
+	if (vm == NULL)
 		panic("[PaX ASLR] %s: vm == NULL", __func__);
-	}
 
 	vm->vm_aslr_delta_mmap = PAX_ASLR_DELTA(arc4random(),
-			PAX_ASLR_COMPAT_DELTA_MMAP_LSB, (pr != NULL) ? pr->pr_pax_aslr_compat_mmap_len : pax_aslr_compat_mmap_len);
+	    PAX_ASLR_COMPAT_DELTA_MMAP_LSB, (pr != NULL) ?
+	    pr->pr_pax_aslr_compat_mmap_len :
+	    pax_aslr_compat_mmap_len);
 	vm->vm_aslr_delta_stack = PAX_ASLR_DELTA(arc4random(),
-			PAX_ASLR_COMPAT_DELTA_STACK_LSB, (pr != NULL) ? pr->pr_pax_aslr_compat_stack_len : pax_aslr_compat_stack_len);
+	    PAX_ASLR_COMPAT_DELTA_STACK_LSB, (pr != NULL) ?
+	    pr->pr_pax_aslr_compat_stack_len :
+	    pax_aslr_compat_stack_len);
 	vm->vm_aslr_delta_stack = ALIGN(vm->vm_aslr_delta_stack);
 	vm->vm_aslr_delta_exec = PAX_ASLR_DELTA(arc4random(),
-			PAX_ASLR_DELTA_EXEC_LSB, (pr != NULL) ? pr->pr_pax_aslr_compat_exec_len : pax_aslr_compat_exec_len);
+	    PAX_ASLR_DELTA_EXEC_LSB, (pr != NULL) ?
+	    pr->pr_pax_aslr_compat_exec_len :
+	    pax_aslr_compat_exec_len);
 
 	if ((pr != NULL) && pr->pr_pax_aslr_debug) {
-		pax_log_aslr(pr, __func__, "vm_aslr_delta_mmap=%p\n", (void *) vm->vm_aslr_delta_mmap);
-		pax_log_aslr(pr, __func__, "vm_aslr_delta_stack=%p\n", (void *) vm->vm_aslr_delta_stack);
-		pax_log_aslr(pr, __func__, "vm_aslr_delta_exec=%p\n", (void *) vm->vm_aslr_delta_exec);
-		pax_ulog_aslr(pr, NULL, "vm_aslr_delta_mmap=%p\n", (void *) vm->vm_aslr_delta_mmap);
-		pax_ulog_aslr(pr, NULL, "vm_aslr_delta_stack=%p\n", (void *) vm->vm_aslr_delta_stack);
-		pax_ulog_aslr(pr, NULL, "vm_aslr_delta_exec=%p\n", (void *) vm->vm_aslr_delta_exec);
+		pax_log_aslr(pr, __func__, "vm_aslr_delta_mmap=%p\n",
+		    (void *) vm->vm_aslr_delta_mmap);
+		pax_log_aslr(pr, __func__, "vm_aslr_delta_stack=%p\n",
+		    (void *) vm->vm_aslr_delta_stack);
+		pax_log_aslr(pr, __func__, "vm_aslr_delta_exec=%p\n",
+		    (void *) vm->vm_aslr_delta_exec);
+		pax_ulog_aslr(pr, NULL, "vm_aslr_delta_mmap=%p\n",
+		    (void *) vm->vm_aslr_delta_mmap);
+		pax_ulog_aslr(pr, NULL, "vm_aslr_delta_stack=%p\n",
+		    (void *) vm->vm_aslr_delta_stack);
+		pax_ulog_aslr(pr, NULL, "vm_aslr_delta_exec=%p\n",
+		    (void *) vm->vm_aslr_delta_exec);
 	}
 }
 #endif
@@ -614,29 +626,28 @@ pax_aslr_init(struct thread *td, struct image_params *imgp)
 
 	pr = pax_get_prison(td, NULL);
 
-	if (imgp == NULL) {
+	if (imgp == NULL)
 		panic("[PaX ASLR] %s: imgp == NULL", __func__);
-	}
 
-	if (!pax_aslr_active(td, NULL)) {
+	if (!pax_aslr_active(td, NULL))
 		return;
-	}
 
 	vm = imgp->proc->p_vmspace;
 
-	if (imgp->sysent->sv_pax_aslr_init != NULL) {
+	if (imgp->sysent->sv_pax_aslr_init != NULL)
 		imgp->sysent->sv_pax_aslr_init(vm, pr);
-	}
 }
 
 void
-pax_aslr_mmap(struct thread *td, vm_offset_t *addr, vm_offset_t orig_addr, int flags)
+pax_aslr_mmap(struct thread *td, vm_offset_t *addr, int flags)
 {
 	struct prison *pr;
+	vm_offset_t orig_addr;
 
-	if (!pax_aslr_active(td, NULL)) {
+	if (!pax_aslr_active(td, NULL))
 		return;
-	}
+
+	orig_addr = *addr;
 
 	pr = pax_get_prison(td, NULL);
 
@@ -661,9 +672,8 @@ pax_aslr_stack(struct thread *td, uintptr_t *addr)
 	struct prison *pr;
 	uintptr_t orig_addr;
 
-	if (!pax_aslr_active(td, NULL)) {
+	if (!pax_aslr_active(td, NULL))
 		return;
-	}
 
 	pr = pax_get_prison(td, NULL);
 

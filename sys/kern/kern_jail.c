@@ -119,46 +119,12 @@ struct prison prison0 = {
 	.pr_flags	= PR_HOST|_PR_IP_SADDRSEL,
 #endif
 	.pr_allow	= PR_ALLOW_ALL,
-#if defined(PAX_ASLR) || defined(PAX_SEGVGUARD)
-	.pr_pax_set		= 0,
-	.pr_pax_aslr_status	= PAX_ASLR_OPTIN,
-	.pr_pax_aslr_debug	= 0,
-	.pr_pax_aslr_mmap_len	= PAX_ASLR_DELTA_MMAP_MIN_LEN,
-	.pr_pax_aslr_stack_len	= PAX_ASLR_DELTA_STACK_MIN_LEN,
-	.pr_pax_aslr_exec_len	= PAX_ASLR_DELTA_EXEC_MIN_LEN,
-	.pr_pax_aslr_compat_status	= PAX_ASLR_OPTIN,
-	.pr_pax_aslr_compat_mmap_len	= PAX_ASLR_COMPAT_DELTA_MMAP_MIN_LEN,
-	.pr_pax_aslr_compat_stack_len	= PAX_ASLR_COMPAT_DELTA_STACK_MIN_LEN,
-	.pr_pax_aslr_compat_exec_len	= PAX_ASLR_COMPAT_DELTA_EXEC_MIN_LEN,
-	.pr_pax_segvguard_status	= PAX_SEGVGUARD_OPTIN,
-	.pr_pax_segvguard_debug		= 0,
-	.pr_pax_segvguard_expiry	= PAX_SEGVGUARD_EXPIRY,
-	.pr_pax_segvguard_suspension	= PAX_SEGVGUARD_SUSPENSION,
-	.pr_pax_segvguard_maxcrashes	= PAX_SEGVGUARD_MAXCRASHES,
-	.pr_pax_log_log			= PAX_LOG_LOG,
-	.pr_pax_log_ulog		= PAX_LOG_ULOG,
-#else
-	.pr_pax_set		= 0,
-	.pr_pax_aslr_status	= 0,
-	.pr_pax_aslr_debug	= 0,
-	.pr_pax_aslr_mmap_len	= 0,
-	.pr_pax_aslr_stack_len	= 0,
-	.pr_pax_aslr_exec_len	= 0,
-	.pr_pax_aslr_compat_status	= 0,
-	.pr_pax_aslr_compat_mmap_len	= 0,
-	.pr_pax_aslr_compat_stack_len	= 0,
-	.pr_pax_aslr_compat_exec_len	= 0,
-	.pr_pax_segvguard_status	= 0,
-	.pr_pax_segvguard_debug		= 0,
-	.pr_pax_segvguard_expiry	= 0,
-	.pr_pax_segvguard_suspension	= 0,
-	.pr_pax_segvguard_maxcrashes	= 0,
-	.pr_pax_log_log			= 0,
-	.pr_pax_log_ulog		= 0,
-#endif
 };
 MTX_SYSINIT(prison0, &prison0.pr_mtx, "jail mutex", MTX_DEF);
+
+#if defined(PAX_ASLR) || defined(PAX_SEGVGUARD)
 SYSINIT(pax, SI_SUB_PAX, SI_ORDER_MIDDLE, pax_init_prison, (void *) &prison0);
+#endif
 
 /* allprison, allprison_racct and lastprid are protected by allprison_lock. */
 struct	sx allprison_lock;
