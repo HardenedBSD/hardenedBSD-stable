@@ -7,7 +7,7 @@ DPADD=		${LIBGROFF} ${LIBM}
 LDADD=		${LIBGROFF} -lm
 CLEANFILES=	majorminor.cpp ${MAN}
 
-NO_PIE=yes
+NO_PIE=	yes
 
 .include <bsd.prog.mk>
 

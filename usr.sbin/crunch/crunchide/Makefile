@@ -3,7 +3,7 @@
 PROG=   crunchide
 SRCS=	crunchide.c
 
-NO_PIE=yes
+NO_PIE=	yes
 
 TARGET_ARCH?=	${MACHINE_ARCH}
 

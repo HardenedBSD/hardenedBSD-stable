@@ -36,7 +36,7 @@ LDADD=	-lkadm5clnt -lkadm5srv -lhdb -lkrb5 -lhx509 \
 	-ledit -lncurses ${LDAPLDADD}
 LDFLAGS=${LDAPLDFLAGS}
 
-NO_PIE=yes
+NO_PIE=	yes
 
 .include <bsd.prog.mk>
 

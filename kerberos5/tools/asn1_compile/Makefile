@@ -27,7 +27,7 @@ CFLAGS+=-I${KRB5DIR}/lib/roken -I${KRB5DIR}/lib/asn1 -I.
 
 CLEANFILES= roken.h lex.c parse.c
 
-NO_PIE=yes
+NO_PIE=	yes
 
 roken.h:
 	 make-roken > ${.TARGET}

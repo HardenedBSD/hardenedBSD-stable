@@ -13,7 +13,7 @@ DPADD=	${LIBKAFS5} ${LIBKRB5} ${LIBHX509} ${LIBROKEN} ${LIBVERS} \
 LDADD=	-lkafs5 -lkrb5 -lhx509 -lroken ${LIBVERS} \
 	-lasn1 -lcrypto -lcrypt -lcom_err
 
-NO_PIE=yes
+NO_PIE=	yes
 
 .include <bsd.prog.mk>
 

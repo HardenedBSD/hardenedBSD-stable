@@ -13,7 +13,7 @@ CFLAGS+= -DINFODIR=\"${INFODIR}:/usr/local/info:.\"
 DPADD=	${LIBTERMCAP} ${LIBTXI}
 LDADD=	-ltermcap ${LIBTXI}
 
-NO_PIE=yes
+NO_PIE=	yes
 
 .include <bsd.prog.mk>
 

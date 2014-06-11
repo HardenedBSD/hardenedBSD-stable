@@ -12,7 +12,6 @@
 SUBDIR=	alias \
 	apply \
 	asa \
-	${_atf} \
 	awk \
 	banner \
 	basename \
@@ -333,7 +332,6 @@ SUBDIR+=	telnet
 .endif
 
 .if ${MK_TESTS} != "no"
-_atf=		atf
 _tests=		tests
 .endif
 
@@ -362,6 +360,10 @@ SUBDIR+=	yacc
 
 .if ${MK_VI} != "no"
 SUBDIR+=	vi
+.endif
+
+.if ${MK_VT_SUPPORT} != "no"
+SUBDIR+=	vtfontcvt
 .endif
 
 .if ${MK_USB} != "no"

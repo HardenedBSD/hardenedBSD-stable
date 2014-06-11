@@ -5,7 +5,7 @@ PROG=	install-info
 DPADD=	${LIBTXI}
 LDADD=	${LIBTXI}
 
-NO_PIE=yes
+NO_PIE=	yes
 
 .include <bsd.prog.mk>
 

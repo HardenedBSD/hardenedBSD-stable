@@ -11,6 +11,6 @@ LDADD=	${LIBCRON} ${MINUSLPAM} -lutil
 
 WARNS?=	2
 
-NO_PIE=yes
+NO_PIE=	yes
 
 .include <bsd.prog.mk>

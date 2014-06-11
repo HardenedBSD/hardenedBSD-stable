@@ -11,7 +11,7 @@ DPSRCS+=	${GENHDRS}
 
 CLEANFILES+=	${GENHDRS} ipmon_y.c ipmon_l.c
 
-NO_PIE=yes
+NO_PIE=	yes
 
 ipmon_y.c: ipmon_y.y
 	${YACC} -d ${.ALLSRC}

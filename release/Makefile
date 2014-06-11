@@ -101,6 +101,9 @@ CLEANFILES=	packagesystem *.txz MANIFEST system ${IMAGES}
 CLEANFILES+=	${I}.xz
 . endfor
 .endif
+.if defined(WITH_DVD) && !empty(WITH_DVD)
+CLEANFILES+=	pkg-stage
+.endif
 CLEANDIRS=	dist ftp release bootonly dvd
 beforeclean:
 	chflags -R noschg .
@@ -154,8 +157,7 @@ system: packagesystem
 	mkdir -p release
 	cd ${WORLDDIR} && ${IMAKE} installkernel installworld distribution \
 		DESTDIR=${.OBJDIR}/release WITHOUT_RESCUE=1 WITHOUT_KERNEL_SYMBOLS=1 \
-		WITHOUT_PROFILE=1 WITHOUT_SENDMAIL=1 WITHOUT_ATF=1 WITHOUT_LIB32=1 \
-		KERNCONF=${KERNCONF}
+		WITHOUT_PROFILE=1 WITHOUT_SENDMAIL=1 MK_TESTS=no WITHOUT_LIB32=1
 # Copy distfiles
 	mkdir -p release/usr/freebsd-dist
 	cp *.txz MANIFEST release/usr/freebsd-dist
@@ -180,7 +182,7 @@ bootonly: packagesystem
 	    WITHOUT_INSTALLLIB=1 WITHOUT_LIB32=1 WITHOUT_MAIL=1 \
 	    WITHOUT_NCP=1 WITHOUT_TOOLCHAIN=1 WITHOUT_PROFILE=1 \
 	    WITHOUT_INSTALLIB=1 WITHOUT_RESCUE=1 WITHOUT_DICT=1 \
-	    WITHOUT_KERNEL_SYMBOLS=1 KERNCONF=${KERNCONF}
+	    WITHOUT_KERNEL_SYMBOLS=1 MK_TESTS=no
 # Copy manifest only (no distfiles) to get checksums
 	mkdir -p bootonly/usr/freebsd-dist
 	cp MANIFEST bootonly/usr/freebsd-dist
@@ -200,7 +202,7 @@ dvd:
 	mkdir -p ${.TARGET}
 	cd ${WORLDDIR} && ${IMAKE} installkernel installworld distribution \
 		DESTDIR=${.OBJDIR}/${.TARGET} WITHOUT_RESCUE=1 WITHOUT_KERNEL_SYMBOLS=1 \
-		KERNCONF=${KERNCONF}
+		MK_TESTS=no
 # Copy distfiles
 	mkdir -p ${.TARGET}/usr/freebsd-dist
 	cp *.txz MANIFEST ${.TARGET}/usr/freebsd-dist

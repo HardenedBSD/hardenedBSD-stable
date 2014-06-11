@@ -8,7 +8,7 @@ DPADD=		${LIBGROFF} ${LIBM}
 LDADD=		${LIBGROFF} -lm
 CLEANFILES=	${MAN} pic.cpp pic_tab.h y.tab.c y.tab.h
 
-NO_PIE=yes
+NO_PIE=	yes
 
 pic_tab.h: pic.cpp
 

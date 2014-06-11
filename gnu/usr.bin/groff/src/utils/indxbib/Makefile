@@ -6,7 +6,7 @@ DPADD=		${LIBBIB} ${LIBGROFF} ${LIBM}
 LDADD=		${LIBBIB} ${LIBGROFF} -lm
 CLEANFILES=	${MAN}
 
-NO_PIE=yes
+NO_PIE=	yes
 
 beforeinstall:
 	${INSTALL} -o ${BINOWN} -g ${BINGRP} -m ${NOBINMODE} \

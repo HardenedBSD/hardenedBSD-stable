@@ -26,7 +26,7 @@ LDADD=	-lhdb -lkrb5 -lroken -lasn1 -lheimntlm -lheimipcs \
 USEPRIVATELIB= heimipcs
 LDFLAGS=${LDAPLDFLAGS}
 
-NO_PIE=yes
+NO_PIE=	yes
 
 .include <bsd.prog.mk>
 

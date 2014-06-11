@@ -16,6 +16,6 @@ CFLAGS+= -I${.CURDIR}/../../../contrib/amd/hlfsd
 DPADD=	${LIBAMU}
 LDADD=	${LIBAMU}
 
-NO_PIE=yes
+NO_PIE=	yes
 
 .include <bsd.prog.mk>

@@ -8,6 +8,6 @@ MAN=		ipfstat.8
 DPADD+=  	${LIBCURSES}
 LDADD+=  	-lcurses
 
-NO_PIE=yes
+NO_PIE=	yes
 
 .include <bsd.prog.mk>

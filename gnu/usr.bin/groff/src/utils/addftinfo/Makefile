@@ -6,6 +6,6 @@ DPADD=		${LIBGROFF}
 LDADD=		${LIBGROFF}
 CLEANFILES=	${MAN}
 
-NO_PIE=yes
+NO_PIE=	yes
 
 .include <bsd.prog.mk>

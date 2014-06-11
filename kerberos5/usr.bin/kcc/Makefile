@@ -19,7 +19,7 @@ SRCS=	kcc.c \
 	kswitch.c \
 	copy_cred_cache.c
 
-NO_PIE=yes
+NO_PIE=	yes
 
 kcc-commands.h: kcc-commands.in
 	${SLC} ${.ALLSRC:M*.in}

@@ -6,7 +6,7 @@ CFLAGS+=	-I${KRB5DIR}/lib/asn1 \
 DPADD=	${LIBKRB5} ${LIBROKEN} ${LIBASN1} ${LIBCRYPTO} ${LIBCRYPT} ${LIBVERS}
 LDADD=	-lkrb5 -lroken -lasn1 -lcrypto -lcrypt ${LIBVERS}
 
-NO_PIE=yes
+NO_PIE=	yes
 
 .include <bsd.prog.mk>
 

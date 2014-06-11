@@ -7,7 +7,7 @@ FILES?=	boot1
 SRCS=	_start.s boot1.c
 CLEANFILES=${FILES} boot1.aout
 
-NO_PIE=yes
+NO_PIE=	yes
 
 BOOTBLOCKBASE= 0x4000
 

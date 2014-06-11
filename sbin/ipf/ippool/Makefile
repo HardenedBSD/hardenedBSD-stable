@@ -10,7 +10,7 @@ DPSRCS+=	${GENHDRS}
 
 CLEANFILES+=	${GENHDRS} ippool_y.c ippool_l.c
 
-NO_PIE=yes
+NO_PIE=	yes
 
 ippool_y.c: ippool_y.y
 	${YACC} -d ${.ALLSRC}

@@ -245,7 +245,7 @@ BMAKE=		MAKEOBJDIRPREFIX=${WORLDTMP} \
 		${BMAKEENV} ${MAKE} ${WORLD_FLAGS} -f Makefile.inc1 \
 		DESTDIR= \
 		BOOTSTRAPPING=${OSRELDATE} \
-		SSP_CFLAGS= \
+		SSP_CFLAGS= MK_PIE=no \
 		MK_HTML=no MK_INFO=no NO_LINT=yes MK_MAN=no \
 		-DNO_PIC MK_PROFILE=no -DNO_SHARED \
 		-DNO_CPU_CFLAGS MK_WARNS=no MK_CTF=no \
@@ -258,7 +258,7 @@ TMAKE=		MAKEOBJDIRPREFIX=${OBJTREE} \
 		TARGET=${TARGET} TARGET_ARCH=${TARGET_ARCH} \
 		DESTDIR= \
 		BOOTSTRAPPING=${OSRELDATE} \
-		SSP_CFLAGS= \
+		SSP_CFLAGS= MK_PIE=no \
 		-DNO_LINT \
 		-DNO_CPU_CFLAGS MK_WARNS=no MK_CTF=no MK_CLANG_FULL=no MK_LLDB=no MK_TESTS=no \
 		MK_PIE=no
@@ -277,7 +277,7 @@ KTMAKE=		TOOLS_PREFIX=${WORLDTMP} MAKEOBJDIRPREFIX=${WORLDTMP} \
 		${KTMAKEENV} ${MAKE} ${WORLD_FLAGS} -f Makefile.inc1 \
 		DESTDIR= \
 		BOOTSTRAPPING=${OSRELDATE} \
-		SSP_CFLAGS= \
+		SSP_CFLAGS= MK_PIE=no \
 		MK_HTML=no MK_INFO=no -DNO_LINT MK_MAN=no \
 		-DNO_PIC MK_PROFILE=no -DNO_SHARED \
 		-DNO_CPU_CFLAGS MK_WARNS=no MK_CTF=no \
@@ -780,6 +780,9 @@ EXTRA_DISTRIBUTIONS+=	games
 .if defined(LIB32TMP) && ${MK_LIB32} != "no"
 EXTRA_DISTRIBUTIONS+=	lib32
 .endif
+.if ${MK_TESTS} != "no"
+EXTRA_DISTRIBUTIONS+=	tests
+.endif
 
 MTREE_MAGIC?=	mtree 2.0
 
@@ -820,6 +823,10 @@ distributeworld installworld: _installcheck_world
 .if ${MK_DEBUG_FILES} != "no"
 	mtree -deU -f ${.CURDIR}/etc/mtree/BSD.debug.dist \
 	    -p ${DESTDIR}/${DISTDIR}/${dist}/usr/lib >/dev/null
+.endif
+.if ${MK_TESTS} != "no" && ${dist} == "tests"
+	mtree -deU -f ${.CURDIR}/etc/mtree/BSD.tests.dist \
+	    -p ${DESTDIR}/${DISTDIR}/${dist}/usr >/dev/null
 .endif
 .if defined(NO_ROOT)
 	${IMAKEENV} mtree -C -f ${.CURDIR}/etc/mtree/BSD.root.dist | \

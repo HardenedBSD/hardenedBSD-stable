@@ -15,6 +15,6 @@ DPADD+=	${RELTOP}/libiberty/libiberty.a
 LDADD=	${DPADD}
 INSTALLFLAGS= -S
 
-NO_PIE=yes
+NO_PIE=	yes
 
 .include <bsd.prog.mk>

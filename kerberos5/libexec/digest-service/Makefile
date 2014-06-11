@@ -14,7 +14,7 @@ LDADD=	-lhdb -lkdc -lheimipcs -lkrb5 -lroken -lasn1 -lcrypto -lcrypt \
 	${LIBVERS} -lheimntlm
 USEPRIVATELIB= heimipcs
 
-NO_PIE=yes
+NO_PIE=	yes
 
 .include <bsd.prog.mk>
 
