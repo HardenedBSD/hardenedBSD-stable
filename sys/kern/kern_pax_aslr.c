@@ -639,10 +639,9 @@ pax_aslr_init(struct thread *td, struct image_params *imgp)
 }
 
 void
-pax_aslr_mmap(struct thread *td, vm_offset_t *addr, int flags)
+pax_aslr_mmap(struct thread *td, vm_offset_t *addr, vm_offset_t orig_addr, int flags)
 {
 	struct prison *pr;
-	vm_offset_t orig_addr;
 
 	if (!pax_aslr_active(td, NULL))
 		return;
