@@ -2033,26 +2033,38 @@ cfiscsi_devid(struct ctl_scsiio *ctsio, int alloc_len)
 {
 	struct cfiscsi_session *cs;
 	struct scsi_vpd_device_id *devid_ptr;
-	struct scsi_vpd_id_descriptor *desc, *desc1;
-	struct scsi_vpd_id_descriptor *desc2, *desc3; /* for types 4h and 5h */
+	struct scsi_vpd_id_descriptor *desc, *desc1, *desc2, *desc3, *desc4;
 	struct scsi_vpd_id_t10 *t10id;
 	struct ctl_lun *lun;
 	const struct icl_pdu *request;
-	size_t devid_len, wwpn_len;
+	int i, ret;
+	char *val;
+	size_t devid_len, wwpn_len, lun_name_len;
 
 	lun = (struct ctl_lun *)ctsio->io_hdr.ctl_private[CTL_PRIV_LUN].ptr;
 	request = ctsio->io_hdr.ctl_private[CTL_PRIV_FRONTEND].ptr;
 	cs = PDU_SESSION(request);
 
 	wwpn_len = strlen(cs->cs_target->ct_name);
-	wwpn_len += strlen(",t,0x01");
+	wwpn_len += strlen(",t,0x0001");
 	wwpn_len += 1; /* '\0' */
 	if ((wwpn_len % 4) != 0)
 		wwpn_len += (4 - (wwpn_len % 4));
 
+	if (lun == NULL) {
+		lun_name_len = 0;
+	} else {
+		lun_name_len = strlen(cs->cs_target->ct_name);
+		lun_name_len += strlen(",lun,XXXXXXXX");
+		lun_name_len += 1; /* '\0' */
+		if ((lun_name_len % 4) != 0)
+			lun_name_len += (4 - (lun_name_len % 4));
+	}
+
 	devid_len = sizeof(struct scsi_vpd_device_id) +
 		sizeof(struct scsi_vpd_id_descriptor) +
 		sizeof(struct scsi_vpd_id_t10) + CTL_DEVID_LEN +
+		sizeof(struct scsi_vpd_id_descriptor) + lun_name_len +
 		sizeof(struct scsi_vpd_id_descriptor) + wwpn_len +
 		sizeof(struct scsi_vpd_id_descriptor) +
 		sizeof(struct scsi_vpd_id_rel_trgt_port_id) +
@@ -2081,8 +2093,10 @@ cfiscsi_devid(struct ctl_scsiio *ctsio, int alloc_len)
 	desc1 = (struct scsi_vpd_id_descriptor *)(&desc->identifier[0] +
 	    sizeof(struct scsi_vpd_id_t10) + CTL_DEVID_LEN);
 	desc2 = (struct scsi_vpd_id_descriptor *)(&desc1->identifier[0] +
-	    wwpn_len);
+	    lun_name_len);
 	desc3 = (struct scsi_vpd_id_descriptor *)(&desc2->identifier[0] +
+	    wwpn_len);
+	desc4 = (struct scsi_vpd_id_descriptor *)(&desc3->identifier[0] +
 	    sizeof(struct scsi_vpd_id_rel_trgt_port_id));
 
 	if (lun != NULL)
@@ -2102,7 +2116,13 @@ cfiscsi_devid(struct ctl_scsiio *ctsio, int alloc_len)
 	desc->proto_codeset = (SCSI_PROTO_ISCSI << 4) | SVPD_ID_CODESET_ASCII;
 	desc->id_type = SVPD_ID_PIV | SVPD_ID_ASSOC_LUN | SVPD_ID_TYPE_T10;
 	desc->length = sizeof(*t10id) + CTL_DEVID_LEN;
-	strncpy((char *)t10id->vendor, CTL_VENDOR, sizeof(t10id->vendor));
+	if (lun == NULL || (val = ctl_get_opt(lun->be_lun, "vendor")) == NULL) {
+		strncpy((char *)t10id->vendor, CTL_VENDOR, sizeof(t10id->vendor));
+	} else {
+		memset(t10id->vendor, ' ', sizeof(t10id->vendor));
+		strncpy(t10id->vendor, val,
+		    min(sizeof(t10id->vendor), strlen(val)));
+	}
 
 	/*
 	 * If we've actually got a backend, copy the device id from the
@@ -2122,32 +2142,60 @@ cfiscsi_devid(struct ctl_scsiio *ctsio, int alloc_len)
 	}
 
 	/*
-	 * desc1 is for the WWPN which is a port asscociation.
+	 * desc1 is for the unique LUN name.
+	 *
+	 * XXX: According to SPC-3, LUN must report the same ID through
+	 *      all the ports.  The code below, however, reports the
+	 *      ID only via iSCSI.
 	 */
-       	desc1->proto_codeset = (SCSI_PROTO_ISCSI << 4) | SVPD_ID_CODESET_UTF8;
-	desc1->id_type = SVPD_ID_PIV | SVPD_ID_ASSOC_PORT |
+	desc1->proto_codeset = (SCSI_PROTO_ISCSI << 4) | SVPD_ID_CODESET_UTF8;
+	desc1->id_type = SVPD_ID_PIV | SVPD_ID_ASSOC_LUN |
+		SVPD_ID_TYPE_SCSI_NAME;
+	desc1->length = lun_name_len;
+	if (lun != NULL) {
+		/*
+		 * Find the per-target LUN number.
+		 */
+		for (i = 0; i < CTL_MAX_LUNS; i++) {
+			if (cs->cs_target->ct_luns[i] == lun->lun)
+				break;
+		}
+		KASSERT(i < CTL_MAX_LUNS,
+		    ("lun %jd not found", (uintmax_t)lun->lun));
+		ret = snprintf(desc1->identifier, lun_name_len, "%s,lun,%d",
+		    cs->cs_target->ct_name, i);
+		KASSERT(ret > 0 && ret <= lun_name_len, ("bad snprintf"));
+	} else {
+		KASSERT(lun_name_len == 0, ("no lun, but lun_name_len != 0"));
+	}
+
+	/*
+	 * desc2 is for the WWPN which is a port asscociation.
+	 */
+       	desc2->proto_codeset = (SCSI_PROTO_ISCSI << 4) | SVPD_ID_CODESET_UTF8;
+	desc2->id_type = SVPD_ID_PIV | SVPD_ID_ASSOC_PORT |
 	    SVPD_ID_TYPE_SCSI_NAME;
-	desc1->length = wwpn_len;
-	snprintf(desc1->identifier, wwpn_len, "%s,t,0x%x",
+	desc2->length = wwpn_len;
+	snprintf(desc2->identifier, wwpn_len, "%s,t,0x%4.4x",
 	    cs->cs_target->ct_name, cs->cs_portal_group_tag);
 
 	/*
-	 * desc2 is for the Relative Target Port(type 4h) identifier
-	 */
-       	desc2->proto_codeset = (SCSI_PROTO_ISCSI << 4) | SVPD_ID_CODESET_BINARY;
-	desc2->id_type = SVPD_ID_PIV | SVPD_ID_ASSOC_PORT |
-	    SVPD_ID_TYPE_RELTARG;
-	desc2->length = 4;
-	desc2->identifier[3] = 1;
-
-	/*
-	 * desc3 is for the Target Port Group(type 5h) identifier
+	 * desc3 is for the Relative Target Port(type 4h) identifier
 	 */
        	desc3->proto_codeset = (SCSI_PROTO_ISCSI << 4) | SVPD_ID_CODESET_BINARY;
 	desc3->id_type = SVPD_ID_PIV | SVPD_ID_ASSOC_PORT |
-	    SVPD_ID_TYPE_TPORTGRP;
+	    SVPD_ID_TYPE_RELTARG;
 	desc3->length = 4;
 	desc3->identifier[3] = 1;
+
+	/*
+	 * desc4 is for the Target Port Group(type 5h) identifier
+	 */
+       	desc4->proto_codeset = (SCSI_PROTO_ISCSI << 4) | SVPD_ID_CODESET_BINARY;
+	desc4->id_type = SVPD_ID_PIV | SVPD_ID_ASSOC_PORT |
+	    SVPD_ID_TYPE_TPORTGRP;
+	desc4->length = 4;
+	desc4->identifier[3] = 1;
 
 	ctsio->scsi_status = SCSI_STATUS_OK;
 
@@ -2312,22 +2360,18 @@ cfiscsi_lun_enable(void *arg, struct ctl_id target_id, int lun_id)
 {
 	struct cfiscsi_softc *softc;
 	struct cfiscsi_target *ct;
-	struct ctl_be_lun_option *opt;
 	const char *target = NULL, *target_alias = NULL;
 	const char *lun = NULL;
 	unsigned long tmp;
 
 	softc = (struct cfiscsi_softc *)arg;
 
-	STAILQ_FOREACH(opt,
-	    &control_softc->ctl_luns[lun_id]->be_lun->options, links) {
-		if (strcmp(opt->name, "cfiscsi_target") == 0)
-			target = opt->value;
-		else if (strcmp(opt->name, "cfiscsi_target_alias") == 0)
-			target_alias = opt->value;
-		else if (strcmp(opt->name, "cfiscsi_lun") == 0)
-			lun = opt->value;
-	}
+	target = ctl_get_opt(control_softc->ctl_luns[lun_id]->be_lun,
+	    "cfiscsi_target");
+	target_alias = ctl_get_opt(control_softc->ctl_luns[lun_id]->be_lun,
+	    "cfiscsi_target)alias");
+	lun = ctl_get_opt(control_softc->ctl_luns[lun_id]->be_lun,
+	    "cfiscsi_lun");
 
 	if (target == NULL && lun == NULL)
 		return (0);
