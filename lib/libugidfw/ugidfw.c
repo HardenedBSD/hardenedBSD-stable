@@ -338,13 +338,14 @@ bsde_rule_to_string(struct mac_bsdextended_rule *rule, char *buf, size_t buflen)
 				numfs = getmntinfo(&mntbuf, MNT_NOWAIT);
 				for (i = 0; i < numfs; i++)
 					if (memcmp(&(rule->mbr_object.mbo_fsid),
-								&(mntbuf[i].f_fsid),
-								sizeof(mntbuf[i].f_fsid)) == 0)
+					    &(mntbuf[i].f_fsid),
+					    sizeof(mntbuf[i].f_fsid)) == 0)
 						break;
 				len = snprintf(cur, left, "filesys %s ", 
-						i == numfs ? "???" : mntbuf[i].f_mntonname);
+				    i == numfs ? "???" : mntbuf[i].f_mntonname);
 			} else {
-				len = snprintf(cur, left, "filesys %s ", rule->mbr_object.mbo_paxpath);
+				len = snprintf(cur, left, "filesys %s ",
+				    rule->mbr_object.mbo_paxpath);
 			}
 			if (len < 0 || len > left)
 				goto truncated;
@@ -831,7 +832,7 @@ bsde_parse_fsid(char *spec, struct fsid *fsid, ino_t *inode, size_t buflen, char
 
 	if (statfs(spec, &buf) < 0) {
 		len = snprintf(errstr, buflen, "Unable to get id for %s: %s",
-				spec, strerror(errno));
+		    spec, strerror(errno));
 		return (-1);
 	}
 
@@ -839,7 +840,8 @@ bsde_parse_fsid(char *spec, struct fsid *fsid, ino_t *inode, size_t buflen, char
 
 	if (strcmp(buf.f_fstypename, "devfs") != 0) {
 		bufsz = sizeof(int);
-		if (!sysctlbyname("kern.features.aslr", &paxstatus, &bufsz, NULL, 0)) {
+		if (!sysctlbyname("kern.features.aslr", &paxstatus, &bufsz,
+		    NULL, 0)) {
 			fd = open(spec, O_RDONLY);
 			if (fd != -1) {
 				if (fstat(fd, &sb) == 0)
@@ -932,7 +934,8 @@ bsde_parse_object(int argc, char *argv[],
 				nextnot = 0;
 			}
 			if (object->mbo_inode)
-				snprintf(object->mbo_paxpath, MAXPATHLEN, "%s", argv[current+1]);
+				snprintf(object->mbo_paxpath, MAXPATHLEN, "%s",
+				    argv[current+1]);
 			else
 				memset(object->mbo_paxpath, 0x00, MAXPATHLEN);
 			current += 2;
@@ -1099,7 +1102,7 @@ bsde_parse_paxflags(int argc, char *argv[], uint32_t *pax, size_t buflen, char *
 			break;
 		default:
 			len = snprintf(errstr, buflen, "Unknown mode letter: %c",
-					argv[0][i]);
+			    argv[0][i]);
 			return (-1);
 		} 
 	}
@@ -1170,7 +1173,8 @@ bsde_parse_rule(int argc, char *argv[], struct mac_bsdextended_rule *rule,
 	object_elements = object + 1;
 	object_elements_length = mode - object_elements;
 	mode_elements = mode + 1;
-	mode_elements_length = argc - mode_elements - (paxflags_elements_length ? paxflags_elements_length+1 : 0);
+	mode_elements_length = argc - mode_elements -
+	    (paxflags_elements_length ? paxflags_elements_length+1 : 0);
 
 	error = bsde_parse_subject(subject_elements_length,
 	    argv + subject_elements, &rule->mbr_subject, buflen, errstr);

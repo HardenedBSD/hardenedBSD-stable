@@ -37,7 +37,8 @@
 int	ugidfw_accmode2mbi(accmode_t accmode);
 int	ugidfw_check(struct ucred *cred, struct vnode *vp, struct vattr *vap,
 	    int acc_mode, struct image_params *imgp);
-int	ugidfw_check_vp(struct ucred *cred, struct vnode *vp, int acc_mode, struct image_params *imgp);
+int	ugidfw_check_vp(struct ucred *cred, struct vnode *vp, int acc_mode,
+	    struct image_params *imgp);
 
 /*
  * System access control checks.
