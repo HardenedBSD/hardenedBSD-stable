@@ -2975,3 +2975,4 @@ options         IMAGACT_BINMISC
 
 # Address Space Layout Randomization (ASLR)
 options		PAX_ASLR
+options		PAX_SYSCTLS
