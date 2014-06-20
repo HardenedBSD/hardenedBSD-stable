@@ -91,12 +91,6 @@ struct ctl_softc *control_softc = NULL;
 #define CTL_DONE_THREAD
 
 /*
- * Use the serial number and device ID provided by the backend, rather than
- * making up our own.
- */
-#define CTL_USE_BACKEND_SN
-
-/*
  * Size and alignment macros needed for Copan-specific HA hardware.  These
  * can go away when the HA code is re-written, and uses busdma for any
  * hardware.
@@ -420,7 +414,7 @@ static int ctl_target_reset(struct ctl_softc *ctl_softc, union ctl_io *io,
 static int ctl_lun_reset(struct ctl_lun *lun, union ctl_io *io,
 			 ctl_ua_type ua_type);
 static int ctl_abort_task(union ctl_io *io);
-static void ctl_run_task_queue(struct ctl_softc *ctl_softc);
+static void ctl_run_task(union ctl_io *io);
 #ifdef CTL_IO_DELAY
 static void ctl_datamove_timer_wakeup(void *arg);
 static void ctl_done_timer_wakeup(void *arg);
@@ -872,10 +866,7 @@ ctl_isc_event_handler(ctl_ha_channel channel, ctl_ha_event event, int param)
 			cs_prof_gettime(&taskio->io_hdr.start_ticks);
 #endif
 #endif /* CTL_TIME_IO */
-		        STAILQ_INSERT_TAIL(&ctl_softc->task_queue,
-					   &taskio->io_hdr, links);
-			ctl_softc->flags |= CTL_FLAG_TASK_PENDING;
-			ctl_wakeup_thread();
+			ctl_run_task((union ctl_io *)taskio);
 			break;
 		}
 		/* Persistent Reserve action which needs attention */
@@ -1039,7 +1030,6 @@ ctl_init(void)
 	softc->target.wwid[1] = 0x87654321;
 	STAILQ_INIT(&softc->lun_list);
 	STAILQ_INIT(&softc->pending_lun_queue);
-	STAILQ_INIT(&softc->task_queue);
 	STAILQ_INIT(&softc->incoming_queue);
 	STAILQ_INIT(&softc->rtr_queue);
 	STAILQ_INIT(&softc->done_queue);
@@ -3610,49 +3600,9 @@ ctl_free_io(union ctl_io *io)
 	 */
 	if (io->io_hdr.pool != NULL) {
 		struct ctl_io_pool *pool;
-#if 0
-		struct ctl_softc *ctl_softc;
-		union ctl_io *tmp_io;
-		unsigned long xflags;
-		int i;
-
-		ctl_softc = control_softc;
-#endif
 
 		pool = (struct ctl_io_pool *)io->io_hdr.pool;
-
 		mtx_lock(&pool->ctl_softc->pool_lock);
-#if 0
-		save_flags(xflags);
-
-		for (i = 0, tmp_io = (union ctl_io *)STAILQ_FIRST(
-		     &ctl_softc->task_queue); tmp_io != NULL; i++,
-		     tmp_io = (union ctl_io *)STAILQ_NEXT(&tmp_io->io_hdr,
-		     links)) {
-			if (tmp_io == io) {
-				printf("%s: %p is still on the task queue!\n",
-				       __func__, tmp_io);
-				printf("%s: (%d): type %d "
-				       "msg %d cdb %x iptl: "
-				       "%d:%d:%d:%d tag 0x%04x "
-				       "flg %#lx\n",
-					__func__, i,
-					tmp_io->io_hdr.io_type,
-					tmp_io->io_hdr.msg_type,
-					tmp_io->scsiio.cdb[0],
-					tmp_io->io_hdr.nexus.initid.id,
-					tmp_io->io_hdr.nexus.targ_port,
-					tmp_io->io_hdr.nexus.targ_target.id,
-					tmp_io->io_hdr.nexus.targ_lun,
-					(tmp_io->io_hdr.io_type ==
-					CTL_IO_TASK) ?
-					tmp_io->taskio.tag_num :
-					tmp_io->scsiio.tag_num,
-					xflags);
-				panic("I/O still on the task queue!");
-			}
-		}
-#endif
 		io->io_hdr.io_type = 0xff;
 		STAILQ_INSERT_TAIL(&pool->free_queue, &io->io_hdr, links);
 		pool->total_freed++;
@@ -5009,9 +4959,10 @@ ctl_data_submit_done(union ctl_io *io)
 	 * If there is an error, though, we don't want to keep processing.
 	 * Instead, just send status back to the initiator.
 	 */
-	if ((io->io_hdr.flags & CTL_FLAG_IO_CONT)
-	 && (((io->io_hdr.status & CTL_STATUS_MASK) == CTL_STATUS_NONE)
-	  || ((io->io_hdr.status & CTL_STATUS_MASK) == CTL_SUCCESS))) {
+	if ((io->io_hdr.flags & CTL_FLAG_IO_CONT) &&
+	    (io->io_hdr.flags & CTL_FLAG_ABORT) == 0 &&
+	    ((io->io_hdr.status & CTL_STATUS_MASK) == CTL_STATUS_NONE ||
+	     (io->io_hdr.status & CTL_STATUS_MASK) == CTL_SUCCESS)) {
 		io->scsiio.io_cont(io);
 		return;
 	}
@@ -9477,9 +9428,6 @@ ctl_inquiry_evpd_serial(struct ctl_scsiio *ctsio, int alloc_len)
 {
 	struct scsi_vpd_unit_serial_number *sn_ptr;
 	struct ctl_lun *lun;
-#ifndef CTL_USE_BACKEND_SN
-	char tmpstr[32];
-#endif
 
 	lun = (struct ctl_lun *)ctsio->io_hdr.ctl_private[CTL_PRIV_LUN].ptr;
 
@@ -9513,7 +9461,6 @@ ctl_inquiry_evpd_serial(struct ctl_scsiio *ctsio, int alloc_len)
 
 	sn_ptr->page_code = SVPD_UNIT_SERIAL_NUMBER;
 	sn_ptr->length = ctl_min(sizeof(*sn_ptr) - 4, CTL_SN_LEN);
-#ifdef CTL_USE_BACKEND_SN
 	/*
 	 * If we don't have a LUN, we just leave the serial number as
 	 * all spaces.
@@ -9523,15 +9470,6 @@ ctl_inquiry_evpd_serial(struct ctl_scsiio *ctsio, int alloc_len)
 		strncpy((char *)sn_ptr->serial_num,
 			(char *)lun->be_lun->serial_num, CTL_SN_LEN);
 	}
-#else
-	/*
-	 * Note that we're using a non-unique serial number here,
-	 */
-	snprintf(tmpstr, sizeof(tmpstr), "MYSERIALNUMIS000");
-	memset(sn_ptr->serial_num, 0x20, sizeof(sn_ptr->serial_num));
-	strncpy(sn_ptr->serial_num, tmpstr, ctl_min(CTL_SN_LEN,
-		ctl_min(sizeof(tmpstr), sizeof(*sn_ptr) - 4)));
-#endif
 	ctsio->scsi_status = SCSI_STATUS_OK;
 
 	ctsio->be_move_done = ctl_config_move_done;
@@ -9552,10 +9490,7 @@ ctl_inquiry_evpd_devid(struct ctl_scsiio *ctsio, int alloc_len)
 	struct ctl_lun *lun;
 	struct ctl_frontend *fe;
 	char *val;
-#ifndef CTL_USE_BACKEND_SN
-	char tmpstr[32];
-#endif /* CTL_USE_BACKEND_SN */
-	int devid_len;
+	int data_len, devid_len;
 
 	ctl_softc = control_softc;
 
@@ -9568,23 +9503,30 @@ ctl_inquiry_evpd_devid(struct ctl_scsiio *ctsio, int alloc_len)
 
 	lun = (struct ctl_lun *)ctsio->io_hdr.ctl_private[CTL_PRIV_LUN].ptr;
 
-	devid_len = sizeof(struct scsi_vpd_device_id) +
+	if (lun == NULL) {
+		devid_len = CTL_DEVID_MIN_LEN;
+	} else {
+		devid_len = max(CTL_DEVID_MIN_LEN,
+		    strnlen(lun->be_lun->device_id, CTL_DEVID_LEN));
+	}
+
+	data_len = sizeof(struct scsi_vpd_device_id) +
 		sizeof(struct scsi_vpd_id_descriptor) +
-		sizeof(struct scsi_vpd_id_t10) + CTL_DEVID_LEN +
+		sizeof(struct scsi_vpd_id_t10) + devid_len +
 		sizeof(struct scsi_vpd_id_descriptor) + CTL_WWPN_LEN +
 		sizeof(struct scsi_vpd_id_descriptor) +
 		sizeof(struct scsi_vpd_id_rel_trgt_port_id) +
 		sizeof(struct scsi_vpd_id_descriptor) +
 		sizeof(struct scsi_vpd_id_trgt_port_grp_id);
 
-	ctsio->kern_data_ptr = malloc(devid_len, M_CTL, M_WAITOK | M_ZERO);
+	ctsio->kern_data_ptr = malloc(data_len, M_CTL, M_WAITOK | M_ZERO);
 	devid_ptr = (struct scsi_vpd_device_id *)ctsio->kern_data_ptr;
 	ctsio->kern_sg_entries = 0;
 
-	if (devid_len < alloc_len) {
-		ctsio->residual = alloc_len - devid_len;
-		ctsio->kern_data_len = devid_len;
-		ctsio->kern_total_len = devid_len;
+	if (data_len < alloc_len) {
+		ctsio->residual = alloc_len - data_len;
+		ctsio->kern_data_len = data_len;
+		ctsio->kern_total_len = data_len;
 	} else {
 		ctsio->residual = 0;
 		ctsio->kern_data_len = alloc_len;
@@ -9597,7 +9539,7 @@ ctl_inquiry_evpd_devid(struct ctl_scsiio *ctsio, int alloc_len)
 	desc = (struct scsi_vpd_id_descriptor *)devid_ptr->desc_list;
 	t10id = (struct scsi_vpd_id_t10 *)&desc->identifier[0];
 	desc1 = (struct scsi_vpd_id_descriptor *)(&desc->identifier[0] +
-		sizeof(struct scsi_vpd_id_t10) + CTL_DEVID_LEN);
+		sizeof(struct scsi_vpd_id_t10) + devid_len);
 	desc2 = (struct scsi_vpd_id_descriptor *)(&desc1->identifier[0] +
 	          CTL_WWPN_LEN);
 	desc3 = (struct scsi_vpd_id_descriptor *)(&desc2->identifier[0] +
@@ -9615,7 +9557,7 @@ ctl_inquiry_evpd_devid(struct ctl_scsiio *ctsio, int alloc_len)
 
 	devid_ptr->page_code = SVPD_DEVICE_ID;
 
-	scsi_ulto2b(devid_len - 4, devid_ptr->length);
+	scsi_ulto2b(data_len - 4, devid_ptr->length);
 
 	mtx_lock(&ctl_softc->ctl_lock);
 
@@ -9644,7 +9586,7 @@ ctl_inquiry_evpd_devid(struct ctl_scsiio *ctsio, int alloc_len)
 	 * per-LUN identifier.
 	 */
 	desc->id_type = SVPD_ID_PIV | SVPD_ID_ASSOC_LUN | SVPD_ID_TYPE_T10;
-	desc->length = sizeof(*t10id) + CTL_DEVID_LEN;
+	desc->length = sizeof(*t10id) + devid_len;
 	if (lun == NULL || (val = ctl_get_opt(lun->be_lun, "vendor")) == NULL) {
 		strncpy((char *)t10id->vendor, CTL_VENDOR, sizeof(t10id->vendor));
 	} else {
@@ -9701,7 +9643,6 @@ ctl_inquiry_evpd_devid(struct ctl_scsiio *ctsio, int alloc_len)
 	else
 		desc3->identifier[3] = 2;
 
-#ifdef CTL_USE_BACKEND_SN
 	/*
 	 * If we've actually got a backend, copy the device id from the
 	 * per-LUN data.  Otherwise, set it to all spaces.
@@ -9711,19 +9652,13 @@ ctl_inquiry_evpd_devid(struct ctl_scsiio *ctsio, int alloc_len)
 		 * Copy the backend's LUN ID.
 		 */
 		strncpy((char *)t10id->vendor_spec_id,
-			(char *)lun->be_lun->device_id, CTL_DEVID_LEN);
+			(char *)lun->be_lun->device_id, devid_len);
 	} else {
 		/*
 		 * No backend, set this to spaces.
 		 */
-		memset(t10id->vendor_spec_id, 0x20, CTL_DEVID_LEN);
+		memset(t10id->vendor_spec_id, 0x20, devid_len);
 	}
-#else
-	snprintf(tmpstr, sizeof(tmpstr), "MYDEVICEIDIS%4d",
-		 (lun != NULL) ?  (int)lun->lun : 0);
-	strncpy(t10id->vendor_spec_id, tmpstr, ctl_min(CTL_DEVID_LEN,
-		sizeof(tmpstr)));
-#endif
 
 	ctsio->scsi_status = SCSI_STATUS_OK;
 
@@ -11591,156 +11526,125 @@ bailout:
  * handler as well as from the work thread.
  */
 static void
-ctl_run_task_queue(struct ctl_softc *ctl_softc)
+ctl_run_task(union ctl_io *io)
 {
-	union ctl_io *io, *next_io;
+	struct ctl_softc *ctl_softc;
+	int retval;
+	const char *task_desc;
 
-	mtx_assert(&ctl_softc->ctl_lock, MA_OWNED);
+	CTL_DEBUG_PRINT(("ctl_run_task\n"));
 
-	CTL_DEBUG_PRINT(("ctl_run_task_queue\n"));
+	ctl_softc = control_softc;
+	retval = 0;
 
-	for (io = (union ctl_io *)STAILQ_FIRST(&ctl_softc->task_queue);
-	     io != NULL; io = next_io) {
-		int retval;
-		const char *task_desc;
+	KASSERT(io->io_hdr.io_type == CTL_IO_TASK,
+	    ("ctl_run_task: Unextected io_type %d\n",
+	     io->io_hdr.io_type));
 
-		next_io = (union ctl_io *)STAILQ_NEXT(&io->io_hdr, links);
-
-		retval = 0;
-
-		switch (io->io_hdr.io_type) {
-		case CTL_IO_TASK: {
-			task_desc = ctl_scsi_task_string(&io->taskio);
-			if (task_desc != NULL) {
+	task_desc = ctl_scsi_task_string(&io->taskio);
+	if (task_desc != NULL) {
 #ifdef NEEDTOPORT
-				csevent_log(CSC_CTL | CSC_SHELF_SW |
-					    CTL_TASK_REPORT,
-					    csevent_LogType_Trace,
-					    csevent_Severity_Information,
-					    csevent_AlertLevel_Green,
-					    csevent_FRU_Firmware,
-					    csevent_FRU_Unknown,
-					    "CTL: received task: %s",task_desc);
+		csevent_log(CSC_CTL | CSC_SHELF_SW |
+			    CTL_TASK_REPORT,
+			    csevent_LogType_Trace,
+			    csevent_Severity_Information,
+			    csevent_AlertLevel_Green,
+			    csevent_FRU_Firmware,
+			    csevent_FRU_Unknown,
+			    "CTL: received task: %s",task_desc);
 #endif
-			} else {
+	} else {
 #ifdef NEEDTOPORT
-				csevent_log(CSC_CTL | CSC_SHELF_SW |
-					    CTL_TASK_REPORT,
-					    csevent_LogType_Trace,
-					    csevent_Severity_Information,
-					    csevent_AlertLevel_Green,
-					    csevent_FRU_Firmware,
-					    csevent_FRU_Unknown,
-					    "CTL: received unknown task "
-					    "type: %d (%#x)",
-					    io->taskio.task_action,
-					    io->taskio.task_action);
+		csevent_log(CSC_CTL | CSC_SHELF_SW |
+			    CTL_TASK_REPORT,
+			    csevent_LogType_Trace,
+			    csevent_Severity_Information,
+			    csevent_AlertLevel_Green,
+			    csevent_FRU_Firmware,
+			    csevent_FRU_Unknown,
+			    "CTL: received unknown task "
+			    "type: %d (%#x)",
+			    io->taskio.task_action,
+			    io->taskio.task_action);
 #endif
-			}
-			switch (io->taskio.task_action) {
-			case CTL_TASK_ABORT_TASK:
-				retval = ctl_abort_task(io);
-				break;
-			case CTL_TASK_ABORT_TASK_SET:
-				break;
-			case CTL_TASK_CLEAR_ACA:
-				break;
-			case CTL_TASK_CLEAR_TASK_SET:
-				break;
-			case CTL_TASK_LUN_RESET: {
-				struct ctl_lun *lun;
-				uint32_t targ_lun;
-				int retval;
-
-				targ_lun = io->io_hdr.nexus.targ_lun;
-				if (io->io_hdr.nexus.lun_map_fn != NULL)
-					targ_lun = io->io_hdr.nexus.lun_map_fn(io->io_hdr.nexus.lun_map_arg, targ_lun);
-
-				if ((targ_lun < CTL_MAX_LUNS)
-				 && (ctl_softc->ctl_luns[targ_lun] != NULL))
-					lun = ctl_softc->ctl_luns[targ_lun];
-				else {
-					retval = 1;
-					break;
-				}
-
-				if (!(io->io_hdr.flags &
-				    CTL_FLAG_FROM_OTHER_SC)) {
-					union ctl_ha_msg msg_info;
-
-					io->io_hdr.flags |=
-						CTL_FLAG_SENT_2OTHER_SC;
-					msg_info.hdr.msg_type =
-						CTL_MSG_MANAGE_TASKS;
-					msg_info.hdr.nexus = io->io_hdr.nexus;
-					msg_info.task.task_action =
-						CTL_TASK_LUN_RESET;
-					msg_info.hdr.original_sc = NULL;
-					msg_info.hdr.serializing_sc = NULL;
-					if (CTL_HA_STATUS_SUCCESS !=
-					    ctl_ha_msg_send(CTL_HA_CHAN_CTL,
-					    (void *)&msg_info,
-					    sizeof(msg_info), 0)) {
-					}
-				}
-
-				retval = ctl_lun_reset(lun, io,
-						       CTL_UA_LUN_RESET);
-				break;
-			}
-			case CTL_TASK_TARGET_RESET:
-				retval = ctl_target_reset(ctl_softc, io,
-							  CTL_UA_TARG_RESET);
-				break;
-			case CTL_TASK_BUS_RESET:
-				retval = ctl_bus_reset(ctl_softc, io);
-				break;
-			case CTL_TASK_PORT_LOGIN:
-				break;
-			case CTL_TASK_PORT_LOGOUT:
-				break;
-			default:
-				printf("ctl_run_task_queue: got unknown task "
-				       "management event %d\n",
-				       io->taskio.task_action);
-				break;
-			}
-			if (retval == 0)
-				io->io_hdr.status = CTL_SUCCESS;
-			else
-				io->io_hdr.status = CTL_ERROR;
-
-			STAILQ_REMOVE(&ctl_softc->task_queue, &io->io_hdr,
-				      ctl_io_hdr, links);
-			/*
-			 * This will queue this I/O to the done queue, but the
-			 * work thread won't be able to process it until we
-			 * return and the lock is released.
-			 */
-			ctl_done_lock(io, /*have_lock*/ 1);
-			break;
-		}
-		default: {
-
-			printf("%s: invalid I/O type %d msg %d cdb %x"
-			       " iptl: %ju:%d:%ju:%d tag 0x%04x\n",
-			       __func__, io->io_hdr.io_type,
-			       io->io_hdr.msg_type, io->scsiio.cdb[0],
-			       (uintmax_t)io->io_hdr.nexus.initid.id,
-			       io->io_hdr.nexus.targ_port,
-			       (uintmax_t)io->io_hdr.nexus.targ_target.id,
-			       io->io_hdr.nexus.targ_lun /* XXX */,
-			       (io->io_hdr.io_type == CTL_IO_TASK) ?
-			       io->taskio.tag_num : io->scsiio.tag_num);
-			STAILQ_REMOVE(&ctl_softc->task_queue, &io->io_hdr,
-				      ctl_io_hdr, links);
-			ctl_free_io(io);
-			break;
-		}
-		}
 	}
+	switch (io->taskio.task_action) {
+	case CTL_TASK_ABORT_TASK:
+		retval = ctl_abort_task(io);
+		break;
+	case CTL_TASK_ABORT_TASK_SET:
+		break;
+	case CTL_TASK_CLEAR_ACA:
+		break;
+	case CTL_TASK_CLEAR_TASK_SET:
+		break;
+	case CTL_TASK_LUN_RESET: {
+		struct ctl_lun *lun;
+		uint32_t targ_lun;
+		int retval;
 
-	ctl_softc->flags &= ~CTL_FLAG_TASK_PENDING;
+		targ_lun = io->io_hdr.nexus.targ_lun;
+		if (io->io_hdr.nexus.lun_map_fn != NULL)
+			targ_lun = io->io_hdr.nexus.lun_map_fn(io->io_hdr.nexus.lun_map_arg, targ_lun);
+
+		if ((targ_lun < CTL_MAX_LUNS)
+		 && (ctl_softc->ctl_luns[targ_lun] != NULL))
+			lun = ctl_softc->ctl_luns[targ_lun];
+		else {
+			retval = 1;
+			break;
+		}
+
+		if (!(io->io_hdr.flags &
+		    CTL_FLAG_FROM_OTHER_SC)) {
+			union ctl_ha_msg msg_info;
+
+			io->io_hdr.flags |=
+				CTL_FLAG_SENT_2OTHER_SC;
+			msg_info.hdr.msg_type =
+				CTL_MSG_MANAGE_TASKS;
+			msg_info.hdr.nexus = io->io_hdr.nexus;
+			msg_info.task.task_action =
+				CTL_TASK_LUN_RESET;
+			msg_info.hdr.original_sc = NULL;
+			msg_info.hdr.serializing_sc = NULL;
+			if (CTL_HA_STATUS_SUCCESS !=
+			    ctl_ha_msg_send(CTL_HA_CHAN_CTL,
+			    (void *)&msg_info,
+			    sizeof(msg_info), 0)) {
+			}
+		}
+
+		retval = ctl_lun_reset(lun, io,
+				       CTL_UA_LUN_RESET);
+		break;
+	}
+	case CTL_TASK_TARGET_RESET:
+		retval = ctl_target_reset(ctl_softc, io, CTL_UA_TARG_RESET);
+		break;
+	case CTL_TASK_BUS_RESET:
+		retval = ctl_bus_reset(ctl_softc, io);
+		break;
+	case CTL_TASK_PORT_LOGIN:
+		break;
+	case CTL_TASK_PORT_LOGOUT:
+		break;
+	default:
+		printf("ctl_run_task: got unknown task management event %d\n",
+		       io->taskio.task_action);
+		break;
+	}
+	if (retval == 0)
+		io->io_hdr.status = CTL_SUCCESS;
+	else
+		io->io_hdr.status = CTL_ERROR;
+
+	/*
+	 * This will queue this I/O to the done queue, but the
+	 * work thread won't be able to process it until we
+	 * return and the lock is released.
+	 */
+	ctl_done_lock(io, /*have_lock*/ 1);
 }
 
 /*
@@ -11799,8 +11703,6 @@ ctl_handle_isc(union ctl_io *io)
 			mtx_lock(&ctl_softc->ctl_lock);
 			TAILQ_REMOVE(&lun->ooa_queue, &io->io_hdr,
 				     ooa_links);
-			STAILQ_REMOVE(&ctl_softc->task_queue,
-				      &io->io_hdr, ctl_io_hdr, links);
 			ctl_check_blocked(lun);
 			mtx_unlock(&ctl_softc->ctl_lock);
 		}
@@ -12055,26 +11957,6 @@ ctl_datamove(union ctl_io *io)
 		}
 	}
 #endif
-	/*
-	 * If we have any pending task management commands, process them
-	 * first.  This is necessary to eliminate a race condition with the
-	 * FETD:
-	 *
-	 * - FETD submits a task management command, like an abort.
-	 * - Back end calls fe_datamove() to move the data for the aborted
-	 *   command.  The FETD can't really accept it, but if it did, it
-	 *   would end up transmitting data for a command that the initiator
-	 *   told us to abort.
-	 *
-	 * We close the race by processing all pending task management
-	 * commands here (we can't block!), and then check this I/O to see
-	 * if it has been aborted.  If so, return it to the back end with
-	 * bad status, so the back end can say return an error to the back end
-	 * and then when the back end returns an error, we can return the
-	 * aborted command to the FETD, so it can clean up its resources.
-	 */
-	if (control_softc->flags & CTL_FLAG_TASK_PENDING)
-		ctl_run_task_queue(control_softc);
 
 	/*
 	 * This command has been aborted.  Set the port status, so we fail
@@ -13386,42 +13268,23 @@ ctl_queue(union ctl_io *io)
 	getbintime(&io->io_hdr.start_bt);
 #endif /* CTL_TIME_IO */
 
-	mtx_lock(&ctl_softc->ctl_lock);
-
 	switch (io->io_hdr.io_type) {
 	case CTL_IO_SCSI:
+		mtx_lock(&ctl_softc->ctl_lock);
 		STAILQ_INSERT_TAIL(&ctl_softc->incoming_queue, &io->io_hdr,
 				   links);
+		mtx_unlock(&ctl_softc->ctl_lock);
+		ctl_wakeup_thread();
 		break;
 	case CTL_IO_TASK:
-		STAILQ_INSERT_TAIL(&ctl_softc->task_queue, &io->io_hdr, links);
-		/*
-		 * Set the task pending flag.  This is necessary to close a
-		 * race condition with the FETD:
-		 *
-		 * - FETD submits a task management command, like an abort.
-		 * - Back end calls fe_datamove() to move the data for the
-		 *   aborted command.  The FETD can't really accept it, but
-		 *   if it did, it would end up transmitting data for a
-		 *   command that the initiator told us to abort.
-		 *
-		 * We close the race condition by setting the flag here,
-		 * and checking it in ctl_datamove(), before calling the
-		 * FETD's fe_datamove routine.  If we've got a task
-		 * pending, we run the task queue and then check to see
-		 * whether our particular I/O has been aborted.
-		 */
-		ctl_softc->flags |= CTL_FLAG_TASK_PENDING;
+		mtx_lock(&ctl_softc->ctl_lock);
+		ctl_run_task(io);
+		mtx_unlock(&ctl_softc->ctl_lock);
 		break;
 	default:
-		mtx_unlock(&ctl_softc->ctl_lock);
 		printf("ctl_queue: unknown I/O type %d\n", io->io_hdr.io_type);
 		return (-EINVAL);
-		break; /* NOTREACHED */
 	}
-	mtx_unlock(&ctl_softc->ctl_lock);
-
-	ctl_wakeup_thread();
 
 	return (CTL_RETVAL_COMPLETE);
 }
@@ -13601,7 +13464,6 @@ ctl_work_thread(void *arg)
 
 		/*
 		 * We handle the queues in this order:
-		 * - task management
 		 * - ISC
 		 * - done queue (to free up resources, unblock other commands)
 		 * - RtR queue
@@ -13610,11 +13472,6 @@ ctl_work_thread(void *arg)
 		 * If those queues are empty, we break out of the loop and
 		 * go to sleep.
 		 */
-		io = (union ctl_io *)STAILQ_FIRST(&softc->task_queue);
-		if (io != NULL) {
-			ctl_run_task_queue(softc);
-			continue;
-		}
 		io = (union ctl_io *)STAILQ_FIRST(&softc->isc_queue);
 		if (io != NULL) {
 			STAILQ_REMOVE_HEAD(&softc->isc_queue, links);

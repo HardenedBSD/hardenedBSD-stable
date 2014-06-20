@@ -84,8 +84,6 @@ extern void pmap_lazyfix_action(void);
 extern int pmap_pcid_enabled;
 #endif
 
-extern int xen_vector_callback_enabled;
-
 /*---------------------------------- Macros ----------------------------------*/
 #define	IPI_TO_IDX(ipi) ((ipi) - APIC_IPI_INTS)
 
@@ -272,7 +270,7 @@ xen_pv_lapic_ipi_vectored(u_int vector, int dest)
 	int ipi_idx, to_cpu, self;
 
 	ipi_idx = IPI_TO_IDX(vector);
-	if (ipi_idx > nitems(xen_ipis))
+	if (ipi_idx >= nitems(xen_ipis))
 		panic("IPI out of range");
 
 	switch(dest) {
