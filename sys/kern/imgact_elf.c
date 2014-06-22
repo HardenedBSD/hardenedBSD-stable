@@ -83,7 +83,7 @@ __FBSDID("$FreeBSD$");
 #include <machine/elf.h>
 #include <machine/md_var.h>
 
-#if defined(PAX_ASLR) || defined(PAX_SEGVGUARD)
+#if defined(PAX_ASLR)
 #include <sys/pax.h>
 #endif
 
@@ -816,7 +816,7 @@ __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp)
 	error = exec_new_vmspace(imgp, sv);
 	imgp->proc->p_sysent = sv;
 
-#if defined(PAX_MPROTECT) || defined(PAX_SEGVGUARD) || defined(PAX_ASLR)
+#if defined(PAX_MPROTECT) || defined(PAX_ASLR)
 	pax_elf(imgp, 0);
 #endif
 

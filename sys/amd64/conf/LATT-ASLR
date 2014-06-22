@@ -353,7 +353,6 @@ device		xenpci			# Xen HVM Hypervisor services driver
 device		vmx			# VMware VMXNET3 Ethernet
 
 options PAX_ASLR
-#options PAX_SEGVGUARD
 
 options VIMAGE
 options GEOM_PART_VTOC8

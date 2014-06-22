@@ -384,5 +384,4 @@ options 	ALT_BREAK_TO_DEBUGGER
 options 	BREAK_TO_DEBUGGER
 
 options		PAX_ASLR
-options		PAX_SEGVGUARD
 options		MAC_BSDEXTENDED

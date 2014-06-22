@@ -535,23 +535,6 @@ bsde_rule_to_string(struct mac_bsdextended_rule *rule, char *buf, size_t buflen)
 			cur += len;
 		}
 
-		if (rule->mbr_pax & MBI_FORCE_SEGVGUARD_ENABLED) {
-			len = snprintf(cur, left, "S");
-			if (len < 0 || len > left)
-				goto truncated;
-
-			left -= len;
-			cur += len;
-		}
-
-		if (rule->mbr_pax & MBI_FORCE_SEGVGUARD_DISABLED) {
-			len = snprintf(cur, left, "s");
-			if (len < 0 || len > left)
-				goto truncated;
-
-			left -= len;
-			cur += len;
-		}
 	}
 
 	return (0);
@@ -1093,12 +1076,6 @@ bsde_parse_paxflags(int argc, char *argv[], uint32_t *pax, size_t buflen, char *
 			break;
 		case 'a':
 			*pax |= MBI_FORCE_ASLR_DISABLED;
-			break;
-		case 'S':
-			*pax |= MBI_FORCE_SEGVGUARD_ENABLED;
-			break;
-		case 's':
-			*pax |= MBI_FORCE_SEGVGUARD_DISABLED;
 			break;
 		default:
 			len = snprintf(errstr, buflen, "Unknown mode letter: %c",

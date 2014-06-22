@@ -95,7 +95,7 @@ __FBSDID("$FreeBSD$");
 dtrace_execexit_func_t	dtrace_fasttrap_exec;
 #endif
 
-#if defined(PAX_ASLR) || defined(PAX_SEGVGUARD)
+#if defined(PAX_ASLR)
 #include <sys/pax.h>
 #endif
 
@@ -514,11 +514,6 @@ interpret:
 		}
 		error = (*execsw[i]->ex_imgact)(imgp);
 	}
-
-#ifdef PAX_SEGVGUARD
-	if (!error)
-		error = pax_segvguard(curthread, imgp->vp, args->fname, PAX_SEGVGUARD_NOTCRASHED);
-#endif
 
 	if (error) {
 		if (error == -1) {

@@ -186,4 +186,3 @@ sysctl_pax_log_ulog(SYSCTL_HANDLER_ARGS)
 
 
 __PAX_LOG_TEMPLATE(ASLR, aslr)
-__PAX_LOG_TEMPLATE(SEGVGUARD, segvguard)

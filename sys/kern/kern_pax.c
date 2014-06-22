@@ -103,11 +103,6 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 	else if (mode & MBI_FORCE_ASLR_DISABLED)
 		flags |= PAX_NOTE_NOASLR;
 
-	if (mode & MBI_FORCE_SEGVGUARD_ENABLED)
-		flags |= PAX_NOTE_GUARD;
-	else if (mode & MBI_FORCE_SEGVGUARD_DISABLED)
-		flags |= PAX_NOTE_NOGUARD;
-
 end:
 	if (imgp != NULL) {
 		imgp->pax_flags = flags;
@@ -126,7 +121,7 @@ end:
 void
 pax_init(void)
 {
-#if defined(PAX_ASLR) || defined(PAX_SEGVGUARD)
+#if defined(PAX_ASLR)
 	const char *status_str[] = {
 		[0] = "disabled",
 		[1] = "opt-in",
@@ -174,25 +169,6 @@ pax_init(void)
 #endif /* COMPAT_FREEBSD32 */
 #endif /* PAX_ASLR */
 
-#ifdef PAX_SEGVGUARD
-	switch (pax_segvguard_status) {
-	case	0:
-	case	1:
-	case	2:
-	case	3:
-		break;
-	default:
-		printf("[PAX SEGVGUARD] WARNING, invalid PAX settings in loader.conf! "
-		    "(pax_segvguard_status = %d)\n", pax_segvguard_status);
-		pax_segvguard_status = 3;
-		break;
-	}
-	printf("[PAX SEGVGUARD] status: %s\n", status_str[pax_segvguard_status]);
-	printf("[PAX SEGVGUARD] maxcrashes: %d\n", pax_segvguard_maxcrashes);
-	printf("[PAX SEGVGUARD] expriry: %d sec\n", pax_segvguard_expiry);
-	printf("[PAX SEGVGUARD] suspension: %d sec\n", pax_segvguard_suspension);
-#endif
-
 	printf("[PAX LOG] logging to system: %d\n", pax_log_log);
 	printf("[PAX LOG] logging to user: %d\n", pax_log_ulog);
 }
@@ -211,7 +187,7 @@ pax_init_prison(struct prison *pr)
 	mtx_lock(&(pr->pr_mtx));
 
 	if (pax_aslr_debug)
-		uprintf("[PaX ASLR/SEGVGUARD] %s: Setting prison %s ASLR variables\n",
+		uprintf("[PaX ASLR] %s: Setting prison %s ASLR variables\n",
 		    __func__, pr->pr_name);
 
 #ifdef PAX_ASLR
@@ -228,14 +204,6 @@ pax_init_prison(struct prison *pr)
 	pr->pr_pax_aslr_compat_exec_len = pax_aslr_compat_exec_len;
 #endif /* COMPAT_FREEBSD32 */
 #endif /* PAX_ASLR */
-
-#ifdef PAX_SEGVGUARD
-	pr->pr_pax_segvguard_status = pax_segvguard_status;
-	pr->pr_pax_segvguard_debug = pax_segvguard_debug;
-	pr->pr_pax_segvguard_expiry = pax_segvguard_expiry;
-	pr->pr_pax_segvguard_suspension = pax_segvguard_suspension;
-	pr->pr_pax_segvguard_maxcrashes = pax_segvguard_maxcrashes;
-#endif
 
 	pr->pr_pax_log_log = pax_log_log;
 	pr->pr_pax_log_ulog = pax_log_ulog;

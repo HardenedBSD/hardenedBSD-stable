@@ -40,7 +40,6 @@ __FBSDID("$FreeBSD$");
 #include "opt_compat.h"
 #include "opt_ktrace.h"
 #include "opt_core.h"
-#include "opt_pax.h"
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -88,10 +87,6 @@ __FBSDID("$FreeBSD$");
 #include <machine/cpu.h>
 
 #include <security/audit/audit.h>
-
-#if defined(PAX_ASLR) || defined(PAX_SEGVGUARD)
-#include <sys/pax.h>
-#endif
 
 #define	ONSIG	32		/* NSIG for osig* syscalls.  XXX. */
 
@@ -2929,19 +2924,7 @@ sigexit(td, sig)
 			    td->td_ucred ? td->td_ucred->cr_uid : -1,
 			    sig &~ WCOREFLAG,
 			    sig & WCOREFLAG ? " (core dumped)" : "");
-#ifdef PAX_SEGVGUARD
-		pax_segvguard(curthread, curthread->td_proc->p_textvp, 
-				p->p_comm, PAX_SEGVGUARD_CRASHED);
-#endif
 	} else {
-		/*
-		 *  XXX-op
-		 *
-		 * pax_segvguard(curthread, curthread->td_proc->p_textvp,
-		 * 	 p->p_comm, PAX_SEGVGUARD_CLEANUP_IF_CRASHED_NOT_FOUND);
-		 *
-		 * aka: Clean up the properly exited thread, instead of running a GC?
-		 */
 		PROC_UNLOCK(p);
 	}
 

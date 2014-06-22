@@ -47,11 +47,6 @@ struct vm_offset_t;
 #define PAX_ASLR_OPTOUT		2
 #define PAX_ASLR_FORCE_ENABLED	3
 
-#define PAX_SEGVGUARD_DISABLED		0
-#define PAX_SEGVGUARD_OPTIN		1
-#define PAX_SEGVGUARD_OPTOUT		2
-#define PAX_SEGVGUARD_FORCE_ENABLED	3
-
 #ifndef PAX_ASLR_DELTA
 #define	PAX_ASLR_DELTA(delta, lsb, len)	\
 	(((delta) & ((1UL << (len)) - 1)) << (lsb))
@@ -199,14 +194,6 @@ extern int pax_aslr_compat_exec_len;
 #endif /* COMPAT_FREEBSD32 */
 #endif /* PAX_ASLR */
 
-#ifdef PAX_SEGVGUARD
-extern int pax_segvguard_status;
-extern int pax_segvguard_debug;
-extern int pax_segvguard_expiry;
-extern int pax_segvguard_suspension;
-extern int pax_segvguard_maxcrashes;
-#endif /* PAX_SEGVGUARD */
-
 extern int pax_log_log;
 extern int pax_log_ulog;
 
@@ -217,12 +204,6 @@ extern int pax_log_ulog;
 #define PAX_NOTE_NOGUARD    0x08
 #define PAX_NOTE_ASLR       0x10
 #define PAX_NOTE_NOASLR     0x20
-
-#define PAX_SEGVGUARD_EXPIRY        (2 * 60)
-#define PAX_SEGVGUARD_SUSPENSION    (10 * 60)
-#define PAX_SEGVGUARD_MAXCRASHES    5
-#define PAX_SEGVGUARD_NOTCRASHED	0
-#define PAX_SEGVGUARD_CRASHED		1
 
 #define PAX_LOG_LOG		0
 #define PAX_LOG_ULOG		0
@@ -238,11 +219,8 @@ void pax_aslr_mmap(struct thread *td, vm_offset_t *addr,
 void pax_aslr_stack(struct thread *td, uintptr_t *addr);
 struct prison *pax_get_prison(struct thread *td, struct proc *proc);
 void pax_elf(struct image_params *, uint32_t);
-int pax_segvguard(struct thread *, struct vnode *, char *, bool);
 
 void pax_log_aslr(struct prison *pr, const char *func, const char *fmt, ...);
 void pax_ulog_aslr(struct prison *pr, const char *func, const char *fmt, ...);
-void pax_log_segvguard(struct prison *pr, const char *func, const char *fmt, ...);
-void pax_ulog_segvguard(struct prison *pr, const char *func, const char *fmt, ...);
 
 #endif /* __SYS_PAX_H */

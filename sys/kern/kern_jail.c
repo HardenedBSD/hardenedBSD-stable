@@ -75,7 +75,7 @@ __FBSDID("$FreeBSD$");
 #endif /* INET6 */
 #endif /* DDB */
 
-#if defined(PAX_ASLR) || defined(PAX_SEGVGUARD)
+#if defined(PAX_ASLR)
 #include <sys/pax.h>
 #endif
 
@@ -122,7 +122,7 @@ struct prison prison0 = {
 };
 MTX_SYSINIT(prison0, &prison0.pr_mtx, "jail mutex", MTX_DEF);
 
-#if defined(PAX_ASLR) || defined(PAX_SEGVGUARD)
+#if defined(PAX_ASLR)
 SYSINIT(pax, SI_SUB_PAX, SI_ORDER_MIDDLE, pax_init_prison, (void *) &prison0);
 #endif
 
@@ -1316,7 +1316,7 @@ kern_jail_set(struct thread *td, struct uio *optuio, int flags)
 			goto done_releroot;
 		}
 
-#if defined(PAX_ASLR) || defined(PAX_SEGVGUARD)
+#if defined(PAX_ASLR)
 		pax_init_prison(pr);
 #endif
 

@@ -317,7 +317,7 @@ ugidfw_rulecheck(struct mac_bsdextended_rule *rule,
 		match = (bcmp(&(vp->v_mount->mnt_stat.f_fsid),
 		    &(rule->mbr_object.mbo_fsid),
 		    sizeof(rule->mbr_object.mbo_fsid)) == 0);
-#if defined(PAX_ASLR) || defined(PAX_SEGVGUARD)
+#if defined(PAX_ASLR)
 		if (match && rule->mbr_object.mbo_inode)
 			match = (vap->va_fileid == rule->mbr_object.mbo_inode);
 #endif

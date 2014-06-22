@@ -1,7 +1,6 @@
 include GENERIC
 
 options PAX_ASLR
-options PAX_SEGVGUARD
 
 options VIMAGE
 options GEOM_PART_VTOC8
