@@ -646,8 +646,6 @@ pax_aslr_mmap(struct thread *td, vm_offset_t *addr, vm_offset_t orig_addr, int f
 	if (!pax_aslr_active(td, NULL))
 		return;
 
-	orig_addr = *addr;
-
 	pr = pax_get_prison(td, NULL);
 
 	if (!(flags & MAP_FIXED) && ((orig_addr == 0) || !(flags & MAP_ANON))) {
