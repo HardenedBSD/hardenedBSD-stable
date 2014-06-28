@@ -652,10 +652,7 @@ pax_aslr_mmap(struct thread *td, vm_offset_t *addr, vm_offset_t orig_addr, int f
 		pax_log_aslr(pr, __func__, "applying to %p orig_addr=%p flags=%x\n",
 		    (void *)*addr, (void *)orig_addr, flags);
 
-		if (!(td->td_proc->p_vmspace->vm_map.flags & MAP_ENTRY_GROWS_DOWN))
-			*addr += td->td_proc->p_vmspace->vm_aslr_delta_mmap;
-		else
-			*addr -= td->td_proc->p_vmspace->vm_aslr_delta_mmap;
+		*addr += td->td_proc->p_vmspace->vm_aslr_delta_mmap;
 		pax_log_aslr(pr, __func__, "result %p\n", (void *)*addr);
 	} else {
 		pax_log_aslr(pr, __func__, "not applying to %p orig_addr=%p flags=%x\n",
