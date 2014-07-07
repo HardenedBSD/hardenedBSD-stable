@@ -315,10 +315,11 @@ SYSCTL_INT(_kern_cam_ctl, OID_AUTO, verbose, CTLFLAG_RWTUN,
     &verbose, 0, "Show SCSI errors returned to initiator");
 
 /*
- * Serial number (0x80), device id (0x83), supported pages (0x00),
- * Block limits (0xB0) and Logical Block Provisioning (0xB2)
+ * Supported pages (0x00), Serial number (0x80), Device ID (0x83),
+ * SCSI Ports (0x88), Block limits (0xB0) and
+ * Logical Block Provisioning (0xB2)
  */
-#define SCSI_EVPD_NUM_SUPPORTED_PAGES	5
+#define SCSI_EVPD_NUM_SUPPORTED_PAGES	6
 
 static void ctl_isc_event_handler(ctl_ha_channel chanel, ctl_ha_event event,
 				  int param);
@@ -329,8 +330,6 @@ static int ctl_open(struct cdev *dev, int flags, int fmt, struct thread *td);
 static int ctl_close(struct cdev *dev, int flags, int fmt, struct thread *td);
 static void ctl_ioctl_online(void *arg);
 static void ctl_ioctl_offline(void *arg);
-static int ctl_ioctl_targ_enable(void *arg, struct ctl_id targ_id);
-static int ctl_ioctl_targ_disable(void *arg, struct ctl_id targ_id);
 static int ctl_ioctl_lun_enable(void *arg, struct ctl_id targ_id, int lun_id);
 static int ctl_ioctl_lun_disable(void *arg, struct ctl_id targ_id, int lun_id);
 static int ctl_ioctl_do_datamove(struct ctl_scsiio *ctsio);
@@ -348,6 +347,8 @@ static int ctl_ioctl(struct cdev *dev, u_long cmd, caddr_t addr, int flag,
 		     struct thread *td);
 uint32_t ctl_get_resindex(struct ctl_nexus *nexus);
 uint32_t ctl_port_idx(int port_num);
+static uint32_t ctl_map_lun(int port_num, uint32_t lun);
+static uint32_t ctl_map_lun_back(int port_num, uint32_t lun);
 #ifdef unused
 static union ctl_io *ctl_malloc_io(ctl_io_type io_type, uint32_t targ_port,
 				   uint32_t targ_target, uint32_t targ_lun,
@@ -376,6 +377,8 @@ static void ctl_hndl_per_res_out_on_other_sc(union ctl_ha_msg *msg);
 static int ctl_inquiry_evpd_supported(struct ctl_scsiio *ctsio, int alloc_len);
 static int ctl_inquiry_evpd_serial(struct ctl_scsiio *ctsio, int alloc_len);
 static int ctl_inquiry_evpd_devid(struct ctl_scsiio *ctsio, int alloc_len);
+static int ctl_inquiry_evpd_scsi_ports(struct ctl_scsiio *ctsio,
+					 int alloc_len);
 static int ctl_inquiry_evpd_block_limits(struct ctl_scsiio *ctsio,
 					 int alloc_len);
 static int ctl_inquiry_evpd_lbp(struct ctl_scsiio *ctsio, int alloc_len);
@@ -404,6 +407,8 @@ static int ctl_target_reset(struct ctl_softc *ctl_softc, union ctl_io *io,
 static int ctl_lun_reset(struct ctl_lun *lun, union ctl_io *io,
 			 ctl_ua_type ua_type);
 static int ctl_abort_task(union ctl_io *io);
+static int ctl_abort_task_set(union ctl_io *io);
+static int ctl_i_t_nexus_reset(union ctl_io *io);
 static void ctl_run_task(union ctl_io *io);
 #ifdef CTL_IO_DELAY
 static void ctl_datamove_timer_wakeup(void *arg);
@@ -455,6 +460,7 @@ static struct cdevsw ctl_cdevsw = {
 
 
 MALLOC_DEFINE(M_CTL, "ctlmem", "Memory used for CTL");
+MALLOC_DEFINE(M_CTLIO, "ctlio", "Memory used for CTL requests");
 
 static int ctl_module_event_handler(module_t, int /*modeventtype_t*/, void *);
 
@@ -466,6 +472,11 @@ static moduledata_t ctl_moduledata = {
 
 DECLARE_MODULE(ctl, ctl_moduledata, SI_SUB_CONFIGURE, SI_ORDER_THIRD);
 MODULE_VERSION(ctl, 1);
+
+static struct ctl_frontend ioctl_frontend =
+{
+	.name = "ioctl",
+};
 
 static void
 ctl_isc_handler_finish_xfer(struct ctl_softc *ctl_softc,
@@ -927,7 +938,7 @@ ctl_init(void)
 {
 	struct ctl_softc *softc;
 	struct ctl_io_pool *internal_pool, *emergency_pool, *other_pool;
-	struct ctl_frontend *fe;
+	struct ctl_port *port;
         uint8_t sc_id =0;
 	int i, error, retval;
 	//int isc_retval;
@@ -1007,6 +1018,7 @@ ctl_init(void)
 	STAILQ_INIT(&softc->lun_list);
 	STAILQ_INIT(&softc->pending_lun_queue);
 	STAILQ_INIT(&softc->fe_list);
+	STAILQ_INIT(&softc->port_list);
 	STAILQ_INIT(&softc->be_list);
 	STAILQ_INIT(&softc->io_pools);
 
@@ -1077,32 +1089,27 @@ ctl_init(void)
 		printf("ctl: CAM Target Layer loaded\n");
 
 	/*
-	 * Initialize the initiator and portname mappings
-	 */
-	memset(softc->wwpn_iid, 0, sizeof(softc->wwpn_iid));
-
-	/*
 	 * Initialize the ioctl front end.
 	 */
-	fe = &softc->ioctl_info.fe;
-	sprintf(softc->ioctl_info.port_name, "CTL ioctl");
-	fe->port_type = CTL_PORT_IOCTL;
-	fe->num_requested_ctl_io = 100;
-	fe->port_name = softc->ioctl_info.port_name;
-	fe->port_online = ctl_ioctl_online;
-	fe->port_offline = ctl_ioctl_offline;
-	fe->onoff_arg = &softc->ioctl_info;
-	fe->targ_enable = ctl_ioctl_targ_enable;
-	fe->targ_disable = ctl_ioctl_targ_disable;
-	fe->lun_enable = ctl_ioctl_lun_enable;
-	fe->lun_disable = ctl_ioctl_lun_disable;
-	fe->targ_lun_arg = &softc->ioctl_info;
-	fe->fe_datamove = ctl_ioctl_datamove;
-	fe->fe_done = ctl_ioctl_done;
-	fe->max_targets = 15;
-	fe->max_target_id = 15;
+	ctl_frontend_register(&ioctl_frontend);
+	port = &softc->ioctl_info.port;
+	port->frontend = &ioctl_frontend;
+	sprintf(softc->ioctl_info.port_name, "ioctl");
+	port->port_type = CTL_PORT_IOCTL;
+	port->num_requested_ctl_io = 100;
+	port->port_name = softc->ioctl_info.port_name;
+	port->port_online = ctl_ioctl_online;
+	port->port_offline = ctl_ioctl_offline;
+	port->onoff_arg = &softc->ioctl_info;
+	port->lun_enable = ctl_ioctl_lun_enable;
+	port->lun_disable = ctl_ioctl_lun_disable;
+	port->targ_lun_arg = &softc->ioctl_info;
+	port->fe_datamove = ctl_ioctl_datamove;
+	port->fe_done = ctl_ioctl_done;
+	port->max_targets = 15;
+	port->max_target_id = 15;
 
-	if (ctl_frontend_register(&softc->ioctl_info.fe,
+	if (ctl_port_register(&softc->ioctl_info.port,
 	                  (softc->flags & CTL_FLAG_MASTER_SHELF)) != 0) {
 		printf("ctl: ioctl front end registration failed, will "
 		       "continue anyway\n");
@@ -1128,7 +1135,7 @@ ctl_shutdown(void)
 
 	softc = (struct ctl_softc *)control_softc;
 
-	if (ctl_frontend_deregister(&softc->ioctl_info.fe) != 0)
+	if (ctl_port_deregister(&softc->ioctl_info.port) != 0)
 		printf("ctl: ioctl front end deregistration failed\n");
 
 	mtx_lock(&softc->ctl_lock);
@@ -1142,6 +1149,8 @@ ctl_shutdown(void)
 	}
 
 	mtx_unlock(&softc->ctl_lock);
+
+	ctl_frontend_deregister(&ioctl_frontend);
 
 	/*
 	 * This will rip the rug out from under any FETDs or anyone else
@@ -1207,7 +1216,7 @@ int
 ctl_port_enable(ctl_port_type port_type)
 {
 	struct ctl_softc *softc;
-	struct ctl_frontend *fe;
+	struct ctl_port *port;
 
 	if (ctl_is_single == 0) {
 		union ctl_ha_msg msg_info;
@@ -1236,13 +1245,13 @@ ctl_port_enable(ctl_port_type port_type)
 
 	softc = control_softc;
 
-	STAILQ_FOREACH(fe, &softc->fe_list, links) {
-		if (port_type & fe->port_type)
+	STAILQ_FOREACH(port, &softc->port_list, links) {
+		if (port_type & port->port_type)
 		{
 #if 0
-			printf("port %d\n", fe->targ_port);
+			printf("port %d\n", port->targ_port);
 #endif
-			ctl_frontend_online(fe);
+			ctl_port_online(port);
 		}
 	}
 
@@ -1253,13 +1262,13 @@ int
 ctl_port_disable(ctl_port_type port_type)
 {
 	struct ctl_softc *softc;
-	struct ctl_frontend *fe;
+	struct ctl_port *port;
 
 	softc = control_softc;
 
-	STAILQ_FOREACH(fe, &softc->fe_list, links) {
-		if (port_type & fe->port_type)
-			ctl_frontend_offline(fe);
+	STAILQ_FOREACH(port, &softc->port_list, links) {
+		if (port_type & port->port_type)
+			ctl_port_offline(port);
 	}
 
 	return (0);
@@ -1277,7 +1286,7 @@ ctl_port_list(struct ctl_port_entry *entries, int num_entries_alloced,
 	      ctl_port_type port_type, int no_virtual)
 {
 	struct ctl_softc *softc;
-	struct ctl_frontend *fe;
+	struct ctl_port *port;
 	int entries_dropped, entries_filled;
 	int retval;
 	int i;
@@ -1290,14 +1299,14 @@ ctl_port_list(struct ctl_port_entry *entries, int num_entries_alloced,
 
 	i = 0;
 	mtx_lock(&softc->ctl_lock);
-	STAILQ_FOREACH(fe, &softc->fe_list, links) {
+	STAILQ_FOREACH(port, &softc->port_list, links) {
 		struct ctl_port_entry *entry;
 
-		if ((fe->port_type & port_type) == 0)
+		if ((port->port_type & port_type) == 0)
 			continue;
 
 		if ((no_virtual != 0)
-		 && (fe->virtual_port != 0))
+		 && (port->virtual_port != 0))
 			continue;
 
 		if (entries_filled >= num_entries_alloced) {
@@ -1306,13 +1315,13 @@ ctl_port_list(struct ctl_port_entry *entries, int num_entries_alloced,
 		}
 		entry = &entries[i];
 
-		entry->port_type = fe->port_type;
-		strlcpy(entry->port_name, fe->port_name,
+		entry->port_type = port->port_type;
+		strlcpy(entry->port_name, port->port_name,
 			sizeof(entry->port_name));
-		entry->physical_port = fe->physical_port;
-		entry->virtual_port = fe->virtual_port;
-		entry->wwnn = fe->wwnn;
-		entry->wwpn = fe->wwpn;
+		entry->physical_port = port->physical_port;
+		entry->virtual_port = port->virtual_port;
+		entry->wwnn = port->wwnn;
+		entry->wwpn = port->wwpn;
 
 		i++;
 		entries_filled++;
@@ -1351,32 +1360,24 @@ ctl_ioctl_offline(void *arg)
 
 /*
  * Remove an initiator by port number and initiator ID.
- * Returns 0 for success, 1 for failure.
+ * Returns 0 for success, -1 for failure.
  */
 int
-ctl_remove_initiator(int32_t targ_port, uint32_t iid)
+ctl_remove_initiator(struct ctl_port *port, int iid)
 {
-	struct ctl_softc *softc;
-
-	softc = control_softc;
+	struct ctl_softc *softc = control_softc;
 
 	mtx_assert(&softc->ctl_lock, MA_NOTOWNED);
 
-	if ((targ_port < 0)
-	 || (targ_port > CTL_MAX_PORTS)) {
-		printf("%s: invalid port number %d\n", __func__, targ_port);
-		return (1);
-	}
 	if (iid > CTL_MAX_INIT_PER_PORT) {
 		printf("%s: initiator ID %u > maximun %u!\n",
 		       __func__, iid, CTL_MAX_INIT_PER_PORT);
-		return (1);
+		return (-1);
 	}
 
 	mtx_lock(&softc->ctl_lock);
-
-	softc->wwpn_iid[targ_port][iid].in_use = 0;
-
+	port->wwpn_iid[iid].in_use--;
+	port->wwpn_iid[iid].last_use = time_uptime;
 	mtx_unlock(&softc->ctl_lock);
 
 	return (0);
@@ -1384,41 +1385,91 @@ ctl_remove_initiator(int32_t targ_port, uint32_t iid)
 
 /*
  * Add an initiator to the initiator map.
- * Returns 0 for success, 1 for failure.
+ * Returns iid for success, < 0 for failure.
  */
 int
-ctl_add_initiator(uint64_t wwpn, int32_t targ_port, uint32_t iid)
+ctl_add_initiator(struct ctl_port *port, int iid, uint64_t wwpn, char *name)
 {
-	struct ctl_softc *softc;
-	int retval;
-
-	softc = control_softc;
+	struct ctl_softc *softc = control_softc;
+	time_t best_time;
+	int i, best;
 
 	mtx_assert(&softc->ctl_lock, MA_NOTOWNED);
 
-	retval = 0;
-
-	if ((targ_port < 0)
-	 || (targ_port > CTL_MAX_PORTS)) {
-		printf("%s: invalid port number %d\n", __func__, targ_port);
-		return (1);
-	}
-	if (iid > CTL_MAX_INIT_PER_PORT) {
-		printf("%s: WWPN %#jx initiator ID %u > maximun %u!\n",
+	if (iid >= CTL_MAX_INIT_PER_PORT) {
+		printf("%s: WWPN %#jx initiator ID %u > maximum %u!\n",
 		       __func__, wwpn, iid, CTL_MAX_INIT_PER_PORT);
-		return (1);
+		free(name, M_CTL);
+		return (-1);
 	}
 
 	mtx_lock(&softc->ctl_lock);
 
-	if (softc->wwpn_iid[targ_port][iid].in_use != 0) {
+	if (iid < 0 && (wwpn != 0 || name != NULL)) {
+		for (i = 0; i < CTL_MAX_INIT_PER_PORT; i++) {
+			if (wwpn != 0 && wwpn == port->wwpn_iid[i].wwpn) {
+				iid = i;
+				break;
+			}
+			if (name != NULL && port->wwpn_iid[i].name != NULL &&
+			    strcmp(name, port->wwpn_iid[i].name) == 0) {
+				iid = i;
+				break;
+			}
+		}
+	}
+
+	if (iid < 0) {
+		for (i = 0; i < CTL_MAX_INIT_PER_PORT; i++) {
+			if (port->wwpn_iid[i].in_use == 0 &&
+			    port->wwpn_iid[i].wwpn == 0 &&
+			    port->wwpn_iid[i].name == NULL) {
+				iid = i;
+				break;
+			}
+		}
+	}
+
+	if (iid < 0) {
+		best = -1;
+		best_time = INT32_MAX;
+		for (i = 0; i < CTL_MAX_INIT_PER_PORT; i++) {
+			if (port->wwpn_iid[i].in_use == 0) {
+				if (port->wwpn_iid[i].last_use < best_time) {
+					best = i;
+					best_time = port->wwpn_iid[i].last_use;
+				}
+			}
+		}
+		iid = best;
+	}
+
+	if (iid < 0) {
+		mtx_unlock(&softc->ctl_lock);
+		free(name, M_CTL);
+		return (-2);
+	}
+
+	if (port->wwpn_iid[iid].in_use > 0 && (wwpn != 0 || name != NULL)) {
 		/*
-		 * We don't treat this as an error.
+		 * This is not an error yet.
 		 */
-		if (softc->wwpn_iid[targ_port][iid].wwpn == wwpn) {
-			printf("%s: port %d iid %u WWPN %#jx arrived again?\n",
-			       __func__, targ_port, iid, (uintmax_t)wwpn);
-			goto bailout;
+		if (wwpn != 0 && wwpn == port->wwpn_iid[iid].wwpn) {
+#if 0
+			printf("%s: port %d iid %u WWPN %#jx arrived"
+			    " again\n", __func__, port->targ_port,
+			    iid, (uintmax_t)wwpn);
+#endif
+			goto take;
+		}
+		if (name != NULL && port->wwpn_iid[iid].name != NULL &&
+		    strcmp(name, port->wwpn_iid[iid].name) == 0) {
+#if 0
+			printf("%s: port %d iid %u name '%s' arrived"
+			    " again\n", __func__, port->targ_port,
+			    iid, name);
+#endif
+			goto take;
 		}
 
 		/*
@@ -1426,42 +1477,80 @@ ctl_add_initiator(uint64_t wwpn, int32_t targ_port, uint32_t iid)
 		 * driver is telling us we have a new WWPN for this
 		 * initiator ID, so we pretty much need to use it.
 		 */
-		printf("%s: port %d iid %u WWPN %#jx arrived, WWPN %#jx is "
-		       "still at that address\n", __func__, targ_port, iid,
-		       (uintmax_t)wwpn,
-		       (uintmax_t)softc->wwpn_iid[targ_port][iid].wwpn);
+		printf("%s: port %d iid %u WWPN %#jx '%s' arrived,"
+		    " but WWPN %#jx '%s' is still at that address\n",
+		    __func__, port->targ_port, iid, wwpn, name,
+		    (uintmax_t)port->wwpn_iid[iid].wwpn,
+		    port->wwpn_iid[iid].name);
 
 		/*
 		 * XXX KDM clear have_ca and ua_pending on each LUN for
 		 * this initiator.
 		 */
 	}
-	softc->wwpn_iid[targ_port][iid].in_use = 1;
-	softc->wwpn_iid[targ_port][iid].iid = iid;
-	softc->wwpn_iid[targ_port][iid].wwpn = wwpn;
-	softc->wwpn_iid[targ_port][iid].port = targ_port;
-
-bailout:
-
+take:
+	free(port->wwpn_iid[iid].name, M_CTL);
+	port->wwpn_iid[iid].name = name;
+	port->wwpn_iid[iid].wwpn = wwpn;
+	port->wwpn_iid[iid].in_use++;
 	mtx_unlock(&softc->ctl_lock);
 
-	return (retval);
-}
-
-/*
- * XXX KDM should we pretend to do something in the target/lun
- * enable/disable functions?
- */
-static int
-ctl_ioctl_targ_enable(void *arg, struct ctl_id targ_id)
-{
-	return (0);
+	return (iid);
 }
 
 static int
-ctl_ioctl_targ_disable(void *arg, struct ctl_id targ_id)
+ctl_create_iid(struct ctl_port *port, int iid, uint8_t *buf)
 {
-	return (0);
+	int len;
+
+	switch (port->port_type) {
+	case CTL_PORT_FC:
+	{
+		struct scsi_transportid_fcp *id =
+		    (struct scsi_transportid_fcp *)buf;
+		if (port->wwpn_iid[iid].wwpn == 0)
+			return (0);
+		memset(id, 0, sizeof(*id));
+		id->format_protocol = SCSI_PROTO_FC;
+		scsi_u64to8b(port->wwpn_iid[iid].wwpn, id->n_port_name);
+		return (sizeof(*id));
+	}
+	case CTL_PORT_ISCSI:
+	{
+		struct scsi_transportid_iscsi_port *id =
+		    (struct scsi_transportid_iscsi_port *)buf;
+		if (port->wwpn_iid[iid].name == NULL)
+			return (0);
+		memset(id, 0, 256);
+		id->format_protocol = SCSI_TRN_ISCSI_FORMAT_PORT |
+		    SCSI_PROTO_ISCSI;
+		len = strlcpy(id->iscsi_name, port->wwpn_iid[iid].name, 252) + 1;
+		len = roundup2(min(len, 252), 4);
+		scsi_ulto2b(len, id->additional_length);
+		return (sizeof(*id) + len);
+	}
+	case CTL_PORT_SAS:
+	{
+		struct scsi_transportid_sas *id =
+		    (struct scsi_transportid_sas *)buf;
+		if (port->wwpn_iid[iid].wwpn == 0)
+			return (0);
+		memset(id, 0, sizeof(*id));
+		id->format_protocol = SCSI_PROTO_SAS;
+		scsi_u64to8b(port->wwpn_iid[iid].wwpn, id->sas_address);
+		return (sizeof(*id));
+	}
+	default:
+	{
+		struct scsi_transportid_spi *id =
+		    (struct scsi_transportid_spi *)buf;
+		memset(id, 0, sizeof(*id));
+		id->format_protocol = SCSI_PROTO_SPI;
+		scsi_ulto2b(iid, id->scsi_addr);
+		scsi_ulto2b(port->targ_port, id->rel_trgt_port_id);
+		return (sizeof(*id));
+	}
+	}
 }
 
 static int
@@ -2022,40 +2111,40 @@ ctl_copyin_alloc(void *user_addr, int len, char *error_str,
 }
 
 static void
-ctl_free_args(int num_be_args, struct ctl_be_arg *be_args)
+ctl_free_args(int num_args, struct ctl_be_arg *args)
 {
 	int i;
 
-	if (be_args == NULL)
+	if (args == NULL)
 		return;
 
-	for (i = 0; i < num_be_args; i++) {
-		free(be_args[i].kname, M_CTL);
-		free(be_args[i].kvalue, M_CTL);
+	for (i = 0; i < num_args; i++) {
+		free(args[i].kname, M_CTL);
+		free(args[i].kvalue, M_CTL);
 	}
 
-	free(be_args, M_CTL);
+	free(args, M_CTL);
 }
 
 static struct ctl_be_arg *
-ctl_copyin_args(int num_be_args, struct ctl_be_arg *be_args,
+ctl_copyin_args(int num_args, struct ctl_be_arg *uargs,
 		char *error_str, size_t error_str_len)
 {
 	struct ctl_be_arg *args;
 	int i;
 
-	args = ctl_copyin_alloc(be_args, num_be_args * sizeof(*be_args),
+	args = ctl_copyin_alloc(uargs, num_args * sizeof(*args),
 				error_str, error_str_len);
 
 	if (args == NULL)
 		goto bailout;
 
-	for (i = 0; i < num_be_args; i++) {
+	for (i = 0; i < num_args; i++) {
 		args[i].kname = NULL;
 		args[i].kvalue = NULL;
 	}
 
-	for (i = 0; i < num_be_args; i++) {
+	for (i = 0; i < num_args; i++) {
 		uint8_t *tmpptr;
 
 		args[i].kname = ctl_copyin_alloc(args[i].name,
@@ -2069,29 +2158,41 @@ ctl_copyin_args(int num_be_args, struct ctl_be_arg *be_args,
 			goto bailout;
 		}
 
-		args[i].kvalue = NULL;
-
-		tmpptr = ctl_copyin_alloc(args[i].value,
-			args[i].vallen, error_str, error_str_len);
-		if (tmpptr == NULL)
-			goto bailout;
-
-		args[i].kvalue = tmpptr;
-
-		if ((args[i].flags & CTL_BEARG_ASCII)
-		 && (tmpptr[args[i].vallen - 1] != '\0')) {
-			snprintf(error_str, error_str_len, "Argument %d "
-				 "value is not NUL-terminated", i);
-			goto bailout;
+		if (args[i].flags & CTL_BEARG_RD) {
+			tmpptr = ctl_copyin_alloc(args[i].value,
+				args[i].vallen, error_str, error_str_len);
+			if (tmpptr == NULL)
+				goto bailout;
+			if ((args[i].flags & CTL_BEARG_ASCII)
+			 && (tmpptr[args[i].vallen - 1] != '\0')) {
+				snprintf(error_str, error_str_len, "Argument "
+				    "%d value is not NUL-terminated", i);
+				goto bailout;
+			}
+			args[i].kvalue = tmpptr;
+		} else {
+			args[i].kvalue = malloc(args[i].vallen,
+			    M_CTL, M_WAITOK | M_ZERO);
 		}
 	}
 
 	return (args);
 bailout:
 
-	ctl_free_args(num_be_args, args);
+	ctl_free_args(num_args, args);
 
 	return (NULL);
+}
+
+static void
+ctl_copyout_args(int num_args, struct ctl_be_arg *args)
+{
+	int i;
+
+	for (i = 0; i < num_args; i++) {
+		if (args[i].flags & CTL_BEARG_WR)
+			copyout(args[i].kvalue, args[i].value, args[i].vallen);
+	}
 }
 
 /*
@@ -2153,7 +2254,7 @@ ctl_ioctl(struct cdev *dev, u_long cmd, caddr_t addr, int flag,
 			break;
 		}
 
-		io = ctl_alloc_io(softc->ioctl_info.fe.ctl_pool_ref);
+		io = ctl_alloc_io(softc->ioctl_info.port.ctl_pool_ref);
 		if (io == NULL) {
 			printf("ctl_ioctl: can't allocate ctl_io!\n");
 			retval = ENOSPC;
@@ -2177,7 +2278,7 @@ ctl_ioctl(struct cdev *dev, u_long cmd, caddr_t addr, int flag,
 		/*
 		 * The user sets the initiator ID, target and LUN IDs.
 		 */
-		io->io_hdr.nexus.targ_port = softc->ioctl_info.fe.targ_port;
+		io->io_hdr.nexus.targ_port = softc->ioctl_info.port.targ_port;
 		io->io_hdr.flags |= CTL_FLAG_USER_REQ;
 		if ((io->io_hdr.io_type == CTL_IO_SCSI)
 		 && (io->scsiio.tag_type != CTL_TAG_UNTAGGED))
@@ -2200,20 +2301,20 @@ ctl_ioctl(struct cdev *dev, u_long cmd, caddr_t addr, int flag,
 	case CTL_ENABLE_PORT:
 	case CTL_DISABLE_PORT:
 	case CTL_SET_PORT_WWNS: {
-		struct ctl_frontend *fe;
+		struct ctl_port *port;
 		struct ctl_port_entry *entry;
 
 		entry = (struct ctl_port_entry *)addr;
 		
 		mtx_lock(&softc->ctl_lock);
-		STAILQ_FOREACH(fe, &softc->fe_list, links) {
+		STAILQ_FOREACH(port, &softc->port_list, links) {
 			int action, done;
 
 			action = 0;
 			done = 0;
 
 			if ((entry->port_type == CTL_PORT_NONE)
-			 && (entry->targ_port == fe->targ_port)) {
+			 && (entry->targ_port == port->targ_port)) {
 				/*
 				 * If the user only wants to enable or
 				 * disable or set WWNs on a specific port,
@@ -2221,7 +2322,7 @@ ctl_ioctl(struct cdev *dev, u_long cmd, caddr_t addr, int flag,
 				 */
 				action = 1;
 				done = 1;
-			} else if (entry->port_type & fe->port_type) {
+			} else if (entry->port_type & port->port_type) {
 				/*
 				 * Compare the user's type mask with the
 				 * particular frontend type to see if we
@@ -2256,21 +2357,21 @@ ctl_ioctl(struct cdev *dev, u_long cmd, caddr_t addr, int flag,
 
 					STAILQ_FOREACH(lun, &softc->lun_list,
 						       links) {
-						fe->lun_enable(fe->targ_lun_arg,
+						port->lun_enable(port->targ_lun_arg,
 						    lun->target,
 						    lun->lun);
 					}
 
-					ctl_frontend_online(fe);
+					ctl_port_online(port);
 				} else if (cmd == CTL_DISABLE_PORT) {
 					struct ctl_lun *lun;
 
-					ctl_frontend_offline(fe);
+					ctl_port_offline(port);
 
 					STAILQ_FOREACH(lun, &softc->lun_list,
 						       links) {
-						fe->lun_disable(
-						    fe->targ_lun_arg,
+						port->lun_disable(
+						    port->targ_lun_arg,
 						    lun->target,
 						    lun->lun);
 					}
@@ -2279,7 +2380,7 @@ ctl_ioctl(struct cdev *dev, u_long cmd, caddr_t addr, int flag,
 				mtx_lock(&softc->ctl_lock);
 
 				if (cmd == CTL_SET_PORT_WWNS)
-					ctl_frontend_set_wwns(fe,
+					ctl_port_set_wwns(port,
 					    (entry->flags & CTL_PORT_WWNN_VALID) ?
 					    1 : 0, entry->wwnn,
 					    (entry->flags & CTL_PORT_WWPN_VALID) ?
@@ -2292,7 +2393,7 @@ ctl_ioctl(struct cdev *dev, u_long cmd, caddr_t addr, int flag,
 		break;
 	}
 	case CTL_GET_PORT_LIST: {
-		struct ctl_frontend *fe;
+		struct ctl_port *port;
 		struct ctl_port_list *list;
 		int i;
 
@@ -2312,7 +2413,7 @@ ctl_ioctl(struct cdev *dev, u_long cmd, caddr_t addr, int flag,
 		list->dropped_num = 0;
 		i = 0;
 		mtx_lock(&softc->ctl_lock);
-		STAILQ_FOREACH(fe, &softc->fe_list, links) {
+		STAILQ_FOREACH(port, &softc->port_list, links) {
 			struct ctl_port_entry entry, *list_entry;
 
 			if (list->fill_num >= list->alloc_num) {
@@ -2320,15 +2421,15 @@ ctl_ioctl(struct cdev *dev, u_long cmd, caddr_t addr, int flag,
 				continue;
 			}
 
-			entry.port_type = fe->port_type;
-			strlcpy(entry.port_name, fe->port_name,
+			entry.port_type = port->port_type;
+			strlcpy(entry.port_name, port->port_name,
 				sizeof(entry.port_name));
-			entry.targ_port = fe->targ_port;
-			entry.physical_port = fe->physical_port;
-			entry.virtual_port = fe->virtual_port;
-			entry.wwnn = fe->wwnn;
-			entry.wwpn = fe->wwpn;
-			if (fe->status & CTL_PORT_STATUS_ONLINE)
+			entry.targ_port = port->targ_port;
+			entry.physical_port = port->physical_port;
+			entry.virtual_port = port->virtual_port;
+			entry.wwnn = port->wwnn;
+			entry.wwpn = port->wwpn;
+			if (port->status & CTL_PORT_STATUS_ONLINE)
 				entry.online = 1;
 			else
 				entry.online = 0;
@@ -2862,22 +2963,11 @@ ctl_ioctl(struct cdev *dev, u_long cmd, caddr_t addr, int flag,
 		break;
 	}
 	case CTL_DUMP_STRUCTS: {
-		int i, j, k;
+		int i, j, k, idx;
+		struct ctl_port *port;
 		struct ctl_frontend *fe;
 
-		printf("CTL IID to WWPN map start:\n");
-		for (i = 0; i < CTL_MAX_PORTS; i++) {
-			for (j = 0; j < CTL_MAX_INIT_PER_PORT; j++) {
-				if (softc->wwpn_iid[i][j].in_use == 0)
-					continue;
-
-				printf("port %d iid %u WWPN %#jx\n",
-				       softc->wwpn_iid[i][j].port,
-				       softc->wwpn_iid[i][j].iid, 
-				       (uintmax_t)softc->wwpn_iid[i][j].wwpn);
-			}
-		}
-		printf("CTL IID to WWPN map end\n");
+		mtx_lock(&softc->ctl_lock);
 		printf("CTL Persistent Reservation information start:\n");
 		for (i = 0; i < CTL_MAX_LUNS; i++) {
 			struct ctl_lun *lun;
@@ -2890,36 +2980,48 @@ ctl_ioctl(struct cdev *dev, u_long cmd, caddr_t addr, int flag,
 
 			for (j = 0; j < (CTL_MAX_PORTS * 2); j++) {
 				for (k = 0; k < CTL_MAX_INIT_PER_PORT; k++){
-					if (lun->per_res[j+k].registered == 0)
+					idx = j * CTL_MAX_INIT_PER_PORT + k;
+					if (lun->per_res[idx].registered == 0)
 						continue;
-					printf("LUN %d port %d iid %d key "
+					printf("  LUN %d port %d iid %d key "
 					       "%#jx\n", i, j, k,
 					       (uintmax_t)scsi_8btou64(
-					       lun->per_res[j+k].res_key.key));
+					       lun->per_res[idx].res_key.key));
 				}
 			}
 		}
 		printf("CTL Persistent Reservation information end\n");
-		printf("CTL Frontends:\n");
+		printf("CTL Ports:\n");
+		STAILQ_FOREACH(port, &softc->port_list, links) {
+			printf("  Port %d '%s' Frontend '%s' Type %u pp %d vp %d WWNN "
+			       "%#jx WWPN %#jx\n", port->targ_port, port->port_name,
+			       port->frontend->name, port->port_type,
+			       port->physical_port, port->virtual_port,
+			       (uintmax_t)port->wwnn, (uintmax_t)port->wwpn);
+			for (j = 0; j < CTL_MAX_INIT_PER_PORT; j++) {
+				if (port->wwpn_iid[j].in_use == 0 &&
+				    port->wwpn_iid[j].wwpn == 0 &&
+				    port->wwpn_iid[j].name == NULL)
+					continue;
+
+				printf("    iid %u use %d WWPN %#jx '%s'\n",
+				    j, port->wwpn_iid[j].in_use,
+				    (uintmax_t)port->wwpn_iid[j].wwpn,
+				    port->wwpn_iid[j].name);
+			}
+		}
+		printf("CTL Port information end\n");
+		mtx_unlock(&softc->ctl_lock);
 		/*
 		 * XXX KDM calling this without a lock.  We'd likely want
 		 * to drop the lock before calling the frontend's dump
 		 * routine anyway.
 		 */
+		printf("CTL Frontends:\n");
 		STAILQ_FOREACH(fe, &softc->fe_list, links) {
-			printf("Frontend %s Type %u pport %d vport %d WWNN "
-			       "%#jx WWPN %#jx\n", fe->port_name, fe->port_type,
-			       fe->physical_port, fe->virtual_port,
-			       (uintmax_t)fe->wwnn, (uintmax_t)fe->wwpn);
-
-			/*
-			 * Frontends are not required to support the dump
-			 * routine.
-			 */
-			if (fe->fe_dump == NULL)
-				continue;
-
-			fe->fe_dump();
+			printf("  Frontend '%s'\n", fe->name);
+			if (fe->fe_dump != NULL)
+				fe->fe_dump();
 		}
 		printf("CTL Frontend information end\n");
 		break;
@@ -2954,6 +3056,8 @@ ctl_ioctl(struct cdev *dev, u_long cmd, caddr_t addr, int flag,
 		retval = backend->ioctl(dev, cmd, addr, flag, td);
 
 		if (lun_req->num_be_args > 0) {
+			ctl_copyout_args(lun_req->num_be_args,
+				      lun_req->kern_be_args);
 			ctl_free_args(lun_req->num_be_args,
 				      lun_req->kern_be_args);
 		}
@@ -2963,7 +3067,7 @@ ctl_ioctl(struct cdev *dev, u_long cmd, caddr_t addr, int flag,
 		struct sbuf *sb;
 		struct ctl_lun *lun;
 		struct ctl_lun_list *list;
-		struct ctl_be_lun_option *opt;
+		struct ctl_option *opt;
 
 		list = (struct ctl_lun_list *)addr;
 
@@ -3016,7 +3120,7 @@ ctl_ioctl(struct cdev *dev, u_long cmd, caddr_t addr, int flag,
 			if (retval != 0)
 				break;
 
-			retval = sbuf_printf(sb, "<backend_type>%s"
+			retval = sbuf_printf(sb, "\t<backend_type>%s"
 					     "</backend_type>\n",
 					     (lun->backend == NULL) ?  "none" :
 					     lun->backend->name);
@@ -3024,7 +3128,7 @@ ctl_ioctl(struct cdev *dev, u_long cmd, caddr_t addr, int flag,
 			if (retval != 0)
 				break;
 
-			retval = sbuf_printf(sb, "<lun_type>%d</lun_type>\n",
+			retval = sbuf_printf(sb, "\t<lun_type>%d</lun_type>\n",
 					     lun->be_lun->lun_type);
 
 			if (retval != 0)
@@ -3037,20 +3141,20 @@ ctl_ioctl(struct cdev *dev, u_long cmd, caddr_t addr, int flag,
 				continue;
 			}
 
-			retval = sbuf_printf(sb, "<size>%ju</size>\n",
+			retval = sbuf_printf(sb, "\t<size>%ju</size>\n",
 					     (lun->be_lun->maxlba > 0) ?
 					     lun->be_lun->maxlba + 1 : 0);
 
 			if (retval != 0)
 				break;
 
-			retval = sbuf_printf(sb, "<blocksize>%u</blocksize>\n",
+			retval = sbuf_printf(sb, "\t<blocksize>%u</blocksize>\n",
 					     lun->be_lun->blocksize);
 
 			if (retval != 0)
 				break;
 
-			retval = sbuf_printf(sb, "<serial_number>");
+			retval = sbuf_printf(sb, "\t<serial_number>");
 
 			if (retval != 0)
 				break;
@@ -3066,7 +3170,7 @@ ctl_ioctl(struct cdev *dev, u_long cmd, caddr_t addr, int flag,
 			if (retval != 0)
 				break;
 
-			retval = sbuf_printf(sb, "<device_id>");
+			retval = sbuf_printf(sb, "\t<device_id>");
 
 			if (retval != 0)
 				break;
@@ -3087,7 +3191,8 @@ ctl_ioctl(struct cdev *dev, u_long cmd, caddr_t addr, int flag,
 					break;
 			}
 			STAILQ_FOREACH(opt, &lun->be_lun->options, links) {
-				retval = sbuf_printf(sb, "<%s>%s</%s>", opt->name, opt->value, opt->name);
+				retval = sbuf_printf(sb, "\t<%s>%s</%s>\n",
+				    opt->name, opt->value, opt->name);
 				if (retval != 0)
 					break;
 			}
@@ -3129,20 +3234,155 @@ ctl_ioctl(struct cdev *dev, u_long cmd, caddr_t addr, int flag,
 
 		ci = (struct ctl_iscsi *)addr;
 
-		mtx_lock(&softc->ctl_lock);
-		STAILQ_FOREACH(fe, &softc->fe_list, links) {
-			if (strcmp(fe->port_name, "iscsi") == 0)
-				break;
-		}
-		mtx_unlock(&softc->ctl_lock);
-
+		fe = ctl_frontend_find("iscsi");
 		if (fe == NULL) {
 			ci->status = CTL_ISCSI_ERROR;
-			snprintf(ci->error_str, sizeof(ci->error_str), "Backend \"iscsi\" not found.");
+			snprintf(ci->error_str, sizeof(ci->error_str),
+			    "Frontend \"iscsi\" not found.");
 			break;
 		}
 
 		retval = fe->ioctl(dev, cmd, addr, flag, td);
+		break;
+	}
+	case CTL_PORT_REQ: {
+		struct ctl_req *req;
+		struct ctl_frontend *fe;
+
+		req = (struct ctl_req *)addr;
+
+		fe = ctl_frontend_find(req->driver);
+		if (fe == NULL) {
+			req->status = CTL_LUN_ERROR;
+			snprintf(req->error_str, sizeof(req->error_str),
+			    "Frontend \"%s\" not found.", req->driver);
+			break;
+		}
+		if (req->num_args > 0) {
+			req->kern_args = ctl_copyin_args(req->num_args,
+			    req->args, req->error_str, sizeof(req->error_str));
+			if (req->kern_args == NULL) {
+				req->status = CTL_LUN_ERROR;
+				break;
+			}
+		}
+
+		retval = fe->ioctl(dev, cmd, addr, flag, td);
+
+		if (req->num_args > 0) {
+			ctl_copyout_args(req->num_args, req->kern_args);
+			ctl_free_args(req->num_args, req->kern_args);
+		}
+		break;
+	}
+	case CTL_PORT_LIST: {
+		struct sbuf *sb;
+		struct ctl_port *port;
+		struct ctl_lun_list *list;
+		struct ctl_option *opt;
+
+		list = (struct ctl_lun_list *)addr;
+
+		sb = sbuf_new(NULL, NULL, list->alloc_len, SBUF_FIXEDLEN);
+		if (sb == NULL) {
+			list->status = CTL_LUN_LIST_ERROR;
+			snprintf(list->error_str, sizeof(list->error_str),
+				 "Unable to allocate %d bytes for LUN list",
+				 list->alloc_len);
+			break;
+		}
+
+		sbuf_printf(sb, "<ctlportlist>\n");
+
+		mtx_lock(&softc->ctl_lock);
+		STAILQ_FOREACH(port, &softc->port_list, links) {
+			retval = sbuf_printf(sb, "<targ_port id=\"%ju\">\n",
+					     (uintmax_t)port->targ_port);
+
+			/*
+			 * Bail out as soon as we see that we've overfilled
+			 * the buffer.
+			 */
+			if (retval != 0)
+				break;
+
+			retval = sbuf_printf(sb, "\t<frontend_type>%s"
+			    "</frontend_type>\n", port->frontend->name);
+			if (retval != 0)
+				break;
+
+			retval = sbuf_printf(sb, "\t<port_type>%d</port_type>\n",
+					     port->port_type);
+			if (retval != 0)
+				break;
+
+			retval = sbuf_printf(sb, "\t<online>%s</online>\n",
+			    (port->status & CTL_PORT_STATUS_ONLINE) ? "YES" : "NO");
+			if (retval != 0)
+				break;
+
+			retval = sbuf_printf(sb, "\t<port_name>%s</port_name>\n",
+			    port->port_name);
+			if (retval != 0)
+				break;
+
+			retval = sbuf_printf(sb, "\t<physical_port>%d</physical_port>\n",
+			    port->physical_port);
+			if (retval != 0)
+				break;
+
+			retval = sbuf_printf(sb, "\t<virtual_port>%d</virtual_port>\n",
+			    port->virtual_port);
+			if (retval != 0)
+				break;
+
+			retval = sbuf_printf(sb, "\t<wwnn>%#jx</wwnn>\n",
+			    (uintmax_t)port->wwnn);
+			if (retval != 0)
+				break;
+
+			retval = sbuf_printf(sb, "\t<wwpn>%#jx</wwpn>\n",
+			    (uintmax_t)port->wwpn);
+			if (retval != 0)
+				break;
+
+			if (port->port_info != NULL) {
+				retval = port->port_info(port->onoff_arg, sb);
+				if (retval != 0)
+					break;
+			}
+			STAILQ_FOREACH(opt, &port->options, links) {
+				retval = sbuf_printf(sb, "\t<%s>%s</%s>\n",
+				    opt->name, opt->value, opt->name);
+				if (retval != 0)
+					break;
+			}
+
+			retval = sbuf_printf(sb, "</targ_port>\n");
+			if (retval != 0)
+				break;
+		}
+		mtx_unlock(&softc->ctl_lock);
+
+		if ((retval != 0)
+		 || ((retval = sbuf_printf(sb, "</ctlportlist>\n")) != 0)) {
+			retval = 0;
+			sbuf_delete(sb);
+			list->status = CTL_LUN_LIST_NEED_MORE_SPACE;
+			snprintf(list->error_str, sizeof(list->error_str),
+				 "Out of space, %d bytes is too small",
+				 list->alloc_len);
+			break;
+		}
+
+		sbuf_finish(sb);
+
+		retval = copyout(sbuf_data(sb), list->lun_xml,
+				 sbuf_len(sb) + 1);
+
+		list->fill_len = sbuf_len(sb) + 1;
+		list->status = CTL_LUN_LIST_OK;
+		sbuf_delete(sb);
 		break;
 	}
 	default: {
@@ -3207,6 +3447,35 @@ ctl_port_idx(int port_num)
 		return(port_num);
 	else
 		return(port_num - CTL_MAX_PORTS);
+}
+
+static uint32_t
+ctl_map_lun(int port_num, uint32_t lun_id)
+{
+	struct ctl_port *port;
+
+	port = control_softc->ctl_ports[ctl_port_idx(port_num)];
+	if (port == NULL)
+		return (UINT32_MAX);
+	if (port->lun_map == NULL)
+		return (lun_id);
+	return (port->lun_map(port->targ_lun_arg, lun_id));
+}
+
+static uint32_t
+ctl_map_lun_back(int port_num, uint32_t lun_id)
+{
+	struct ctl_port *port;
+	uint32_t i;
+
+	port = control_softc->ctl_ports[ctl_port_idx(port_num)];
+	if (port->lun_map == NULL)
+		return (lun_id);
+	for (i = 0; i < CTL_MAX_LUNS; i++) {
+		if (port->lun_map(port->targ_lun_arg, i) == lun_id)
+			return (i);
+	}
+	return (UINT32_MAX);
 }
 
 /*
@@ -3358,7 +3627,7 @@ ctl_pool_create(struct ctl_softc *ctl_softc, ctl_pool_type pool_type,
 	 * tracking.
 	 */
 	for (i = 0; i < total_ctl_io; i++) {
-		cur_io = (union ctl_io *)malloc(sizeof(*cur_io), M_CTL,
+		cur_io = (union ctl_io *)malloc(sizeof(*cur_io), M_CTLIO,
 						M_NOWAIT);
 		if (cur_io == NULL) {
 			retval = ENOMEM;
@@ -3377,7 +3646,7 @@ ctl_pool_create(struct ctl_softc *ctl_softc, ctl_pool_type pool_type,
 							      links);
 			STAILQ_REMOVE(&pool->free_queue, &cur_io->io_hdr,
 				      ctl_io_hdr, links);
-			free(cur_io, M_CTL);
+			free(cur_io, M_CTLIO);
 		}
 
 		free(pool, M_CTL);
@@ -3397,7 +3666,6 @@ ctl_pool_create(struct ctl_softc *ctl_softc, ctl_pool_type pool_type,
 #if 0
 	if ((pool_type != CTL_POOL_EMERGENCY)
 	 && (pool_type != CTL_POOL_INTERNAL)
-	 && (pool_type != CTL_POOL_IOCTL)
 	 && (pool_type != CTL_POOL_4OTHERSC))
 		MOD_INC_USE_COUNT;
 #endif
@@ -3439,7 +3707,7 @@ ctl_pool_release(struct ctl_io_pool *pool)
 	while ((io = (union ctl_io *)STAILQ_FIRST(&pool->free_queue)) != NULL) {
 		STAILQ_REMOVE(&pool->free_queue, &io->io_hdr, ctl_io_hdr,
 			      links);
-		free(io, M_CTL);
+		free(io, M_CTLIO);
 	}
 
 	STAILQ_REMOVE(&ctl_softc->io_pools, pool, ctl_io_pool, links);
@@ -3451,7 +3719,7 @@ ctl_pool_release(struct ctl_io_pool *pool)
 #if 0
 	if ((pool->type != CTL_POOL_EMERGENCY)
 	 && (pool->type != CTL_POOL_INTERNAL)
-	 && (pool->type != CTL_POOL_IOCTL))
+	 && (pool->type != CTL_POOL_4OTHERSC))
 		MOD_DEC_USE_COUNT;
 #endif
 
@@ -3543,7 +3811,7 @@ ctl_alloc_io(void *pool_ref)
 	 * The emergency pool (if it exists) didn't have one, so try an
 	 * atomic (i.e. nonblocking) malloc and see if we get lucky.
 	 */
-	io = (union ctl_io *)malloc(sizeof(*io), M_CTL, M_NOWAIT);
+	io = (union ctl_io *)malloc(sizeof(*io), M_CTLIO, M_NOWAIT);
 	if (io != NULL) {
 		/*
 		 * If the emergency pool exists but is empty, add this
@@ -3595,7 +3863,7 @@ ctl_free_io(union ctl_io *io)
 		 * Otherwise, just free it.  We probably malloced it and
 		 * the emergency pool wasn't available.
 		 */
-		free(io, M_CTL);
+		free(io, M_CTLIO);
 	}
 
 }
@@ -4157,8 +4425,12 @@ ctl_alloc_lun(struct ctl_softc *ctl_softc, struct ctl_lun *ctl_lun,
 	      struct ctl_be_lun *const be_lun, struct ctl_id target_id)
 {
 	struct ctl_lun *nlun, *lun;
-	struct ctl_frontend *fe;
+	struct ctl_port *port;
+	struct scsi_vpd_id_descriptor *desc;
+	struct scsi_vpd_id_t10 *t10id;
+	const char *scsiname, *vendor;
 	int lun_number, i, lun_malloced;
+	int devidlen, idlen1, idlen2 = 0, len;
 
 	if (be_lun == NULL)
 		return (EINVAL);
@@ -4189,6 +4461,43 @@ ctl_alloc_lun(struct ctl_softc *ctl_softc, struct ctl_lun *ctl_lun,
 	memset(lun, 0, sizeof(*lun));
 	if (lun_malloced)
 		lun->flags = CTL_LUN_MALLOCED;
+
+	/* Generate LUN ID. */
+	devidlen = max(CTL_DEVID_MIN_LEN,
+	    strnlen(be_lun->device_id, CTL_DEVID_LEN));
+	idlen1 = sizeof(*t10id) + devidlen;
+	len = sizeof(struct scsi_vpd_id_descriptor) + idlen1;
+	scsiname = ctl_get_opt(&be_lun->options, "scsiname");
+	if (scsiname != NULL) {
+		idlen2 = roundup2(strlen(scsiname) + 1, 4);
+		len += sizeof(struct scsi_vpd_id_descriptor) + idlen2;
+	}
+	lun->lun_devid = malloc(sizeof(struct ctl_devid) + len,
+	    M_CTL, M_WAITOK | M_ZERO);
+	lun->lun_devid->len = len;
+	desc = (struct scsi_vpd_id_descriptor *)lun->lun_devid->data;
+	desc->proto_codeset = SVPD_ID_CODESET_ASCII;
+	desc->id_type = SVPD_ID_PIV | SVPD_ID_ASSOC_LUN | SVPD_ID_TYPE_T10;
+	desc->length = idlen1;
+	t10id = (struct scsi_vpd_id_t10 *)&desc->identifier[0];
+	memset(t10id->vendor, ' ', sizeof(t10id->vendor));
+	if ((vendor = ctl_get_opt(&be_lun->options, "vendor")) == NULL) {
+		strncpy((char *)t10id->vendor, CTL_VENDOR, sizeof(t10id->vendor));
+	} else {
+		strncpy(t10id->vendor, vendor,
+		    min(sizeof(t10id->vendor), strlen(vendor)));
+	}
+	strncpy((char *)t10id->vendor_spec_id,
+	    (char *)be_lun->device_id, devidlen);
+	if (scsiname != NULL) {
+		desc = (struct scsi_vpd_id_descriptor *)(&desc->identifier[0] +
+		    desc->length);
+		desc->proto_codeset = SVPD_ID_CODESET_UTF8;
+		desc->id_type = SVPD_ID_PIV | SVPD_ID_ASSOC_LUN |
+		    SVPD_ID_TYPE_SCSI_NAME;
+		desc->length = idlen2;
+		strlcpy(desc->identifier, scsiname, idlen2);
+	}
 
 	mtx_lock(&ctl_softc->ctl_lock);
 	/*
@@ -4306,35 +4615,17 @@ ctl_alloc_lun(struct ctl_softc *ctl_softc, struct ctl_lun *ctl_lun,
 	 * already.  Enable the target ID if it hasn't been enabled, and
 	 * enable this particular LUN.
 	 */
-	STAILQ_FOREACH(fe, &ctl_softc->fe_list, links) {
+	STAILQ_FOREACH(port, &ctl_softc->port_list, links) {
 		int retval;
 
-		/*
-		 * XXX KDM this only works for ONE TARGET ID.  We'll need
-		 * to do things differently if we go to a multiple target
-		 * ID scheme.
-		 */
-		if ((fe->status & CTL_PORT_STATUS_TARG_ONLINE) == 0) {
-
-			retval = fe->targ_enable(fe->targ_lun_arg, target_id);
-			if (retval != 0) {
-				printf("ctl_alloc_lun: FETD %s port %d "
-				       "returned error %d for targ_enable on "
-				       "target %ju\n", fe->port_name,
-				       fe->targ_port, retval,
-				       (uintmax_t)target_id.id);
-			} else
-				fe->status |= CTL_PORT_STATUS_TARG_ONLINE;
-		}
-
-		retval = fe->lun_enable(fe->targ_lun_arg, target_id,lun_number);
+		retval = port->lun_enable(port->targ_lun_arg, target_id,lun_number);
 		if (retval != 0) {
 			printf("ctl_alloc_lun: FETD %s port %d returned error "
 			       "%d for lun_enable on target %ju lun %d\n",
-			       fe->port_name, fe->targ_port, retval,
+			       port->port_name, port->targ_port, retval,
 			       (uintmax_t)target_id.id, lun_number);
 		} else
-			fe->status |= CTL_PORT_STATUS_LUN_ONLINE;
+			port->status |= CTL_PORT_STATUS_LUN_ONLINE;
 	}
 	return (0);
 }
@@ -4350,7 +4641,7 @@ ctl_free_lun(struct ctl_lun *lun)
 {
 	struct ctl_softc *softc;
 #if 0
-	struct ctl_frontend *fe;
+	struct ctl_port *port;
 #endif
 	struct ctl_lun *nlun;
 	int i;
@@ -4374,7 +4665,7 @@ ctl_free_lun(struct ctl_lun *lun)
 	 * XXX KDM this scheme only works for a single target/multiple LUN
 	 * setup.  It needs to be revamped for a multiple target scheme.
 	 *
-	 * XXX KDM this results in fe->lun_disable() getting called twice,
+	 * XXX KDM this results in port->lun_disable() getting called twice,
 	 * once when ctl_disable_lun() is called, and a second time here.
 	 * We really need to re-think the LUN disable semantics.  There
 	 * should probably be several steps/levels to LUN removal:
@@ -4386,37 +4677,37 @@ ctl_free_lun(struct ctl_lun *lun)
 	 * the front end ports, at least for individual LUNs.
 	 */
 #if 0
-	STAILQ_FOREACH(fe, &softc->fe_list, links) {
+	STAILQ_FOREACH(port, &softc->port_list, links) {
 		int retval;
 
-		retval = fe->lun_disable(fe->targ_lun_arg, lun->target,
+		retval = port->lun_disable(port->targ_lun_arg, lun->target,
 					 lun->lun);
 		if (retval != 0) {
 			printf("ctl_free_lun: FETD %s port %d returned error "
 			       "%d for lun_disable on target %ju lun %jd\n",
-			       fe->port_name, fe->targ_port, retval,
+			       port->port_name, port->targ_port, retval,
 			       (uintmax_t)lun->target.id, (intmax_t)lun->lun);
 		}
 
 		if (STAILQ_FIRST(&softc->lun_list) == NULL) {
-			fe->status &= ~CTL_PORT_STATUS_LUN_ONLINE;
+			port->status &= ~CTL_PORT_STATUS_LUN_ONLINE;
 
-			retval = fe->targ_disable(fe->targ_lun_arg,lun->target);
+			retval = port->targ_disable(port->targ_lun_arg,lun->target);
 			if (retval != 0) {
 				printf("ctl_free_lun: FETD %s port %d "
 				       "returned error %d for targ_disable on "
-				       "target %ju\n", fe->port_name,
-				       fe->targ_port, retval,
+				       "target %ju\n", port->port_name,
+				       port->targ_port, retval,
 				       (uintmax_t)lun->target.id);
 			} else
-				fe->status &= ~CTL_PORT_STATUS_TARG_ONLINE;
+				port->status &= ~CTL_PORT_STATUS_TARG_ONLINE;
 
-			if ((fe->status & CTL_PORT_STATUS_TARG_ONLINE) != 0)
+			if ((port->status & CTL_PORT_STATUS_TARG_ONLINE) != 0)
 				continue;
 
 #if 0
-			fe->port_offline(fe->onoff_arg);
-			fe->status &= ~CTL_PORT_STATUS_ONLINE;
+			port->port_offline(port->onoff_arg);
+			port->status &= ~CTL_PORT_STATUS_ONLINE;
 #endif
 		}
 	}
@@ -4429,6 +4720,7 @@ ctl_free_lun(struct ctl_lun *lun)
 	lun->be_lun->lun_shutdown(lun->be_lun->be_lun);
 
 	mtx_destroy(&lun->lun_lock);
+	free(lun->lun_devid, M_CTL);
 	if (lun->flags & CTL_LUN_MALLOCED)
 		free(lun, M_CTL);
 
@@ -4471,7 +4763,7 @@ int
 ctl_enable_lun(struct ctl_be_lun *be_lun)
 {
 	struct ctl_softc *ctl_softc;
-	struct ctl_frontend *fe, *nfe;
+	struct ctl_port *port, *nport;
 	struct ctl_lun *lun;
 	int retval;
 
@@ -4493,8 +4785,8 @@ ctl_enable_lun(struct ctl_be_lun *be_lun)
 	lun->flags &= ~CTL_LUN_DISABLED;
 	mtx_unlock(&lun->lun_lock);
 
-	for (fe = STAILQ_FIRST(&ctl_softc->fe_list); fe != NULL; fe = nfe) {
-		nfe = STAILQ_NEXT(fe, links);
+	for (port = STAILQ_FIRST(&ctl_softc->port_list); port != NULL; port = nport) {
+		nport = STAILQ_NEXT(port, links);
 
 		/*
 		 * Drop the lock while we call the FETD's enable routine.
@@ -4502,18 +4794,18 @@ ctl_enable_lun(struct ctl_be_lun *be_lun)
 		 * case of the internal initiator frontend.
 		 */
 		mtx_unlock(&ctl_softc->ctl_lock);
-		retval = fe->lun_enable(fe->targ_lun_arg, lun->target,lun->lun);
+		retval = port->lun_enable(port->targ_lun_arg, lun->target,lun->lun);
 		mtx_lock(&ctl_softc->ctl_lock);
 		if (retval != 0) {
 			printf("%s: FETD %s port %d returned error "
 			       "%d for lun_enable on target %ju lun %jd\n",
-			       __func__, fe->port_name, fe->targ_port, retval,
+			       __func__, port->port_name, port->targ_port, retval,
 			       (uintmax_t)lun->target.id, (intmax_t)lun->lun);
 		}
 #if 0
 		 else {
             /* NOTE:  TODO:  why does lun enable affect port status? */
-			fe->status |= CTL_PORT_STATUS_LUN_ONLINE;
+			port->status |= CTL_PORT_STATUS_LUN_ONLINE;
 		}
 #endif
 	}
@@ -4527,7 +4819,7 @@ int
 ctl_disable_lun(struct ctl_be_lun *be_lun)
 {
 	struct ctl_softc *ctl_softc;
-	struct ctl_frontend *fe;
+	struct ctl_port *port;
 	struct ctl_lun *lun;
 	int retval;
 
@@ -4545,7 +4837,7 @@ ctl_disable_lun(struct ctl_be_lun *be_lun)
 	lun->flags |= CTL_LUN_DISABLED;
 	mtx_unlock(&lun->lun_lock);
 
-	STAILQ_FOREACH(fe, &ctl_softc->fe_list, links) {
+	STAILQ_FOREACH(port, &ctl_softc->port_list, links) {
 		mtx_unlock(&ctl_softc->ctl_lock);
 		/*
 		 * Drop the lock before we call the frontend's disable
@@ -4554,13 +4846,13 @@ ctl_disable_lun(struct ctl_be_lun *be_lun)
 		 * XXX KDM what happens if the frontend list changes while
 		 * we're traversing it?  It's unlikely, but should be handled.
 		 */
-		retval = fe->lun_disable(fe->targ_lun_arg, lun->target,
+		retval = port->lun_disable(port->targ_lun_arg, lun->target,
 					 lun->lun);
 		mtx_lock(&ctl_softc->ctl_lock);
 		if (retval != 0) {
 			printf("ctl_alloc_lun: FETD %s port %d returned error "
 			       "%d for lun_disable on target %ju lun %jd\n",
-			       fe->port_name, fe->targ_port, retval,
+			       port->port_name, port->targ_port, retval,
 			       (uintmax_t)lun->target.id, (intmax_t)lun->lun);
 		}
 	}
@@ -6945,14 +7237,14 @@ ctl_report_tagret_port_groups(struct ctl_scsiio *ctsio)
 {
 	struct scsi_maintenance_in *cdb;
 	int retval;
-	int alloc_len, total_len = 0;
-	int num_target_port_groups, single;
+	int alloc_len, ext, total_len = 0, g, p, pc, pg;
+	int num_target_port_groups, num_target_ports, single;
 	struct ctl_lun *lun;
 	struct ctl_softc *softc;
+	struct ctl_port *port;
 	struct scsi_target_group_data *rtg_ptr;
-	struct scsi_target_port_group_descriptor *tpg_desc_ptr1, *tpg_desc_ptr2;
-	struct scsi_target_port_descriptor  *tp_desc_ptr1_1, *tp_desc_ptr1_2,
-	                                    *tp_desc_ptr2_1, *tp_desc_ptr2_2;
+	struct scsi_target_group_data_extended *rtg_ext_ptr;
+	struct scsi_target_port_group_descriptor *tpg_desc;
 
 	CTL_DEBUG_PRINT(("ctl_report_tagret_port_groups\n"));
 
@@ -6962,17 +7254,48 @@ ctl_report_tagret_port_groups(struct ctl_scsiio *ctsio)
 
 	retval = CTL_RETVAL_COMPLETE;
 
+	switch (cdb->byte2 & STG_PDF_MASK) {
+	case STG_PDF_LENGTH:
+		ext = 0;
+		break;
+	case STG_PDF_EXTENDED:
+		ext = 1;
+		break;
+	default:
+		ctl_set_invalid_field(/*ctsio*/ ctsio,
+				      /*sks_valid*/ 1,
+				      /*command*/ 1,
+				      /*field*/ 2,
+				      /*bit_valid*/ 1,
+				      /*bit*/ 5);
+		ctl_done((union ctl_io *)ctsio);
+		return(retval);
+	}
+
 	single = ctl_is_single;
 	if (single)
-        	num_target_port_groups = NUM_TARGET_PORT_GROUPS - 1;
+		num_target_port_groups = 1;
 	else
-        	num_target_port_groups = NUM_TARGET_PORT_GROUPS;
+		num_target_port_groups = NUM_TARGET_PORT_GROUPS;
+	num_target_ports = 0;
+	mtx_lock(&softc->ctl_lock);
+	STAILQ_FOREACH(port, &softc->port_list, links) {
+		if ((port->status & CTL_PORT_STATUS_ONLINE) == 0)
+			continue;
+		if (ctl_map_lun_back(port->targ_port, lun->lun) >= CTL_MAX_LUNS)
+			continue;
+		num_target_ports++;
+	}
+	mtx_unlock(&softc->ctl_lock);
 
-	total_len = sizeof(struct scsi_target_group_data) +
-		sizeof(struct scsi_target_port_group_descriptor) *
+	if (ext)
+		total_len = sizeof(struct scsi_target_group_data_extended);
+	else
+		total_len = sizeof(struct scsi_target_group_data);
+	total_len += sizeof(struct scsi_target_port_group_descriptor) *
 		num_target_port_groups +
-		sizeof(struct scsi_target_port_descriptor) *
-		NUM_PORTS_PER_GRP * num_target_port_groups;
+	    sizeof(struct scsi_target_port_descriptor) *
+		num_target_ports * num_target_port_groups;
 
 	alloc_len = scsi_4btoul(cdb->length);
 
@@ -6992,76 +7315,51 @@ ctl_report_tagret_port_groups(struct ctl_scsiio *ctsio)
 	ctsio->kern_data_resid = 0;
 	ctsio->kern_rel_offset = 0;
 
-	rtg_ptr = (struct scsi_target_group_data *)ctsio->kern_data_ptr;
-
-	tpg_desc_ptr1 = &rtg_ptr->groups[0];
-	tp_desc_ptr1_1 = &tpg_desc_ptr1->descriptors[0];
-	tp_desc_ptr1_2 = (struct scsi_target_port_descriptor *)
-	        &tp_desc_ptr1_1->desc_list[0];
-
-	if (single == 0) {
-		tpg_desc_ptr2 = (struct scsi_target_port_group_descriptor *)
-	                &tp_desc_ptr1_2->desc_list[0];
-		tp_desc_ptr2_1 = &tpg_desc_ptr2->descriptors[0];
-		tp_desc_ptr2_2 = (struct scsi_target_port_descriptor *)
-	        	&tp_desc_ptr2_1->desc_list[0];
-        } else {
-		tpg_desc_ptr2 = NULL;
-		tp_desc_ptr2_1 = NULL;
-		tp_desc_ptr2_2 = NULL;
-	}
-
-	scsi_ulto4b(total_len - 4, rtg_ptr->length);
-	if (single == 0) {
-        	if (ctsio->io_hdr.nexus.targ_port < CTL_MAX_PORTS) {
-			if (lun->flags & CTL_LUN_PRIMARY_SC) {
-				tpg_desc_ptr1->pref_state = TPG_PRIMARY;
-				tpg_desc_ptr2->pref_state =
-					TPG_ASYMMETRIC_ACCESS_NONOPTIMIZED;
-			} else {
-				tpg_desc_ptr1->pref_state =
-					TPG_ASYMMETRIC_ACCESS_NONOPTIMIZED;
-				tpg_desc_ptr2->pref_state = TPG_PRIMARY;
-			}
-		} else {
-			if (lun->flags & CTL_LUN_PRIMARY_SC) {
-				tpg_desc_ptr1->pref_state =
-					TPG_ASYMMETRIC_ACCESS_NONOPTIMIZED;
-				tpg_desc_ptr2->pref_state = TPG_PRIMARY;
-			} else {
-				tpg_desc_ptr1->pref_state = TPG_PRIMARY;
-				tpg_desc_ptr2->pref_state =
-					TPG_ASYMMETRIC_ACCESS_NONOPTIMIZED;
-			}
-		}
+	if (ext) {
+		rtg_ext_ptr = (struct scsi_target_group_data_extended *)
+		    ctsio->kern_data_ptr;
+		scsi_ulto4b(total_len - 4, rtg_ext_ptr->length);
+		rtg_ext_ptr->format_type = 0x10;
+		rtg_ext_ptr->implicit_transition_time = 0;
+		tpg_desc = &rtg_ext_ptr->groups[0];
 	} else {
-		tpg_desc_ptr1->pref_state = TPG_PRIMARY;
+		rtg_ptr = (struct scsi_target_group_data *)
+		    ctsio->kern_data_ptr;
+		scsi_ulto4b(total_len - 4, rtg_ptr->length);
+		tpg_desc = &rtg_ptr->groups[0];
 	}
-	tpg_desc_ptr1->support = 0;
-	tpg_desc_ptr1->target_port_group[1] = 1;
-	tpg_desc_ptr1->status = TPG_IMPLICIT;
-	tpg_desc_ptr1->target_port_count= NUM_PORTS_PER_GRP;
 
-	if (single == 0) {
-		tpg_desc_ptr2->support = 0;
-		tpg_desc_ptr2->target_port_group[1] = 2;
-		tpg_desc_ptr2->status = TPG_IMPLICIT;
-		tpg_desc_ptr2->target_port_count = NUM_PORTS_PER_GRP;
-
-		tp_desc_ptr1_1->relative_target_port_identifier[1] = 1;
-		tp_desc_ptr1_2->relative_target_port_identifier[1] = 2;
-
-		tp_desc_ptr2_1->relative_target_port_identifier[1] = 9;
-		tp_desc_ptr2_2->relative_target_port_identifier[1] = 10;
-	} else {
-        	if (ctsio->io_hdr.nexus.targ_port < CTL_MAX_PORTS) {
-			tp_desc_ptr1_1->relative_target_port_identifier[1] = 1;
-			tp_desc_ptr1_2->relative_target_port_identifier[1] = 2;
-		} else {
-			tp_desc_ptr1_1->relative_target_port_identifier[1] = 9;
-			tp_desc_ptr1_2->relative_target_port_identifier[1] = 10;
+	pg = ctsio->io_hdr.nexus.targ_port / CTL_MAX_PORTS;
+	mtx_lock(&softc->ctl_lock);
+	for (g = 0; g < num_target_port_groups; g++) {
+		if (g == pg)
+			tpg_desc->pref_state = TPG_PRIMARY |
+			    TPG_ASYMMETRIC_ACCESS_OPTIMIZED;
+		else
+			tpg_desc->pref_state =
+			    TPG_ASYMMETRIC_ACCESS_NONOPTIMIZED;
+		tpg_desc->support = TPG_AO_SUP;
+		if (!single)
+			tpg_desc->support |= TPG_AN_SUP;
+		scsi_ulto2b(g + 1, tpg_desc->target_port_group);
+		tpg_desc->status = TPG_IMPLICIT;
+		pc = 0;
+		STAILQ_FOREACH(port, &softc->port_list, links) {
+			if ((port->status & CTL_PORT_STATUS_ONLINE) == 0)
+				continue;
+			if (ctl_map_lun_back(port->targ_port, lun->lun) >=
+			    CTL_MAX_LUNS)
+				continue;
+			p = port->targ_port % CTL_MAX_PORTS + g * CTL_MAX_PORTS;
+			scsi_ulto2b(p, tpg_desc->descriptors[pc].
+			    relative_target_port_identifier);
+			pc++;
 		}
+		tpg_desc->target_port_count = pc;
+		tpg_desc = (struct scsi_target_port_group_descriptor *)
+		    &tpg_desc->descriptors[pc];
 	}
+	mtx_unlock(&softc->ctl_lock);
 
 	ctsio->io_hdr.flags |= CTL_FLAG_ALLOCATED;
 	ctsio->be_move_done = ctl_config_move_done;
@@ -7278,7 +7576,8 @@ ctl_report_supported_tmf(struct ctl_scsiio *ctsio)
 	ctsio->kern_rel_offset = 0;
 
 	data = (struct scsi_report_supported_tmf_data *)ctsio->kern_data_ptr;
-	data->byte1 |= RST_ATS | RST_LURS | RST_TRS;
+	data->byte1 |= RST_ATS | RST_ATSS | RST_LURS | RST_TRS;
+	data->byte2 |= RST_ITNRS;
 
 	ctsio->io_hdr.flags |= CTL_FLAG_ALLOCATED;
 	ctsio->be_move_done = ctl_config_move_done;
@@ -7374,6 +7673,11 @@ retry:
 		break;
 	case SPRI_RC: /* report capabilities */
 		total_len = sizeof(struct scsi_per_res_cap);
+		break;
+	case SPRI_RS: /* read full status */
+		total_len = sizeof(struct scsi_per_res_in_header) +
+		    (sizeof(struct scsi_per_res_in_full_desc) + 256) *
+		    lun->pr_key_count;
 		break;
 	default:
 		panic("Invalid PR type %x", cdb->action);
@@ -7531,7 +7835,62 @@ retry:
 		scsi_ulto2b(type_mask, res_cap->type_mask);
 		break;
 	}
-	case SPRI_RS: //read full status
+	case SPRI_RS: { // read full status
+		struct scsi_per_res_in_full *res_status;
+		struct scsi_per_res_in_full_desc *res_desc;
+		struct ctl_port *port;
+		int i, len;
+
+		res_status = (struct scsi_per_res_in_full*)ctsio->kern_data_ptr;
+
+		/*
+		 * We had to drop the lock to allocate our buffer, which
+		 * leaves time for someone to come in with another
+		 * persistent reservation.  (That is unlikely, though,
+		 * since this should be the only persistent reservation
+		 * command active right now.)
+		 */
+		if (total_len < (sizeof(struct scsi_per_res_in_header) +
+		    (sizeof(struct scsi_per_res_in_full_desc) + 256) *
+		     lun->pr_key_count)){
+			mtx_unlock(&lun->lun_lock);
+			free(ctsio->kern_data_ptr, M_CTL);
+			printf("%s: reservation length changed, retrying\n",
+			       __func__);
+			goto retry;
+		}
+
+		scsi_ulto4b(lun->PRGeneration, res_status->header.generation);
+
+		res_desc = &res_status->desc[0];
+		for (i = 0; i < 2*CTL_MAX_INITIATORS; i++) {
+			if (!lun->per_res[i].registered)
+				continue;
+
+			memcpy(&res_desc->res_key, &lun->per_res[i].res_key.key,
+			    sizeof(res_desc->res_key));
+			if ((lun->flags & CTL_LUN_PR_RESERVED) &&
+			    (lun->pr_res_idx == i ||
+			     lun->pr_res_idx == CTL_PR_ALL_REGISTRANTS)) {
+				res_desc->flags = SPRI_FULL_R_HOLDER;
+				res_desc->scopetype = lun->res_type;
+			}
+			scsi_ulto2b(i / CTL_MAX_INIT_PER_PORT,
+			    res_desc->rel_trgt_port_id);
+			len = 0;
+			port = softc->ctl_ports[i / CTL_MAX_INIT_PER_PORT];
+			if (port != NULL)
+				len = ctl_create_iid(port,
+				    i % CTL_MAX_INIT_PER_PORT,
+				    res_desc->transport_id);
+			scsi_ulto4b(len, res_desc->additional_length);
+			res_desc = (struct scsi_per_res_in_full_desc *)
+			    &res_desc->transport_id[len];
+		}
+		scsi_ulto4b((uint8_t *)res_desc - (uint8_t *)&res_status->desc[0],
+		    res_status->header.length);
+		break;
+	}
 	default:
 		/*
 		 * This is a bug, because we just checked for this above,
@@ -9097,9 +9456,7 @@ ctl_report_luns(struct ctl_scsiio *ctsio)
 
 	mtx_lock(&control_softc->ctl_lock);
 	for (targ_lun_id = 0, num_filled = 0; targ_lun_id < CTL_MAX_LUNS && num_filled < num_luns; targ_lun_id++) {
-		lun_id = targ_lun_id;
-		if (ctsio->io_hdr.nexus.lun_map_fn != NULL)
-			lun_id = ctsio->io_hdr.nexus.lun_map_fn(ctsio->io_hdr.nexus.lun_map_arg, lun_id);
+		lun_id = ctl_map_lun(ctsio->io_hdr.nexus.targ_port, targ_lun_id);
 		if (lun_id >= CTL_MAX_LUNS)
 			continue;
 		lun = control_softc->ctl_luns[lun_id];
@@ -9432,10 +9789,12 @@ ctl_inquiry_evpd_supported(struct ctl_scsiio *ctsio, int alloc_len)
 	pages->page_list[1] = SVPD_UNIT_SERIAL_NUMBER;
 	/* Device Identification */
 	pages->page_list[2] = SVPD_DEVICE_ID;
+	/* SCSI Ports */
+	pages->page_list[3] = SVPD_SCSI_PORTS;
 	/* Block limits */
-	pages->page_list[3] = SVPD_BLOCK_LIMITS;
+	pages->page_list[4] = SVPD_BLOCK_LIMITS;
 	/* Logical Block Provisioning */
-	pages->page_list[4] = SVPD_LBP;
+	pages->page_list[5] = SVPD_LBP;
 
 	ctsio->scsi_status = SCSI_STATUS_OK;
 
@@ -9507,39 +9866,29 @@ static int
 ctl_inquiry_evpd_devid(struct ctl_scsiio *ctsio, int alloc_len)
 {
 	struct scsi_vpd_device_id *devid_ptr;
-	struct scsi_vpd_id_descriptor *desc, *desc1;
-	struct scsi_vpd_id_descriptor *desc2, *desc3; /* for types 4h and 5h */
-	struct scsi_vpd_id_t10 *t10id;
+	struct scsi_vpd_id_descriptor *desc;
 	struct ctl_softc *ctl_softc;
 	struct ctl_lun *lun;
-	struct ctl_frontend *fe;
-	char *val;
-	int data_len, devid_len;
+	struct ctl_port *port;
+	int data_len;
+	uint8_t proto;
 
 	ctl_softc = control_softc;
 
-	fe = ctl_softc->ctl_ports[ctl_port_idx(ctsio->io_hdr.nexus.targ_port)];
-
-	if (fe->devid != NULL)
-		return ((fe->devid)(ctsio, alloc_len));
-
+	port = ctl_softc->ctl_ports[ctl_port_idx(ctsio->io_hdr.nexus.targ_port)];
 	lun = (struct ctl_lun *)ctsio->io_hdr.ctl_private[CTL_PRIV_LUN].ptr;
 
-	if (lun == NULL) {
-		devid_len = CTL_DEVID_MIN_LEN;
-	} else {
-		devid_len = max(CTL_DEVID_MIN_LEN,
-		    strnlen(lun->be_lun->device_id, CTL_DEVID_LEN));
-	}
-
 	data_len = sizeof(struct scsi_vpd_device_id) +
-		sizeof(struct scsi_vpd_id_descriptor) +
-		sizeof(struct scsi_vpd_id_t10) + devid_len +
-		sizeof(struct scsi_vpd_id_descriptor) + CTL_WWPN_LEN +
-		sizeof(struct scsi_vpd_id_descriptor) +
+	    sizeof(struct scsi_vpd_id_descriptor) +
 		sizeof(struct scsi_vpd_id_rel_trgt_port_id) +
-		sizeof(struct scsi_vpd_id_descriptor) +
+	    sizeof(struct scsi_vpd_id_descriptor) +
 		sizeof(struct scsi_vpd_id_trgt_port_grp_id);
+	if (lun && lun->lun_devid)
+		data_len += lun->lun_devid->len;
+	if (port->port_devid)
+		data_len += port->port_devid->len;
+	if (port->target_devid)
+		data_len += port->target_devid->len;
 
 	ctsio->kern_data_ptr = malloc(data_len, M_CTL, M_WAITOK | M_ZERO);
 	devid_ptr = (struct scsi_vpd_device_id *)ctsio->kern_data_ptr;
@@ -9558,15 +9907,6 @@ ctl_inquiry_evpd_devid(struct ctl_scsiio *ctsio, int alloc_len)
 	ctsio->kern_rel_offset = 0;
 	ctsio->kern_sg_entries = 0;
 
-	desc = (struct scsi_vpd_id_descriptor *)devid_ptr->desc_list;
-	t10id = (struct scsi_vpd_id_t10 *)&desc->identifier[0];
-	desc1 = (struct scsi_vpd_id_descriptor *)(&desc->identifier[0] +
-		sizeof(struct scsi_vpd_id_t10) + devid_len);
-	desc2 = (struct scsi_vpd_id_descriptor *)(&desc1->identifier[0] +
-	          CTL_WWPN_LEN);
-	desc3 = (struct scsi_vpd_id_descriptor *)(&desc2->identifier[0] +
-	         sizeof(struct scsi_vpd_id_rel_trgt_port_id));
-
 	/*
 	 * The control device is always connected.  The disk device, on the
 	 * other hand, may not be online all the time.
@@ -9576,111 +9916,178 @@ ctl_inquiry_evpd_devid(struct ctl_scsiio *ctsio, int alloc_len)
 				     lun->be_lun->lun_type;
 	else
 		devid_ptr->device = (SID_QUAL_LU_OFFLINE << 5) | T_DIRECT;
-
 	devid_ptr->page_code = SVPD_DEVICE_ID;
-
 	scsi_ulto2b(data_len - 4, devid_ptr->length);
 
-	/*
-	 * For Fibre channel,
-	 */
-	if (fe->port_type == CTL_PORT_FC)
-	{
-		desc->proto_codeset = (SCSI_PROTO_FC << 4) |
-				      SVPD_ID_CODESET_ASCII;
-        	desc1->proto_codeset = (SCSI_PROTO_FC << 4) |
-		              SVPD_ID_CODESET_BINARY;
-	}
+	if (port->port_type == CTL_PORT_FC)
+		proto = SCSI_PROTO_FC << 4;
+	else if (port->port_type == CTL_PORT_ISCSI)
+		proto = SCSI_PROTO_ISCSI << 4;
 	else
-	{
-		desc->proto_codeset = (SCSI_PROTO_SPI << 4) |
-				      SVPD_ID_CODESET_ASCII;
-        	desc1->proto_codeset = (SCSI_PROTO_SPI << 4) |
-		              SVPD_ID_CODESET_BINARY;
-	}
-	desc2->proto_codeset = desc3->proto_codeset = desc1->proto_codeset;
+		proto = SCSI_PROTO_SPI << 4;
+	desc = (struct scsi_vpd_id_descriptor *)devid_ptr->desc_list;
 
 	/*
 	 * We're using a LUN association here.  i.e., this device ID is a
 	 * per-LUN identifier.
 	 */
-	desc->id_type = SVPD_ID_PIV | SVPD_ID_ASSOC_LUN | SVPD_ID_TYPE_T10;
-	desc->length = sizeof(*t10id) + devid_len;
-	if (lun == NULL || (val = ctl_get_opt(lun->be_lun, "vendor")) == NULL) {
-		strncpy((char *)t10id->vendor, CTL_VENDOR, sizeof(t10id->vendor));
-	} else {
-		memset(t10id->vendor, ' ', sizeof(t10id->vendor));
-		strncpy(t10id->vendor, val,
-		    min(sizeof(t10id->vendor), strlen(val)));
+	if (lun && lun->lun_devid) {
+		memcpy(desc, lun->lun_devid->data, lun->lun_devid->len);
+		desc = (struct scsi_vpd_id_descriptor *)((uint8_t *)desc +
+		    lun->lun_devid->len);
 	}
 
 	/*
-	 * desc1 is for the WWPN which is a port asscociation.
+	 * This is for the WWPN which is a port association.
 	 */
-	desc1->id_type = SVPD_ID_PIV | SVPD_ID_ASSOC_PORT | SVPD_ID_TYPE_NAA;
-	desc1->length = CTL_WWPN_LEN;
-	/* XXX Call Reggie's get_WWNN func here then add port # to the end */
-	/* For testing just create the WWPN */
-#if 0
-	ddb_GetWWNN((char *)desc1->identifier);
-
-	/* NOTE: if the port is 0 or 8 we don't want to subtract 1 */
-	/* This is so Copancontrol will return something sane */
-	if (ctsio->io_hdr.nexus.targ_port!=0 &&
-	    ctsio->io_hdr.nexus.targ_port!=8)
-		desc1->identifier[7] += ctsio->io_hdr.nexus.targ_port-1;
-	else
-		desc1->identifier[7] += ctsio->io_hdr.nexus.targ_port;
-#endif
-
-	be64enc(desc1->identifier, fe->wwpn);
+	if (port->port_devid) {
+		memcpy(desc, port->port_devid->data, port->port_devid->len);
+		desc = (struct scsi_vpd_id_descriptor *)((uint8_t *)desc +
+		    port->port_devid->len);
+	}
 
 	/*
-	 * desc2 is for the Relative Target Port(type 4h) identifier
+	 * This is for the Relative Target Port(type 4h) identifier
 	 */
-	desc2->id_type = SVPD_ID_PIV | SVPD_ID_ASSOC_PORT
-	                 | SVPD_ID_TYPE_RELTARG;
-	desc2->length = 4;
-//#if 0
-	/* NOTE: if the port is 0 or 8 we don't want to subtract 1 */
-	/* This is so Copancontrol will return something sane */
-	if (ctsio->io_hdr.nexus.targ_port!=0 &&
-	    ctsio->io_hdr.nexus.targ_port!=8)
-		desc2->identifier[3] = ctsio->io_hdr.nexus.targ_port - 1;
-	else
-	        desc2->identifier[3] = ctsio->io_hdr.nexus.targ_port;
-//#endif
+	desc->proto_codeset = proto | SVPD_ID_CODESET_BINARY;
+	desc->id_type = SVPD_ID_PIV | SVPD_ID_ASSOC_PORT |
+	    SVPD_ID_TYPE_RELTARG;
+	desc->length = 4;
+	scsi_ulto2b(ctsio->io_hdr.nexus.targ_port, &desc->identifier[2]);
+	desc = (struct scsi_vpd_id_descriptor *)(&desc->identifier[0] +
+	    sizeof(struct scsi_vpd_id_rel_trgt_port_id));
 
 	/*
-	 * desc3 is for the Target Port Group(type 5h) identifier
+	 * This is for the Target Port Group(type 5h) identifier
 	 */
-	desc3->id_type = SVPD_ID_PIV | SVPD_ID_ASSOC_PORT
-	                 | SVPD_ID_TYPE_TPORTGRP;
-	desc3->length = 4;
-	if (ctsio->io_hdr.nexus.targ_port < CTL_MAX_PORTS || ctl_is_single)
-		desc3->identifier[3] = 1;
-	else
-		desc3->identifier[3] = 2;
+	desc->proto_codeset = proto | SVPD_ID_CODESET_BINARY;
+	desc->id_type = SVPD_ID_PIV | SVPD_ID_ASSOC_PORT |
+	    SVPD_ID_TYPE_TPORTGRP;
+	desc->length = 4;
+	scsi_ulto2b(ctsio->io_hdr.nexus.targ_port / CTL_MAX_PORTS + 1,
+	    &desc->identifier[2]);
+	desc = (struct scsi_vpd_id_descriptor *)(&desc->identifier[0] +
+	    sizeof(struct scsi_vpd_id_trgt_port_grp_id));
 
 	/*
-	 * If we've actually got a backend, copy the device id from the
-	 * per-LUN data.  Otherwise, set it to all spaces.
+	 * This is for the Target identifier
 	 */
-	if (lun != NULL) {
-		/*
-		 * Copy the backend's LUN ID.
-		 */
-		strncpy((char *)t10id->vendor_spec_id,
-			(char *)lun->be_lun->device_id, devid_len);
-	} else {
-		/*
-		 * No backend, set this to spaces.
-		 */
-		memset(t10id->vendor_spec_id, 0x20, devid_len);
+	if (port->target_devid) {
+		memcpy(desc, port->target_devid->data, port->target_devid->len);
 	}
 
 	ctsio->scsi_status = SCSI_STATUS_OK;
+	ctsio->io_hdr.flags |= CTL_FLAG_ALLOCATED;
+	ctsio->be_move_done = ctl_config_move_done;
+	ctl_datamove((union ctl_io *)ctsio);
 
+	return (CTL_RETVAL_COMPLETE);
+}
+
+static int
+ctl_inquiry_evpd_scsi_ports(struct ctl_scsiio *ctsio, int alloc_len)
+{
+	struct ctl_softc *softc = control_softc;
+	struct scsi_vpd_scsi_ports *sp;
+	struct scsi_vpd_port_designation *pd;
+	struct scsi_vpd_port_designation_cont *pdc;
+	struct ctl_lun *lun;
+	struct ctl_port *port;
+	int data_len, num_target_ports, id_len, g, pg, p;
+	int num_target_port_groups, single;
+
+	lun = (struct ctl_lun *)ctsio->io_hdr.ctl_private[CTL_PRIV_LUN].ptr;
+
+	single = ctl_is_single;
+	if (single)
+		num_target_port_groups = 1;
+	else
+		num_target_port_groups = NUM_TARGET_PORT_GROUPS;
+	num_target_ports = 0;
+	id_len = 0;
+	mtx_lock(&softc->ctl_lock);
+	STAILQ_FOREACH(port, &softc->port_list, links) {
+		if ((port->status & CTL_PORT_STATUS_ONLINE) == 0)
+			continue;
+		if (ctl_map_lun_back(port->targ_port, lun->lun) >=
+		    CTL_MAX_LUNS)
+			continue;
+		num_target_ports++;
+		if (port->port_devid)
+			id_len += port->port_devid->len;
+	}
+	mtx_unlock(&softc->ctl_lock);
+
+	data_len = sizeof(struct scsi_vpd_scsi_ports) + num_target_port_groups *
+	    num_target_ports * (sizeof(struct scsi_vpd_port_designation) +
+	     sizeof(struct scsi_vpd_port_designation_cont)) + id_len;
+	ctsio->kern_data_ptr = malloc(data_len, M_CTL, M_WAITOK | M_ZERO);
+	sp = (struct scsi_vpd_scsi_ports *)ctsio->kern_data_ptr;
+	ctsio->kern_sg_entries = 0;
+
+	if (data_len < alloc_len) {
+		ctsio->residual = alloc_len - data_len;
+		ctsio->kern_data_len = data_len;
+		ctsio->kern_total_len = data_len;
+	} else {
+		ctsio->residual = 0;
+		ctsio->kern_data_len = alloc_len;
+		ctsio->kern_total_len = alloc_len;
+	}
+	ctsio->kern_data_resid = 0;
+	ctsio->kern_rel_offset = 0;
+	ctsio->kern_sg_entries = 0;
+
+	/*
+	 * The control device is always connected.  The disk device, on the
+	 * other hand, may not be online all the time.  Need to change this
+	 * to figure out whether the disk device is actually online or not.
+	 */
+	if (lun != NULL)
+		sp->device = (SID_QUAL_LU_CONNECTED << 5) |
+				  lun->be_lun->lun_type;
+	else
+		sp->device = (SID_QUAL_LU_OFFLINE << 5) | T_DIRECT;
+
+	sp->page_code = SVPD_SCSI_PORTS;
+	scsi_ulto2b(data_len - sizeof(struct scsi_vpd_scsi_ports),
+	    sp->page_length);
+	pd = &sp->design[0];
+
+	mtx_lock(&softc->ctl_lock);
+	if (softc->flags & CTL_FLAG_MASTER_SHELF)
+		pg = 0;
+	else
+		pg = 1;
+	for (g = 0; g < num_target_port_groups; g++) {
+		STAILQ_FOREACH(port, &softc->port_list, links) {
+			if ((port->status & CTL_PORT_STATUS_ONLINE) == 0)
+				continue;
+			if (ctl_map_lun_back(port->targ_port, lun->lun) >=
+			    CTL_MAX_LUNS)
+				continue;
+			p = port->targ_port % CTL_MAX_PORTS + g * CTL_MAX_PORTS;
+			scsi_ulto2b(p, pd->relative_port_id);
+			scsi_ulto2b(0, pd->initiator_transportid_length);
+			pdc = (struct scsi_vpd_port_designation_cont *)
+			    &pd->initiator_transportid[0];
+			if (port->port_devid && g == pg) {
+				id_len = port->port_devid->len;
+				scsi_ulto2b(port->port_devid->len,
+				    pdc->target_port_descriptors_length);
+				memcpy(pdc->target_port_descriptors,
+				    port->port_devid->data, port->port_devid->len);
+			} else {
+				id_len = 0;
+				scsi_ulto2b(0, pdc->target_port_descriptors_length);
+			}
+			pd = (struct scsi_vpd_port_designation *)
+			    ((uint8_t *)pdc->target_port_descriptors + id_len);
+		}
+	}
+	mtx_unlock(&softc->ctl_lock);
+
+	ctsio->scsi_status = SCSI_STATUS_OK;
 	ctsio->io_hdr.flags |= CTL_FLAG_ALLOCATED;
 	ctsio->be_move_done = ctl_config_move_done;
 	ctl_datamove((union ctl_io *)ctsio);
@@ -9818,6 +10225,9 @@ ctl_inquiry_evpd(struct ctl_scsiio *ctsio)
 		break;
 	case SVPD_DEVICE_ID:
 		retval = ctl_inquiry_evpd_devid(ctsio, alloc_len);
+		break;
+	case SVPD_SCSI_PORTS:
+		retval = ctl_inquiry_evpd_scsi_ports(ctsio, alloc_len);
 		break;
 	case SVPD_BLOCK_LIMITS:
 		retval = ctl_inquiry_evpd_block_limits(ctsio, alloc_len);
@@ -9990,7 +10400,8 @@ ctl_inquiry_std(struct ctl_scsiio *ctsio)
 	 * We have 8 bytes for the vendor name, and 16 bytes for the device
 	 * name and 4 bytes for the revision.
 	 */
-	if (lun == NULL || (val = ctl_get_opt(lun->be_lun, "vendor")) == NULL) {
+	if (lun == NULL || (val = ctl_get_opt(&lun->be_lun->options,
+	    "vendor")) == NULL) {
 		strcpy(inq_ptr->vendor, CTL_VENDOR);
 	} else {
 		memset(inq_ptr->vendor, ' ', sizeof(inq_ptr->vendor));
@@ -9999,7 +10410,7 @@ ctl_inquiry_std(struct ctl_scsiio *ctsio)
 	}
 	if (lun == NULL) {
 		strcpy(inq_ptr->product, CTL_DIRECT_PRODUCT);
-	} else if ((val = ctl_get_opt(lun->be_lun, "product")) == NULL) {
+	} else if ((val = ctl_get_opt(&lun->be_lun->options, "product")) == NULL) {
 		switch (lun->be_lun->lun_type) {
 		case T_DIRECT:
 			strcpy(inq_ptr->product, CTL_DIRECT_PRODUCT);
@@ -10021,7 +10432,8 @@ ctl_inquiry_std(struct ctl_scsiio *ctsio)
 	 * XXX make this a macro somewhere so it automatically gets
 	 * incremented when we make changes.
 	 */
-	if (lun == NULL || (val = ctl_get_opt(lun->be_lun, "revision")) == NULL) {
+	if (lun == NULL || (val = ctl_get_opt(&lun->be_lun->options,
+	    "revision")) == NULL) {
 		strncpy(inq_ptr->revision, "0001", sizeof(inq_ptr->revision));
 	} else {
 		memset(inq_ptr->revision, ' ', sizeof(inq_ptr->revision));
@@ -11416,6 +11828,97 @@ ctl_lun_reset(struct ctl_lun *lun, union ctl_io *io, ctl_ua_type ua_type)
 }
 
 static int
+ctl_abort_tasks_lun(struct ctl_lun *lun, uint32_t targ_port, uint32_t init_id,
+    int other_sc)
+{
+	union ctl_io *xio;
+	int found;
+
+	mtx_assert(&lun->lun_lock, MA_OWNED);
+
+	/*
+	 * Run through the OOA queue and attempt to find the given I/O.
+	 * The target port, initiator ID, tag type and tag number have to
+	 * match the values that we got from the initiator.  If we have an
+	 * untagged command to abort, simply abort the first untagged command
+	 * we come to.  We only allow one untagged command at a time of course.
+	 */
+	for (xio = (union ctl_io *)TAILQ_FIRST(&lun->ooa_queue); xio != NULL;
+	     xio = (union ctl_io *)TAILQ_NEXT(&xio->io_hdr, ooa_links)) {
+
+		if ((targ_port == xio->io_hdr.nexus.targ_port) &&
+		    (init_id == xio->io_hdr.nexus.initid.id)) {
+			xio->io_hdr.flags |= CTL_FLAG_ABORT;
+			found = 1;
+			if (!other_sc && !(lun->flags & CTL_LUN_PRIMARY_SC)) {
+				union ctl_ha_msg msg_info;
+
+				msg_info.hdr.nexus = xio->io_hdr.nexus;
+				msg_info.task.task_action = CTL_TASK_ABORT_TASK;
+				msg_info.task.tag_num = xio->scsiio.tag_num;
+				msg_info.task.tag_type = xio->scsiio.tag_type;
+				msg_info.hdr.msg_type = CTL_MSG_MANAGE_TASKS;
+				msg_info.hdr.original_sc = NULL;
+				msg_info.hdr.serializing_sc = NULL;
+				ctl_ha_msg_send(CTL_HA_CHAN_CTL,
+				    (void *)&msg_info, sizeof(msg_info), 0);
+			}
+		}
+	}
+	return (found);
+}
+
+static int
+ctl_abort_task_set(union ctl_io *io)
+{
+	struct ctl_softc *softc = control_softc;
+	struct ctl_lun *lun;
+	uint32_t targ_lun;
+
+	/*
+	 * Look up the LUN.
+	 */
+	targ_lun = io->io_hdr.nexus.targ_mapped_lun;
+	mtx_lock(&softc->ctl_lock);
+	if ((targ_lun < CTL_MAX_LUNS) && (softc->ctl_luns[targ_lun] != NULL))
+		lun = softc->ctl_luns[targ_lun];
+	else {
+		mtx_unlock(&softc->ctl_lock);
+		return (1);
+	}
+
+	mtx_lock(&lun->lun_lock);
+	mtx_unlock(&softc->ctl_lock);
+	ctl_abort_tasks_lun(lun, io->io_hdr.nexus.targ_port,
+	    io->io_hdr.nexus.initid.id,
+	    (io->io_hdr.flags & CTL_FLAG_FROM_OTHER_SC) != 0);
+	mtx_unlock(&lun->lun_lock);
+	return (0);
+}
+
+static int
+ctl_i_t_nexus_reset(union ctl_io *io)
+{
+	struct ctl_softc *softc = control_softc;
+	struct ctl_lun *lun;
+	uint32_t initindex;
+
+	initindex = ctl_get_initindex(&io->io_hdr.nexus);
+	mtx_lock(&softc->ctl_lock);
+	STAILQ_FOREACH(lun, &softc->lun_list, links) {
+		mtx_lock(&lun->lun_lock);
+		ctl_abort_tasks_lun(lun, io->io_hdr.nexus.targ_port,
+		    io->io_hdr.nexus.initid.id,
+		    (io->io_hdr.flags & CTL_FLAG_FROM_OTHER_SC) != 0);
+		ctl_clear_mask(lun->have_ca, initindex);
+		lun->pending_sense[initindex].ua_pending |= CTL_UA_I_T_NEXUS_LOSS;
+		mtx_unlock(&lun->lun_lock);
+	}
+	mtx_unlock(&softc->ctl_lock);
+	return (0);
+}
+
+static int
 ctl_abort_task(union ctl_io *io)
 {
 	union ctl_io *xio;
@@ -11618,10 +12121,14 @@ ctl_run_task(union ctl_io *io)
 		retval = ctl_abort_task(io);
 		break;
 	case CTL_TASK_ABORT_TASK_SET:
+		retval = ctl_abort_task_set(io);
 		break;
 	case CTL_TASK_CLEAR_ACA:
 		break;
 	case CTL_TASK_CLEAR_TASK_SET:
+		break;
+	case CTL_TASK_I_T_NEXUS_RESET:
+		retval = ctl_i_t_nexus_reset(io);
 		break;
 	case CTL_TASK_LUN_RESET: {
 		struct ctl_lun *lun;
@@ -13140,8 +13647,7 @@ ctl_queue_sense(union ctl_io *io)
 	 * information.
 	 */
 	targ_lun = io->io_hdr.nexus.targ_lun;
-	if (io->io_hdr.nexus.lun_map_fn != NULL)
-		targ_lun = io->io_hdr.nexus.lun_map_fn(io->io_hdr.nexus.lun_map_arg, targ_lun);
+	targ_lun = ctl_map_lun(io->io_hdr.nexus.targ_port, targ_lun);
 	if ((targ_lun < CTL_MAX_LUNS)
 	 && (ctl_softc->ctl_luns[targ_lun] != NULL))
 		lun = ctl_softc->ctl_luns[targ_lun];
@@ -13192,11 +13698,8 @@ ctl_queue(union ctl_io *io)
 #endif /* CTL_TIME_IO */
 
 	/* Map FE-specific LUN ID into global one. */
-	if (io->io_hdr.nexus.lun_map_fn != NULL)
-		io->io_hdr.nexus.targ_mapped_lun = io->io_hdr.nexus.lun_map_fn(
-		    io->io_hdr.nexus.lun_map_arg, io->io_hdr.nexus.targ_lun);
-	else
-		io->io_hdr.nexus.targ_mapped_lun = io->io_hdr.nexus.targ_lun;
+	io->io_hdr.nexus.targ_mapped_lun =
+	    ctl_map_lun(io->io_hdr.nexus.targ_port, io->io_hdr.nexus.targ_lun);
 
 	switch (io->io_hdr.io_type) {
 	case CTL_IO_SCSI:

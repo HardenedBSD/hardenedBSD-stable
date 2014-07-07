@@ -79,7 +79,6 @@ typedef enum {
 	CTL_POOL_INTERNAL,
 	CTL_POOL_FETD,
 	CTL_POOL_EMERGENCY,
-	CTL_POOL_IOCTL,
 	CTL_POOL_4OTHERSC
 } ctl_pool_type;
 
@@ -110,7 +109,7 @@ typedef enum {
 struct ctl_ioctl_info {
 	ctl_ioctl_flags		flags;
 	uint32_t		cur_tag_num;
-	struct ctl_frontend	fe;
+	struct ctl_port		port;
 	char			port_name[24];
 };
 
@@ -368,11 +367,15 @@ struct ctl_per_res_info {
 #define CTL_PR_ALL_REGISTRANTS  0xFFFF
 #define CTL_PR_NO_RESERVATION   0xFFF0
 
+struct ctl_devid {
+	int		len;
+	uint8_t		data[];
+};
+
 /*
  * For report target port groups.
  */
 #define NUM_TARGET_PORT_GROUPS	2
-#define NUM_PORTS_PER_GRP	2
 
 struct ctl_lun {
 	struct mtx			lun_lock;
@@ -403,19 +406,13 @@ struct ctl_lun {
 	uint16_t        		pr_res_idx;
 	uint8_t				res_type;
 	uint8_t				write_buffer[524288];
+	struct ctl_devid		*lun_devid;
 };
 
 typedef enum {
 	CTL_FLAG_REAL_SYNC	= 0x02,
 	CTL_FLAG_MASTER_SHELF	= 0x04
 } ctl_gen_flags;
-
-struct ctl_wwpn_iid {
-	int in_use;
-	uint64_t wwpn;
-	uint32_t iid;
-	int32_t port;
-};
 
 #define CTL_MAX_THREADS		16
 
@@ -449,14 +446,15 @@ struct ctl_softc {
 	int targ_online;
 	uint32_t ctl_lun_mask[CTL_MAX_LUNS >> 5];
 	struct ctl_lun *ctl_luns[CTL_MAX_LUNS];
-	struct ctl_wwpn_iid wwpn_iid[CTL_MAX_PORTS][CTL_MAX_INIT_PER_PORT];
 	uint32_t ctl_port_mask;
 	uint64_t aps_locked_lun;
 	STAILQ_HEAD(, ctl_lun) lun_list;
 	STAILQ_HEAD(, ctl_be_lun) pending_lun_queue;
 	uint32_t num_frontends;
 	STAILQ_HEAD(, ctl_frontend) fe_list;
-	struct ctl_frontend *ctl_ports[CTL_MAX_PORTS];
+	uint32_t num_ports;
+	STAILQ_HEAD(, ctl_port) port_list;
+	struct ctl_port *ctl_ports[CTL_MAX_PORTS];
 	uint32_t num_backends;
 	STAILQ_HEAD(, ctl_backend_driver) be_list;
 	struct mtx pool_lock;
