@@ -409,6 +409,10 @@ do_execve(td, args, mac_p)
 	imgp->stack_prot = 0;
 	imgp->pax_flags = 0;
 
+#if defined(PAX_MPROTECT) || defined(PAX_ASLR)
+	pax_elf(imgp, 0);
+#endif
+
 #ifdef MAC
 	error = mac_execve_enter(imgp, mac_p);
 	if (error)
