@@ -1,9 +1,6 @@
 /*-
- * Copyright (c) 1992, 1993
- *	The Regents of the University of California.  All rights reserved.
- *
- * This code is derived from software contributed to Berkeley by
- * Christos Zoulas of Cornell University.
+ * Copyright (c) 2014 Pietro Cerutti <gahr@FreeBSD.org>
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -13,7 +10,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. Neither the name of the University nor the names of its contributors
+ * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -28,33 +25,41 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- *	@(#)prompt.h	8.1 (Berkeley) 6/4/93
- *	$NetBSD: prompt.h,v 1.9 2009/03/31 17:38:27 christos Exp $
- * $FreeBSD$
  */
 
-/*
- * el.prompt.h: Prompt printing stuff
- */
-#ifndef _h_el_prompt
-#define	_h_el_prompt
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
-#include "histedit.h"
+#include <utmpx.h>
 
-typedef char * (*el_pfunc_t)(EditLine*);
+#include <algorithm>
+#include <iostream>
+#include <iterator>
+#include <set>
+#include <string>
+using namespace std;
 
-typedef struct el_prompt_t {
-	el_pfunc_t	p_func;		/* Function to return the prompt */
-	coord_t		p_pos;		/* position in the line after prompt */
-	char		p_ignore;	/* character to start/end literal 
-*/
-} el_prompt_t;
+int
+main(int argc, char **)
+{
+	struct utmpx *ut;
+	set<string> names;
 
-protected void	prompt_print(EditLine *, int);
-protected int	prompt_set(EditLine *, el_pfunc_t, char, int);
-protected int	prompt_get(EditLine *, el_pfunc_t *, char *, int);
-protected int	prompt_init(EditLine *);
-protected void	prompt_end(EditLine *);
+	if (argc > 1) {
+		cerr << "usage: users" << endl;
+		return (1);
+	}
 
-#endif /* _h_el_prompt */
+	setutxent();
+	while ((ut = getutxent()) != NULL)
+		if (ut->ut_type == USER_PROCESS)
+			names.insert(ut->ut_user);
+	endutxent();
+
+	if (!names.empty()) {
+		set<string>::iterator last = names.end();
+		--last;
+		copy(names.begin(), last, ostream_iterator<string>(cout, " "));
+		cout << *last << endl;
+	}
+}
