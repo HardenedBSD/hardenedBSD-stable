@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013 Ian Lepore
+ * Copyright (c) 2014 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -23,8 +23,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * Wandboard Solo.
- *
  * $FreeBSD$
  */
 
@@ -35,16 +33,16 @@
 	#address-cells = <1>;
 	#size-cells = <1>;
 
-	model = "Wandboard Solo";
-	compatible = "wand,imx6s-wandboard", "fsl,imx6s";
+	model = "Toradex Apalis i.MX6";
+	compatible = "toradex,imx6q-apalis", "fsl,imx6q";
 
 	memory {
-		reg = <0x10000000 0x20000000>; /* RAM 512M */
+		reg = <0x10000000 0x40000000>; /* RAM 1GB */
 	};
 
 	SOC: soc@00000000 {
 		aips@02000000 { /* AIPS1 */
-			iomux@020e0000		{ status = "disabled"; };
+			iomux@020e0000		{ status = "okay"; };
 			gpio@0209c000		{ status = "okay"; };
 			gpio@020a0000		{ status = "okay"; };
 			gpio@020a4000		{ status = "okay"; };
@@ -59,6 +57,9 @@
 			serial@021f4000		{ status = "disabled"; };
 			usbphy@020c9000		{ status = "okay"; };
 			usbphy@020ca000		{ status = "okay"; };
+			ecspi@02008000		{ status = "okay"; };
+			ssi@02028000		{ status = "okay"; };
+			sdma@020ec000		{ status = "okay"; };
 		};
 		aips@02100000 { /* AIPS2 */
 			ethernet@02188000	{
@@ -70,10 +71,11 @@
 			usb@02184200		{ status = "okay"; };
 			usb@02184400		{ status = "disabled"; };
 			usb@02184600		{ status = "disabled"; };
-			usdhc@02190000		{ status = "okay"; };
-			usdhc@02194000		{ status = "disabled"; };
-			usdhc@02198000		{ status = "okay"; };
+			usdhc@02190000		{ status = "disabled"; };
+			usdhc@02194000		{ status = "okay"; };
+			usdhc@02198000		{ status = "disabled"; };
 			usdhc@0219c000		{ status = "disabled"; };
+			audmux@021d8000		{ status = "okay"; };
 		};
 	};
 

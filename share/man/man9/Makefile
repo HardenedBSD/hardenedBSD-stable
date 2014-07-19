@@ -212,8 +212,8 @@ MAN=	accept_filter.9 \
 	pmap_object_init_pt.9 \
 	pmap_page_exists_quick.9 \
 	pmap_page_init.9 \
-	pmap_page_protect.9 \
 	pmap_pinit.9 \
+	pmap_protect.9 \
 	pmap_qenter.9 \
 	pmap_release.9 \
 	pmap_remove.9 \
@@ -384,7 +384,6 @@ MAN=	accept_filter.9 \
 	vrele.9 \
 	vslock.9 \
 	watchdog.9 \
-	zero_copy.9 \
 	zone.9
 
 MLINKS=	unr.9 alloc_unr.9 \
@@ -1049,7 +1048,6 @@ MLINKS+=pmap_copy.9 pmap_copy_page.9
 MLINKS+=pmap_extract.9 pmap_extract_and_hold.9
 MLINKS+=pmap_init.9 pmap_init2.9
 MLINKS+=pmap_is_modified.9 pmap_ts_referenced.9
-MLINKS+=pmap_page_protect.9 pmap_protect.9
 MLINKS+=pmap_pinit.9 pmap_pinit0.9 \
 	pmap_pinit.9 pmap_pinit2.9
 MLINKS+=pmap_qenter.9 pmap_qremove.9
@@ -1575,7 +1573,6 @@ MLINKS+=vref.9 VREF.9
 MLINKS+=vrele.9 vput.9 \
 	vrele.9 vunref.9
 MLINKS+=vslock.9 vsunlock.9
-MLINKS+=zero_copy.9 zero_copy_sockets.9
 MLINKS+=zone.9 uma.9 \
 	zone.9 uma_zalloc.9 \
 	zone.9 uma_zalloc_arg.9 \
