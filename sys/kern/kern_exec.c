@@ -409,7 +409,7 @@ do_execve(td, args, mac_p)
 	imgp->stack_prot = 0;
 	imgp->pax_flags = 0;
 
-#if defined(PAX_MPROTECT) || defined(PAX_ASLR)
+#if defined(PAX_ASLR)
 	pax_elf(imgp, 0);
 #endif
 

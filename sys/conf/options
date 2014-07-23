@@ -923,7 +923,6 @@ RCTL		opt_global.h
 # PaX - hardening options
 PAX_ASLR	opt_pax.h
 PAX_ASLR_MAX_SEC	opt_pax.h
-PAX_MPROTECT	opt_pax.h
 PAX_SYSCTLS	opt_pax.h
 
 # Random number generator(s)
