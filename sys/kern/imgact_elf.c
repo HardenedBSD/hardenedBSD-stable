@@ -659,16 +659,16 @@ __elfN(load_file)(struct proc *p, const char *file, u_long *addr,
 	hdr = (const Elf_Ehdr *)imgp->image_header;
 	if ((error = __elfN(check_header)(hdr)) != 0)
 		goto fail;
-	if (hdr->e_type == ET_DYN) {
+	if (hdr->e_type == ET_DYN)
 		rbase = *addr;
-	} else if (hdr->e_type == ET_EXEC) {
+	else if (hdr->e_type == ET_EXEC)
 		rbase = 0;
-	} else {
+	else {
 		error = ENOEXEC;
 		goto fail;
 	}
 
-	/* Only support headers that fit within first page for now */
+	/* Only support headers that fit within first page for now      */
 	if ((hdr->e_phoff > PAGE_SIZE) ||
 	    (u_int)hdr->e_phentsize * hdr->e_phnum > PAGE_SIZE - hdr->e_phoff) {
 		error = ENOEXEC;
