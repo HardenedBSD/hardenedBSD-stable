@@ -2,3 +2,9 @@ include BEAGLEBONE
 
 options PAX_ASLR
 options PAX_SYSCTLS
+
+nooptions WITNESS
+nooptions WITNESS_SKIPSPIN
+nooptions MALLOC_DEBUG_MAXZONES
+nooptions INVARIANTS
+nooptions INVARIANT_SUPPORT
