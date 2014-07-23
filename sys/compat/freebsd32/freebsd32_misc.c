@@ -56,6 +56,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/mount.h>
 #include <sys/mutex.h>
 #include <sys/namei.h>
+#include <sys/pax.h>
 #include <sys/proc.h>
 #include <sys/procctl.h>
 #include <sys/reboot.h>
@@ -113,10 +114,6 @@ __FBSDID("$FreeBSD$");
 #include <compat/freebsd32/freebsd32_proto.h>
 
 FEATURE(compat_freebsd_32bit, "Compatible with 32-bit FreeBSD");
-
-#ifdef PAX_ASLR
-#include <sys/pax.h>
-#endif
 
 #ifndef __mips__
 CTASSERT(sizeof(struct timeval32) == 8);

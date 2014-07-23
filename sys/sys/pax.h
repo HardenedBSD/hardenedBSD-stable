@@ -32,6 +32,8 @@
 #ifndef	__SYS_PAX_H
 #define	__SYS_PAX_H
 
+#ifdef _KERNEL
+
 struct image_params;
 struct prison;
 struct thread;
@@ -52,7 +54,6 @@ struct vm_offset_t;
 	(((delta) & ((1UL << (len)) - 1)) << (lsb))
 #endif /* PAX_ASLR_DELTA */
 
-#ifdef PAX_ASLR
 /*
  * generic ASLR values
  *
@@ -192,7 +193,6 @@ extern int pax_aslr_compat_mmap_len;
 extern int pax_aslr_compat_stack_len;
 extern int pax_aslr_compat_exec_len;
 #endif /* COMPAT_FREEBSD32 */
-#endif /* PAX_ASLR */
 
 extern int pax_log_log;
 extern int pax_log_ulog;
@@ -222,5 +222,7 @@ void pax_elf(struct image_params *, uint32_t);
 
 void pax_log_aslr(struct prison *pr, const char *func, const char *fmt, ...);
 void pax_ulog_aslr(struct prison *pr, const char *func, const char *fmt, ...);
+
+#endif /* _KERNEL */
 
 #endif /* __SYS_PAX_H */

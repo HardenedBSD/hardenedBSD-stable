@@ -59,6 +59,7 @@
 #include <sys/mount.h>
 #include <sys/mutex.h>
 #include <sys/param.h>
+#include <sys/pax.h>
 #include <sys/priv.h>
 #include <sys/proc.h>
 #include <sys/systm.h>
@@ -67,10 +68,6 @@
 #include <sys/syslog.h>
 #include <sys/syslimits.h>
 #include <sys/stat.h>
-
-#ifdef PAX_ASLR
-#include <sys/pax.h>
-#endif
 
 #include <security/mac/mac_policy.h>
 #include <security/mac_bsdextended/mac_bsdextended.h>

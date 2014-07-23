@@ -50,6 +50,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/namei.h>
 #include <sys/pioctl.h>
 #include <sys/jail.h>
+#include <sys/pax.h>
 #include <sys/proc.h>
 #include <sys/procfs.h>
 #include <sys/racct.h>
@@ -82,10 +83,6 @@ __FBSDID("$FreeBSD$");
 
 #include <machine/elf.h>
 #include <machine/md_var.h>
-
-#if defined(PAX_ASLR)
-#include <sys/pax.h>
-#endif
 
 #define ELF_NOTE_ROUNDSIZE	4
 #define OLD_EI_BRAND	8

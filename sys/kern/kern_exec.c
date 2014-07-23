@@ -52,6 +52,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/wait.h>
 #include <sys/malloc.h>
 #include <sys/priv.h>
+#include <sys/pax.h>
 #include <sys/proc.h>
 #include <sys/pioctl.h>
 #include <sys/namei.h>
@@ -92,10 +93,6 @@ __FBSDID("$FreeBSD$");
 #ifdef KDTRACE_HOOKS
 #include <sys/dtrace_bsd.h>
 dtrace_execexit_func_t	dtrace_fasttrap_exec;
-#endif
-
-#if defined(PAX_ASLR)
-#include <sys/pax.h>
 #endif
 
 SDT_PROVIDER_DECLARE(proc);

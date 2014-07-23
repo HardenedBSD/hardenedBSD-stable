@@ -33,6 +33,7 @@
 #include <sys/exec.h>
 #include <sys/imgact.h>
 #include <sys/malloc.h>
+#include <sys/pax.h>
 #include <sys/proc.h>
 #include <sys/namei.h>
 #include <sys/fcntl.h>
@@ -49,10 +50,6 @@
 #include <machine/cpu.h>
 #include <machine/elf.h>
 #include <machine/md_var.h>
-
-#ifdef PAX_ASLR
-#include <sys/pax.h>
-#endif
 
 struct sysentvec elf64_freebsd_sysvec = {
 	.sv_size	= SYS_MAXSYSCALL,

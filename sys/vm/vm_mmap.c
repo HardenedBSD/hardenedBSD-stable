@@ -55,6 +55,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/mutex.h>
 #include <sys/sysproto.h>
 #include <sys/filedesc.h>
+#include <sys/pax.h>
 #include <sys/priv.h>
 #include <sys/proc.h>
 #include <sys/procctl.h>
@@ -90,10 +91,6 @@ __FBSDID("$FreeBSD$");
 
 #ifdef HWPMC_HOOKS
 #include <sys/pmckern.h>
-#endif
-
-#ifdef PAX_ASLR
-#include <sys/pax.h>
 #endif
 
 int old_mlock = 0;

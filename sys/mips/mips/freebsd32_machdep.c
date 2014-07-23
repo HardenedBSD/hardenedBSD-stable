@@ -46,6 +46,7 @@
 #include <sys/proc.h>
 #include <sys/namei.h>
 #include <sys/fcntl.h>
+#include <sys/pax.h>
 #include <sys/sysent.h>
 #include <sys/imgact_elf.h>
 #include <sys/syscall.h>
@@ -66,10 +67,6 @@
 #include <compat/freebsd32/freebsd32_signal.h>
 #include <compat/freebsd32/freebsd32_util.h>
 #include <compat/freebsd32/freebsd32_proto.h>
-
-#ifdef PAX_ASLR
-#include <sys/pax.h>
-#endif
 
 static void freebsd32_exec_setregs(struct thread *, struct image_params *, u_long);
 static int get_mcontext32(struct thread *, mcontext32_t *, int);

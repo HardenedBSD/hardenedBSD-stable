@@ -42,6 +42,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/module.h>
 #include <sys/sysent.h>
 #include <sys/signalvar.h>
+#include <sys/pax.h>
 #include <sys/proc.h>
 #include <sys/sx.h>
 
@@ -51,10 +52,6 @@ __FBSDID("$FreeBSD$");
 
 #include <i386/ibcs2/ibcs2_syscall.h>
 #include <i386/ibcs2/ibcs2_signal.h>
-
-#ifdef PAX_ASLR
-#include <sys/pax.h>
-#endif
 
 MODULE_VERSION(ibcs2, 1);
 

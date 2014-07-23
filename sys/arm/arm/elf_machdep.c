@@ -36,6 +36,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/linker.h>
 #include <sys/sysent.h>
 #include <sys/imgact_elf.h>
+#include <sys/pax.h>
 #include <sys/proc.h>
 #include <sys/syscall.h>
 #include <sys/signalvar.h>
@@ -47,10 +48,6 @@ __FBSDID("$FreeBSD$");
 
 #include <machine/elf.h>
 #include <machine/md_var.h>
-
-#ifdef PAX_ASLR
-#include <sys/pax.h>
-#endif
 
 struct sysentvec elf32_freebsd_sysvec = {
 	.sv_size	= SYS_MAXSYSCALL,
