@@ -34,6 +34,7 @@ enum vm_suspend_how {
 	VM_SUSPEND_RESET,
 	VM_SUSPEND_POWEROFF,
 	VM_SUSPEND_HALT,
+	VM_SUSPEND_TRIPLEFAULT,
 	VM_SUSPEND_LAST
 };
 
@@ -88,6 +89,16 @@ enum x2apic_state {
 	X2APIC_STATE_LAST
 };
 
+#define	VM_INTINFO_VECTOR(info)	((info) & 0xff)
+#define	VM_INTINFO_DEL_ERRCODE	0x800
+#define	VM_INTINFO_RSVD		0x7ffff000
+#define	VM_INTINFO_VALID	0x80000000
+#define	VM_INTINFO_TYPE		0x700
+#define	VM_INTINFO_HWINTR	(0 << 8)
+#define	VM_INTINFO_NMI		(2 << 8)
+#define	VM_INTINFO_HWEXCEPTION	(3 << 8)
+#define	VM_INTINFO_SWINTR	(4 << 8)
+
 #ifdef _KERNEL
 
 #define	VM_MAX_NAMELEN	32
@@ -103,6 +114,7 @@ struct vioapic;
 struct vlapic;
 struct vmspace;
 struct vm_object;
+struct vm_guest_paging;
 struct pmap;
 
 typedef int	(*vmm_init_func_t)(int ipinum);
@@ -278,21 +290,69 @@ struct vatpit *vm_atpit(struct vm *vm);
 int vm_inject_exception(struct vm *vm, int vcpuid, struct vm_exception *vme);
 
 /*
- * Returns 0 if there is no exception pending for this vcpu. Returns 1 if an
- * exception is pending and also updates 'vme'. The pending exception is
- * cleared when this function returns.
+ * This function is called after a VM-exit that occurred during exception or
+ * interrupt delivery through the IDT. The format of 'intinfo' is described
+ * in Figure 15-1, "EXITINTINFO for All Intercepts", APM, Vol 2.
  *
- * This function should only be called in the context of the thread that is
- * executing this vcpu.
+ * If a VM-exit handler completes the event delivery successfully then it
+ * should call vm_exit_intinfo() to extinguish the pending event. For e.g.,
+ * if the task switch emulation is triggered via a task gate then it should
+ * call this function with 'intinfo=0' to indicate that the external event
+ * is not pending anymore.
+ *
+ * Return value is 0 on success and non-zero on failure.
  */
-int vm_exception_pending(struct vm *vm, int vcpuid, struct vm_exception *vme);
+int vm_exit_intinfo(struct vm *vm, int vcpuid, uint64_t intinfo);
+
+/*
+ * This function is called before every VM-entry to retrieve a pending
+ * event that should be injected into the guest. This function combines
+ * nested events into a double or triple fault.
+ *
+ * Returns 0 if there are no events that need to be injected into the guest
+ * and non-zero otherwise.
+ */
+int vm_entry_intinfo(struct vm *vm, int vcpuid, uint64_t *info);
+
+int vm_get_intinfo(struct vm *vm, int vcpuid, uint64_t *info1, uint64_t *info2);
 
 void vm_inject_gp(struct vm *vm, int vcpuid); /* general protection fault */
 void vm_inject_ud(struct vm *vm, int vcpuid); /* undefined instruction fault */
+void vm_inject_ac(struct vm *vm, int vcpuid, int errcode); /* #AC */
+void vm_inject_ss(struct vm *vm, int vcpuid, int errcode); /* #SS */
 void vm_inject_pf(struct vm *vm, int vcpuid, int error_code, uint64_t cr2);
 
 enum vm_reg_name vm_segment_name(int seg_encoding);
 
+struct vm_copyinfo {
+	uint64_t	gpa;
+	size_t		len;
+	void		*hva;
+	void		*cookie;
+};
+
+/*
+ * Set up 'copyinfo[]' to copy to/from guest linear address space starting
+ * at 'gla' and 'len' bytes long. The 'prot' should be set to PROT_READ for
+ * a copyin or PROT_WRITE for a copyout. 
+ *
+ * Returns 0 on success.
+ * Returns 1 if an exception was injected into the guest.
+ * Returns -1 otherwise.
+ *
+ * The 'copyinfo[]' can be passed to 'vm_copyin()' or 'vm_copyout()' only if
+ * the return value is 0. The 'copyinfo[]' resources should be freed by calling
+ * 'vm_copy_teardown()' after the copy is done.
+ */
+int vm_copy_setup(struct vm *vm, int vcpuid, struct vm_guest_paging *paging,
+    uint64_t gla, size_t len, int prot, struct vm_copyinfo *copyinfo,
+    int num_copyinfo);
+void vm_copy_teardown(struct vm *vm, int vcpuid, struct vm_copyinfo *copyinfo,
+    int num_copyinfo);
+void vm_copyin(struct vm *vm, int vcpuid, struct vm_copyinfo *copyinfo,
+    void *kaddr, size_t len);
+void vm_copyout(struct vm *vm, int vcpuid, const void *kaddr,
+    struct vm_copyinfo *copyinfo, size_t len);
 #endif	/* KERNEL */
 
 #define	VM_MAXCPU	16			/* maximum virtual cpus */
