@@ -95,15 +95,13 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 {
 	u_int flags = 0;
 
-	if ((mode & MBI_ALLPAX) == MBI_ALLPAX)
-		goto end;
+	if ((mode & MBI_ALLPAX) != MBI_ALLPAX) {
+		if (mode & MBI_FORCE_ASLR_ENABLED)
+			flags |= PAX_NOTE_ASLR;
+		else if (mode & MBI_FORCE_ASLR_DISABLED)
+			flags |= PAX_NOTE_NOASLR;
+	}
 
-	if (mode & MBI_FORCE_ASLR_ENABLED)
-		flags |= PAX_NOTE_ASLR;
-	else if (mode & MBI_FORCE_ASLR_DISABLED)
-		flags |= PAX_NOTE_NOASLR;
-
-end:
 	if (imgp != NULL) {
 		imgp->pax_flags = flags;
 		if (imgp->proc != NULL) {
