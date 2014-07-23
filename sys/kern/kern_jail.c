@@ -43,6 +43,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/sysproto.h>
 #include <sys/malloc.h>
 #include <sys/osd.h>
+#include <sys/pax.h>
 #include <sys/priv.h>
 #include <sys/proc.h>
 #include <sys/taskqueue.h>
@@ -74,10 +75,6 @@ __FBSDID("$FreeBSD$");
 #include <netinet6/in6_var.h>
 #endif /* INET6 */
 #endif /* DDB */
-
-#if defined(PAX_ASLR)
-#include <sys/pax.h>
-#endif
 
 #include <security/mac/mac_framework.h>
 
