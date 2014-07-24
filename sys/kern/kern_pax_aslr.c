@@ -194,9 +194,6 @@ sysctl_pax_aslr_debug(SYSCTL_HANDLER_ARGS)
 
 	pr = pax_get_prison(req->td, NULL);
 
-	if ((pr != NULL) && !(pr->pr_pax_set))
-		pax_init_prison(pr);
-
 	val = (pr != NULL) ? pr->pr_pax_aslr_debug : pax_aslr_debug;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
 	if (err || !req->newptr)
@@ -231,9 +228,6 @@ sysctl_pax_aslr_mmap(SYSCTL_HANDLER_ARGS)
 
 	pr = pax_get_prison(req->td, NULL);
 
-	if ((pr != NULL) && !(pr->pr_pax_set))
-		pax_init_prison(pr);
-
 	val = (pr != NULL) ? pr->pr_pax_aslr_mmap_len : pax_aslr_mmap_len;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
 	if (err || !req->newptr)
@@ -263,9 +257,6 @@ sysctl_pax_aslr_stack(SYSCTL_HANDLER_ARGS)
 
 	pr = pax_get_prison(req->td, NULL);
 
-	if ((pr != NULL) && !(pr->pr_pax_set))
-		pax_init_prison(pr);
-
 	val = (pr != NULL) ? pr->pr_pax_aslr_stack_len : pax_aslr_stack_len;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
 	if (err || !req->newptr)
@@ -294,9 +285,6 @@ sysctl_pax_aslr_exec(SYSCTL_HANDLER_ARGS)
 	int err, val;
 
 	pr = pax_get_prison(req->td, NULL);
-
-	if ((pr != NULL) && !(pr->pr_pax_set))
-		pax_init_prison(pr);
 
 	val = (pr != NULL) ? pr->pr_pax_aslr_exec_len : pax_aslr_exec_len;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
