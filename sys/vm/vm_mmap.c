@@ -306,7 +306,7 @@ sys_mmap(td, uap)
 		/* Ugly hack for adding ASLR to 32bit mappings */
 		pax_aslr_mmap(td, &addr, orig_addr, flags);
 		if (addr != orig_addr)
-			addr = trunc_page(addr&0x0fffffff);
+			addr = trunc_page(addr & 0x0fffffff);
 #endif
 		if (addr + size > MAP_32BIT_MAX_ADDR)
 			addr = 0;
