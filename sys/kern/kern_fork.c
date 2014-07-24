@@ -513,7 +513,7 @@ do_fork(struct thread *td, int flags, struct proc *p2, struct thread *td2,
 	}
 
 	/*
-	 * XXXOP: this is the right place?
+	 * Per-process PaX flags.
 	 */
 	p2->p_pax = p1->p_pax;
 
