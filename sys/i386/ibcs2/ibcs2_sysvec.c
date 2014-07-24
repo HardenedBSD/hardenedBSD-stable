@@ -94,8 +94,6 @@ struct sysentvec ibcs2_svr3_sysvec = {
 	.sv_schedtail	= NULL,
 #ifdef PAX_ASLR
 	.sv_pax_aslr_init = _pax_aslr_init, /* XXXOP */
-#else
-	.sv_pax_aslr_init = NULL,
 #endif
 };
 

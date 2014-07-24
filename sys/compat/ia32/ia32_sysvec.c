@@ -140,8 +140,6 @@ struct sysentvec ia32_freebsd_sysvec = {
 	.sv_schedtail	= NULL,
 #ifdef PAX_ASLR
 	.sv_pax_aslr_init = _pax_aslr_init32,
-#else
-	.sv_pax_aslr_init = NULL,
 #endif
 };
 INIT_SYSENTVEC(elf_ia32_sysvec, &ia32_freebsd_sysvec);

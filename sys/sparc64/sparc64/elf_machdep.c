@@ -92,8 +92,6 @@ static struct sysentvec elf64_freebsd_sysvec = {
 	.sv_schedtail	= NULL,
 #ifdef PAX_ASLR
 	.sv_pax_aslr_init = _pax_aslr_init,
-#else
-	.sv_pax_aslr_init = NULL,
 #endif
 };
 

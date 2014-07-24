@@ -103,9 +103,7 @@ struct sysentvec aout_sysvec = {
 	.sv_syscallnames = syscallnames,
 	.sv_schedtail	= NULL,
 #ifdef PAX_ASLR
-	.sv_pax_aslr_init = _pax_aslr_init, /* XXXOP */
-#else
-	.sv_pax_aslr_init = NULL,
+	.sv_pax_aslr_init = _pax_aslr_init,
 #endif
 };
 

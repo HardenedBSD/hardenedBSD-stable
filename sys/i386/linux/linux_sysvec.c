@@ -979,8 +979,6 @@ struct sysentvec linux_sysvec = {
 	.sv_schedtail	= linux_schedtail,
 #ifdef PAX_ASLR
 	.sv_pax_aslr_init = _pax_aslr_init, /* XXXOP */
-#else
-	.sv_pax_aslr_init = NULL,
 #endif
 };
 INIT_SYSENTVEC(aout_sysvec, &linux_sysvec);
