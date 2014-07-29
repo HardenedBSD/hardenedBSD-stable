@@ -29,6 +29,8 @@
 #ifndef _VMM_H_
 #define	_VMM_H_
 
+#include <x86/segments.h>
+
 enum vm_suspend_how {
 	VM_SUSPEND_NONE,
 	VM_SUSPEND_RESET,
@@ -268,6 +270,14 @@ vcpu_is_running(struct vm *vm, int vcpu, int *hostcpu)
 	return (vcpu_get_state(vm, vcpu, hostcpu) == VCPU_RUNNING);
 }
 
+#ifdef _SYS_PROC_H_
+static int __inline
+vcpu_should_yield(struct vm *vm, int vcpu)
+{
+	return (curthread->td_flags & (TDF_ASTPENDING | TDF_NEEDRESCHED));
+}
+#endif
+
 void *vcpu_stats(struct vm *vm, int vcpu);
 void vcpu_notify_event(struct vm *vm, int vcpuid, bool lapic_intr);
 struct vmspace *vm_get_vmspace(struct vm *vm);
@@ -315,12 +325,6 @@ int vm_exit_intinfo(struct vm *vm, int vcpuid, uint64_t intinfo);
 int vm_entry_intinfo(struct vm *vm, int vcpuid, uint64_t *info);
 
 int vm_get_intinfo(struct vm *vm, int vcpuid, uint64_t *info1, uint64_t *info2);
-
-void vm_inject_gp(struct vm *vm, int vcpuid); /* general protection fault */
-void vm_inject_ud(struct vm *vm, int vcpuid); /* undefined instruction fault */
-void vm_inject_ac(struct vm *vm, int vcpuid, int errcode); /* #AC */
-void vm_inject_ss(struct vm *vm, int vcpuid, int errcode); /* #SS */
-void vm_inject_pf(struct vm *vm, int vcpuid, int error_code, uint64_t cr2);
 
 enum vm_reg_name vm_segment_name(int seg_encoding);
 
@@ -578,5 +582,35 @@ struct vm_exit {
 		struct vm_task_switch task_switch;
 	} u;
 };
+
+/* APIs to inject faults into the guest */
+void vm_inject_fault(void *vm, int vcpuid, int vector, int errcode_valid,
+    int errcode);
+
+static void __inline
+vm_inject_ud(void *vm, int vcpuid)
+{
+	vm_inject_fault(vm, vcpuid, IDT_UD, 0, 0);
+}
+
+static void __inline
+vm_inject_gp(void *vm, int vcpuid)
+{
+	vm_inject_fault(vm, vcpuid, IDT_GP, 1, 0);
+}
+
+static void __inline
+vm_inject_ac(void *vm, int vcpuid, int errcode)
+{
+	vm_inject_fault(vm, vcpuid, IDT_AC, 1, errcode);
+}
+
+static void __inline
+vm_inject_ss(void *vm, int vcpuid, int errcode)
+{
+	vm_inject_fault(vm, vcpuid, IDT_SS, 1, errcode);
+}
+
+void vm_inject_pf(void *vm, int vcpuid, int error_code, uint64_t cr2);
 
 #endif	/* _VMM_H_ */

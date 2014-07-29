@@ -1,4 +1,4 @@
-Updating Information for FreeBSD current users
+Updating Information for FreeBSD current users.
 
 This file is maintained and copyrighted by M. Warner Losh <imp@freebsd.org>.
 See end of file for further details.  For commonly done items, please see the
@@ -30,6 +30,10 @@ NOTE TO PEOPLE WHO THINK THAT FreeBSD 11.x IS SLOW:
 	debugging, define MALLOC_PRODUCTION in /etc/make.conf, or to merely
 	disable the most expensive debugging functionality run
 	"ln -s 'abort:false,junk:false' /etc/malloc.conf".)
+
+20140723:
+	The xdev targets have been converted to using TARGET and
+	TARGET_ARCH instead of XDEV and XDEV_ARCH.
 
 20140719:
 	The default unbound configuration has been modified to address
