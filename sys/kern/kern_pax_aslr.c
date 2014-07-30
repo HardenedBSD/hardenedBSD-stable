@@ -174,9 +174,9 @@ sysctl_pax_aslr_status(SYSCTL_HANDLER_ARGS)
 			pax_aslr_status = val;
 
 		if (pr != NULL) {
-			mtx_lock(&(pr->pr_mtx));
+			prison_lock(pr);
 			pr->pr_pax_aslr_status = val;
-			mtx_unlock(&(pr->pr_mtx));
+			prison_unlock(pr);
 		}
 		break;
 	default:
@@ -212,9 +212,9 @@ sysctl_pax_aslr_debug(SYSCTL_HANDLER_ARGS)
 		pax_aslr_debug = val;
 
 	if (pr != NULL) {
-		mtx_lock(&(pr->pr_mtx));
+		prison_lock(pr);
 		pr->pr_pax_aslr_debug = val;
-		mtx_unlock(&(pr->pr_mtx));
+		prison_unlock(pr);
 	}
 
 	return (0);
@@ -241,9 +241,9 @@ sysctl_pax_aslr_mmap(SYSCTL_HANDLER_ARGS)
 		pax_aslr_mmap_len = val;
 
 	if (pr != NULL) {
-		mtx_lock(&(pr->pr_mtx));
+		prison_lock(pr);
 		pr->pr_pax_aslr_mmap_len = val;
-		mtx_unlock(&(pr->pr_mtx));
+		prison_unlock(pr);
 	}
 
 	return (0);
@@ -270,9 +270,9 @@ sysctl_pax_aslr_stack(SYSCTL_HANDLER_ARGS)
 		pax_aslr_stack_len = val;
 
 	if (pr != NULL) {
-		mtx_lock(&(pr->pr_mtx));
+		prison_lock(pr);
 		pr->pr_pax_aslr_stack_len = val;
-		mtx_unlock(&(pr->pr_mtx));
+		prison_unlock(pr);
 	}
 
 	return (0);
@@ -299,9 +299,9 @@ sysctl_pax_aslr_exec(SYSCTL_HANDLER_ARGS)
 		pax_aslr_exec_len = val;
 
 	if (pr != NULL) {
-		mtx_lock(&(pr->pr_mtx));
+		prison_lock(pr);
 		pr->pr_pax_aslr_exec_len = val;
-		mtx_unlock(&(pr->pr_mtx));
+		prison_unlock(pr);
 	}
 
 	return (0);
@@ -368,9 +368,9 @@ sysctl_pax_aslr_compat_status(SYSCTL_HANDLER_ARGS)
 			pax_aslr_compat_status = val;
 
 		if (pr != NULL) {
-			mtx_lock(&(pr->pr_mtx));
+			prison_lock(pr);
 			pr->pr_pax_aslr_compat_status = val;
-			mtx_unlock(&(pr->pr_mtx));
+			prison_unlock(pr);
 		}
 		break;
 	default:
@@ -401,9 +401,9 @@ sysctl_pax_aslr_compat_mmap(SYSCTL_HANDLER_ARGS)
 		pax_aslr_compat_mmap_len = val;
 
 	if (pr != NULL) {
-		mtx_lock(&(pr->pr_mtx));
+		prison_lock(pr);
 		pr->pr_pax_aslr_compat_mmap_len = val;
-		mtx_unlock(&(pr->pr_mtx));
+		prison_unlock(pr);
 	}
 
 	return (0);
@@ -430,9 +430,9 @@ sysctl_pax_aslr_compat_stack(SYSCTL_HANDLER_ARGS)
 		pax_aslr_compat_stack_len = val;
 
 	if (pr != NULL) {
-		mtx_lock(&(pr->pr_mtx));
+		prison_lock(pr);
 		pr->pr_pax_aslr_compat_stack_len = val;
-		mtx_unlock(&(pr->pr_mtx));
+		prison_unlock(pr);
 	}
 
 	return (0);
@@ -463,9 +463,9 @@ sysctl_pax_aslr_compat_exec(SYSCTL_HANDLER_ARGS)
 		pax_aslr_compat_exec_len = val;
 
 	if (pr != NULL) {
-		mtx_lock(&(pr->pr_mtx));
+		prison_lock(pr);
 		pr->pr_pax_aslr_compat_exec_len = val;
-		mtx_unlock(&(pr->pr_mtx));
+		prison_unlock(pr);
 	}
 
 	return (0);
