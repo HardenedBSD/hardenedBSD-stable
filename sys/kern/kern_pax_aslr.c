@@ -104,6 +104,8 @@ TUNABLE_INT("security.pax.aslr.compat.stack", &pax_aslr_compat_stack_len);
 TUNABLE_INT("security.pax.aslr.compat.stack", &pax_aslr_compat_exec_len);
 #endif
 
+static uint32_t pax_get_status(struct thread *td, struct proc *proc, struct prison **pr);
+static int pax_get_flags(struct thread *td, struct proc *proc, struct prison *pr, uint32_t *flags);
 
 #ifdef PAX_SYSCTLS
 /*
@@ -478,55 +480,95 @@ sysctl_pax_aslr_compat_exec(SYSCTL_HANDLER_ARGS)
 /*
  * ASLR functions
  */
+
+
+uint32_t
+pax_get_status(struct thread *td, struct proc *proc, struct prison **pr)
+{
+	bool	skip;
+
+	skip = false;
+	*pr = NULL;
+
+	if ((proc != NULL) && (proc->p_ucred != NULL)) {
+		*pr = proc->p_ucred->cr_prison;
+		skip = true;
+	}
+
+	if (skip == false &&
+	    td != NULL && (td->td_proc != NULL) && (td->td_proc->p_ucred != NULL)) {
+		*pr = td->td_proc->p_ucred->cr_prison;
+		skip = true;
+	}
+
+	if (skip == true && *pr != NULL)
+		return ((*pr)->pr_pax_aslr_status);
+	else
+		return pax_aslr_status;
+}
+
+static int
+pax_get_flags(struct thread *td, struct proc *proc, struct prison *pr, uint32_t *flags)
+{
+	*flags = 0;
+
+	if (proc != NULL)
+		*flags = proc->p_pax;
+	else if (td != NULL)
+		*flags = td->td_proc->p_pax;
+	else
+		return (1);
+
+	if (((*flags & 0xaaaaaaaa) & ((*flags & 0x55555555) << 1)) != 0) {
+		pax_log_aslr(pr, __func__, "inconsistent paxflags: %x\n", *flags);
+		pax_ulog_aslr(pr, NULL, "inconsistent paxflags: %x\n", *flags);
+		return (1);
+	}
+
+	return (0);
+}
+
+
 bool
 pax_aslr_active(struct thread *td, struct proc *proc)
 {
 	int status;
 	struct prison *pr;
 	uint32_t flags;
+	bool ret;
 
 	if ((td == NULL) && (proc == NULL))
 		return (true);
 
-	pr = pax_get_prison(td, proc);
+	status = pax_get_status(td, proc, &pr);
 
-	flags = (td != NULL) ? td->td_proc->p_pax : proc->p_pax;
-	if (((flags & 0xaaaaaaaa) & ((flags & 0x55555555) << 1)) != 0) {
-		pax_log_aslr(pr, __func__, "inconsistent paxflags: %x\n", flags);
-		pax_ulog_aslr(pr, NULL, "inconsistent paxflags: %x\n", flags);
+	if (status == PAX_ASLR_DISABLED)
+		return (false);
+
+	if (status == PAX_ASLR_FORCE_ENABLED)
 		return (true);
+
+	ret = pax_get_flags(td, proc, pr, &flags);
+	if (ret != 0)
+		/*
+		 * invalid flags, we should force ASLR
+		 */
+		return (true);
+
+	if ((status == PAX_ASLR_OPTIN) && (flags & PAX_NOTE_ASLR) == 0) {
+		pax_log_aslr(pr, __func__,
+		    "ASLR is opt-in, and executable does not have ASLR enabled\n");
+		pax_ulog_aslr(pr, NULL,
+		    "ASLR is opt-in, and executable does not have ASLR enabled\n");
+		return (false);
 	}
 
-	if (pr != NULL)
-		status = pr->pr_pax_aslr_status;
-	else
-		status = pax_aslr_status;
-
-	switch (status) {
-	case    PAX_ASLR_DISABLED:
+	if ((status == PAX_ASLR_OPTOUT) && (flags & PAX_NOTE_NOASLR) != 0) {
+		pax_log_aslr(pr, __func__,
+		    "ASLR is opt-out, and executable explicitly disabled ASLR\n");
+		pax_ulog_aslr(pr, NULL,
+		    "ASLR is opt-out, and executable explicitly disabled ASLR\n");
 		return (false);
-	case    PAX_ASLR_FORCE_ENABLED:
-		return (true);
-	case    PAX_ASLR_OPTIN:
-		if ((flags & PAX_NOTE_ASLR) == 0) {
-			pax_log_aslr(pr, __func__,
-			    "ASLR is opt-in, and executable does not have ASLR enabled\n");
-			pax_ulog_aslr(pr, NULL,
-			    "ASLR is opt-in, and executable does not have ASLR enabled\n");
-			return (false);
-		}
-		break;
-	case    PAX_ASLR_OPTOUT:
-		if ((flags & PAX_NOTE_NOASLR) != 0) {
-			pax_log_aslr(pr, __func__,
-			    "ASLR is opt-out, and executable explicitly disabled ASLR\n");
-			pax_ulog_aslr(pr, NULL,
-			    "ASLR is opt-out, and executable explicitly disabled ASLR\n");
-			return (false);
-		}
-		break;
-	default:
-		return (true);
 	}
 
 	return (true);
