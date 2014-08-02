@@ -14,7 +14,7 @@
  * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
  * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
@@ -26,53 +26,5 @@
  * $FreeBSD$
  */
 
-/dts-v1/;
-
-/include/ "exynos5250.dtsi"
-
-/ {
-	model = "Samsung Chromebook";
-
-	memory {
-		device_type = "memory";
-		reg = < 0x40000000 0x80000000 >;  /* 2G */
-	};
-
-	SOC: Exynos5@0 {
-
-		pad0: pad@11400000 {
-			status = "okay";
-		};
-
-		fimd0: fimd@14400000 {
-			status = "okay";
-
-			panel-size = < 1366 768 >;
-			panel-hsync = < 80 32 48 >;
-			panel-vsync = < 14 5 3 >;
-			panel-clk-div = < 17 >;
-			panel-backlight-pin = < 25 >;
-		};
-
-		i2c4: i2c@12CA0000 {
-			status = "okay";
-		};
-
-		keyboard-controller {
-			compatible = "google,mkbp-keyb";
-			google,key-rows = <8>;
-			google,key-columns = <13>;
-			freebsd,intr-gpio = <146>;
-		};
-	};
-
-	i2c-arbitrator {
-		freebsd,our-gpio = <177>;
-		freebsd,ec-gpio = <168>;
-	};
-
-	chosen {
-		stdin = &serial2;
-		stdout = &serial2;
-	};
-};
+int usb2_phy_power_on(void);
+int usbdrd_phy_power_on(void);
