@@ -220,8 +220,8 @@ void pax_aslr_stack(struct thread *td, uintptr_t *addr);
 struct prison *pax_get_prison(struct thread *td, struct proc *proc);
 void pax_elf(struct image_params *, uint32_t);
 
-void pax_log_aslr(struct prison *pr, const char *func, const char *fmt, ...);
-void pax_ulog_aslr(struct prison *pr, const char *func, const char *fmt, ...);
+void pax_log_aslr(const char *func, const char *fmt, ...);
+void pax_ulog_aslr(const char *func, const char *fmt, ...);
 
 #endif /* _KERNEL */
 

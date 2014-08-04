@@ -39,12 +39,12 @@
 
 #define __PAX_LOG_TEMPLATE(SUBJECT, name)					\
 void										\
-pax_log_##name(struct prison *pr, const char *caller_name, const char* fmt, ...)\
+pax_log_##name(const char *caller_name, const char* fmt, ...)			\
 {										\
 	struct sbuf *sb;							\
 	va_list args;								\
 										\
-	if ((pr != NULL) && (pr->pr_pax_log_log == 0))				\
+	if (pax_log_log == 0)							\
 		return;								\
 										\
 	sb = sbuf_new_auto();							\
@@ -64,12 +64,12 @@ pax_log_##name(struct prison *pr, const char *caller_name, const char* fmt, ...)
 }										\
 										\
 void										\
-pax_ulog_##name(struct prison *pr, const char *caller_name, const char* fmt, ...)\
+pax_ulog_##name(const char *caller_name, const char* fmt, ...)			\
 {										\
 	struct sbuf *sb;							\
 	va_list args;								\
 										\
-	if ((pr != NULL) && (pr->pr_pax_log_ulog == 0))				\
+	if (pax_log_ulog == 0)							\
 		return;								\
 										\
 	sb = sbuf_new_auto();							\
@@ -121,14 +121,8 @@ sysctl_pax_log_log(SYSCTL_HANDLER_ARGS)
 {
 	int err;
 	int val;
-	struct prison *pr=NULL;
 
-	pr = pax_get_prison(req->td, NULL);
-
-	if ((pr != NULL) && !(pr->pr_pax_set))
-		pax_init_prison(pr);
-
-	val = (pr != NULL) ? pr->pr_pax_log_log : pax_log_log;
+	val = pax_log_log;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
 	if (err || !req->newptr)
 		return (err);
@@ -142,10 +136,7 @@ sysctl_pax_log_log(SYSCTL_HANDLER_ARGS)
 
 	}
 
-	if ((pr == NULL) || (pr == &prison0))
-		pax_log_log = val;
-	if (pr != NULL)
-		pr->pr_pax_log_log = val;
+	pax_log_log = val;
 
 	return (0);
 }
@@ -155,14 +146,8 @@ sysctl_pax_log_ulog(SYSCTL_HANDLER_ARGS)
 {
 	int err;
 	int val;
-	struct prison *pr=NULL;
 
-	pr = pax_get_prison(req->td, NULL);
-
-	if ((pr != NULL) && !(pr->pr_pax_set))
-		pax_init_prison(pr);
-
-	val = (pr != NULL) ? pr->pr_pax_log_ulog : pax_log_ulog;
+	val = pax_log_ulog;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
 	if (err || !req->newptr)
 		return (err);
@@ -176,10 +161,7 @@ sysctl_pax_log_ulog(SYSCTL_HANDLER_ARGS)
 
 	}
 
-	if ((pr == NULL) || (pr == &prison0))
-		pax_log_ulog = val;
-	if (pr != NULL)
-		pr->pr_pax_log_ulog = val;
+	pax_log_ulog = val;
 
 	return (0);
 }
