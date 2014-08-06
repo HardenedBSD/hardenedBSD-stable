@@ -3914,7 +3914,7 @@ sctp_add_cookie(struct mbuf *init, int init_offset,
 static uint8_t
 sctp_get_ect(struct sctp_tcb *stcb)
 {
-	if ((stcb != NULL) && (stcb->asoc.ecn_allowed == 1)) {
+	if ((stcb != NULL) && (stcb->asoc.ecn_supported == 1)) {
 		return (SCTP_ECT0_BIT);
 	} else {
 		return (0);
@@ -4785,20 +4785,21 @@ sctp_send_initiate(struct sctp_inpcb *inp, struct sctp_tcb *stcb, int so_locked
 		chunk_len += parameter_len;
 	}
 	/* ECN parameter */
-	if (stcb->asoc.ecn_allowed == 1) {
+	if (stcb->asoc.ecn_supported == 1) {
 		parameter_len = (uint16_t) sizeof(struct sctp_paramhdr);
 		ph = (struct sctp_paramhdr *)(mtod(m, caddr_t)+chunk_len);
 		ph->param_type = htons(SCTP_ECN_CAPABLE);
 		ph->param_length = htons(parameter_len);
 		chunk_len += parameter_len;
 	}
-	/* And now tell the peer we do support PR-SCTP. */
-	parameter_len = (uint16_t) sizeof(struct sctp_paramhdr);
-	ph = (struct sctp_paramhdr *)(mtod(m, caddr_t)+chunk_len);
-	ph->param_type = htons(SCTP_PRSCTP_SUPPORTED);
-	ph->param_length = htons(parameter_len);
-	chunk_len += parameter_len;
-
+	/* PR-SCTP supported parameter */
+	if (stcb->asoc.prsctp_supported == 1) {
+		parameter_len = (uint16_t) sizeof(struct sctp_paramhdr);
+		ph = (struct sctp_paramhdr *)(mtod(m, caddr_t)+chunk_len);
+		ph->param_type = htons(SCTP_PRSCTP_SUPPORTED);
+		ph->param_length = htons(parameter_len);
+		chunk_len += parameter_len;
+	}
 	/* Add NAT friendly parameter. */
 	if (SCTP_BASE_SYSCTL(sctp_inits_include_nat_friendly)) {
 		parameter_len = (uint16_t) sizeof(struct sctp_paramhdr);
@@ -4813,13 +4814,19 @@ sctp_send_initiate(struct sctp_inpcb *inp, struct sctp_tcb *stcb, int so_locked
 	pr_supported->ph.param_type = htons(SCTP_SUPPORTED_CHUNK_EXT);
 	pr_supported->chunk_types[num_ext++] = SCTP_ASCONF;
 	pr_supported->chunk_types[num_ext++] = SCTP_ASCONF_ACK;
-	pr_supported->chunk_types[num_ext++] = SCTP_FORWARD_CUM_TSN;
-	pr_supported->chunk_types[num_ext++] = SCTP_PACKET_DROPPED;
-	pr_supported->chunk_types[num_ext++] = SCTP_STREAM_RESET;
+	if (stcb->asoc.prsctp_supported == 1) {
+		pr_supported->chunk_types[num_ext++] = SCTP_FORWARD_CUM_TSN;
+	}
+	if (stcb->asoc.pktdrop_supported == 1) {
+		pr_supported->chunk_types[num_ext++] = SCTP_PACKET_DROPPED;
+	}
+	if (stcb->asoc.reconfig_supported == 1) {
+		pr_supported->chunk_types[num_ext++] = SCTP_STREAM_RESET;
+	}
 	if (!SCTP_BASE_SYSCTL(sctp_auth_disable)) {
 		pr_supported->chunk_types[num_ext++] = SCTP_AUTHENTICATION;
 	}
-	if (stcb->asoc.sctp_nr_sack_on_off == 1) {
+	if (stcb->asoc.nrsack_supported == 1) {
 		pr_supported->chunk_types[num_ext++] = SCTP_NR_SELECTIVE_ACK;
 	}
 	parameter_len = (uint16_t) sizeof(struct sctp_supported_chunk_types_param) + num_ext;
@@ -5882,21 +5889,23 @@ do_a_abort:
 		chunk_len += parameter_len;
 	}
 	/* ECN parameter */
-	if (((asoc != NULL) && (asoc->ecn_allowed == 1)) ||
-	    ((asoc == NULL) && (inp->sctp_ecn_enable == 1))) {
+	if (((asoc != NULL) && (asoc->ecn_supported == 1)) ||
+	    ((asoc == NULL) && (inp->ecn_supported == 1))) {
 		parameter_len = (uint16_t) sizeof(struct sctp_paramhdr);
 		ph = (struct sctp_paramhdr *)(mtod(m, caddr_t)+chunk_len);
 		ph->param_type = htons(SCTP_ECN_CAPABLE);
 		ph->param_length = htons(parameter_len);
 		chunk_len += parameter_len;
 	}
-	/* And now tell the peer we do pr-sctp */
-	parameter_len = (uint16_t) sizeof(struct sctp_paramhdr);
-	ph = (struct sctp_paramhdr *)(mtod(m, caddr_t)+chunk_len);
-	ph->param_type = htons(SCTP_PRSCTP_SUPPORTED);
-	ph->param_length = htons(parameter_len);
-	chunk_len += parameter_len;
-
+	/* PR-SCTP supported parameter */
+	if (((asoc != NULL) && (asoc->prsctp_supported == 1)) ||
+	    ((asoc == NULL) && (inp->prsctp_supported == 1))) {
+		parameter_len = (uint16_t) sizeof(struct sctp_paramhdr);
+		ph = (struct sctp_paramhdr *)(mtod(m, caddr_t)+chunk_len);
+		ph->param_type = htons(SCTP_PRSCTP_SUPPORTED);
+		ph->param_length = htons(parameter_len);
+		chunk_len += parameter_len;
+	}
 	/* Add NAT friendly parameter */
 	if (nat_friendly) {
 		parameter_len = (uint16_t) sizeof(struct sctp_paramhdr);
@@ -5911,13 +5920,23 @@ do_a_abort:
 	pr_supported->ph.param_type = htons(SCTP_SUPPORTED_CHUNK_EXT);
 	pr_supported->chunk_types[num_ext++] = SCTP_ASCONF;
 	pr_supported->chunk_types[num_ext++] = SCTP_ASCONF_ACK;
-	pr_supported->chunk_types[num_ext++] = SCTP_FORWARD_CUM_TSN;
-	pr_supported->chunk_types[num_ext++] = SCTP_PACKET_DROPPED;
-	pr_supported->chunk_types[num_ext++] = SCTP_STREAM_RESET;
+	if (((asoc != NULL) && (asoc->prsctp_supported == 1)) ||
+	    ((asoc == NULL) && (inp->prsctp_supported == 1))) {
+		pr_supported->chunk_types[num_ext++] = SCTP_FORWARD_CUM_TSN;
+	}
+	if (((asoc != NULL) && (asoc->pktdrop_supported == 1)) ||
+	    ((asoc == NULL) && (inp->pktdrop_supported == 1))) {
+		pr_supported->chunk_types[num_ext++] = SCTP_PACKET_DROPPED;
+	}
+	if (((asoc != NULL) && (asoc->reconfig_supported == 1)) ||
+	    ((asoc == NULL) && (inp->reconfig_supported == 1))) {
+		pr_supported->chunk_types[num_ext++] = SCTP_STREAM_RESET;
+	}
 	if (!SCTP_BASE_SYSCTL(sctp_auth_disable)) {
 		pr_supported->chunk_types[num_ext++] = SCTP_AUTHENTICATION;
 	}
-	if (SCTP_BASE_SYSCTL(sctp_nr_sack_on_off)) {
+	if (((asoc != NULL) && (asoc->nrsack_supported == 1)) ||
+	    ((asoc == NULL) && (inp->nrsack_supported == 1))) {
 		pr_supported->chunk_types[num_ext++] = SCTP_NR_SELECTIVE_ACK;
 	}
 	parameter_len = (uint16_t) sizeof(struct sctp_supported_chunk_types_param) + num_ext;
@@ -6093,7 +6112,7 @@ sctp_prune_prsctp(struct sctp_tcb *stcb,
 	struct sctp_tmit_chunk *chk, *nchk;
 
 	SCTP_TCB_LOCK_ASSERT(stcb);
-	if ((asoc->peer_supports_prsctp) &&
+	if ((asoc->prsctp_supported) &&
 	    (asoc->sent_queue_cnt_removeable > 0)) {
 		TAILQ_FOREACH(chk, &asoc->sent_queue, sctp_next) {
 			/*
@@ -10411,8 +10430,7 @@ sctp_send_sack(struct sctp_tcb *stcb, int so_locked
 	uint8_t type;
 	uint8_t tsn_map;
 
-	if ((stcb->asoc.sctp_nr_sack_on_off == 1) &&
-	    (stcb->asoc.peer_supports_nr_sack == 1)) {
+	if (stcb->asoc.nrsack_supported == 1) {
 		type = SCTP_NR_SELECTIVE_ACK;
 	} else {
 		type = SCTP_SELECTIVE_ACK;
@@ -11391,7 +11409,7 @@ sctp_send_packet_dropped(struct sctp_tcb *stcb, struct sctp_nets *net,
 	}
 	asoc = &stcb->asoc;
 	SCTP_TCB_LOCK_ASSERT(stcb);
-	if (asoc->peer_supports_pktdrop == 0) {
+	if (asoc->pktdrop_supported == 0) {
 		/*-
 		 * peer must declare support before I send one.
 		 */
@@ -12948,7 +12966,7 @@ skip_preblock:
 				continue;
 			}
 			/* PR-SCTP? */
-			if ((asoc->peer_supports_prsctp) && (asoc->sent_queue_cnt_removeable > 0)) {
+			if ((asoc->prsctp_supported) && (asoc->sent_queue_cnt_removeable > 0)) {
 				/*
 				 * This is ugly but we must assure locking
 				 * order

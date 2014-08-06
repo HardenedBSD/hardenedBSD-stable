@@ -5206,19 +5206,6 @@ int t4_enable_vi(struct adapter *adap, unsigned int mbox, unsigned int viid,
 	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
 }
 
-int t4_enable_vi_ns(struct adapter *adap, unsigned int mbox, unsigned int viid,
-		 bool rx_en, bool tx_en)
-{
-	struct fw_vi_enable_cmd c;
-
-	memset(&c, 0, sizeof(c));
-	c.op_to_viid = htonl(V_FW_CMD_OP(FW_VI_ENABLE_CMD) | F_FW_CMD_REQUEST |
-			     F_FW_CMD_EXEC | V_FW_VI_ENABLE_CMD_VIID(viid));
-	c.ien_to_len16 = htonl(V_FW_VI_ENABLE_CMD_IEN(rx_en) |
-			       V_FW_VI_ENABLE_CMD_EEN(tx_en) | FW_LEN16(c));
-	return t4_wr_mbox_ns(adap, mbox, &c, sizeof(c), NULL);
-}
-
 /**
  *	t4_identify_port - identify a VI's port by blinking its LED
  *	@adap: the adapter
@@ -5730,7 +5717,8 @@ int __devinit t4_port_init(struct port_info *p, int mbox, int pf, int vf)
 	return 0;
 }
 
-int t4_sched_config(struct adapter *adapter, int type, int minmaxen)
+int t4_sched_config(struct adapter *adapter, int type, int minmaxen,
+    		    int sleep_ok)
 {
 	struct fw_sched_cmd cmd;
 
@@ -5745,12 +5733,13 @@ int t4_sched_config(struct adapter *adapter, int type, int minmaxen)
 	cmd.u.config.minmaxen = minmaxen;
 
 	return t4_wr_mbox_meat(adapter,adapter->mbox, &cmd, sizeof(cmd),
-			       NULL, 1);
+			       NULL, sleep_ok);
 }
 
 int t4_sched_params(struct adapter *adapter, int type, int level, int mode,
 		    int rateunit, int ratemode, int channel, int cl,
-		    int minrate, int maxrate, int weight, int pktsize)
+		    int minrate, int maxrate, int weight, int pktsize,
+		    int sleep_ok)
 {
 	struct fw_sched_cmd cmd;
 
@@ -5774,5 +5763,5 @@ int t4_sched_params(struct adapter *adapter, int type, int level, int mode,
 	cmd.u.params.pktsize = cpu_to_be16(pktsize);
 
 	return t4_wr_mbox_meat(adapter,adapter->mbox, &cmd, sizeof(cmd),
-			       NULL, 1);
+			       NULL, sleep_ok);
 }
