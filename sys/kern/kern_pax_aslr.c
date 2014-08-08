@@ -38,6 +38,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/kernel.h>
+#include <sys/ktr.h>
 #include <sys/imgact.h>
 #include <sys/imgact_elf.h>
 #include <sys/sysent.h>
@@ -520,6 +521,9 @@ pax_get_flags(struct thread *td, struct proc *proc, uint32_t *flags)
 		return (1);
 
 	if (((*flags & 0xaaaaaaaa) & ((*flags & 0x55555555) << 1)) != 0) {
+		/*
+		 * indicate flags inconsistencies in dmesg and in user terminal
+		 */
 		pax_log_aslr(__func__, "inconsistent paxflags: %x\n", *flags);
 		pax_ulog_aslr(NULL, "inconsistent paxflags: %x\n", *flags);
 
@@ -557,6 +561,9 @@ pax_aslr_active(struct thread *td, struct proc *proc)
 		return (true);
 
 	if ((status == PAX_ASLR_OPTIN) && (flags & PAX_NOTE_ASLR) == 0) {
+		/*
+		 * indicate option inconsistencies in dmesg and in user terminal
+		 */
 		pax_log_aslr(__func__,
 		    "ASLR is opt-in, and executable does not have ASLR enabled\n");
 		pax_ulog_aslr(NULL,
@@ -565,6 +572,9 @@ pax_aslr_active(struct thread *td, struct proc *proc)
 	}
 
 	if ((status == PAX_ASLR_OPTOUT) && (flags & PAX_NOTE_NOASLR) != 0) {
+		/*
+		 * indicate option inconsistencies in dmesg and in user terminal
+		 */
 		pax_log_aslr(__func__,
 		    "ASLR is opt-out, and executable explicitly disabled ASLR\n");
 		pax_ulog_aslr(NULL,
@@ -585,30 +595,23 @@ _pax_aslr_init(struct vmspace *vm, struct prison *pr)
 	    PAX_ASLR_DELTA_MMAP_LSB, (pr != NULL) ?
 	    pr->pr_pax_aslr_mmap_len :
 	    pax_aslr_mmap_len);
+	CTR2(KTR_PAX, "%s: vm_aslr_delta_mmap=%p\n",
+	    __func__, (void *)vm->vm_aslr_delta_mmap);
+
 	vm->vm_aslr_delta_stack = PAX_ASLR_DELTA(arc4random(),
 	    PAX_ASLR_DELTA_STACK_LSB, (pr != NULL) ?
 	    pr->pr_pax_aslr_stack_len :
 	    pax_aslr_stack_len);
 	vm->vm_aslr_delta_stack = ALIGN(vm->vm_aslr_delta_stack);
+	CTR2(KTR_PAX, "%s: vm_aslr_delta_stack=%p\n",
+	    __func__, (void *)vm->vm_aslr_delta_stack);
+
 	vm->vm_aslr_delta_exec = PAX_ASLR_DELTA(arc4random(),
 	    PAX_ASLR_DELTA_EXEC_LSB, (pr != NULL) ?
 	    pr->pr_pax_aslr_exec_len :
 	    pax_aslr_exec_len);
-
-	if (pax_aslr_debug) {
-		pax_log_aslr(__func__, "vm_aslr_delta_mmap=%p\n",
-		    (void *) vm->vm_aslr_delta_mmap);
-		pax_log_aslr(__func__, "vm_aslr_delta_stack=%p\n",
-		    (void *) vm->vm_aslr_delta_stack);
-		pax_log_aslr(__func__, "vm_aslr_delta_exec=%p\n",
-		    (void *) vm->vm_aslr_delta_exec);
-		pax_ulog_aslr(NULL, "vm_aslr_delta_mmap=%p\n",
-		    (void *) vm->vm_aslr_delta_mmap);
-		pax_ulog_aslr(NULL, "vm_aslr_delta_stack=%p\n",
-		    (void *) vm->vm_aslr_delta_stack);
-		pax_ulog_aslr(NULL, "vm_aslr_delta_exec=%p\n",
-		    (void *) vm->vm_aslr_delta_exec);
-	}
+	CTR2(KTR_PAX, "%s: vm_aslr_delta_exec=%p\n",
+	    __func__, (void *) vm->vm_aslr_delta_exec);
 }
 
 #ifdef COMPAT_FREEBSD32
@@ -622,30 +625,23 @@ _pax_aslr_init32(struct vmspace *vm, struct prison *pr)
 	    PAX_ASLR_COMPAT_DELTA_MMAP_LSB, (pr != NULL) ?
 	    pr->pr_pax_aslr_compat_mmap_len :
 	    pax_aslr_compat_mmap_len);
+	CTR2(KTR_PAX, "%s: vm_aslr_delta_mmap=%p\n",
+	    __func__, (void *)vm->vm_aslr_delta_mmap);
+
 	vm->vm_aslr_delta_stack = PAX_ASLR_DELTA(arc4random(),
 	    PAX_ASLR_COMPAT_DELTA_STACK_LSB, (pr != NULL) ?
 	    pr->pr_pax_aslr_compat_stack_len :
 	    pax_aslr_compat_stack_len);
 	vm->vm_aslr_delta_stack = ALIGN(vm->vm_aslr_delta_stack);
+	CTR2(KTR_PAX, "%s: vm_aslr_delta_stack=%p\n",
+	    __func__, (void *)vm->vm_aslr_delta_stack);
+
 	vm->vm_aslr_delta_exec = PAX_ASLR_DELTA(arc4random(),
 	    PAX_ASLR_DELTA_EXEC_LSB, (pr != NULL) ?
 	    pr->pr_pax_aslr_compat_exec_len :
 	    pax_aslr_compat_exec_len);
-
-	if (pax_aslr_debug) {
-		pax_log_aslr(__func__, "vm_aslr_delta_mmap=%p\n",
-		    (void *) vm->vm_aslr_delta_mmap);
-		pax_log_aslr(__func__, "vm_aslr_delta_stack=%p\n",
-		    (void *) vm->vm_aslr_delta_stack);
-		pax_log_aslr(__func__, "vm_aslr_delta_exec=%p\n",
-		    (void *) vm->vm_aslr_delta_exec);
-		pax_ulog_aslr(NULL, "vm_aslr_delta_mmap=%p\n",
-		    (void *) vm->vm_aslr_delta_mmap);
-		pax_ulog_aslr(NULL, "vm_aslr_delta_stack=%p\n",
-		    (void *) vm->vm_aslr_delta_stack);
-		pax_ulog_aslr(NULL, "vm_aslr_delta_exec=%p\n",
-		    (void *) vm->vm_aslr_delta_exec);
-	}
+	CTR2(KTR_PAX, "%s: vm_aslr_delta_exec=%p\n",
+	    __func__, (void *)vm->vm_aslr_delta_exec);
 }
 #endif
 
@@ -677,15 +673,14 @@ pax_aslr_mmap(struct thread *td, vm_offset_t *addr, vm_offset_t orig_addr, int f
 		return;
 
 	if (!(flags & MAP_FIXED) && ((orig_addr == 0) || !(flags & MAP_ANON))) {
-		pax_log_aslr(__func__, "applying to %p orig_addr=%p flags=%x\n",
-		    (void *)*addr, (void *)orig_addr, flags);
+		CTR4(KTR_PAX, "%s: applying to %p orig_addr=%p flags=%x\n",
+		    __func__, (void *)*addr, (void *)orig_addr, flags);
 
 		*addr += td->td_proc->p_vmspace->vm_aslr_delta_mmap;
-		pax_log_aslr(__func__, "result %p\n", (void *)*addr);
-	} else {
-		pax_log_aslr(__func__, "not applying to %p orig_addr=%p flags=%x\n",
-		    (void *)*addr, (void *)orig_addr, flags);
-	}
+		CTR2(KTR_PAX, "%s: result %p\n", __func__, (void *)*addr);
+	} else
+		CTR4(KTR_PAX, "%s: not applying to %p orig_addr=%p flags=%x\n",
+		    __func__, (void *)*addr, (void *)orig_addr, flags);
 }
 
 void
@@ -698,8 +693,6 @@ pax_aslr_stack(struct thread *td, uintptr_t *addr)
 
 	orig_addr = *addr;
 	*addr -= td->td_proc->p_vmspace->vm_aslr_delta_stack;
-	pax_log_aslr(__func__, "orig_addr=%p, new_addr=%p\n",
-	    (void *)orig_addr, (void *)*addr);
-	pax_ulog_aslr(NULL, "orig_addr=%p, new_addr=%p\n",
-	    (void *)orig_addr, (void *)*addr);
+	CTR3(KTR_PAX, "%s: orig_addr=%p, new_addr=%p\n",
+	    __func__, (void *)orig_addr, (void *)*addr);
 }
