@@ -637,7 +637,7 @@ _pax_aslr_init32(struct vmspace *vm, struct prison *pr)
 	    __func__, (void *)vm->vm_aslr_delta_stack);
 
 	vm->vm_aslr_delta_exec = PAX_ASLR_DELTA(arc4random(),
-	    PAX_ASLR_DELTA_EXEC_LSB, (pr != NULL) ?
+	    PAX_ASLR_COMPAT_DELTA_EXEC_LSB, (pr != NULL) ?
 	    pr->pr_pax_aslr_compat_exec_len :
 	    pax_aslr_compat_exec_len);
 	CTR2(KTR_PAX, "%s: vm_aslr_delta_exec=%p\n",
