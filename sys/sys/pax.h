@@ -205,8 +205,8 @@ extern int pax_log_ulog;
 #define PAX_NOTE_ASLR       0x10
 #define PAX_NOTE_NOASLR     0x20
 
-#define PAX_LOG_LOG		1
-#define PAX_LOG_ULOG		1
+#define PAX_LOG_LOG		0
+#define PAX_LOG_ULOG		0
 
 void pax_init(void);
 void pax_init_prison(struct prison *pr);
