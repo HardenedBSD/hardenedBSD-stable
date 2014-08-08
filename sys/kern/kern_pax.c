@@ -75,15 +75,8 @@ SYSCTL_NODE(_security, OID_AUTO, pax, CTLFLAG_RD, 0,
     "PaX (exploit mitigation) features.");
 
 struct prison *
-pax_get_prison(struct thread *td, struct proc *proc)
+pax_get_prison(struct proc *proc)
 {
-
-	if (td != NULL) {
-		if ((td->td_proc != NULL) && (td->td_proc->p_ucred != NULL))
-			return (td->td_proc->p_ucred->cr_prison);
-
-		return (NULL);
-	}
 	if ((proc == NULL) || (proc->p_ucred == NULL))
 		return (NULL);
 

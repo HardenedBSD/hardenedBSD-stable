@@ -820,7 +820,7 @@ __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp)
 		if (baddr == 0) {
 			et_dyn_addr = ET_DYN_LOAD_ADDR;
 #ifdef PAX_ASLR
-			if (pax_aslr_active(NULL, imgp->proc))
+			if (pax_aslr_active(imgp->proc))
 				et_dyn_addr += imgp->proc->p_vmspace->vm_aslr_delta_exec;
 #endif
 		}

@@ -1073,7 +1073,7 @@ exec_new_vmspace(imgp, sv)
 	}
 
 #ifdef PAX_ASLR
-	pax_aslr_init(curthread, imgp);
+	pax_aslr_init(imgp);
 #endif
 
 	/* Map a shared page */

@@ -105,8 +105,8 @@ TUNABLE_INT("security.pax.aslr.compat.stack", &pax_aslr_compat_stack_len);
 TUNABLE_INT("security.pax.aslr.compat.stack", &pax_aslr_compat_exec_len);
 #endif
 
-static uint32_t pax_get_status(struct thread *td, struct proc *proc, struct prison **pr);
-static int pax_get_flags(struct thread *td, struct proc *proc, uint32_t *flags);
+static uint32_t pax_get_status(struct proc *proc, struct prison **pr);
+static int pax_get_flags(struct proc *proc, uint32_t *flags);
 
 #ifdef PAX_SYSCTLS
 /*
@@ -161,7 +161,7 @@ sysctl_pax_aslr_status(SYSCTL_HANDLER_ARGS)
 	struct prison *pr;
 	int err, val;
 
-	pr = pax_get_prison(req->td, NULL);
+	pr = pax_get_prison(req->td->td_proc);
 
 	val = (pr != NULL) ? pr->pr_pax_aslr_status : pax_aslr_status;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -195,7 +195,7 @@ sysctl_pax_aslr_debug(SYSCTL_HANDLER_ARGS)
 	struct prison *pr=NULL;
 	int err, val;
 
-	pr = pax_get_prison(req->td, NULL);
+	pr = pax_get_prison(req->td->td_proc);
 
 	val = (pr != NULL) ? pr->pr_pax_aslr_debug : pax_aslr_debug;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -229,7 +229,7 @@ sysctl_pax_aslr_mmap(SYSCTL_HANDLER_ARGS)
 	struct prison *pr=NULL;
 	int err, val;
 
-	pr = pax_get_prison(req->td, NULL);
+	pr = pax_get_prison(req->td->td_proc);
 
 	val = (pr != NULL) ? pr->pr_pax_aslr_mmap_len : pax_aslr_mmap_len;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -258,7 +258,7 @@ sysctl_pax_aslr_stack(SYSCTL_HANDLER_ARGS)
 	struct prison *pr=NULL;
 	int err, val;
 
-	pr = pax_get_prison(req->td, NULL);
+	pr = pax_get_prison(req->td->td_proc);
 
 	val = (pr != NULL) ? pr->pr_pax_aslr_stack_len : pax_aslr_stack_len;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -287,7 +287,7 @@ sysctl_pax_aslr_exec(SYSCTL_HANDLER_ARGS)
 	struct prison *pr=NULL;
 	int err, val;
 
-	pr = pax_get_prison(req->td, NULL);
+	pr = pax_get_prison(req->td->td_proc);
 
 	val = (pr != NULL) ? pr->pr_pax_aslr_exec_len : pax_aslr_exec_len;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -355,7 +355,7 @@ sysctl_pax_aslr_compat_status(SYSCTL_HANDLER_ARGS)
 	struct prison *pr;
 	int err, val;
 
-	pr = pax_get_prison(req->td, NULL);
+	pr = pax_get_prison(req->td->td_proc);
 
 	val = (pr != NULL) ?pr->pr_pax_aslr_compat_status : pax_aslr_compat_status;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -389,7 +389,7 @@ sysctl_pax_aslr_compat_mmap(SYSCTL_HANDLER_ARGS)
 	struct prison *pr;
 	int err, val;
 
-	pr = pax_get_prison(req->td, NULL);
+	pr = pax_get_prison(req->td->td_proc);
 
 	val = (pr != NULL) ? pr->pr_pax_aslr_compat_mmap_len : pax_aslr_compat_mmap_len;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -418,7 +418,7 @@ sysctl_pax_aslr_compat_stack(SYSCTL_HANDLER_ARGS)
 	struct prison *pr;
 	int err, val;
 
-	pr = pax_get_prison(req->td, NULL);
+	pr = pax_get_prison(req->td->td_proc);
 
 	val = (pr != NULL) ? pr->pr_pax_aslr_compat_stack_len : pax_aslr_compat_stack_len;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -447,7 +447,7 @@ sysctl_pax_aslr_compat_exec(SYSCTL_HANDLER_ARGS)
 	struct prison *pr;
 	int err, val;
 
-	pr = pax_get_prison(req->td, NULL);
+	pr = pax_get_prison(req->td->td_proc);
 
 	if (pr != NULL)
 		val = pr->pr_pax_aslr_compat_exec_len;
@@ -484,39 +484,26 @@ sysctl_pax_aslr_compat_exec(SYSCTL_HANDLER_ARGS)
 
 
 uint32_t
-pax_get_status(struct thread *td, struct proc *proc, struct prison **pr)
+pax_get_status(struct proc *proc, struct prison **pr)
 {
-	bool	skip;
-
-	skip = false;
 	*pr = NULL;
 
-	if ((proc != NULL) && (proc->p_ucred != NULL)) {
+	if ((proc != NULL) && (proc->p_ucred != NULL))
 		*pr = proc->p_ucred->cr_prison;
-		skip = true;
-	}
 
-	if (skip == false &&
-	    td != NULL && (td->td_proc != NULL) && (td->td_proc->p_ucred != NULL)) {
-		*pr = td->td_proc->p_ucred->cr_prison;
-		skip = true;
-	}
-
-	if (skip == true && *pr != NULL)
+	if (*pr != NULL)
 		return ((*pr)->pr_pax_aslr_status);
 	else
 		return pax_aslr_status;
 }
 
 static int
-pax_get_flags(struct thread *td, struct proc *proc, uint32_t *flags)
+pax_get_flags(struct proc *proc, uint32_t *flags)
 {
 	*flags = 0;
 
 	if (proc != NULL)
 		*flags = proc->p_pax;
-	else if (td != NULL)
-		*flags = td->td_proc->p_pax;
 	else
 		return (1);
 
@@ -535,17 +522,17 @@ pax_get_flags(struct thread *td, struct proc *proc, uint32_t *flags)
 
 
 bool
-pax_aslr_active(struct thread *td, struct proc *proc)
+pax_aslr_active(struct proc *proc)
 {
 	int status;
 	struct prison *pr;
 	uint32_t flags;
 	bool ret;
 
-	if ((td == NULL) && (proc == NULL))
+	if (proc == NULL)
 		return (true);
 
-	status = pax_get_status(td, proc, &pr);
+	status = pax_get_status(proc, &pr);
 
 	if (status == PAX_ASLR_DISABLED)
 		return (false);
@@ -553,7 +540,7 @@ pax_aslr_active(struct thread *td, struct proc *proc)
 	if (status == PAX_ASLR_FORCE_ENABLED)
 		return (true);
 
-	ret = pax_get_flags(td, proc, &flags);
+	ret = pax_get_flags(proc, &flags);
 	if (ret != 0)
 		/*
 		 * invalid flags, we should force ASLR
@@ -586,97 +573,128 @@ pax_aslr_active(struct thread *td, struct proc *proc)
 }
 
 void
-_pax_aslr_init(struct vmspace *vm, struct prison *pr)
+_pax_aslr_init(struct vmspace *vm, struct proc *p)
 {
+	struct prison *pr;
+
 	if (vm == NULL)
 		panic("[PaX ASLR] %s: vm == NULL", __func__);
 
-	vm->vm_aslr_delta_mmap = PAX_ASLR_DELTA(arc4random(),
-	    PAX_ASLR_DELTA_MMAP_LSB, (pr != NULL) ?
-	    pr->pr_pax_aslr_mmap_len :
-	    pax_aslr_mmap_len);
+	pr = pax_get_prison(p);
+	if (pr != NULL) {
+		vm->vm_aslr_delta_mmap = PAX_ASLR_DELTA(arc4random(),
+		    PAX_ASLR_DELTA_MMAP_LSB,
+		    pr->pr_pax_aslr_mmap_len);
+
+		vm->vm_aslr_delta_stack = PAX_ASLR_DELTA(arc4random(),
+		    PAX_ASLR_DELTA_STACK_LSB,
+		    pr->pr_pax_aslr_stack_len);
+		vm->vm_aslr_delta_stack = ALIGN(vm->vm_aslr_delta_stack);
+
+		vm->vm_aslr_delta_exec = PAX_ASLR_DELTA(arc4random(),
+		    PAX_ASLR_DELTA_EXEC_LSB,
+		    pr->pr_pax_aslr_exec_len);
+	} else {
+		vm->vm_aslr_delta_mmap = PAX_ASLR_DELTA(arc4random(),
+		    PAX_ASLR_DELTA_MMAP_LSB,
+		    pax_aslr_mmap_len);
+
+		vm->vm_aslr_delta_stack = PAX_ASLR_DELTA(arc4random(),
+		    PAX_ASLR_DELTA_STACK_LSB,
+		    pax_aslr_stack_len);
+		vm->vm_aslr_delta_stack = ALIGN(vm->vm_aslr_delta_stack);
+
+		vm->vm_aslr_delta_exec = PAX_ASLR_DELTA(arc4random(),
+		    PAX_ASLR_DELTA_EXEC_LSB,
+		    pax_aslr_exec_len);
+	}
+
 	CTR2(KTR_PAX, "%s: vm_aslr_delta_mmap=%p\n",
 	    __func__, (void *)vm->vm_aslr_delta_mmap);
-
-	vm->vm_aslr_delta_stack = PAX_ASLR_DELTA(arc4random(),
-	    PAX_ASLR_DELTA_STACK_LSB, (pr != NULL) ?
-	    pr->pr_pax_aslr_stack_len :
-	    pax_aslr_stack_len);
-	vm->vm_aslr_delta_stack = ALIGN(vm->vm_aslr_delta_stack);
 	CTR2(KTR_PAX, "%s: vm_aslr_delta_stack=%p\n",
 	    __func__, (void *)vm->vm_aslr_delta_stack);
-
-	vm->vm_aslr_delta_exec = PAX_ASLR_DELTA(arc4random(),
-	    PAX_ASLR_DELTA_EXEC_LSB, (pr != NULL) ?
-	    pr->pr_pax_aslr_exec_len :
-	    pax_aslr_exec_len);
 	CTR2(KTR_PAX, "%s: vm_aslr_delta_exec=%p\n",
-	    __func__, (void *) vm->vm_aslr_delta_exec);
+	    __func__, (void *)vm->vm_aslr_delta_exec);
 }
 
 #ifdef COMPAT_FREEBSD32
 void
-_pax_aslr_init32(struct vmspace *vm, struct prison *pr)
+_pax_aslr_init32(struct vmspace *vm, struct proc *p)
 {
+	struct prison *pr;
+
 	if (vm == NULL)
 		panic("[PaX ASLR] %s: vm == NULL", __func__);
 
-	vm->vm_aslr_delta_mmap = PAX_ASLR_DELTA(arc4random(),
-	    PAX_ASLR_COMPAT_DELTA_MMAP_LSB, (pr != NULL) ?
-	    pr->pr_pax_aslr_compat_mmap_len :
-	    pax_aslr_compat_mmap_len);
+	pr = pax_get_prison(p);
+	if (pr != NULL) {
+		vm->vm_aslr_delta_mmap = PAX_ASLR_DELTA(arc4random(),
+		    PAX_ASLR_COMPAT_DELTA_MMAP_LSB,
+		    pr->pr_pax_aslr_compat_mmap_len);
+
+		vm->vm_aslr_delta_stack = PAX_ASLR_DELTA(arc4random(),
+		    PAX_ASLR_COMPAT_DELTA_STACK_LSB,
+		    pr->pr_pax_aslr_compat_stack_len);
+		vm->vm_aslr_delta_stack = ALIGN(vm->vm_aslr_delta_stack);
+
+		vm->vm_aslr_delta_exec = PAX_ASLR_DELTA(arc4random(),
+		    PAX_ASLR_COMPAT_DELTA_EXEC_LSB,
+		    pr->pr_pax_aslr_compat_exec_len);
+	} else {
+		vm->vm_aslr_delta_mmap = PAX_ASLR_DELTA(arc4random(),
+		    PAX_ASLR_COMPAT_DELTA_MMAP_LSB,
+		    pax_aslr_compat_mmap_len);
+
+		vm->vm_aslr_delta_stack = PAX_ASLR_DELTA(arc4random(),
+		    PAX_ASLR_COMPAT_DELTA_STACK_LSB,
+		    pax_aslr_compat_stack_len);
+		vm->vm_aslr_delta_stack = ALIGN(vm->vm_aslr_delta_stack);
+
+		vm->vm_aslr_delta_exec = PAX_ASLR_DELTA(arc4random(),
+		    PAX_ASLR_COMPAT_DELTA_EXEC_LSB,
+		    pax_aslr_compat_exec_len);
+	}
+
 	CTR2(KTR_PAX, "%s: vm_aslr_delta_mmap=%p\n",
 	    __func__, (void *)vm->vm_aslr_delta_mmap);
-
-	vm->vm_aslr_delta_stack = PAX_ASLR_DELTA(arc4random(),
-	    PAX_ASLR_COMPAT_DELTA_STACK_LSB, (pr != NULL) ?
-	    pr->pr_pax_aslr_compat_stack_len :
-	    pax_aslr_compat_stack_len);
-	vm->vm_aslr_delta_stack = ALIGN(vm->vm_aslr_delta_stack);
 	CTR2(KTR_PAX, "%s: vm_aslr_delta_stack=%p\n",
 	    __func__, (void *)vm->vm_aslr_delta_stack);
-
-	vm->vm_aslr_delta_exec = PAX_ASLR_DELTA(arc4random(),
-	    PAX_ASLR_COMPAT_DELTA_EXEC_LSB, (pr != NULL) ?
-	    pr->pr_pax_aslr_compat_exec_len :
-	    pax_aslr_compat_exec_len);
 	CTR2(KTR_PAX, "%s: vm_aslr_delta_exec=%p\n",
 	    __func__, (void *)vm->vm_aslr_delta_exec);
 }
 #endif
 
 void
-pax_aslr_init(struct thread *td, struct image_params *imgp)
+pax_aslr_init(struct image_params *imgp)
 {
-	struct prison *pr;
 	struct vmspace *vm;
-
-	pr = pax_get_prison(td, NULL);
+	struct proc *p;
 
 	if (imgp == NULL)
 		panic("[PaX ASLR] %s: imgp == NULL", __func__);
+	p = imgp->proc;
 
-	if (!pax_aslr_active(td, NULL))
+	if (!pax_aslr_active(p))
 		return;
 
-	vm = imgp->proc->p_vmspace;
+	vm = p->p_vmspace;
 
 	if (imgp->sysent->sv_pax_aslr_init != NULL)
-		imgp->sysent->sv_pax_aslr_init(vm, pr);
+		imgp->sysent->sv_pax_aslr_init(vm, p);
 }
 
 void
-pax_aslr_mmap(struct thread *td, vm_offset_t *addr, vm_offset_t orig_addr, int flags)
+pax_aslr_mmap(struct proc *p, vm_offset_t *addr, vm_offset_t orig_addr, int flags)
 {
 
-	if (!pax_aslr_active(td, NULL))
+	if (!pax_aslr_active(p))
 		return;
 
 	if (!(flags & MAP_FIXED) && ((orig_addr == 0) || !(flags & MAP_ANON))) {
 		CTR4(KTR_PAX, "%s: applying to %p orig_addr=%p flags=%x\n",
 		    __func__, (void *)*addr, (void *)orig_addr, flags);
 
-		*addr += td->td_proc->p_vmspace->vm_aslr_delta_mmap;
+		*addr += p->p_vmspace->vm_aslr_delta_mmap;
 		CTR2(KTR_PAX, "%s: result %p\n", __func__, (void *)*addr);
 	} else
 		CTR4(KTR_PAX, "%s: not applying to %p orig_addr=%p flags=%x\n",
@@ -688,7 +706,7 @@ pax_aslr_stack(struct thread *td, uintptr_t *addr)
 {
 	uintptr_t orig_addr;
 
-	if (!pax_aslr_active(td, NULL))
+	if (!pax_aslr_active(td->td_proc))
 		return;
 
 	orig_addr = *addr;

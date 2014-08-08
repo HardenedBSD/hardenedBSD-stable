@@ -304,7 +304,7 @@ sys_mmap(td, uap)
 		 */
 #ifdef PAX_ASLR
 		/* Ugly hack for adding ASLR to 32bit mappings */
-		pax_aslr_mmap(td, &addr, orig_addr, flags);
+		pax_aslr_mmap(td->td_proc, &addr, orig_addr, flags);
 		if (addr != orig_addr)
 			addr = trunc_page(addr & 0x0fffffff);
 #endif
@@ -322,7 +322,7 @@ sys_mmap(td, uap)
 		 */
 		PROC_LOCK(td->td_proc);
 #ifdef PAX_ASLR
-		pax_aslr_mmap(td, &addr, orig_addr, flags);
+		pax_aslr_mmap(td->td_proc, &addr, orig_addr, flags);
 #endif
 		if (addr == 0 ||
 		    (addr >= round_page((vm_offset_t)vms->vm_taddr) &&
