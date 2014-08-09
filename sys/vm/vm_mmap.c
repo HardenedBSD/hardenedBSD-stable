@@ -321,9 +321,6 @@ sys_mmap(td, uap)
 		 * location.
 		 */
 		PROC_LOCK(td->td_proc);
-#ifdef PAX_ASLR
-		pax_aslr_mmap(td->td_proc, &addr, orig_addr, flags);
-#endif
 		if (addr == 0 ||
 		    (addr >= round_page((vm_offset_t)vms->vm_taddr) &&
 		    addr < round_page((vm_offset_t)vms->vm_daddr +
@@ -432,6 +429,9 @@ sys_mmap(td, uap)
 map:
 	td->td_fpop = fp;
 	maxprot &= cap_maxprot;
+#ifdef PAX_ASLR
+	pax_aslr_mmap(td->td_proc, &addr, orig_addr, flags);
+#endif
 	error = vm_mmap(&vms->vm_map, &addr, size, prot, maxprot,
 	    flags, handle_type, handle, pos);
 	td->td_fpop = NULL;
