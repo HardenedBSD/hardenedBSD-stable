@@ -1,12 +1,16 @@
 # $FreeBSD$
 
-.include <src.opts.mk>
+SYSDIR?=${.CURDIR}/..
+.include "${SYSDIR}/conf/kern.opts.mk"
 
 SUBDIR_PARALLEL=
 
 # Modules that include binary-only blobs of microcode should be selectable by
 # MK_SOURCELESS_UCODE option (see below).
 
+.if defined(MODULES_OVERRIDE) && !defined(ALL_MODULES)
+SUBDIR=${MODULES_OVERRIDE}
+.else
 SUBDIR=	\
 	${_3dfx} \
 	${_3dfx_linux} \
@@ -829,9 +833,6 @@ _sound=		sound
 _zfs=		zfs
 .endif
 .endif
-
-.if defined(MODULES_OVERRIDE) && !defined(ALL_MODULES)
-SUBDIR=${MODULES_OVERRIDE}
 .endif
 
 .for reject in ${WITHOUT_MODULES}
