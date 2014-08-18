@@ -487,7 +487,7 @@ populate_data_slice ( ) (
 	populate_slice "$1" "$2" "$3" "$4"
 )
 
-create_i386_diskimage ( ) (
+create_diskimage ( ) (
 	pprint 2 "build diskimage"
 	pprint 3 "log: ${NANO_OBJ}/_.di"
 
@@ -581,8 +581,14 @@ create_i386_diskimage ( ) (
 	fdisk ${MD}
 	# XXX: params
 	# XXX: pick up cached boot* files, they may not be in image anymore.
-	boot0cfg -B -b ${NANO_WORLDDIR}/${NANO_BOOTLOADER} ${NANO_BOOT0CFG} ${MD}
-	bsdlabel -w -B -b ${NANO_WORLDDIR}/boot/boot ${MD}s1
+	if [ -f ${NANO_WORLDDIR}/${NANO_BOOTLOADER} ]; then
+		boot0cfg -B -b ${NANO_WORLDDIR}/${NANO_BOOTLOADER} ${NANO_BOOT0CFG} ${MD}
+	fi
+	if [ -f ${NANO_WORLDDIR}/boot/boot ]; then
+		bsdlabel -w -B -b ${NANO_WORLDDIR}/boot/boot ${MD}s1
+	else
+		bsdlabel -w ${MD}s1
+	fi
 	bsdlabel ${MD}s1
 
 	# Create first image
@@ -641,11 +647,6 @@ create_i386_diskimage ( ) (
 	trap nano_cleanup EXIT
 
 	) > ${NANO_OBJ}/_.di 2>&1
-)
-
-# i386 and amd64 are identical for disk images
-create_amd64_diskimage ( ) (
-	create_i386_diskimage
 )
 
 last_orders () (
@@ -1100,7 +1101,7 @@ setup_nanobsd
 prune_usr
 run_late_customize
 if $do_image ; then
-	create_${NANO_ARCH}_diskimage
+	create_diskimage
 else
 	pprint 2 "Skipping image build (as instructed)"
 fi
