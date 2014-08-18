@@ -83,6 +83,29 @@ pax_get_prison(struct proc *proc)
 	return (proc->p_ucred->cr_prison);
 }
 
+int
+pax_get_flags(struct proc *proc, uint32_t *flags)
+{
+	*flags = 0;
+
+	if (proc != NULL)
+		*flags = proc->p_pax;
+	else
+		return (1);
+
+	if (((*flags & 0xaaaaaaaa) & ((*flags & 0x55555555) << 1)) != 0) {
+		/*
+		 * indicate flags inconsistencies in dmesg and in user terminal
+		 */
+		pax_log_aslr(__func__, "inconsistent paxflags: %x\n", *flags);
+		pax_ulog_aslr(NULL, "inconsistent paxflags: %x\n", *flags);
+
+		return (1);
+	}
+
+	return (0);
+}
+
 void
 pax_elf(struct image_params *imgp, uint32_t mode)
 {
@@ -195,6 +218,15 @@ pax_init_prison(struct prison *pr)
 	pr->pr_pax_aslr_compat_exec_len = pax_aslr_compat_exec_len;
 #endif /* COMPAT_FREEBSD32 */
 #endif /* PAX_ASLR */
+
+#ifdef PAX_SEGVGUARD
+	pr->pr_pax_segvguard_status = pax_segvguard_status;
+	pr->pr_pax_segvguard_debug = pax_segvguard_debug;
+	pr->pr_pax_segvguard_expiry = pax_segvguard_expiry;
+	pr->pr_pax_segvguard_suspension = pax_segvguard_suspension;
+	pr->pr_pax_segvguard_maxcrashes = pax_segvguard_maxcrashes;
+#endif
+
 
 	pr->pr_pax_set = 1;
 

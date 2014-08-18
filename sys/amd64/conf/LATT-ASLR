@@ -3,6 +3,7 @@ include GENERIC
 # It makes sense to include ASLR in the LATT-ASLR kernel
 options PAX_ASLR
 options PAX_SYSCTLS
+options PAX_SEGVGUARD
 
 # For building bootable sparc64 media
 options GEOM_PART_VTOC8
