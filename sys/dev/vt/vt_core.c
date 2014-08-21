@@ -832,6 +832,14 @@ vt_flush(struct vt_device *vd)
 	if (vd->vd_flags & VDF_SPLASH || vw->vw_flags & VWF_BUSY)
 		return;
 
+#ifndef SC_NO_CUTPASTE
+	if ((vw->vw_flags & VWF_MOUSE_HIDE) == 0) {
+		/* Mark last mouse position as dirty to erase. */
+		vtbuf_mouse_cursor_position(&vw->vw_buf, vd->vd_mdirtyx,
+		    vd->vd_mdirtyy);
+	}
+#endif
+
 	vtbuf_undirty(&vw->vw_buf, &tarea, &tmask);
 	vt_termsize(vd, vf, &size);
 
@@ -843,14 +851,6 @@ vt_flush(struct vt_device *vd)
 
 		vd->vd_flags &= ~VDF_INVALID;
 	}
-
-#ifndef SC_NO_CUTPASTE
-	if ((vw->vw_flags & VWF_MOUSE_HIDE) == 0) {
-		/* Mark last mouse position as dirty to erase. */
-		vtbuf_mouse_cursor_position(&vw->vw_buf, vd->vd_mdirtyx,
-		    vd->vd_mdirtyy);
-	}
-#endif
 
 	for (row = tarea.tr_begin.tp_row; row < tarea.tr_end.tp_row; row++) {
 		if (!VTBUF_DIRTYROW(&tmask, row))
@@ -1703,7 +1703,7 @@ skip_thunk:
 		/* XXX: other fields! */
 		return (0);
 	}
-	case CONS_GETVERS: 
+	case CONS_GETVERS:
 		*(int *)data = 0x200;
 		return (0);
 	case CONS_MODEINFO:
@@ -1713,20 +1713,28 @@ skip_thunk:
 		mouse_info_t *mouse = (mouse_info_t*)data;
 
 		/*
-		 * This has no effect on vt(4).  We don't draw any mouse
-		 * cursor.  Just ignore MOUSE_HIDE and MOUSE_SHOW to
-		 * prevent excessive errors.  All the other commands
+		 * All the commands except MOUSE_SHOW nd MOUSE_HIDE
 		 * should not be applied to individual TTYs, but only to
 		 * consolectl.
 		 */
 		switch (mouse->operation) {
 		case MOUSE_HIDE:
-			vd->vd_flags &= ~VDF_MOUSECURSOR;
+			if (vd->vd_flags & VDF_MOUSECURSOR) {
+				vd->vd_flags &= ~VDF_MOUSECURSOR;
+#ifndef SC_NO_CUTPASTE
+				vt_mouse_state(VT_MOUSE_HIDE);
+#endif
+			}
 			return (0);
 		case MOUSE_SHOW:
-			vd->vd_mx = vd->vd_width / 2;
-			vd->vd_my = vd->vd_height / 2;
-			vd->vd_flags |= VDF_MOUSECURSOR;
+			if (!(vd->vd_flags & VDF_MOUSECURSOR)) {
+				vd->vd_flags |= VDF_MOUSECURSOR;
+				vd->vd_mx = vd->vd_width / 2;
+				vd->vd_my = vd->vd_height / 2;
+#ifndef SC_NO_CUTPASTE
+				vt_mouse_state(VT_MOUSE_SHOW);
+#endif
+			}
 			return (0);
 		default:
 			return (EINVAL);
@@ -1749,7 +1757,6 @@ skip_thunk:
 	}
 	case GIO_SCRNMAP: {
 		scrmap_t *sm = (scrmap_t *)data;
-		int i;
 
 		/* We don't have screen maps, so return a handcrafted one. */
 		for (i = 0; i < 256; i++)

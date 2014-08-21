@@ -4,10 +4,11 @@ FILES=	INDEX.keymaps \
 	am.kbd \
 	bg.bds.ctrlcaps.kbd \
 	bg.bds.kbd \
-	br.acc.kbd \
 	br.kbd \
+	ca.kbd \
 	ca-fr.kbd \
 	centraleuropean.kbd \
+	centraleuropean.qwerty.kbd \
 	ch-fr.acc.kbd \
 	ch-fr.kbd \
 	ch.acc.kbd \
