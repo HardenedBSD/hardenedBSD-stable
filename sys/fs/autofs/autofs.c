@@ -26,7 +26,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD$
  */
 /*-
  * Copyright (c) 1989, 1991, 1993, 1995
@@ -61,6 +60,9 @@
  *
  */
 
+#include <sys/cdefs.h>
+ __FBSDID("$FreeBSD$");
+
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/buf.h>
@@ -78,8 +80,8 @@
 #include <machine/atomic.h>
 #include <vm/uma.h>
 
-#include "autofs.h"
-#include "autofs_ioctl.h"
+#include <fs/autofs/autofs.h>
+#include <fs/autofs/autofs_ioctl.h>
 
 MALLOC_DEFINE(M_AUTOFS, "autofs", "Automounter filesystem");
 
