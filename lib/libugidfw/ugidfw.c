@@ -36,6 +36,9 @@
 #include <sys/sysctl.h>
 #include <sys/ucred.h>
 #include <sys/mount.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/sysctl.h>
 
 #include <security/mac_bsdextended/mac_bsdextended.h>
 
@@ -44,6 +47,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include "ugidfw.h"
 
@@ -195,7 +200,7 @@ bsde_rule_to_string(struct mac_bsdextended_rule *rule, char *buf, size_t buflen)
 			cur += len;
 		}
 		if (rule->mbr_subject.mbs_flags & MBS_PRISON_DEFINED) {
-			len = snprintf(cur, left, "jailid %d ", 
+			len = snprintf(cur, left, "jailid %d ",
 			    rule->mbr_subject.mbs_prison);
 			if (len < 0 || len > left)
 				goto truncated;
@@ -329,14 +334,19 @@ bsde_rule_to_string(struct mac_bsdextended_rule *rule, char *buf, size_t buflen)
 			cur += len;
 		}
 		if (rule->mbr_object.mbo_flags & MBO_FSID_DEFINED) {
-			numfs = getmntinfo(&mntbuf, MNT_NOWAIT);
-			for (i = 0; i < numfs; i++)
-				if (memcmp(&(rule->mbr_object.mbo_fsid),
-				    &(mntbuf[i].f_fsid),
-				    sizeof(mntbuf[i].f_fsid)) == 0)
-					break;
-			len = snprintf(cur, left, "filesys %s ", 
-			    i == numfs ? "???" : mntbuf[i].f_mntonname);
+			if (rule->mbr_object.mbo_inode == 0) {
+				numfs = getmntinfo(&mntbuf, MNT_NOWAIT);
+				for (i = 0; i < numfs; i++)
+					if (memcmp(&(rule->mbr_object.mbo_fsid),
+					    &(mntbuf[i].f_fsid),
+					    sizeof(mntbuf[i].f_fsid)) == 0)
+						break;
+				len = snprintf(cur, left, "filesys %s ",
+				    i == numfs ? "???" : mntbuf[i].f_mntonname);
+			} else {
+				len = snprintf(cur, left, "filesys %s ",
+				    rule->mbr_object.mbo_paxpath);
+			}
 			if (len < 0 || len > left)
 				goto truncated;
 			left -= len;
@@ -500,6 +510,33 @@ bsde_rule_to_string(struct mac_bsdextended_rule *rule, char *buf, size_t buflen)
 		cur += len;
 	}
 
+	if (rule->mbr_pax) {
+		len = snprintf(cur, left, " paxflags ");
+		if (len < 0 || len > left)
+			goto truncated;
+		left -= len;
+		cur += len;
+
+		if (rule->mbr_pax & MBI_FORCE_ASLR_ENABLED) {
+			len = snprintf(cur, left, "A");
+			if (len < 0 || len > left)
+				goto truncated;
+
+			left -= len;
+			cur += len;
+		}
+
+		if (rule->mbr_pax & MBI_FORCE_ASLR_DISABLED) {
+			len = snprintf(cur, left, "a");
+			if (len < 0 || len > left)
+				goto truncated;
+
+			left -= len;
+			cur += len;
+		}
+
+	}
+
 	return (0);
 
 truncated:
@@ -507,8 +544,8 @@ truncated:
 }
 
 int
-bsde_parse_uidrange(char *spec, uid_t *min, uid_t *max,
-    size_t buflen, char *errstr){
+bsde_parse_uidrange(char *spec, uid_t *min, uid_t *max, size_t buflen, char *errstr)
+{
 	struct passwd *pwd;
 	uid_t uid1, uid2;
 	char *spec1, *spec2, *endp;
@@ -556,8 +593,8 @@ bsde_parse_uidrange(char *spec, uid_t *min, uid_t *max,
 }
 
 int
-bsde_parse_gidrange(char *spec, gid_t *min, gid_t *max,
-    size_t buflen, char *errstr){
+bsde_parse_gidrange(char *spec, gid_t *min, gid_t *max, size_t buflen, char *errstr)
+{
 	struct group *grp;
 	gid_t gid1, gid2;
 	char *spec1, *spec2, *endp;
@@ -759,17 +796,22 @@ bsde_parse_type(char *spec, int *type, size_t buflen, char *errstr)
 			len = snprintf(errstr, buflen, "Unknown type code: %c",
 			    spec[i]);
 			return (-1);
-		} 
+		}
 	}
 
 	return (0);
 }
 
 int
-bsde_parse_fsid(char *spec, struct fsid *fsid, size_t buflen, char *errstr)
+bsde_parse_fsid(char *spec, struct fsid *fsid, ino_t *inode, size_t buflen, char *errstr)
 {
 	size_t len;
 	struct statfs buf;
+	struct stat sb;
+	int fd, paxstatus;
+	size_t bufsz;
+
+	*inode = 0;
 
 	if (statfs(spec, &buf) < 0) {
 		len = snprintf(errstr, buflen, "Unable to get id for %s: %s",
@@ -778,6 +820,21 @@ bsde_parse_fsid(char *spec, struct fsid *fsid, size_t buflen, char *errstr)
 	}
 
 	*fsid = buf.f_fsid;
+
+	if (strcmp(buf.f_fstypename, "devfs") != 0) {
+		bufsz = sizeof(int);
+		if (!sysctlbyname("kern.features.aslr", &paxstatus, &bufsz,
+		    NULL, 0)) {
+			fd = open(spec, O_RDONLY);
+			if (fd != -1) {
+				if (fstat(fd, &sb) == 0)
+					if(S_ISDIR(sb.st_mode) == 0)
+						*inode = sb.st_ino;
+
+				close(fd);
+			}
+		}
+	}
 
 	return (0);
 }
@@ -852,13 +909,18 @@ bsde_parse_object(int argc, char *argv[],
 				return (-1);
 			}
 			if (bsde_parse_fsid(argv[current+1], &fsid,
-			    buflen, errstr) < 0)
+			    &object->mbo_inode, buflen, errstr) < 0)
 				return (-1);
 			flags |= MBO_FSID_DEFINED;
 			if (nextnot) {
 				neg ^= MBO_FSID_DEFINED;
 				nextnot = 0;
 			}
+			if (object->mbo_inode)
+				snprintf(object->mbo_paxpath, MAXPATHLEN, "%s",
+				    argv[current+1]);
+			else
+				memset(object->mbo_paxpath, 0x00, MAXPATHLEN);
 			current += 2;
 		} else if (strcmp(argv[current], "suid") == 0) {
 			flags |= MBO_SUID;
@@ -984,7 +1046,42 @@ bsde_parse_mode(int argc, char *argv[], mode_t *mode, size_t buflen,
 			len = snprintf(errstr, buflen, "Unknown mode letter: %c",
 			    argv[0][i]);
 			return (-1);
-		} 
+		}
+	}
+
+	return (0);
+}
+
+int
+bsde_parse_paxflags(int argc, char *argv[], uint32_t *pax, size_t buflen, char *errstr)
+{
+	size_t len;
+	int i;
+
+	if (argc == 0) {
+		len = snprintf(errstr, buflen, "paxflags expects mode value");
+		return (-1);
+	}
+
+	if (argc != 1) {
+		len = snprintf(errstr, buflen, "'%s' unexpected", argv[1]);
+		return (-1);
+	}
+
+	*pax = 0;
+	for (i = 0; i < strlen(argv[0]); i++) {
+		switch (argv[0][i]) {
+		case 'A':
+			*pax |= MBI_FORCE_ASLR_ENABLED;
+			break;
+		case 'a':
+			*pax |= MBI_FORCE_ASLR_DISABLED;
+			break;
+		default:
+			len = snprintf(errstr, buflen, "Unknown mode letter: %c",
+			    argv[0][i]);
+			return (-1);
+		}
 	}
 
 	return (0);
@@ -997,6 +1094,7 @@ bsde_parse_rule(int argc, char *argv[], struct mac_bsdextended_rule *rule,
 	int subject, subject_elements, subject_elements_length;
 	int object, object_elements, object_elements_length;
 	int mode, mode_elements, mode_elements_length;
+	int paxflags, paxflags_elements, paxflags_elements_length=0;
 	int error, i;
 	size_t len;
 
@@ -1037,11 +1135,23 @@ bsde_parse_rule(int argc, char *argv[], struct mac_bsdextended_rule *rule,
 		return (-1);
 	}
 
+	/* Search forward for paxflags */
+	paxflags = -1;
+	for (i = 1; i < argc; i++)
+		if (strcmp(argv[i], "paxflags") == 0)
+			paxflags = i;
+
+	if (paxflags >= 0) {
+		paxflags_elements = paxflags + 1;
+		paxflags_elements_length = argc - paxflags_elements;
+	}
+
 	subject_elements_length = object - subject - 1;
 	object_elements = object + 1;
 	object_elements_length = mode - object_elements;
 	mode_elements = mode + 1;
-	mode_elements_length = argc - mode_elements;
+	mode_elements_length = argc - mode_elements -
+	    (paxflags_elements_length ? paxflags_elements_length+1 : 0);
 
 	error = bsde_parse_subject(subject_elements_length,
 	    argv + subject_elements, &rule->mbr_subject, buflen, errstr);
@@ -1057,6 +1167,13 @@ bsde_parse_rule(int argc, char *argv[], struct mac_bsdextended_rule *rule,
 	    &rule->mbr_mode, buflen, errstr);
 	if (error)
 		return (-1);
+
+	if (paxflags >= 0) {
+		error = bsde_parse_paxflags(paxflags_elements_length, argv + paxflags_elements,
+				&rule->mbr_pax, buflen, errstr);
+		if (error)
+			return (-1);
+	}
 
 	return (0);
 }

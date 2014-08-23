@@ -46,6 +46,8 @@ __FBSDID("$FreeBSD$");
 #include <string.h>
 #include <ugidfw.h>
 
+#define UGIDFW_BUFSIZ (BUFSIZ*2)
+
 void add_rule(int argc, char *argv[]);
 void list_rules(void);
 void remove_rule(int argc, char *argv[]);
@@ -71,22 +73,22 @@ usage(void)
 void
 add_rule(int argc, char *argv[])
 {
-	char errstr[BUFSIZ], charstr[BUFSIZ];
+	char errstr[UGIDFW_BUFSIZ], charstr[UGIDFW_BUFSIZ];
 	struct mac_bsdextended_rule rule;
 	int error, rulenum;
 
-	error = bsde_parse_rule(argc, argv, &rule, BUFSIZ, errstr);
+	error = bsde_parse_rule(argc, argv, &rule, UGIDFW_BUFSIZ, errstr);
 	if (error) {
 		warnx("%s", errstr);
 		return;
 	}
 
-	error = bsde_add_rule(&rulenum, &rule, BUFSIZ, errstr);
+	error = bsde_add_rule(&rulenum, &rule, UGIDFW_BUFSIZ, errstr);
 	if (error) {
 		warnx("%s", errstr);
 		return;
 	}
-	if (bsde_rule_to_string(&rule, charstr, BUFSIZ) == -1)
+	if (bsde_rule_to_string(&rule, charstr, UGIDFW_BUFSIZ) == -1)
 		warnx("Added rule, but unable to print string.");
 	else
 		printf("%d %s\n", rulenum, charstr);
@@ -95,25 +97,25 @@ add_rule(int argc, char *argv[])
 void
 list_rules(void)
 {
-	char errstr[BUFSIZ], charstr[BUFSIZ];
+	char errstr[UGIDFW_BUFSIZ], charstr[UGIDFW_BUFSIZ];
 	struct mac_bsdextended_rule rule;
 	int error, i, rule_count, rule_slots;
 
-	rule_slots = bsde_get_rule_slots(BUFSIZ, errstr);
+	rule_slots = bsde_get_rule_slots(UGIDFW_BUFSIZ, errstr);
 	if (rule_slots == -1) {
 		warnx("unable to get rule slots; mac_bsdextended.ko "
 		    "may not be loaded");
 		errx(1, "bsde_get_rule_slots: %s", errstr);
 	}
 
-	rule_count = bsde_get_rule_count(BUFSIZ, errstr);
+	rule_count = bsde_get_rule_count(UGIDFW_BUFSIZ, errstr);
 	if (rule_count == -1)
 		errx(1, "bsde_get_rule_count: %s", errstr);
 
 	printf("%d slots, %d rules\n", rule_slots, rule_count);
 
 	for (i = 0; i < rule_slots; i++) {
-		error = bsde_get_rule(i, &rule, BUFSIZ, errstr);
+		error = bsde_get_rule(i, &rule, UGIDFW_BUFSIZ, errstr);
 		switch (error) {
 		case -2:
 			continue;
@@ -124,7 +126,7 @@ list_rules(void)
 			break;
 		}
 
-		if (bsde_rule_to_string(&rule, charstr, BUFSIZ) == -1)
+		if (bsde_rule_to_string(&rule, charstr, UGIDFW_BUFSIZ) == -1)
 			warnx("unable to translate rule %d to string", i);
 		else
 			printf("%d %s\n", i, charstr);
@@ -134,7 +136,7 @@ list_rules(void)
 void
 set_rule(int argc, char *argv[])
 {
-	char errstr[BUFSIZ];
+	char errstr[UGIDFW_BUFSIZ];
 	struct mac_bsdextended_rule rule;
 	long value;
 	int error, rulenum;
@@ -152,13 +154,13 @@ set_rule(int argc, char *argv[])
 
 	rulenum = value;
 
-	error = bsde_parse_rule(argc - 1, argv + 1, &rule, BUFSIZ, errstr);
+	error = bsde_parse_rule(argc - 1, argv + 1, &rule, UGIDFW_BUFSIZ, errstr);
 	if (error) {
 		warnx("%s", errstr);
 		return;
 	}
 
-	error = bsde_set_rule(rulenum, &rule, BUFSIZ, errstr);
+	error = bsde_set_rule(rulenum, &rule, UGIDFW_BUFSIZ, errstr);
 	if (error) {
 		warnx("%s", errstr);
 		return;
@@ -168,7 +170,7 @@ set_rule(int argc, char *argv[])
 void
 remove_rule(int argc, char *argv[])
 {
-	char errstr[BUFSIZ];
+	char errstr[UGIDFW_BUFSIZ];
 	long value;
 	int error, rulenum;
 	char *endp;
@@ -185,7 +187,7 @@ remove_rule(int argc, char *argv[])
 
 	rulenum = value;
 
-	error = bsde_delete_rule(rulenum, BUFSIZ, errstr);
+	error = bsde_delete_rule(rulenum, UGIDFW_BUFSIZ, errstr);
 	if (error)
 		warnx("%s", errstr);
 }

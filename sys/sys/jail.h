@@ -186,6 +186,15 @@ struct prison {
 	char		 pr_hostuuid[HOSTUUIDLEN];	/* (p) jail hostuuid */
     /* Lock only needed for pax_* if pr_pax_set == 0 */
 	int		 pr_pax_set;			/* (p) PaX settings initialized */
+	int		 pr_pax_aslr_status;		/* (p) PaX ASLR enabled */
+	int		 pr_pax_aslr_debug;		/* (p) PaX ASLR debug */
+	int		 pr_pax_aslr_mmap_len;		/* (p) Number of bits randomized with mmap */
+	int		 pr_pax_aslr_stack_len;		/* (p) Number of bits randomized with stack */
+	int		 pr_pax_aslr_exec_len;		/* (p) Number of bits randomized with the execbase */
+	int		 pr_pax_aslr_compat_status;	/* (p) PaX ASLR enabled (compat32) */
+	int		 pr_pax_aslr_compat_mmap_len;	/* (p) Number of bits randomized with mmap (compat32) */
+	int		 pr_pax_aslr_compat_stack_len;	/* (p) Number of bits randomized with stack (compat32) */
+	int		 pr_pax_aslr_compat_exec_len;	/* (p) Number of bits randomized with the execbase (compat32) */
 	int		 pr_pax_map32_enabled;		/* (p) MAP_32BIT enabled (amd64 only) */
 };
 

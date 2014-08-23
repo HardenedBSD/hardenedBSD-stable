@@ -30,6 +30,7 @@ __FBSDID("$FreeBSD$");
 #include "opt_capsicum.h"
 #include "opt_hwpmc_hooks.h"
 #include "opt_ktrace.h"
+#include "opt_pax.h"
 #include "opt_vm.h"
 
 #include <sys/param.h>
@@ -51,6 +52,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/wait.h>
 #include <sys/malloc.h>
 #include <sys/priv.h>
+#include <sys/pax.h>
 #include <sys/proc.h>
 #include <sys/pioctl.h>
 #include <sys/namei.h>
@@ -402,6 +404,11 @@ do_execve(td, args, mac_p)
 	imgp->pagesizes = 0;
 	imgp->pagesizeslen = 0;
 	imgp->stack_prot = 0;
+	imgp->pax_flags = 0;
+
+#if defined(PAX_ASLR)
+	pax_elf(imgp, 0);
+#endif
 
 #ifdef MAC
 	error = mac_execve_enter(imgp, mac_p);
@@ -1066,6 +1073,10 @@ exec_new_vmspace(imgp, sv)
 		map = &vmspace->vm_map;
 	}
 
+#ifdef PAX_ASLR
+	pax_aslr_init(imgp);
+#endif
+
 	/* Map a shared page */
 	obj = sv->sv_shared_page_obj;
 	if (obj != NULL) {
@@ -1100,6 +1111,9 @@ exec_new_vmspace(imgp, sv)
 	 */
 	vmspace->vm_ssize = sgrowsiz >> PAGE_SHIFT;
 	vmspace->vm_maxsaddr = (char *)sv->sv_usrstack - ssiz;
+#ifdef PAX_ASLR
+	vmspace->vm_maxsaddr -= vmspace->vm_aslr_delta_stack;
+#endif
 
 	return (0);
 }
@@ -1259,6 +1273,9 @@ exec_copyout_strings(imgp)
 			szsigcode = *(p->p_sysent->sv_szsigcode);
 	}
 	destp =	(uintptr_t)arginfo;
+#ifdef PAX_ASLR
+	pax_aslr_stack(curthread, &destp);
+#endif
 
 	/*
 	 * install sigcode

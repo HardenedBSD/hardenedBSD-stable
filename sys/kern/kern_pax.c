@@ -187,11 +187,11 @@ pax_init_prison(struct prison *pr)
 
 	mtx_lock(&(pr->pr_mtx));
 
-#ifdef PAX_ASLR
 	if (pax_aslr_debug)
 		uprintf("[PaX ASLR] %s: Setting prison %s ASLR variables\n",
 		    __func__, pr->pr_name);
 
+#ifdef PAX_ASLR
 	pr->pr_pax_aslr_status = pax_aslr_status;
 	pr->pr_pax_aslr_debug = pax_aslr_debug;
 	pr->pr_pax_aslr_mmap_len = pax_aslr_mmap_len;

@@ -65,6 +65,8 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
+#include "opt_pax.h"
+
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/kernel.h>
@@ -295,6 +297,12 @@ vmspace_alloc(vm_offset_t min, vm_offset_t max, pmap_pinit_t pinit)
 	vm->vm_taddr = 0;
 	vm->vm_daddr = 0;
 	vm->vm_maxsaddr = 0;
+#ifdef PAX_ASLR
+	vm->vm_aslr_delta_mmap = 0;
+	vm->vm_aslr_delta_stack = 0;
+	vm->vm_aslr_delta_exec = 0;
+#endif
+
 	return (vm);
 }
 

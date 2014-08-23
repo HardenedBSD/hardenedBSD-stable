@@ -2937,8 +2937,10 @@ sigexit(td, sig)
 			    td->td_ucred ? td->td_ucred->cr_uid : -1,
 			    sig &~ WCOREFLAG,
 			    sig & WCOREFLAG ? " (core dumped)" : "");
-	} else
+	} else {
 		PROC_UNLOCK(p);
+	}
+
 	exit1(td, W_EXITCODE(0, sig));
 	/* NOTREACHED */
 }

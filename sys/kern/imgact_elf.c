@@ -34,6 +34,7 @@ __FBSDID("$FreeBSD$");
 #include "opt_capsicum.h"
 #include "opt_compat.h"
 #include "opt_core.h"
+#include "opt_pax.h"
 
 #include <sys/param.h>
 #include <sys/capsicum.h>
@@ -48,6 +49,8 @@ __FBSDID("$FreeBSD$");
 #include <sys/mman.h>
 #include <sys/namei.h>
 #include <sys/pioctl.h>
+#include <sys/jail.h>
+#include <sys/pax.h>
 #include <sys/proc.h>
 #include <sys/procfs.h>
 #include <sys/racct.h>
@@ -800,16 +803,7 @@ __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp)
 	if (hdr->e_type == ET_DYN) {
 		if ((brand_info->flags & BI_CAN_EXEC_DYN) == 0)
 			return (ENOEXEC);
-		/*
-		 * Honour the base load address from the dso if it is
-		 * non-zero for some reason.
-		 */
-		if (baddr == 0)
-			et_dyn_addr = ET_DYN_LOAD_ADDR;
-		else
-			et_dyn_addr = 0;
-	} else
-		et_dyn_addr = 0;
+	}
 	sv = brand_info->sysvec;
 	if (interp != NULL && brand_info->interp_newpath != NULL)
 		newinterp = brand_info->interp_newpath;
@@ -829,6 +823,21 @@ __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp)
 
 	error = exec_new_vmspace(imgp, sv);
 	imgp->proc->p_sysent = sv;
+
+	et_dyn_addr = 0;
+	if (hdr->e_type == ET_DYN) {
+		/*
+		 * Honour the base load address from the dso if it is
+		 * non-zero for some reason.
+		 */
+		if (baddr == 0) {
+			et_dyn_addr = ET_DYN_LOAD_ADDR;
+#ifdef PAX_ASLR
+			if (pax_aslr_active(imgp->proc))
+				et_dyn_addr += imgp->proc->p_vmspace->vm_aslr_delta_exec;
+#endif
+		}
+	}
 
 	vn_lock(imgp->vp, LK_EXCLUSIVE | LK_RETRY);
 	if (error)

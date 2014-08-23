@@ -30,6 +30,7 @@ __FBSDID("$FreeBSD$");
 #include "opt_compat.h"
 #include "opt_inet.h"
 #include "opt_inet6.h"
+#include "opt_pax.h"
 
 #define __ELF_WORD_SIZE 32
 
@@ -55,6 +56,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/mount.h>
 #include <sys/mutex.h>
 #include <sys/namei.h>
+#include <sys/pax.h>
 #include <sys/proc.h>
 #include <sys/procctl.h>
 #include <sys/reboot.h>
@@ -2765,6 +2767,10 @@ freebsd32_copyout_strings(struct image_params *imgp)
 	else
 		szsigcode = 0;
 	destp =	(uintptr_t)arginfo;
+
+#ifdef PAX_ASLR
+	pax_aslr_stack(curthread, &destp);
+#endif
 
 	/*
 	 * install sigcode
