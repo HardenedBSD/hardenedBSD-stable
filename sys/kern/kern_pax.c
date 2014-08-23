@@ -160,7 +160,7 @@ pax_init(void)
 #endif /* COMPAT_FREEBSD32 */
 #endif /* PAX_ASLR */
 
-#if PAX_HARDENING
+#ifdef PAX_HARDENING
 	if (pax_map32_enabled_global > 1 || pax_map32_enabled_global < -1) {
 		printf("[PAX HARDENING] WARNING, invalid PAX settings in loader.conf! "
 		    "(pax_map32_enabled_global = %d)\n", pax_map32_enabled_global);
