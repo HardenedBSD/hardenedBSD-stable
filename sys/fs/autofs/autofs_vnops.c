@@ -26,7 +26,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD$
  */
 
 #include <sys/cdefs.h>
@@ -47,7 +46,7 @@ __FBSDID("$FreeBSD$");
 #include <machine/atomic.h>
 #include <vm/uma.h>
 
-#include "autofs.h"
+#include <fs/autofs/autofs.h>
 
 static int	autofs_trigger_vn(struct vnode *vp, const char *path,
 		    int pathlen, struct vnode **newvp);

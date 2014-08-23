@@ -26,7 +26,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD$
  */
 /*-
  * Copyright (c) 1989, 1991, 1993, 1995
@@ -61,6 +60,9 @@
  *
  */
 
+#include <sys/cdefs.h>
+ __FBSDID("$FreeBSD$");
+
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/buf.h>
@@ -78,8 +80,8 @@
 #include <machine/atomic.h>
 #include <vm/uma.h>
 
-#include "autofs.h"
-#include "autofs_ioctl.h"
+#include <fs/autofs/autofs.h>
+#include <fs/autofs/autofs_ioctl.h>
 
 MALLOC_DEFINE(M_AUTOFS, "autofs", "Automounter filesystem");
 
@@ -593,6 +595,14 @@ autofs_open(struct cdev *dev, int flags, int fmt, struct thread *td)
 {
 
 	sx_xlock(&sc->sc_lock);
+	/*
+	 * We must never block automountd(8) and its descendants, and we use
+	 * session ID to determine that: we store session id of the process
+	 * that opened the device, and then compare it with session ids
+	 * of triggering processes.  This means running a second automountd(8)
+	 * instance would break the previous one.  The check below prevents
+	 * it from happening.
+	 */
 	if (sc->sc_dev_opened) {
 		sx_xunlock(&sc->sc_lock);
 		return (EBUSY);
