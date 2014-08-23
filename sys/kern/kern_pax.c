@@ -160,6 +160,16 @@ pax_init(void)
 #endif /* COMPAT_FREEBSD32 */
 #endif /* PAX_ASLR */
 
+#if PAX_HARDENING
+	if (pax_map32_enabled_global > 1 || pax_map32_enabled_global < -1) {
+		printf("[PAX HARDENING] WARNING, invalid PAX settings in loader.conf! "
+		    "(pax_map32_enabled_global = %d)\n", pax_map32_enabled_global);
+		pax_map32_enabled_global = 1;
+	}
+
+	printf("[PAX HARDENING] MAP_32BIT enabled: %d\n", pax_map32_enabled_global);
+#endif
+
 	printf("[PAX LOG] logging to system: %d\n", pax_log_log);
 	printf("[PAX LOG] logging to user: %d\n", pax_log_ulog);
 }
@@ -195,6 +205,10 @@ pax_init_prison(struct prison *pr)
 	pr->pr_pax_aslr_compat_exec_len = pax_aslr_compat_exec_len;
 #endif /* COMPAT_FREEBSD32 */
 #endif /* PAX_ASLR */
+
+#ifdef PAX_HARDENING
+	pr->pr_pax_map32_enabled = pax_map32_enabled_global;
+#endif
 
 	pr->pr_pax_set = 1;
 
