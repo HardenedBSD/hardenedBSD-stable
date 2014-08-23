@@ -33,6 +33,7 @@ __FBSDID("$FreeBSD$");
 #include "opt_ddb.h"
 #include "opt_inet.h"
 #include "opt_inet6.h"
+#include "opt_pax.h"
 
 #include <sys/param.h>
 #include <sys/types.h>
@@ -42,6 +43,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/sysproto.h>
 #include <sys/malloc.h>
 #include <sys/osd.h>
+#include <sys/pax.h>
 #include <sys/priv.h>
 #include <sys/proc.h>
 #include <sys/taskqueue.h>
@@ -116,6 +118,10 @@ struct prison prison0 = {
 	.pr_allow	= PR_ALLOW_ALL,
 };
 MTX_SYSINIT(prison0, &prison0.pr_mtx, "jail mutex", MTX_DEF);
+
+#if defined(PAX_HARDENING)
+SYSINIT(pax, SI_SUB_PAX, SI_ORDER_MIDDLE, pax_init_prison, (void *) &prison0);
+#endif
 
 /* allprison, allprison_racct and lastprid are protected by allprison_lock. */
 struct	sx allprison_lock;
@@ -1306,6 +1312,10 @@ kern_jail_set(struct thread *td, struct uio *optuio, int flags)
 			prison_deref(pr, PD_LIST_XLOCKED);
 			goto done_releroot;
 		}
+
+#if defined(PAX_HARDENING)
+		pax_init_prison(pr);
+#endif
 
 		mtx_lock(&pr->pr_mtx);
 		/*

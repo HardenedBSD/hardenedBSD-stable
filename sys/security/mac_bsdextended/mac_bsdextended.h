@@ -51,6 +51,9 @@
 #define	MBI_ADMIN	010000
 #define	MBI_STAT	020000
 #define	MBI_APPEND	040000
+#define MBI_FORCE_ASLR_ENABLED          0x01
+#define MBI_FORCE_ASLR_DISABLED         0x02
+#define MBI_ALLPAX (MBI_FORCE_ASLR_ENABLED | MBI_FORCE_ASLR_DISABLED)
 #define	MBI_ALLPERM	(MBI_EXEC | MBI_WRITE | MBI_READ | MBI_ADMIN | \
 			    MBI_STAT | MBI_APPEND)
 
@@ -78,6 +81,7 @@ struct mac_bsdextended_subject {
 #define	MBO_UID_SUBJECT	0x00000020	/* uid must match subject */
 #define	MBO_GID_SUBJECT	0x00000040	/* gid must match subject */
 #define	MBO_TYPE_DEFINED 0x00000080	/* object type should be matched */
+#define MBO_PAXPATH_DEFINED 0x00000100 /* TODO: paxpath should be matched */
 
 #define MBO_ALL_FLAGS (MBO_UID_DEFINED | MBO_GID_DEFINED | MBO_FSID_DEFINED | \
 	    MBO_SUID | MBO_SGID | MBO_UID_SUBJECT | MBO_GID_SUBJECT | \
@@ -103,12 +107,15 @@ struct mac_bsdextended_object {
 	gid_t	mbo_gid_max;
 	struct fsid mbo_fsid;
 	int	mbo_type;
+	ino_t	mbo_inode;
+	char	mbo_paxpath[MAXPATHLEN];
 };
 
 struct mac_bsdextended_rule {
 	struct mac_bsdextended_subject	mbr_subject;
 	struct mac_bsdextended_object	mbr_object;
 	mode_t				mbr_mode;	/* maximum access */
+	uint32_t			mbr_pax;
 };
 
 #endif /* _SYS_SECURITY_MAC_BSDEXTENDED_H */

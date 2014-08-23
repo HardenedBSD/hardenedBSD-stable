@@ -184,6 +184,9 @@ struct prison {
 	char		 pr_hostname[MAXHOSTNAMELEN];	/* (p) jail hostname */
 	char		 pr_domainname[MAXHOSTNAMELEN];	/* (p) jail domainname */
 	char		 pr_hostuuid[HOSTUUIDLEN];	/* (p) jail hostuuid */
+    /* Lock only needed for pax_* if pr_pax_set == 0 */
+	int		 pr_pax_set;			/* (p) PaX settings initialized */
+	int		 pr_pax_map32_enabled;		/* (p) MAP_32BIT enabled (amd64 only) */
 };
 
 struct prison_racct {

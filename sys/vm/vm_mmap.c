@@ -45,6 +45,7 @@ __FBSDID("$FreeBSD$");
 
 #include "opt_compat.h"
 #include "opt_hwpmc_hooks.h"
+#include "opt_pax.h"
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -54,6 +55,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/mutex.h>
 #include <sys/sysproto.h>
 #include <sys/filedesc.h>
+#include <sys/pax.h>
 #include <sys/priv.h>
 #include <sys/proc.h>
 #include <sys/procctl.h>
@@ -264,6 +266,12 @@ sys_mmap(td, uap)
 	    (align >> MAP_ALIGNMENT_SHIFT >= sizeof(void *) * NBBY ||
 	    align >> MAP_ALIGNMENT_SHIFT < PAGE_SHIFT))
 		return (EINVAL);
+
+#if defined(MAP_32BIT) && defined(PAX_HARDENING)
+	if (flags & MAP_32BIT)
+		if (pax_map32_enabled(td) == 0)
+			return (EPERM);
+#endif
 
 	/*
 	 * Check for illegal addresses.  Watch out for address wrap... Note

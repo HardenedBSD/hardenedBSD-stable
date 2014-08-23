@@ -2949,6 +2949,8 @@ kern/kern_mtxpool.c		standard
 kern/kern_mutex.c		standard
 kern/kern_ntptime.c		standard
 kern/kern_osd.c			standard
+kern/kern_pax.c			optional pax_hardening
+kern/kern_pax_log.c		optional pax_hardening
 kern/kern_physio.c		standard
 kern/kern_pmc.c			standard
 kern/kern_poll.c		optional device_polling
