@@ -2,6 +2,7 @@ include GENERIC
 
 # It makes sense to include ASLR in the LATT-ASLR kernel
 options PAX_ASLR
+options PAX_HARDENING
 options PAX_SYSCTLS
 
 # For building bootable sparc64 media
