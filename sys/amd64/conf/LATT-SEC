@@ -17,4 +17,4 @@ nooptions INVARIANTS
 nooptions INVARIANT_SUPPORT
 
 # Virtual networking for jails
-options VIMAGE
+#options VIMAGE
