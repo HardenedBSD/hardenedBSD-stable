@@ -26,7 +26,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD$
  */
 
 #include <sys/cdefs.h>
@@ -47,10 +46,12 @@ __FBSDID("$FreeBSD$");
 #include <machine/atomic.h>
 #include <vm/uma.h>
 
-#include "autofs.h"
+#include <fs/autofs/autofs.h>
 
 static int	autofs_trigger_vn(struct vnode *vp, const char *path,
 		    int pathlen, struct vnode **newvp);
+
+extern struct autofs_softc	*autofs_softc;
 
 static int
 autofs_access(struct vop_access_args *ap)
@@ -135,12 +136,10 @@ autofs_trigger_vn(struct vnode *vp, const char *path, int pathlen,
 {
 	struct autofs_node *anp;
 	struct autofs_mount *amp;
-	struct autofs_softc *sc;
 	int error, lock_flags;
 
 	anp = vp->v_data;
 	amp = VFSTOAUTOFS(vp->v_mount);
-	sc = amp->am_softc;
 
 	/*
 	 * Release the vnode lock, so that other operations, in partcular
@@ -152,7 +151,7 @@ autofs_trigger_vn(struct vnode *vp, const char *path, int pathlen,
 	vref(vp);
 	VOP_UNLOCK(vp, 0);
 
-	sx_xlock(&sc->sc_lock);
+	sx_xlock(&autofs_softc->sc_lock);
 
 	/*
 	 * XXX: Workaround for mounting the same thing multiple times; revisit.
@@ -164,7 +163,7 @@ autofs_trigger_vn(struct vnode *vp, const char *path, int pathlen,
 
 	error = autofs_trigger(anp, path, pathlen);
 mounted:
-	sx_xunlock(&sc->sc_lock);
+	sx_xunlock(&autofs_softc->sc_lock);
 	vn_lock(vp, lock_flags | LK_RETRY);
 	vunref(vp);
 	if ((vp->v_iflag & VI_DOOMED) != 0) {
@@ -198,6 +197,15 @@ mounted:
 }
 
 static int
+autofs_vget_callback(struct mount *mp, void *arg, int lkflags __unused,
+    struct vnode **vpp)
+{
+
+
+	return (autofs_node_vn(arg, mp, vpp));
+}
+
+static int
 autofs_lookup(struct vop_lookup_args *ap)
 {
 	struct vnode *dvp, *newvp, **vpp;
@@ -217,24 +225,19 @@ autofs_lookup(struct vop_lookup_args *ap)
 	if (cnp->cn_flags & ISDOTDOT) {
 		KASSERT(anp->an_parent != NULL, ("NULL parent"));
 		/*
-		 * Note that in this case, dvp is the child vnode, and we are
-		 * looking up the parent vnode - exactly reverse from normal
-		 * operation.  To preserve lock order, we unlock the child
-		 * (dvp), obtain the lock on parent (*vpp) in autofs_node_vn(),
-		 * then relock the child.  We use vhold()/vdrop() to prevent
-		 * dvp from being freed in the meantime.
+		 * Note that in this case, dvp is the child vnode, and we
+		 * are looking up the parent vnode - exactly reverse from
+		 * normal operation.  Unlocking dvp requires some rather
+		 * tricky unlock/relock dance to prevent mp from being freed;
+		 * use vn_vget_ino_gen() which takes care of all that.
 		 */
-		lock_flags = VOP_ISLOCKED(dvp);
-		vhold(dvp);
-		VOP_UNLOCK(dvp, 0);
-		error = autofs_node_vn(anp->an_parent, mp, vpp);
+		error = vn_vget_ino_gen(dvp, autofs_vget_callback,
+		    anp->an_parent, 0, vpp);
 		if (error != 0) {
-			AUTOFS_WARN("autofs_node_vn() failed with error %d",
+			AUTOFS_WARN("vn_vget_ino_gen() failed with error %d",
 			    error);
+			return (error);
 		}
-		vn_lock(dvp, lock_flags | LK_RETRY);
-		vdrop(dvp);
-
 		return (error);
 	}
 
@@ -272,9 +275,6 @@ autofs_lookup(struct vop_lookup_args *ap)
 			return (error);
 		}
 	}
-
-	if (cnp->cn_nameiop == RENAME)
-		return (EOPNOTSUPP);
 
 	AUTOFS_LOCK(amp);
 	error = autofs_node_find(anp, cnp->cn_nameptr, cnp->cn_namelen, &child);

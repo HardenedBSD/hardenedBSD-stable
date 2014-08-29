@@ -32,9 +32,6 @@
 #ifndef AUTOFS_H
 #define	AUTOFS_H
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 #define VFSTOAUTOFS(mp)    ((struct autofs_mount *)((mp)->mnt_data))
 
 MALLOC_DECLARE(M_AUTOFS);
@@ -78,7 +75,6 @@ struct autofs_node {
 
 struct autofs_mount {
 	TAILQ_ENTRY(autofs_mount)	am_next;
-	struct autofs_softc		*am_softc;
 	struct autofs_node		*am_root;
 	struct mount			*am_mp;
 	struct sx			am_lock;

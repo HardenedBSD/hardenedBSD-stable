@@ -26,7 +26,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD$
  */
 /*-
  * Copyright (c) 1989, 1991, 1993, 1995
@@ -61,6 +60,9 @@
  *
  */
 
+#include <sys/cdefs.h>
+ __FBSDID("$FreeBSD$");
+
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/buf.h>
@@ -78,8 +80,8 @@
 #include <machine/atomic.h>
 #include <vm/uma.h>
 
-#include "autofs.h"
-#include "autofs_ioctl.h"
+#include <fs/autofs/autofs.h>
+#include <fs/autofs/autofs_ioctl.h>
 
 MALLOC_DEFINE(M_AUTOFS, "autofs", "Automounter filesystem");
 
@@ -113,7 +115,7 @@ int autofs_sig_set[] = {
 	SIGQUIT
 };
 
-struct autofs_softc	*sc;
+struct autofs_softc	*autofs_softc;
 
 SYSCTL_NODE(_vfs, OID_AUTO, autofs, CTLFLAG_RD, 0, "Automounter filesystem");
 int autofs_debug = 1;
@@ -151,7 +153,11 @@ autofs_init(struct vfsconf *vfsp)
 {
 	int error;
 
-	sc = malloc(sizeof(*sc), M_AUTOFS, M_WAITOK | M_ZERO);
+	KASSERT(autofs_softc == NULL,
+	    ("softc %p, should be NULL", autofs_softc));
+
+	autofs_softc = malloc(sizeof(*autofs_softc), M_AUTOFS,
+	    M_WAITOK | M_ZERO);
 
 	autofs_request_zone = uma_zcreate("autofs_request",
 	    sizeof(struct autofs_request), NULL, NULL, NULL, NULL,
@@ -160,18 +166,21 @@ autofs_init(struct vfsconf *vfsp)
 	    sizeof(struct autofs_node), NULL, NULL, NULL, NULL,
 	    UMA_ALIGN_PTR, 0);
 
-	TAILQ_INIT(&sc->sc_requests);
-	cv_init(&sc->sc_cv, "autofscv");
-	sx_init(&sc->sc_lock, "autofslk");
+	TAILQ_INIT(&autofs_softc->sc_requests);
+	cv_init(&autofs_softc->sc_cv, "autofscv");
+	sx_init(&autofs_softc->sc_lock, "autofslk");
 
-	error = make_dev_p(MAKEDEV_CHECKNAME, &sc->sc_cdev, &autofs_cdevsw,
-	    NULL, UID_ROOT, GID_WHEEL, 0600, "autofs");
+	error = make_dev_p(MAKEDEV_CHECKNAME, &autofs_softc->sc_cdev,
+	    &autofs_cdevsw, NULL, UID_ROOT, GID_WHEEL, 0600, "autofs");
 	if (error != 0) {
 		AUTOFS_WARN("failed to create device node, error %d", error);
-		free(sc, M_AUTOFS);
+		uma_zdestroy(autofs_request_zone);
+		uma_zdestroy(autofs_node_zone);
+		free(autofs_softc, M_AUTOFS);
+
 		return (error);
 	}
-	sc->sc_cdev->si_drv1 = sc;
+	autofs_softc->sc_cdev->si_drv1 = autofs_softc;
 
 	return (0);
 }
@@ -180,22 +189,22 @@ int
 autofs_uninit(struct vfsconf *vfsp)
 {
 
-	sx_xlock(&sc->sc_lock);
-	if (sc->sc_dev_opened) {
-		sx_xunlock(&sc->sc_lock);
+	sx_xlock(&autofs_softc->sc_lock);
+	if (autofs_softc->sc_dev_opened) {
+		sx_xunlock(&autofs_softc->sc_lock);
 		return (EBUSY);
 	}
-	if (sc->sc_cdev != NULL)
-		destroy_dev(sc->sc_cdev);
+	if (autofs_softc->sc_cdev != NULL)
+		destroy_dev(autofs_softc->sc_cdev);
 
 	uma_zdestroy(autofs_request_zone);
 	uma_zdestroy(autofs_node_zone);
 
-	sx_xunlock(&sc->sc_lock);
+	sx_xunlock(&autofs_softc->sc_lock);
 	/*
 	 * XXX: Race with open?
 	 */
-	free(sc, M_AUTOFS);
+	free(autofs_softc, M_AUTOFS);
 
 	return (0);
 }
@@ -207,11 +216,11 @@ autofs_ignore_thread(const struct thread *td)
 
 	p = td->td_proc;
 
-	if (sc->sc_dev_opened == false)
+	if (autofs_softc->sc_dev_opened == false)
 		return (false);
 
 	PROC_LOCK(p);
-	if (p->p_session->s_sid == sc->sc_dev_sid) {
+	if (p->p_session->s_sid == autofs_softc->sc_dev_sid) {
 		PROC_UNLOCK(p);
 		return (true);
 	}
@@ -254,12 +263,10 @@ static void
 autofs_callout(void *context)
 {
 	struct autofs_request *ar;
-	struct autofs_softc *sc;
 
 	ar = context;
-	sc = ar->ar_mount->am_softc;
 
-	sx_xlock(&sc->sc_lock);
+	sx_xlock(&autofs_softc->sc_lock);
 	AUTOFS_WARN("request %d for %s timed out after %d seconds",
 	    ar->ar_id, ar->ar_path, autofs_timeout);
 	/*
@@ -268,8 +275,8 @@ autofs_callout(void *context)
 	ar->ar_error = ETIMEDOUT;
 	ar->ar_done = true;
 	ar->ar_in_progress = false;
-	cv_broadcast(&sc->sc_cv);
-	sx_xunlock(&sc->sc_lock);
+	cv_broadcast(&autofs_softc->sc_cv);
+	sx_xunlock(&autofs_softc->sc_lock);
 }
 
 bool
@@ -354,16 +361,14 @@ autofs_trigger_one(struct autofs_node *anp,
 {
 	sigset_t oldset;
 	struct autofs_mount *amp;
-	struct autofs_softc *sc;
 	struct autofs_node *firstanp;
 	struct autofs_request *ar;
 	char *key, *path;
 	int error = 0, request_error, last;
 
 	amp = VFSTOAUTOFS(anp->an_vnode->v_mount);
-	sc = amp->am_softc;
 
-	sx_assert(&sc->sc_lock, SA_XLOCKED);
+	sx_assert(&autofs_softc->sc_lock, SA_XLOCKED);
 
 	if (anp->an_parent == NULL) {
 		key = strndup(component, componentlen, M_AUTOFS);
@@ -376,7 +381,7 @@ autofs_trigger_one(struct autofs_node *anp,
 
 	path = autofs_path(anp);
 
-	TAILQ_FOREACH(ar, &sc->sc_requests, ar_next) {
+	TAILQ_FOREACH(ar, &autofs_softc->sc_requests, ar_next) {
 		if (strcmp(ar->ar_path, path) != 0)
 			continue;
 		if (strcmp(ar->ar_key, key) != 0)
@@ -400,7 +405,8 @@ autofs_trigger_one(struct autofs_node *anp,
 		ar = uma_zalloc(autofs_request_zone, M_WAITOK | M_ZERO);
 		ar->ar_mount = amp;
 
-		ar->ar_id = atomic_fetchadd_int(&sc->sc_last_request_id, 1);
+		ar->ar_id =
+		    atomic_fetchadd_int(&autofs_softc->sc_last_request_id, 1);
 		strlcpy(ar->ar_from, amp->am_from, sizeof(ar->ar_from));
 		strlcpy(ar->ar_path, path, sizeof(ar->ar_path));
 		strlcpy(ar->ar_prefix, amp->am_prefix, sizeof(ar->ar_prefix));
@@ -412,14 +418,15 @@ autofs_trigger_one(struct autofs_node *anp,
 		callout_reset(&ar->ar_callout,
 		    autofs_timeout * hz, autofs_callout, ar);
 		refcount_init(&ar->ar_refcount, 1);
-		TAILQ_INSERT_TAIL(&sc->sc_requests, ar, ar_next);
+		TAILQ_INSERT_TAIL(&autofs_softc->sc_requests, ar, ar_next);
 	}
 
-	cv_broadcast(&sc->sc_cv);
+	cv_broadcast(&autofs_softc->sc_cv);
 	while (ar->ar_done == false) {
 		if (autofs_interruptible != 0) {
 			autofs_set_sigmask(&oldset);
-			error = cv_wait_sig(&sc->sc_cv, &sc->sc_lock);
+			error = cv_wait_sig(&autofs_softc->sc_cv,
+			    &autofs_softc->sc_lock);
 			autofs_restore_sigmask(&oldset);
 			if (error != 0) {
 				/*
@@ -432,7 +439,7 @@ autofs_trigger_one(struct autofs_node *anp,
 				break;
 			}
 		} else {
-			cv_wait(&sc->sc_cv, &sc->sc_lock);
+			cv_wait(&autofs_softc->sc_cv, &autofs_softc->sc_lock);
 		}
 	}
 
@@ -444,13 +451,13 @@ autofs_trigger_one(struct autofs_node *anp,
 
 	last = refcount_release(&ar->ar_refcount);
 	if (last) {
-		TAILQ_REMOVE(&sc->sc_requests, ar, ar_next);
+		TAILQ_REMOVE(&autofs_softc->sc_requests, ar, ar_next);
 		/*
 		 * XXX: Is it safe?
 		 */
-		sx_xunlock(&sc->sc_lock);
+		sx_xunlock(&autofs_softc->sc_lock);
 		callout_drain(&ar->ar_callout);
-		sx_xlock(&sc->sc_lock);
+		sx_xlock(&autofs_softc->sc_lock);
 		uma_zfree(autofs_request_zone, ar);
 	}
 
@@ -505,21 +512,21 @@ autofs_trigger(struct autofs_node *anp,
 		AUTOFS_DEBUG("trigger failed with error %d; will retry in "
 		    "%d seconds, %d attempts left", error, autofs_retry_delay,
 		    autofs_retry_attempts - anp->an_retries);
-		sx_xunlock(&sc->sc_lock);
+		sx_xunlock(&autofs_softc->sc_lock);
 		pause("autofs_retry", autofs_retry_delay * hz);
-		sx_xlock(&sc->sc_lock);
+		sx_xlock(&autofs_softc->sc_lock);
 	}
 }
 
 static int
-autofs_ioctl_request(struct autofs_softc *sc, struct autofs_daemon_request *adr)
+autofs_ioctl_request(struct autofs_daemon_request *adr)
 {
 	struct autofs_request *ar;
 	int error;
 
-	sx_xlock(&sc->sc_lock);
+	sx_xlock(&autofs_softc->sc_lock);
 	for (;;) {
-		TAILQ_FOREACH(ar, &sc->sc_requests, ar_next) {
+		TAILQ_FOREACH(ar, &autofs_softc->sc_requests, ar_next) {
 			if (ar->ar_done)
 				continue;
 			if (ar->ar_in_progress)
@@ -531,21 +538,22 @@ autofs_ioctl_request(struct autofs_softc *sc, struct autofs_daemon_request *adr)
 		if (ar != NULL)
 			break;
 
-		error = cv_wait_sig(&sc->sc_cv, &sc->sc_lock);
+		error = cv_wait_sig(&autofs_softc->sc_cv,
+		    &autofs_softc->sc_lock);
 		if (error != 0) {
 			/*
 			 * XXX: For some reson this returns -1 instead
 			 * 	of EINTR, wtf?!
 			 */
 			error = EINTR;
-			sx_xunlock(&sc->sc_lock);
+			sx_xunlock(&autofs_softc->sc_lock);
 			AUTOFS_DEBUG("failed with error %d", error);
 			return (error);
 		}
 	}
 
 	ar->ar_in_progress = true;
-	sx_xunlock(&sc->sc_lock);
+	sx_xunlock(&autofs_softc->sc_lock);
 
 	adr->adr_id = ar->ar_id;
 	strlcpy(adr->adr_from, ar->ar_from, sizeof(adr->adr_from));
@@ -555,25 +563,25 @@ autofs_ioctl_request(struct autofs_softc *sc, struct autofs_daemon_request *adr)
 	strlcpy(adr->adr_options, ar->ar_options, sizeof(adr->adr_options));
 
 	PROC_LOCK(curproc);
-	sc->sc_dev_sid = curproc->p_session->s_sid;
+	autofs_softc->sc_dev_sid = curproc->p_session->s_sid;
 	PROC_UNLOCK(curproc);
 
 	return (0);
 }
 
 static int
-autofs_ioctl_done(struct autofs_softc *sc, struct autofs_daemon_done *add)
+autofs_ioctl_done(struct autofs_daemon_done *add)
 {
 	struct autofs_request *ar;
 
-	sx_xlock(&sc->sc_lock);
-	TAILQ_FOREACH(ar, &sc->sc_requests, ar_next) {
+	sx_xlock(&autofs_softc->sc_lock);
+	TAILQ_FOREACH(ar, &autofs_softc->sc_requests, ar_next) {
 		if (ar->ar_id == add->add_id)
 			break;
 	}
 
 	if (ar == NULL) {
-		sx_xunlock(&sc->sc_lock);
+		sx_xunlock(&autofs_softc->sc_lock);
 		AUTOFS_DEBUG("id %d not found", add->add_id);
 		return (ESRCH);
 	}
@@ -581,9 +589,9 @@ autofs_ioctl_done(struct autofs_softc *sc, struct autofs_daemon_done *add)
 	ar->ar_error = add->add_error;
 	ar->ar_done = true;
 	ar->ar_in_progress = false;
-	cv_broadcast(&sc->sc_cv);
+	cv_broadcast(&autofs_softc->sc_cv);
 
-	sx_xunlock(&sc->sc_lock);
+	sx_xunlock(&autofs_softc->sc_lock);
 
 	return (0);
 }
@@ -592,14 +600,22 @@ static int
 autofs_open(struct cdev *dev, int flags, int fmt, struct thread *td)
 {
 
-	sx_xlock(&sc->sc_lock);
-	if (sc->sc_dev_opened) {
-		sx_xunlock(&sc->sc_lock);
+	sx_xlock(&autofs_softc->sc_lock);
+	/*
+	 * We must never block automountd(8) and its descendants, and we use
+	 * session ID to determine that: we store session id of the process
+	 * that opened the device, and then compare it with session ids
+	 * of triggering processes.  This means running a second automountd(8)
+	 * instance would break the previous one.  The check below prevents
+	 * it from happening.
+	 */
+	if (autofs_softc->sc_dev_opened) {
+		sx_xunlock(&autofs_softc->sc_lock);
 		return (EBUSY);
 	}
 
-	sc->sc_dev_opened = true;
-	sx_xunlock(&sc->sc_lock);
+	autofs_softc->sc_dev_opened = true;
+	sx_xunlock(&autofs_softc->sc_lock);
 
 	return (0);
 }
@@ -608,10 +624,10 @@ static int
 autofs_close(struct cdev *dev, int flag, int fmt, struct thread *td)
 {
 
-	sx_xlock(&sc->sc_lock);
-	KASSERT(sc->sc_dev_opened, ("not opened?"));
-	sc->sc_dev_opened = false;
-	sx_xunlock(&sc->sc_lock);
+	sx_xlock(&autofs_softc->sc_lock);
+	KASSERT(autofs_softc->sc_dev_opened, ("not opened?"));
+	autofs_softc->sc_dev_opened = false;
+	sx_xunlock(&autofs_softc->sc_lock);
 
 	return (0);
 }
@@ -621,14 +637,14 @@ autofs_ioctl(struct cdev *dev, u_long cmd, caddr_t arg, int mode,
     struct thread *td)
 {
 
-	KASSERT(sc->sc_dev_opened, ("not opened?"));
+	KASSERT(autofs_softc->sc_dev_opened, ("not opened?"));
 
 	switch (cmd) {
 	case AUTOFSREQUEST:
-		return (autofs_ioctl_request(sc,
+		return (autofs_ioctl_request(
 		    (struct autofs_daemon_request *)arg));
 	case AUTOFSDONE:
-		return (autofs_ioctl_done(sc,
+		return (autofs_ioctl_done(
 		    (struct autofs_daemon_done *)arg));
 	default:
 		AUTOFS_DEBUG("invalid cmd %lx", cmd);

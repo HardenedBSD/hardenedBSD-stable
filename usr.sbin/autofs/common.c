@@ -26,8 +26,10 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD$
  */
+
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
 #include <sys/time.h>
@@ -50,6 +52,7 @@
 #include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
+#define	_WITH_GETLINE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -211,6 +214,7 @@ node_new(struct node *parent, char *key, char *options, char *location,
 
 	TAILQ_INIT(&n->n_children);
 	assert(key != NULL);
+	assert(key[0] != '\0');
 	n->n_key = key;
 	if (options != NULL)
 		n->n_options = options;
@@ -241,6 +245,7 @@ node_new_map(struct node *parent, char *key, char *options, char *map,
 
 	TAILQ_INIT(&n->n_children);
 	assert(key != NULL);
+	assert(key[0] != '\0');
 	n->n_key = key;
 	if (options != NULL)
 		n->n_options = options;
@@ -563,6 +568,7 @@ node_path_x(const struct node *n, char *x)
 		return (x);
 	}
 
+	assert(n->n_key[0] != '\0');
 	path = separated_concat(n->n_key, x, '/');
 	free(x);
 
@@ -714,7 +720,13 @@ parse_map_yyin(struct node *parent, const char *map, const char *executable_key)
 	for (;;) {
 		ret = yylex();
 		if (ret == 0 || ret == NEWLINE) {
-			if (key != NULL || options != NULL) {
+			/*
+			 * In case of executable map, the key is always
+			 * non-NULL, even if the map is empty.  So, make sure
+			 * we don't fail empty maps here.
+			 */
+			if ((key != NULL && executable_key == NULL) ||
+			    options != NULL) {
 				log_errx(1, "truncated entry at %s, line %d",
 				    map, lineno);
 			}
@@ -848,6 +860,47 @@ again:
 	}
 }
 
+/*
+ * Parse output of a special map called without argument.  It is a list
+ * of keys, separated by newlines.  They can contain whitespace, so use
+ * getline(3) instead of lexer used for maps.
+ */
+static void
+parse_map_keys_yyin(struct node *parent, const char *map)
+{
+	char *line = NULL, *key;
+	size_t linecap = 0;
+	ssize_t linelen;
+
+	lineno = 1;
+
+	for (;;) {
+		linelen = getline(&line, &linecap, yyin);
+		if (linelen < 0) {
+			/*
+			 * End of file.
+			 */
+			break;
+		}
+		if (linelen <= 1) {
+			/*
+			 * Empty line, consisting of just the newline.
+			 */
+			continue;
+		}
+
+		/*
+		 * "-1" to strip the trailing newline.
+		 */
+		key = strndup(line, linelen - 1);
+
+		log_debugx("adding key \"%s\"", key);
+		node_new(parent, key, NULL, NULL, map, lineno);
+		lineno++;
+	}
+	free(line);
+}
+
 static bool
 file_is_executable(const char *path)
 {
@@ -874,11 +927,6 @@ parse_special_map(struct node *parent, const char *map, const char *key)
 
 	assert(map[0] == '-');
 
-	if (key == NULL) {
-		log_debugx("skipping map %s due to forced -nobrowse", map);
-		return;
-	}
-
 	/*
 	 * +1 to skip leading "-" in map name.
 	 */
@@ -889,7 +937,11 @@ parse_special_map(struct node *parent, const char *map, const char *key)
 	yyin = auto_popen(path, key, NULL);
 	assert(yyin != NULL);
 
-	parse_map_yyin(parent, map, key);
+	if (key == NULL) {
+		parse_map_keys_yyin(parent, map);
+	} else {
+		parse_map_yyin(parent, map, key);
+	}
 
 	error = auto_pclose(yyin);
 	yyin = NULL;
