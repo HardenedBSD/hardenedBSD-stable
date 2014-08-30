@@ -116,6 +116,10 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 			flags |= PAX_NOTE_ASLR;
 		else if (mode & MBI_FORCE_ASLR_DISABLED)
 			flags |= PAX_NOTE_NOASLR;
+		if (mode & MBI_FORCE_SEGVGUARD_ENABLED)
+			flags |= PAX_NOTE_GUARD;
+		else if (mode & MBI_FORCE_SEGVGUARD_DISABLED)
+			flags |= PAX_NOTE_NOGUARD;
 	}
 
 	if (imgp != NULL) {
