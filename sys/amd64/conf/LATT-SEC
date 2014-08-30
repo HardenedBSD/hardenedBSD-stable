@@ -2,6 +2,7 @@ include GENERIC
 
 # It makes sense to include ASLR in the LATT-ASLR kernel
 options PAX_ASLR
+options PAX_HARDENING
 options PAX_SYSCTLS
 options PAX_SEGVGUARD
 
@@ -17,4 +18,4 @@ nooptions INVARIANTS
 nooptions INVARIANT_SUPPORT
 
 # Virtual networking for jails
-options VIMAGE
+#options VIMAGE

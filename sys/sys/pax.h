@@ -210,6 +210,9 @@ extern int pax_segvguard_expiry;
 extern int pax_segvguard_suspension;
 extern int pax_segvguard_maxcrashes;
 #endif /* PAX_SEGVGUARD */
+#ifdef PAX_HARDENING
+extern int pax_map32_enabled_global;
+#endif /* PAX_HARDENING*/
 
 extern int pax_log_log;
 extern int pax_log_ulog;
@@ -241,6 +244,7 @@ void pax_aslr_mmap(struct proc *p, vm_offset_t *addr,
 void pax_aslr_stack(struct thread *td, uintptr_t *addr);
 struct prison *pax_get_prison(struct proc *proc);
 void pax_elf(struct image_params *, uint32_t);
+int pax_map32_enabled(struct thread *td);
 
 void pax_log_aslr(const char *func, const char *fmt, ...);
 void pax_ulog_aslr(const char *func, const char *fmt, ...);

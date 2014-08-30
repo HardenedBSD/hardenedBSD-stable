@@ -663,3 +663,6 @@ options 	VM_KMEM_SIZE_SCALE
 # Enable NDIS binary driver support
 options 	NDISAPI
 device		ndis
+
+# PaX-inspired hardening features
+options		PAX_HARDENING

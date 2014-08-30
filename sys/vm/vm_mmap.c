@@ -273,6 +273,12 @@ sys_mmap(td, uap)
 	    align >> MAP_ALIGNMENT_SHIFT < PAGE_SHIFT))
 		return (EINVAL);
 
+#if defined(MAP_32BIT) && defined(PAX_HARDENING)
+	if (flags & MAP_32BIT)
+		if (pax_map32_enabled(td) == 0)
+			return (EPERM);
+#endif
+
 	/*
 	 * Check for illegal addresses.  Watch out for address wrap... Note
 	 * that VM_*_ADDRESS are not constants due to casts (argh).

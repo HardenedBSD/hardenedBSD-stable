@@ -119,7 +119,7 @@ struct prison prison0 = {
 };
 MTX_SYSINIT(prison0, &prison0.pr_mtx, "jail mutex", MTX_DEF);
 
-#if defined(PAX_ASLR)
+#if defined(PAX_ASLR) || defined(PAX_HARDENING)
 SYSINIT(pax, SI_SUB_PAX, SI_ORDER_MIDDLE, pax_init_prison, (void *) &prison0);
 #endif
 
@@ -1313,7 +1313,7 @@ kern_jail_set(struct thread *td, struct uio *optuio, int flags)
 			goto done_releroot;
 		}
 
-#if defined(PAX_ASLR)
+#if defined(PAX_ASLR) || defined(PAX_HARDENING)
 		pax_init_prison(pr);
 #endif
 
