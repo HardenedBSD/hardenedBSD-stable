@@ -68,6 +68,8 @@ __FBSDID("$FreeBSD$");
 
 #include <sys/pax.h>
 
+FEATURE(segvguard, "Segmentation fault protection.");
+
 int pax_segvguard_status = PAX_SEGVGUARD_OPTIN;
 int pax_segvguard_debug = 0;
 int pax_segvguard_expiry = PAX_SEGVGUARD_EXPIRY;
@@ -311,13 +313,13 @@ pax_segvguard_active(struct vnode *vn, struct proc *proc)
 		return (true);
 	case    PAX_SEGVGUARD_OPTIN:
 		if ((vap.va_mode & (S_ISUID | S_ISGID)) != 0
-				|| (flags & PAX_NOTE_GUARD) != 0)
+				|| (flags & PAX_NOTE_GUARD) == PAX_NOTE_GUARD)
 			return (true);
 		else
 			return (false);
 		break;
 	case    PAX_SEGVGUARD_OPTOUT:
-		if (flags && (flags & PAX_NOTE_NOGUARD) != 0)
+		if ((flags & PAX_NOTE_NOGUARD) == PAX_NOTE_NOGUARD)
 			return (false);
 		break;
 	default:
