@@ -67,6 +67,7 @@ struct  ifvlantrunk;
 struct	route;			/* if_output */
 struct	vnet;
 struct	ifmedia;
+struct	netmap_adapter;
 
 #ifdef _KERNEL
 #include <sys/mbuf.h>		/* ifqueue only? */
@@ -109,15 +110,14 @@ typedef enum {
 	IFCOUNTER_NOPROTO,
 } ifnet_counter;
 
-typedef	void (*if_start_fn_t)(struct ifnet *);
-typedef	int (*if_ioctl_fn_t)(struct ifnet *, u_long, caddr_t);
-typedef	void (*if_init_fn_t)(void *);
-typedef void (*if_qflush_fn_t)(struct ifnet *);
-typedef int (*if_transmit_fn_t)(struct ifnet *, struct mbuf *);
-typedef	uint64_t (*if_get_counter_t)(struct ifnet *, ifnet_counter);
+typedef struct ifnet * if_t;
 
-/* Opaque object pointing to interface structure (ifnet) */
-typedef void *if_t;
+typedef	void (*if_start_fn_t)(if_t);
+typedef	int (*if_ioctl_fn_t)(if_t, u_long, caddr_t);
+typedef	void (*if_init_fn_t)(void *);
+typedef void (*if_qflush_fn_t)(if_t);
+typedef int (*if_transmit_fn_t)(if_t, struct mbuf *);
+typedef	uint64_t (*if_get_counter_t)(if_t, ifnet_counter);
 
 /*
  * Structure defining a network interface.
@@ -146,11 +146,11 @@ struct ifnet {
 
 	/* Variable fields that are touched by the stack and drivers. */
 	int	if_flags;		/* up/down, broadcast, etc. */
+	int	if_drv_flags;		/* driver-managed status flags */
 	int	if_capabilities;	/* interface features & capabilities */
 	int	if_capenable;		/* enabled features & capabilities */
 	void	*if_linkmib;		/* link-type-specific MIB data */
 	size_t	if_linkmiblen;		/* length of above data */
-	int	if_drv_flags;		/* driver-managed status flags */
 	u_int	if_refcount;		/* reference count */
 
 	/* These fields are shared with struct if_data. */
@@ -158,7 +158,6 @@ struct ifnet {
 	uint8_t		if_addrlen;	/* media address length */
 	uint8_t		if_hdrlen;	/* media header length */
 	uint8_t		if_link_state;	/* current link state */
-	uint32_t	if_spare32;
 	uint32_t	if_mtu;		/* maximum transmission unit */
 	uint32_t	if_metric;	/* routing metric (external only) */
 	uint64_t	if_baudrate;	/* linespeed */
@@ -202,6 +201,7 @@ struct ifnet {
 	void	*if_pf_kif;		/* pf glue */
 	struct	carp_if *if_carp;	/* carp interface structure */
 	struct	label *if_label;	/* interface MAC label */
+	struct	netmap_adapter *if_netmap; /* netmap(4) softc */
 
 	/* Various procedures of the layer2 encapsulation and drivers. */
 	int	(*if_output)		/* output routine (enqueue) */
@@ -583,9 +583,6 @@ int if_multiaddr_count(if_t ifp, int max);
 
 int if_getamcount(if_t ifp);
 struct ifaddr * if_getifaddr(if_t ifp);
-/* Shim for drivers using drvapi */
-int ifmedia_ioctl_drv(if_t ifp, struct ifreq *ifr, struct ifmedia *ifm,
-    u_long cmd);
 
 /* Statistics */
 
@@ -610,29 +607,11 @@ int if_setimcasts(if_t ifp, int pkts);
 
 /* Functions */
 void if_setinitfn(if_t ifp, void (*)(void *));
-void if_setioctlfn(if_t ifp, int (*)(void *, u_long, caddr_t));
-void if_setstartfn(if_t ifp, void (*)(void *));
+void if_setioctlfn(if_t ifp, int (*)(if_t, u_long, caddr_t));
+void if_setstartfn(if_t ifp, void (*)(if_t));
 void if_settransmitfn(if_t ifp, if_transmit_fn_t);
 void if_setqflushfn(if_t ifp, if_qflush_fn_t);
  
-
-/* Shim functions till all drivers use drvapi */
-void arp_ifinit_drv(if_t ifp, struct ifaddr *ifa);
-void ether_ifattach_drv(if_t ifp, const u_int8_t *lla);
-void ether_ifdetach_drv(if_t ifp);
-int ether_ioctl_drv(if_t ifp, u_long cmd, caddr_t data);
-void if_free_drv(if_t ifp);
-void if_initname_drv(if_t ifp, const char *name, int unit);
-void if_linkstate_change_drv(if_t ifp, int link_state);
-
-struct ifmedia;
-void ifmedia_init_drv(struct ifmedia *, int, int (*)(void *),
-	void (*)(void *, struct ifmediareq *));
-
-void if_addr_rlock_drv(if_t ifp);
-void if_addr_runlock_drv(if_t ifp);
-void if_qflush_drv(if_t ifp);
-
 /* Revisit the below. These are inline functions originally */
 int drbr_inuse_drv(if_t ifp, struct buf_ring *br);
 struct mbuf* drbr_dequeue_drv(if_t ifp, struct buf_ring *br);
