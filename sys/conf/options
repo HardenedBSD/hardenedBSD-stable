@@ -933,3 +933,7 @@ RANDOM_YARROW	opt_random.h
 RANDOM_FORTUNA	opt_random.h
 RANDOM_DEBUG	opt_random.h
 RANDOM_RWFILE	opt_random.h
+
+# PaX-inspired hardening features
+PAX_HARDENING	opt_pax.h
+
