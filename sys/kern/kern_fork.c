@@ -39,6 +39,7 @@ __FBSDID("$FreeBSD$");
 
 #include "opt_ktrace.h"
 #include "opt_kstack_pages.h"
+#include "opt_pax.h"
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -183,7 +184,16 @@ SYSCTL_INT(_kern, OID_AUTO, lastpid, CTLFLAG_RD, &lastpid, 0,
  * modulus that is too big causes a LOT more process table scans and slows
  * down fork processing as the pidchecked caching is defeated.
  */
+#ifdef PAX_HARDENING
+/*
+ * XXXOP:
+ * change this hardcoded value
+ * initialize with random number which based sysinit function
+ */
+static int randompid = 58393;
+#else
 static int randompid = 0;
+#endif
 
 static int
 sysctl_kern_randompid(SYSCTL_HANDLER_ARGS)
