@@ -40,6 +40,7 @@ __FBSDID("$FreeBSD$");
 #include "opt_capsicum.h"
 #include "opt_compat.h"
 #include "opt_ktrace.h"
+#include "opt_pax.h"
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -1495,12 +1496,21 @@ sys_linkat(struct thread *td, struct linkat_args *uap)
 	    UIO_USERSPACE, (flag & AT_SYMLINK_FOLLOW) ? FOLLOW : NOFOLLOW));
 }
 
+#ifdef PAX_HARDENING
+int hardlink_check_uid = 1;
+#else
 int hardlink_check_uid = 0;
+#endif
 SYSCTL_INT(_security_bsd, OID_AUTO, hardlink_check_uid, CTLFLAG_RW,
     &hardlink_check_uid, 0,
     "Unprivileged processes cannot create hard links to files owned by other "
     "users");
+
+#ifdef PAX_HARDENING
+static int hardlink_check_gid = 1;
+#else
 static int hardlink_check_gid = 0;
+#endif
 SYSCTL_INT(_security_bsd, OID_AUTO, hardlink_check_gid, CTLFLAG_RW,
     &hardlink_check_gid, 0,
     "Unprivileged processes cannot create hard links to files owned by other "
