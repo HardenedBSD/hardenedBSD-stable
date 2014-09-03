@@ -339,7 +339,8 @@ pax_segvguard_add(struct thread *td, struct vnode *vn, sbintime_t sbt)
 
 	error = vn_stat(vn, &sb, td->td_ucred, NOCRED, curthread);
 	if(error != 0) {
-		// TODO: ???
+		printf("%s:%d stat error. Bailing.\n", __func__, __LINE__);
+		return (NULL);
 	}
 
 	pr = pax_get_prison(td->td_proc);
@@ -372,7 +373,8 @@ pax_segvguard_lookup(struct thread *td, struct vnode *vn)
 
 	error = vn_stat(vn, &sb, td->td_ucred, NOCRED, curthread);
 	if(error != 0) {
-		// TODO: ???
+		printf("%s:%d stat error. Bailing.\n", __func__, __LINE__);
+		return (NULL);
 	}
 
 	sk.se_inode = sb.st_ino;
