@@ -35,6 +35,7 @@
 #ifdef _KERNEL
 
 extern int phardening_status;
+
 #ifdef PTRACE_HARDENING_GRP
 extern gid_t phardening_allowed_gid;
 #endif
@@ -42,11 +43,9 @@ extern gid_t phardening_allowed_gid;
 #define PTRACE_HARDENING_DISABLED	0
 #define PTRACE_HARDENING_ENABLED	1
 
-int
-ptrace_hardening(struct thread *);
+int ptrace_hardening(struct thread *);
 
-void
-ptrace_hardening_init(void);
+void ptrace_hardening_init(void);
 
 #endif /* _KERNEL */
 

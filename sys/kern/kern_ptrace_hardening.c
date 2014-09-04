@@ -42,22 +42,26 @@ __FBSDID("$FreeBSD$");
 #include <sys/sysctl.h>
 #include <sys/queue.h>
 #include <sys/libkern.h>
-#include <sys/ptrace_hardening.h>
 
 #include <sys/syslimits.h>
 #include <sys/param.h>
 
+#include <sys/ptrace_hardening.h>
+
 int ptrace_hardening_status = PTRACE_HARDENING_ENABLED;
+
 #ifdef PTRACE_HARDENING_GRP
 gid_t ptrace_hardening_allowed_gid = 0;
 #endif
 
 TUNABLE_INT("security.ptrace.hardening.status", &ptrace_hardening_status);
+
 #ifdef PTRACE_HARDENING_GRP
 TUNABLE_INT("security.ptrace.hardening.allowed_gid", &ptrace_hardening_allowed_gid);
 #endif
 
 static int sysctl_ptrace_hardening_status(SYSCTL_HANDLER_ARGS);
+
 #ifdef PTRACE_HARDENING_GRP
 static int sysctl_ptrace_hardening_gid(SYSCTL_HANDLER_ARGS);
 #endif
@@ -94,8 +98,8 @@ sysctl_ptrace_hardening_status(SYSCTL_HANDLER_ARGS)
         return (err);
 
     switch(val) {
-    case PTRACE_HARDENING_DISABLED:
-    case PTRACE_HARDENING_ENABLED:
+    case    PTRACE_HARDENING_DISABLED:
+    case    PTRACE_HARDENING_ENABLED:
         ptrace_hardening_status = val;
 	    break;
     default:
@@ -126,6 +130,7 @@ ptrace_hardening(struct thread *td)
         return (0);
 
     uid_t uid = td->td_ucred->cr_ruid;
+
 #ifdef PTRACE_HARDENING_GRP
     gid_t gid = td->td_ucred->cr_rgid;
     if (uid && ptrace_hardening_allowed_gid &&
@@ -135,6 +140,7 @@ ptrace_hardening(struct thread *td)
     if (uid)
         return (EPERM);
 #endif
+
     return (0);
 }
 
@@ -142,6 +148,7 @@ void
 ptrace_hardening_init(void)
 {
     printf("[PTRACE HARDENING] %d\n", ptrace_hardening_status);
+
 #ifdef PTRACE_HARDENING_GRP
     printf("[PTRACE HARDENING GROUP] %d\n", ptrace_hardening_allowed_gid);
 #endif
