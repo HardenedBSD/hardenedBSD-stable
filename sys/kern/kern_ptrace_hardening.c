@@ -113,8 +113,7 @@ int
 sysctl_ptrace_hardening_gid(SYSCTL_HANDLER_ARGS)
 {
     int err, val = ptrace_hardening_allowed_gid;
-    err = sysctl_handle_int(oidp, &val, 
-                            sizeof(int), req);
+    err = sysctl_handle_int(oidp, &val, sizeof(int), req);
     if (err || (req->newptr == NULL))
         return (err);
 
