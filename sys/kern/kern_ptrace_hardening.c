@@ -70,86 +70,86 @@ SYSCTL_DECL(_security);
 SYSCTL_DECL(_security_ptrace);
 
 SYSCTL_NODE(_security, OID_AUTO, ptrace, CTLFLAG_RD, 0,
-    "PTrace settings.");
+	"PTrace settings.");
 
 SYSCTL_NODE(_security_ptrace, OID_AUTO, hardening, CTLFLAG_RD, 0,
-    "PTrace hardening settings.");
+	"PTrace hardening settings.");
 
 SYSCTL_PROC(_security_ptrace_hardening, OID_AUTO, status, 
-    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE, 
-    NULL, 0, sysctl_ptrace_hardening_status, "I",
-    "Restrictions status. "
-    "0 - disabled, "
-    "1 - enabled");
+	CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE, 
+	NULL, 0, sysctl_ptrace_hardening_status, "I",
+	"Restrictions status. "
+	"0 - disabled, "
+	"1 - enabled");
 
 #ifdef PTRACE_HARDENING_GRP
 SYSCTL_PROC(_security_ptrace_hardening, OID_AUTO, allowed_gid,
-    CTLTYPE_UINT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
-    NULL, 0, sysctl_ptrace_hardening_gid, "IU",
-    "Allowed gid");
+	CTLTYPE_UINT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
+	NULL, 0, sysctl_ptrace_hardening_gid, "IU",
+	"Allowed gid");
 #endif
 
 int
 sysctl_ptrace_hardening_status(SYSCTL_HANDLER_ARGS)
 {
-    int err, val = ptrace_hardening_status;
-    err = sysctl_handle_int(oidp, &val, sizeof(int), req);
-    if (err || (req->newptr == NULL))
-        return (err);
+	int err, val = ptrace_hardening_status;
+	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
+	if (err || (req->newptr == NULL))
+		return (err);
 
-    switch(val) {
-    case    PTRACE_HARDENING_DISABLED:
-    case    PTRACE_HARDENING_ENABLED:
-        ptrace_hardening_status = val;
-	    break;
-    default:
-        return (EINVAL);
-    }
+	switch(val) {
+	case    PTRACE_HARDENING_DISABLED:
+	case    PTRACE_HARDENING_ENABLED:
+		ptrace_hardening_status = val;
+		break;
+	default:
+		return (EINVAL);
+	}
 
-    return (0);
+	return (0);
 }
 
 int
 sysctl_ptrace_hardening_gid(SYSCTL_HANDLER_ARGS)
 {
-    int err, val = ptrace_hardening_allowed_gid;
-    err = sysctl_handle_int(oidp, &val, sizeof(int), req);
-    if (err || (req->newptr == NULL))
-        return (err);
+	int err, val = ptrace_hardening_allowed_gid;
+	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
+	if (err || (req->newptr == NULL))
+		return (err);
 
-    ptrace_hardening_allowed_gid = val;
+	ptrace_hardening_allowed_gid = val;
 
-    return (0);
+	return (0);
 }
 
 int
 ptrace_hardening(struct thread *td)
 {
-    if (!ptrace_hardening_status)
-        return (0);
+	if (!ptrace_hardening_status)
+		return (0);
 
-    uid_t uid = td->td_ucred->cr_ruid;
+	uid_t uid = td->td_ucred->cr_ruid;
 
 #ifdef PTRACE_HARDENING_GRP
-    gid_t gid = td->td_ucred->cr_rgid;
-    if (uid && ptrace_hardening_allowed_gid &&
-        gid != ptrace_hardening_allowed_gid)
-        return (EPERM);
+	gid_t gid = td->td_ucred->cr_rgid;
+	if (uid && ptrace_hardening_allowed_gid &&
+		gid != ptrace_hardening_allowed_gid)
+		return (EPERM);
 #else
-    if (uid)
-        return (EPERM);
+	if (uid)
+		return (EPERM);
 #endif
 
-    return (0);
+	return (0);
 }
 
 void
 ptrace_hardening_init(void)
 {
-    printf("[PTRACE HARDENING] %d\n", ptrace_hardening_status);
+	printf("[PTRACE HARDENING] %d\n", ptrace_hardening_status);
 
 #ifdef PTRACE_HARDENING_GRP
-    printf("[PTRACE HARDENING GROUP] %d\n", ptrace_hardening_allowed_gid);
+	printf("[PTRACE HARDENING GROUP] %d\n", ptrace_hardening_allowed_gid);
 #endif
 }
 SYSINIT(ptrace, SI_SUB_PTRACE_HARDENING, SI_ORDER_FIRST, ptrace_hardening_init, NULL);
