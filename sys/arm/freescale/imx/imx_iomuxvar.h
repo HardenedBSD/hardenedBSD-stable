@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2003 Poul-Henning Kamp
+ * Copyright (c) 2014 Ian Lepore <ian@freebsd.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -10,9 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. The names of the authors may not be used to endorse or promote
- *    products derived from this software without specific prior written
- *    permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -29,59 +26,17 @@
  * $FreeBSD$
  */
 
-#include <sys/types.h>
-#include <sys/sysctl.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <string.h>
-#include "libgeom.h"
+#ifndef	IMX_IOMUXVAR_H
+#define	IMX_IOMUXVAR_H
 
 /*
- * Amount of extra space we allocate to try and anticipate the size of
- * confxml.
+ * The IOMUX Controller device has a small set of "general purpose registers" 
+ * which control various aspects of SoC operation that really have nothing to do
+ * with IO pin assignments or pad control.  These functions let other soc level
+ * code manipulate these values.
  */
-#define	GEOM_GETXML_SLACK	4096
+uint32_t imx_iomux_gpr_get(u_int regnum);
+void     imx_iomux_gpr_set(u_int regnum, uint32_t val);
+void     imx_iomux_gpr_set_masked(u_int regnum, uint32_t clrbits, uint32_t setbits);
 
-/*
- * Number of times to retry in the face of the size of confxml exceeding
- * that of our buffer.
- */
-#define	GEOM_GETXML_RETRIES	4
-
-char *
-geom_getxml(void)
-{
-	char *p;
-	size_t l = 0;
-	int mib[3];
-	size_t sizep;
-	int retries;
-
-	sizep = sizeof(mib) / sizeof(*mib);
-	if (sysctlnametomib("kern.geom.confxml", mib, &sizep) != 0)
-		return (NULL);
-	if (sysctl(mib, sizep, NULL, &l, NULL, 0) != 0)
-		return (NULL);
-	l += GEOM_GETXML_SLACK;
-
-	for (retries = 0; retries < GEOM_GETXML_RETRIES; retries++) {
-		p = malloc(l);
-		if (p == NULL)
-			return (NULL);
-		if (sysctl(mib, sizep, p, &l, NULL, 0) == 0)
-			return (reallocf(p, strlen(p) + 1));
-
-		free(p);
-
-		if (errno != ENOMEM)
-			return (NULL);
-
-		/*
-		 * Our buffer wasn't big enough. Make it bigger and
-		 * try again.
-		 */
-		l *= 2;
-	}
-
-	return (NULL);
-}
+#endif
