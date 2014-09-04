@@ -1,6 +1,10 @@
 /*-
- * Copyright (c) 2014 Ian Lepore <ian@freebsd.org>
+ * Copyright (c) 2014 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
+ *
+ * This software was developed by SRI International and the University of
+ * Cambridge Computer Laboratory under DARPA/AFRL contract (FA8750-10-C-0237)
+ * ("CTSRD"), as part of the DARPA CRASH research programme.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,24 +30,32 @@
  * $FreeBSD$
  */
 
-#ifndef	IMX_IOMUXVAR_H
-#define	IMX_IOMUXVAR_H
+/dts-v1/;
 
-/*
- * IOMUX interface functions
- */
-void     iomux_set_function(u_int pin, u_int fn);
-void     iomux_set_pad(u_int pin, u_int cfg);
-u_int    iomux_get_pad_config(u_int pin);
+/include/ "socfpga.dtsi"
 
-/*
- * The IOMUX Controller device has a small set of "general purpose registers" 
- * which control various aspects of SoC operation that really have nothing to do
- * with IO pin assignments or pad control.  These functions let other soc level
- * code manipulate these values.
- */
-uint32_t imx_iomux_gpr_get(u_int regnum);
-void     imx_iomux_gpr_set(u_int regnum, uint32_t val);
-void     imx_iomux_gpr_set_masked(u_int regnum, uint32_t clrbits, uint32_t setbits);
+/ {
+	model = "Terasic SoCKit";
+	compatible = "altr,socfpga-cyclone5", "altr,socfpga";
 
-#endif
+	memory {
+		device_type = "memory";
+		reg = < 0x00000000 0x40000000 >;	/* 1G RAM */
+	};
+
+	SOC: socfpga {
+		serial0: serial@ffc02000 {
+			status = "okay";
+		};
+
+		usb1: usb@ffb40000 {
+			status = "okay";
+		};
+	};
+
+	chosen {
+		bootargs = "-v";
+		stdin = "serial0";
+		stdout = "serial0";
+	};
+};

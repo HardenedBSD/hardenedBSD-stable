@@ -1,6 +1,10 @@
 /*-
- * Copyright (c) 2014 Ian Lepore <ian@freebsd.org>
+ * Copyright (c) 2014 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
+ *
+ * This software was developed by SRI International and the University of
+ * Cambridge Computer Laboratory under DARPA/AFRL contract (FA8750-10-C-0237)
+ * ("CTSRD"), as part of the DARPA CRASH research programme.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -22,28 +26,58 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- * $FreeBSD$
  */
 
-#ifndef	IMX_IOMUXVAR_H
-#define	IMX_IOMUXVAR_H
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
-/*
- * IOMUX interface functions
- */
-void     iomux_set_function(u_int pin, u_int fn);
-void     iomux_set_pad(u_int pin, u_int cfg);
-u_int    iomux_get_pad_config(u_int pin);
+#include <sys/param.h>
+#include <sys/systm.h>
+#include <sys/bus.h>
+#include <sys/kernel.h>
 
-/*
- * The IOMUX Controller device has a small set of "general purpose registers" 
- * which control various aspects of SoC operation that really have nothing to do
- * with IO pin assignments or pad control.  These functions let other soc level
- * code manipulate these values.
- */
-uint32_t imx_iomux_gpr_get(u_int regnum);
-void     imx_iomux_gpr_set(u_int regnum, uint32_t val);
-void     imx_iomux_gpr_set_masked(u_int regnum, uint32_t clrbits, uint32_t setbits);
+#include <dev/fdt/fdt_common.h>
+#include <dev/ofw/openfirm.h>
 
-#endif
+#include <machine/bus.h>
+#include <machine/fdt.h>
+
+#define	RESMAN_BASE	0xFFD05000
+#define	RESMAN_CTRL	0x4
+#define	SWWARMRSTREQ	(1 << 1)
+
+void
+cpu_reset(void)
+{
+	bus_addr_t vaddr;
+
+	if (bus_space_map(fdtbus_bs_tag, RESMAN_BASE, 0x10, 0, &vaddr) == 0) {
+		bus_space_write_4(fdtbus_bs_tag, vaddr,
+		    RESMAN_CTRL, SWWARMRSTREQ);
+	}
+
+	while (1);
+}
+
+struct fdt_fixup_entry fdt_fixup_table[] = {
+	{ NULL, NULL }
+};
+
+static int
+fdt_pic_decode_ic(phandle_t node, pcell_t *intr, int *interrupt, int *trig,
+    int *pol)
+{
+
+	if (!fdt_is_compatible(node, "arm,gic"))
+		return (ENXIO);
+
+	*interrupt = fdt32_to_cpu(intr[0]);
+	*trig = INTR_TRIGGER_CONFORM;
+	*pol = INTR_POLARITY_CONFORM;
+	return (0);
+}
+
+fdt_pic_decode_t fdt_pic_table[] = {
+	&fdt_pic_decode_ic,
+	NULL
+};
