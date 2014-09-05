@@ -1,10 +1,6 @@
-%{
 /*-
- * Copyright (c) 2014 The FreeBSD Foundation
+ * Copyright (c) 2014 Kevin Lo
  * All rights reserved.
- *
- * This software was developed by Edward Tomasz Napierala under sponsorship
- * from the FreeBSD Foundation.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,29 +26,18 @@
  * $FreeBSD$
  */
 
-#include <stdio.h>
-#include <stdint.h>
-#include <string.h>
+#ifndef _ULED_IOCTL_H_
+#define _ULED_IOCTL_H_
 
-#include "common.h"
+#include <sys/ioccom.h>
 
-int lineno;
+struct uled_color {
+	uint8_t	red;
+	uint8_t	green;
+	uint8_t	blue;
+};
 
-#define	YY_DECL int yylex(void)
-extern int	yylex(void);
+#define	ULED_GET_COLOR	_IOR('U', 205, struct uled_color)
+#define	ULED_SET_COLOR	_IOW('U', 206, struct uled_color)
 
-%}
-
-%option noinput
-%option nounput
-%option noyywrap
-
-%%
-\"[^"]+\"		{ yytext++; yytext[strlen(yytext) - 1] = '\0'; return STR; };
-[a-zA-Z0-9\.\+-_/\:\[\]$&{}]+ { return STR; }
-#.*\n			{ lineno++; return NEWLINE; };
-\\\n			{ lineno++; };
-\n			{ lineno++; return NEWLINE; }
-[ \t]+			/* ignore whitespace */;
-.			{ return STR; }
-%%
+#endif	/* _ULED_IOCTL_H_ */
