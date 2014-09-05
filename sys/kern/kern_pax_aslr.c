@@ -169,10 +169,10 @@ sysctl_pax_aslr_status(SYSCTL_HANDLER_ARGS)
 		return (err);
 
 	switch (val) {
-	case    PAX_ASLR_DISABLED:
-	case    PAX_ASLR_OPTIN:
-	case    PAX_ASLR_OPTOUT:
-	case    PAX_ASLR_FORCE_ENABLED:
+	case PAX_ASLR_DISABLED:
+	case PAX_ASLR_OPTIN:
+	case PAX_ASLR_OPTOUT:
+	case PAX_ASLR_FORCE_ENABLED:
 		if ((pr == NULL) || (pr == &prison0))
 			pax_aslr_status = val;
 
@@ -203,8 +203,8 @@ sysctl_pax_aslr_debug(SYSCTL_HANDLER_ARGS)
 		return (err);
 
 	switch (val) {
-	case	0:
-	case	1:
+	case 0:
+	case 1:
 		break;
 	default:
 		return (EINVAL);
@@ -363,10 +363,10 @@ sysctl_pax_aslr_compat_status(SYSCTL_HANDLER_ARGS)
 		return (err);
 
 	switch (val) {
-	case    PAX_ASLR_DISABLED:
-	case    PAX_ASLR_OPTIN:
-	case    PAX_ASLR_OPTOUT:
-	case    PAX_ASLR_FORCE_ENABLED:
+	case PAX_ASLR_DISABLED:
+	case PAX_ASLR_OPTIN:
+	case PAX_ASLR_OPTOUT:
+	case PAX_ASLR_FORCE_ENABLED:
 		if ((pr == NULL) || (pr == &prison0))
 			pax_aslr_compat_status = val;
 
@@ -577,8 +577,7 @@ _pax_aslr_init(struct vmspace *vm, struct proc *p)
 {
 	struct prison *pr;
 
-	if (vm == NULL)
-		panic("[PaX ASLR] %s: vm == NULL", __func__);
+	KASSERT(vm != NULL, ("%s: vm is null", __func__));
 
 	pr = pax_get_prison(p);
 	if (pr != NULL) {
@@ -623,8 +622,7 @@ _pax_aslr_init32(struct vmspace *vm, struct proc *p)
 {
 	struct prison *pr;
 
-	if (vm == NULL)
-		panic("[PaX ASLR] %s: vm == NULL", __func__);
+	KASSERT(vm != NULL, ("%s: vm is null", __func__));
 
 	pr = pax_get_prison(p);
 	if (pr != NULL) {
@@ -670,8 +668,7 @@ pax_aslr_init(struct image_params *imgp)
 	struct vmspace *vm;
 	struct proc *p;
 
-	if (imgp == NULL)
-		panic("[PaX ASLR] %s: imgp == NULL", __func__);
+	KASSERT(imgp != NULL, ("%s: imgp is null", __func__));
 	p = imgp->proc;
 
 	if (!pax_aslr_active(p))

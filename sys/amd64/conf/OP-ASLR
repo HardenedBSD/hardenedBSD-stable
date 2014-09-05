@@ -24,7 +24,7 @@ ident		OP-PERPETUA
 options		HZ=100
 
 makeoptions	DEBUG=-gdwarf-2		# Build kernel with gdb(1) debug symbols
-makeoptions	MODULES_OVERRIDE="geom/geom_sched linux"
+makeoptions	MODULES_OVERRIDE="geom/geom_sched linux usb/umodem usb/u3g usb/umass usb/ucom"
 #makeoptions	WITH_CTF=1		# Run ctfconvert(1) for DTrace support
 
 options 	SCHED_ULE		# ULE scheduler
@@ -70,7 +70,6 @@ options 	HWPMC_HOOKS		# Necessary kernel hooks for hwpmc(4)
 options 	AUDIT			# Security event auditing
 options 	CAPABILITY_MODE		# Capsicum capability mode
 options 	CAPABILITIES		# Capsicum capabilities
-options 	PROCDESC		# Support for process descriptors
 options 	MAC			# TrustedBSD MAC Framework
 #options 	KDTRACE_FRAME		# Ensure frames are compiled in
 #options 	KDTRACE_HOOKS		# Kernel DTrace hooks
@@ -90,6 +89,7 @@ device		cpufreq
 
 # Bus support.
 device		acpi
+options 	ACPI_DMAR
 device		pci
 
 # Floppy drives
@@ -132,7 +132,7 @@ device		da		# Direct Access (disks)
 #device		sa		# Sequential Access (tape etc)
 #device		cd		# CD
 device		pass		# Passthrough device (direct ATA/SCSI access)
-device		ses		# Enclosure Services (SES and SAF-TE)
+#device		ses		# Enclosure Services (SES and SAF-TE)
 #device		ctl		# CAM Target Layer
 
 # RAID controllers interfaced to the SCSI subsystem
@@ -280,6 +280,7 @@ device		wlan_amrr	# AMRR transmit rate control algorithm
 #device		ipw		# Intel 2100 wireless NICs.
 #device		iwi		# Intel 2200BG/2225BG/2915ABG wireless NICs.
 device		iwn		# Intel 4965/1000/5000/6000 wireless NICs.
+device		iwn2030fw
 #device		malo		# Marvell Libertas wireless NICs.
 #device		mwl		# Marvell 88W8363 802.11n wireless NICs.
 #device		ral		# Ralink Technology RT2500 wireless NICs.
@@ -383,5 +384,7 @@ options 	WITNESS_SKIPSPIN        # Don't run witness on spinlocks
 options 	ALT_BREAK_TO_DEBUGGER
 options 	BREAK_TO_DEBUGGER
 
-options		PAX_ASLR
-options		MAC_BSDEXTENDED
+options 	PAX_ASLR
+options 	PAX_SYSCTLS
+options 	PAX_HARDENING
+options 	MAC_BSDEXTENDED
