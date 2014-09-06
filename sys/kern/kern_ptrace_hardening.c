@@ -125,7 +125,9 @@ sysctl_ptrace_hardening_gid(SYSCTL_HANDLER_ARGS)
 int
 ptrace_hardening(struct thread *td)
 {
-	if (!ptrace_hardening_status)
+	if (!ptrace_hardening_status ||
+		td->td_proc->p_ptrace_hardening & 
+		MIB_FORCE_PTRACE_HARDENING_DISABLED)
 		return (0);
 
 	uid_t uid = td->td_ucred->cr_ruid;
@@ -141,6 +143,25 @@ ptrace_hardening(struct thread *td)
 #endif
 
 	return (0);
+}
+
+void
+ptrace_hardening_mode(struct image_params *imgp, uint32_t mode)
+{
+	u_int flags = 0;
+
+	if ((mode & MBI_ALLPTRACE_HARDENING) != MBI_ALLPTRACE_HARDENING) {
+		if (mode & MBI_FORCE_PTRACE_HARDENING_ENABLED)
+			flags |= PTRACE_HARDENING_MODE_ROOT;
+		else if (mode & MBI_FORCE_PTRACE_HARDENING_DISABLED)
+			flags |= PTRACE_HARDENING_MODE_PUBLIC;
+	}
+
+	if (imgp != NULL && imgp->proc != NULL) {
+		PROC_LOCK(imgp->proc);
+		imgp->proc->p_ptracehd = flags;
+		PROC_UNLOCK(imgp->proc);
+	}
 }
 
 void

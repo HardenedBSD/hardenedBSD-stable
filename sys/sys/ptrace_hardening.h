@@ -30,7 +30,7 @@
 #ifndef	__SYS_PTRACE_HARDENING_H
 #define	__SYS_PTRACE_HARDENING_H
 
-#include <sys/proc.h>
+#include <sys/imgact.h>
 
 #ifdef _KERNEL
 
@@ -43,7 +43,12 @@ extern gid_t phardening_allowed_gid;
 #define PTRACE_HARDENING_DISABLED	0
 #define PTRACE_HARDENING_ENABLED	1
 
+#define PTRACE_HARDENING_MODE_PUBLIC	0x01
+#define PTRACE_HARDENING_MODE_GRP		0x02
+#define PTRACE_HARDENING_MODE_ROOTONLY	0x04
+
 int ptrace_hardening(struct thread *);
+void ptrace_hardening_mode(struct image_params *, uint32_t);
 
 void ptrace_hardening_init(void);
 

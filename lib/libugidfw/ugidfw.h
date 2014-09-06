@@ -41,6 +41,7 @@ int	bsde_parse_mode(int argc, char *argv[], mode_t *mode, size_t buflen,
 	    char *errstr);
 int	bsde_parse_paxflags(int argc, char *argv[], uint32_t *pax, size_t buflen,
 	    char *errstr);
+int bsde_parse_ptracehdflags(int argc, char *argv[], uint32_t *ptracehd, size_t buflen, char *errstr);
 int	bsde_parse_rule(int argc, char *argv[],
 	    struct mac_bsdextended_rule *rule, size_t buflen, char *errstr);
 int	bsde_parse_rule_string(const char *string,

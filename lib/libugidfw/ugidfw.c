@@ -537,6 +537,32 @@ bsde_rule_to_string(struct mac_bsdextended_rule *rule, char *buf, size_t buflen)
 
 	}
 
+	if (rule->mbr_ptrace_hardening) {
+		len = snprintf(cur, left, " ptracehdflags ");
+		if (len < 0 || len > left)
+			goto truncated;
+		left -= len;
+		cur += len;
+
+		if (rule->mbr_ptrace_hardening & MBI_FORCE_PTRACE_HARDENING_ENABLED) {
+			len = snprintf(cur, left, " A");
+			if (len < 0 || len > left)
+				goto truncated;
+
+			left -= len;
+			cur += len;
+		}
+
+		if (rule->mbr_ptrace_hardening & MBI_FORCE_PTRACE_HARDENING_DISABLED) {
+			len = snprintf(cur, left, " a");
+			if (len < 0 || len > left)
+				goto truncated;
+
+			left -= len;
+			cur += len; 	
+		}
+	}
+
 	return (0);
 
 truncated:
@@ -1088,6 +1114,41 @@ bsde_parse_paxflags(int argc, char *argv[], uint32_t *pax, size_t buflen, char *
 }
 
 int
+bsde_parse_ptracehdflags(int argc, char *argv[], uint32_t *ptracehd, size_t buflen, char *errstr)
+{
+	size_t len;
+	int i = 0;
+
+	if (argc == 0) {
+		len = snprintf(errstr, buflen, "ptracehdflags expects mode value");
+		return (-1);
+	}
+
+	if (argc != 1) {
+		len = snprintf(errstr, buflen, "'%s' unexpected", argv[1]);
+		return (-1);
+	}
+
+	*ptracehd = 0;
+	for (i = 0; i < strlen(argv[0]); i++) {
+		switch (argv[0][i]) {
+		case 'A':
+			*ptracehd |= MBI_FORCE_PTRACE_HARDENING_ENABLED;
+			break;
+		case 'a':
+			*ptracehd |= MBI_FORCE_PTRACE_HARDENING_DISABLED;
+			break;
+		default:
+			len = snprintf(errstr, buflen, "Unknown mode letter: %c",
+				argv[0][i]);
+			return (-1);
+		}
+	}
+
+	return (0);
+}
+
+int
 bsde_parse_rule(int argc, char *argv[], struct mac_bsdextended_rule *rule,
     size_t buflen, char *errstr)
 {
@@ -1095,6 +1156,8 @@ bsde_parse_rule(int argc, char *argv[], struct mac_bsdextended_rule *rule,
 	int object, object_elements, object_elements_length;
 	int mode, mode_elements, mode_elements_length;
 	int paxflags, paxflags_elements, paxflags_elements_length=0;
+	int ptracehdflags, ptracehdflags_elements, 
+		ptracehdflags_elements_length = 0;
 	int error, i;
 	size_t len;
 
@@ -1146,12 +1209,23 @@ bsde_parse_rule(int argc, char *argv[], struct mac_bsdextended_rule *rule,
 		paxflags_elements_length = argc - paxflags_elements;
 	}
 
+	ptracehdflags = -1;
+	for (i = 1; i < argc; i++)
+		if (strcmp(argv[i], "ptracehdflags") == 0)
+			ptracehdflags = i;
+
+	if (ptracehdflags >= 0) {
+		ptracehdflags_elements = ptracehdflags + 1;
+		ptracehdflags_elements_length = argc - ptracehdflags_elements;
+	}
+
 	subject_elements_length = object - subject - 1;
 	object_elements = object + 1;
 	object_elements_length = mode - object_elements;
 	mode_elements = mode + 1;
 	mode_elements_length = argc - mode_elements -
-	    (paxflags_elements_length ? paxflags_elements_length+1 : 0);
+	    (paxflags_elements_length ? paxflags_elements_length+1 : 0) -
+		(ptracehdflags_elements_length ? ptracehdflags_elements_length+1 : 0);
 
 	error = bsde_parse_subject(subject_elements_length,
 	    argv + subject_elements, &rule->mbr_subject, buflen, errstr);
@@ -1173,6 +1247,12 @@ bsde_parse_rule(int argc, char *argv[], struct mac_bsdextended_rule *rule,
 				&rule->mbr_pax, buflen, errstr);
 		if (error)
 			return (-1);
+	}
+
+	if (ptracehdflags >= 0) {
+		error = bsde_parse_ptracehdflags(ptracehdflags_elements_length,
+				argv + ptracehdflags_elements, &rule->mbr_ptrace_hardening,
+				buflen, errstr);
 	}
 
 	return (0);

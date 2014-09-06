@@ -136,6 +136,12 @@ ugidfw_rule_valid(struct mac_bsdextended_rule *rule)
 	if ((rule->mbr_pax | MBI_ALLPAX) != MBI_ALLPAX)
 		return (EINVAL);
 #endif
+
+#ifdef PTRACE_HARDENING
+	if ((rule->mbr_ptracehd | MBI_ALLPTRACE_HARDENING) !=
+		MBI_ALLPTRACE_HARDENING)
+		return (EINVAL);
+#endif
 	if ((rule->mbr_mode | MBI_ALLPERM) != MBI_ALLPERM)
 		return (EINVAL);
 
@@ -428,6 +434,11 @@ ugidfw_rulecheck(struct mac_bsdextended_rule *rule,
 #ifdef PAX_ASLR
 	if (imgp != NULL)
 		pax_elf(imgp, rule->mbr_pax);
+#endif
+
+#ifdef PTRACE_HARDENING
+	if (imgp != NULL && imgp->proc != NULL)
+		ptrace_hardening_proc(imgp->proc, rule->mbr_ptracehd);
 #endif
 
 	/*
