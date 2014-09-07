@@ -109,8 +109,8 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 /*
  * print out PaX settings on boot time, and validate some of them
  */
-void
-pax_init(void)
+static void
+pax_sysinit(void)
 {
 #if defined(PAX_ASLR)
 	const char *status_str[] = {
@@ -173,7 +173,7 @@ pax_init(void)
 	printf("[PAX LOG] logging to system: %d\n", pax_log_log);
 	printf("[PAX LOG] logging to user: %d\n", pax_log_ulog);
 }
-SYSINIT(pax, SI_SUB_PAX, SI_ORDER_FIRST, pax_init, NULL);
+SYSINIT(pax, SI_SUB_PAX, SI_ORDER_FIRST, pax_sysinit, NULL);
 
 void
 pax_init_prison(struct prison *pr)
