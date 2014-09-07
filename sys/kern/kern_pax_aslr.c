@@ -67,7 +67,7 @@ __FBSDID("$FreeBSD$");
 
 FEATURE(aslr, "Address Space Layout Randomization.");
 
-int pax_aslr_status = PAX_ASLR_OPTOUT;
+int pax_aslr_status = PAX_FEATURE_OPTOUT;
 int pax_aslr_debug = 0;
 
 #ifdef PAX_ASLR_MAX_SEC
@@ -81,7 +81,7 @@ int pax_aslr_exec_len = PAX_ASLR_DELTA_EXEC_DEF_LEN;
 #endif /* PAX_ASLR_MAX_SEC */
 
 #ifdef COMPAT_FREEBSD32
-int pax_aslr_compat_status = PAX_ASLR_OPTOUT;
+int pax_aslr_compat_status = PAX_FEATURE_OPTOUT;
 #ifdef PAX_ASLR_MAX_SEC
 int pax_aslr_compat_mmap_len = PAX_ASLR_COMPAT_DELTA_MMAP_MAX_LEN;
 int pax_aslr_compat_stack_len = PAX_ASLR_COMPAT_DELTA_STACK_MAX_LEN;
@@ -168,10 +168,10 @@ sysctl_pax_aslr_status(SYSCTL_HANDLER_ARGS)
 		return (err);
 
 	switch (val) {
-	case PAX_ASLR_DISABLED:
-	case PAX_ASLR_OPTIN:
-	case PAX_ASLR_OPTOUT:
-	case PAX_ASLR_FORCE_ENABLED:
+	case PAX_FEATURE_DISABLED:
+	case PAX_FEATURE_OPTIN:
+	case PAX_FEATURE_OPTOUT:
+	case PAX_FEATURE_FORCE_ENABLED:
 		if ((pr == NULL) || (pr == &prison0))
 			pax_aslr_status = val;
 
@@ -362,10 +362,10 @@ sysctl_pax_aslr_compat_status(SYSCTL_HANDLER_ARGS)
 		return (err);
 
 	switch (val) {
-	case PAX_ASLR_DISABLED:
-	case PAX_ASLR_OPTIN:
-	case PAX_ASLR_OPTOUT:
-	case PAX_ASLR_FORCE_ENABLED:
+	case PAX_FEATURE_DISABLED:
+	case PAX_FEATURE_OPTIN:
+	case PAX_FEATURE_OPTOUT:
+	case PAX_FEATURE_FORCE_ENABLED:
 		if ((pr == NULL) || (pr == &prison0))
 			pax_aslr_compat_status = val;
 
@@ -533,10 +533,10 @@ pax_aslr_active(struct proc *proc)
 
 	status = pax_get_status(proc, &pr);
 
-	if (status == PAX_ASLR_DISABLED)
+	if (status == PAX_FEATURE_DISABLED)
 		return (false);
 
-	if (status == PAX_ASLR_FORCE_ENABLED)
+	if (status == PAX_FEATURE_FORCE_ENABLED)
 		return (true);
 
 	ret = pax_get_flags(proc, &flags);
@@ -546,7 +546,7 @@ pax_aslr_active(struct proc *proc)
 		 */
 		return (true);
 
-	if ((status == PAX_ASLR_OPTIN) && (flags & PAX_NOTE_ASLR) == 0) {
+	if ((status == PAX_FEATURE_OPTIN) && (flags & PAX_NOTE_ASLR) == 0) {
 		/*
 		 * indicate option inconsistencies in dmesg and in user terminal
 		 */
@@ -557,7 +557,7 @@ pax_aslr_active(struct proc *proc)
 		return (false);
 	}
 
-	if ((status == PAX_ASLR_OPTOUT) && (flags & PAX_NOTE_NOASLR) != 0) {
+	if ((status == PAX_FEATURE_OPTOUT) && (flags & PAX_NOTE_NOASLR) != 0) {
 		/*
 		 * indicate option inconsistencies in dmesg and in user terminal
 		 */

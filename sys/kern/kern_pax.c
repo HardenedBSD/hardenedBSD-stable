@@ -124,10 +124,10 @@ pax_sysinit(void)
 
 #ifdef PAX_ASLR
 	switch (pax_aslr_status) {
-	case PAX_ASLR_DISABLED:
-	case PAX_ASLR_OPTIN:
-	case PAX_ASLR_OPTOUT:
-	case PAX_ASLR_FORCE_ENABLED:
+	case PAX_FEATURE_DISABLED:
+	case PAX_FEATURE_OPTIN:
+	case PAX_FEATURE_OPTOUT:
+	case PAX_FEATURE_FORCE_ENABLED:
 		break;
 	default:
 		printf("[PAX ASLR] WARNING, invalid PAX settings in loader.conf!"
@@ -142,10 +142,10 @@ pax_sysinit(void)
 
 #ifdef COMPAT_FREEBSD32
 	switch (pax_aslr_compat_status) {
-	case PAX_ASLR_DISABLED:
-	case PAX_ASLR_OPTIN:
-	case PAX_ASLR_OPTOUT:
-	case PAX_ASLR_FORCE_ENABLED:
+	case PAX_FEATURE_DISABLED:
+	case PAX_FEATURE_OPTIN:
+	case PAX_FEATURE_OPTOUT:
+	case PAX_FEATURE_FORCE_ENABLED:
 		break;
 	default:
 		printf("[PAX ASLR (compat)] WARNING, invalid PAX settings in loader.conf! "
