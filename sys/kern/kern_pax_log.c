@@ -26,6 +26,8 @@
  * $FreeBSD$
  */
 
+#include "opt_pax.h"
+
 #include <sys/cdefs.h>
 
 #include <sys/param.h>
