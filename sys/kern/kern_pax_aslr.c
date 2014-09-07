@@ -118,12 +118,11 @@ static int sysctl_pax_aslr_mmap(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_stack(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_exec(SYSCTL_HANDLER_ARGS);
 
-SYSCTL_DECL(_security_pax);
 
-SYSCTL_NODE(_security_pax, OID_AUTO, aslr, CTLFLAG_RD, 0,
+SYSCTL_NODE(_hardening_pax, OID_AUTO, aslr, CTLFLAG_RD, 0,
     "Address Space Layout Randomization.");
 
-SYSCTL_PROC(_security_pax_aslr, OID_AUTO, status,
+SYSCTL_PROC(_hardening_pax_aslr, OID_AUTO, status,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_aslr_status, "I",
     "Restrictions status. "
@@ -132,24 +131,24 @@ SYSCTL_PROC(_security_pax_aslr, OID_AUTO, status,
     "2 - opt-out, "
     "3 - force enabled");
 
-SYSCTL_PROC(_security_pax_aslr, OID_AUTO, debug,
+SYSCTL_PROC(_hardening_pax_aslr, OID_AUTO, debug,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_aslr_debug, "I",
     "ASLR debug mode");
 
-SYSCTL_PROC(_security_pax_aslr, OID_AUTO, mmap_len,
+SYSCTL_PROC(_hardening_pax_aslr, OID_AUTO, mmap_len,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_aslr_mmap, "I",
     "Number of bits randomized for mmap(2) calls. "
     "32 bit: [8,16] 64 bit: [16,32]");
 
-SYSCTL_PROC(_security_pax_aslr, OID_AUTO, stack_len,
+SYSCTL_PROC(_hardening_pax_aslr, OID_AUTO, stack_len,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_aslr_stack, "I",
     "Number of bits randomized for the stack. "
     "32 bit: [6,12] 64 bit: [12,21]");
 
-SYSCTL_PROC(_security_pax_aslr, OID_AUTO, exec_len,
+SYSCTL_PROC(_hardening_pax_aslr, OID_AUTO, exec_len,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_aslr_exec, "I",
     "Number of bits randomized for the PIE exec base. "
@@ -319,10 +318,10 @@ static int sysctl_pax_aslr_compat_mmap(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_compat_stack(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_compat_exec(SYSCTL_HANDLER_ARGS);
 
-SYSCTL_NODE(_security_pax_aslr, OID_AUTO, compat, CTLFLAG_RD, 0,
+SYSCTL_NODE(_hardening_pax_aslr, OID_AUTO, compat, CTLFLAG_RD, 0,
     "Setting for COMPAT_FREEBSD32 and linuxulator.");
 
-SYSCTL_PROC(_security_pax_aslr_compat, OID_AUTO, status,
+SYSCTL_PROC(_hardening_pax_aslr_compat, OID_AUTO, status,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON,
     NULL, 0, sysctl_pax_aslr_compat_status, "I",
     "Restrictions status. "
@@ -331,19 +330,19 @@ SYSCTL_PROC(_security_pax_aslr_compat, OID_AUTO, status,
     "2 - global enabled, "
     "3 - force global enabled");
 
-SYSCTL_PROC(_security_pax_aslr_compat, OID_AUTO, mmap_len,
+SYSCTL_PROC(_hardening_pax_aslr_compat, OID_AUTO, mmap_len,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON,
     NULL, 0, sysctl_pax_aslr_compat_mmap, "I",
     "Number of bits randomized for mmap(2) calls. "
     "32 bit: [8,16]");
 
-SYSCTL_PROC(_security_pax_aslr_compat, OID_AUTO, stack_len,
+SYSCTL_PROC(_hardening_pax_aslr_compat, OID_AUTO, stack_len,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON,
     NULL, 0, sysctl_pax_aslr_compat_stack, "I",
     "Number of bits randomized for the stack. "
     "32 bit: [6,12]");
 
-SYSCTL_PROC(_security_pax_aslr_compat, OID_AUTO, exec_len,
+SYSCTL_PROC(_hardening_pax_aslr_compat, OID_AUTO, exec_len,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON,
     NULL, 0, sysctl_pax_aslr_compat_exec, "I",
     "Number of bits randomized for the PIE exec base. "

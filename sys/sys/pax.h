@@ -216,6 +216,8 @@ extern int pax_log_ulog;
 #define PAX_LOG_LOG		0
 #define PAX_LOG_ULOG		0
 
+SYSCTL_DECL(_hardening_pax);
+
 void pax_init(void);
 void pax_init_prison(struct prison *pr);
 bool pax_aslr_active(struct proc *proc);
