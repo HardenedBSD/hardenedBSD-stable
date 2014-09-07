@@ -95,12 +95,10 @@ static int sysctl_pax_log_ulog(SYSCTL_HANDLER_ARGS);
 int pax_log_log = PAX_LOG_LOG;
 int pax_log_ulog = PAX_LOG_ULOG;
 
-SYSCTL_DECL(_security_pax);
+SYSCTL_NODE(_hardening, OID_AUTO, log, CTLFLAG_RD, 0,
+    "Hardening related logging facility.");
 
-SYSCTL_NODE(_security_pax, OID_AUTO, log, CTLFLAG_RD, 0,
-    "PAX related logging facility.");
-
-SYSCTL_PROC(_security_pax_log, OID_AUTO, log,
+SYSCTL_PROC(_hardening_log, OID_AUTO, log,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_log_log, "I",
     "log to syslog "
@@ -108,7 +106,7 @@ SYSCTL_PROC(_security_pax_log, OID_AUTO, log,
     "1 - enabled ");
 TUNABLE_INT("security.pax.log.log", &pax_log_log);
 
-SYSCTL_PROC(_security_pax_log, OID_AUTO, ulog,
+SYSCTL_PROC(_hardening_log, OID_AUTO, ulog,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_log_ulog, "I",
     "log to user terminal"
