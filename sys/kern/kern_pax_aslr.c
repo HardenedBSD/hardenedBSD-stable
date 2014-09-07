@@ -660,6 +660,7 @@ pax_compat_aslr_sysinit(void)
 	printf("[PAX ASLR (compat)] exec base: %d bit\n", pax_aslr_compat_exec_len);
 	printf("[PAX ASLR (compat)] stack: %d bit\n", pax_aslr_compat_stack_len);
 }
+SYSINIT(pax, SI_SUB_PAX, SI_ORDER_SECOND, pax_compat_aslr_sysinit, NULL);
 
 void
 _pax_aslr_init32(struct vmspace *vm, struct proc *p)
