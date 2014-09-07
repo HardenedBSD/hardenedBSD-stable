@@ -544,8 +544,8 @@ bsde_rule_to_string(struct mac_bsdextended_rule *rule, char *buf, size_t buflen)
 		left -= len;
 		cur += len;
 
-		if (rule->mbr_ptrace_hardening & MBI_FORCE_PTRACE_HARDENING_ENABLED) {
-			len = snprintf(cur, left, " A");
+		if (rule->mbr_ptrace_hardening & MBI_FORCE_PTRACE_HARDENING_DISABLED) {
+			len = snprintf(cur, left, " a");
 			if (len < 0 || len > left)
 				goto truncated;
 
@@ -553,8 +553,8 @@ bsde_rule_to_string(struct mac_bsdextended_rule *rule, char *buf, size_t buflen)
 			cur += len;
 		}
 
-		if (rule->mbr_ptrace_hardening & MBI_FORCE_PTRACE_HARDENING_DISABLED) {
-			len = snprintf(cur, left, " a");
+		if (rule->mbr_ptrace_hardening & MBI_FORCE_PTRACE_HARDENING_ENABLED) {
+			len = snprintf(cur, left, " A");
 			if (len < 0 || len > left)
 				goto truncated;
 

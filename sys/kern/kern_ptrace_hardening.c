@@ -33,8 +33,10 @@ __FBSDID("$FreeBSD$");
 #include "opt_ptrace_hardening.h"
 
 #include <sys/param.h>
+#include <sys/mount.h>
 #include <sys/systm.h>
 #include <sys/kernel.h>
+#include <sys/imgact.h>
 #include <sys/lock.h>
 #include <sys/mutex.h>
 #include <sys/stat.h>
@@ -47,6 +49,8 @@ __FBSDID("$FreeBSD$");
 #include <sys/param.h>
 
 #include <sys/ptrace_hardening.h>
+
+#include <security/mac_bsdextended/mac_bsdextended.h>
 
 int ptrace_hardening_status = PTRACE_HARDENING_ENABLED;
 
@@ -109,6 +113,7 @@ sysctl_ptrace_hardening_status(SYSCTL_HANDLER_ARGS)
 	return (0);
 }
 
+#ifdef PTRACE_HARDENING_GRP
 int
 sysctl_ptrace_hardening_gid(SYSCTL_HANDLER_ARGS)
 {
@@ -121,17 +126,19 @@ sysctl_ptrace_hardening_gid(SYSCTL_HANDLER_ARGS)
 
 	return (0);
 }
+#endif
 
 int
-ptrace_hardening(struct thread *td)
+ptrace_hardening(struct thread *td, u_int ptrace_hardening_flag)
 {
-	if (!ptrace_hardening_status ||
-		td->td_proc->p_ptrace_hardening & 
-		MIB_FORCE_PTRACE_HARDENING_DISABLED)
+	if (!ptrace_hardening_status)
+		return (0);
+
+	if (ptrace_hardening_flag & 
+		PTRACE_HARDENING_MODE_PUBLIC)
 		return (0);
 
 	uid_t uid = td->td_ucred->cr_ruid;
-
 #ifdef PTRACE_HARDENING_GRP
 	gid_t gid = td->td_ucred->cr_rgid;
 	if (uid && ptrace_hardening_allowed_gid &&
@@ -152,14 +159,14 @@ ptrace_hardening_mode(struct image_params *imgp, uint32_t mode)
 
 	if ((mode & MBI_ALLPTRACE_HARDENING) != MBI_ALLPTRACE_HARDENING) {
 		if (mode & MBI_FORCE_PTRACE_HARDENING_ENABLED)
-			flags |= PTRACE_HARDENING_MODE_ROOT;
+			flags |= PTRACE_HARDENING_MODE_ROOTONLY;
 		else if (mode & MBI_FORCE_PTRACE_HARDENING_DISABLED)
 			flags |= PTRACE_HARDENING_MODE_PUBLIC;
 	}
 
 	if (imgp != NULL && imgp->proc != NULL) {
 		PROC_LOCK(imgp->proc);
-		imgp->proc->p_ptracehd = flags;
+		imgp->proc->p_ptrace_hardening = flags;
 		PROC_UNLOCK(imgp->proc);
 	}
 }

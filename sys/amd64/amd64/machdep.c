@@ -2184,11 +2184,10 @@ ptrace_set_pc(struct thread *td, unsigned long addr)
 	 */
 
 	if (addr & 0x0000800000000000LLU)
-		addr |= 0xFFFF000000000000LLU;
+		td->td_frame->tf_rip = addr | 0xFFFF000000000000LLU;
 	else
-		addr &= 0x0000FFFFFFFFFFFFLLU;
+		td->td_frame->tf_rip = addr & 0x0000FFFFFFFFFFFFLLU;
 
-	td->td_frame->tf_rip = addr;
 	set_pcb_flags(td->td_pcb, PCB_FULL_IRET);
 	return (0);
 }

@@ -526,6 +526,10 @@ do_fork(struct thread *td, int flags, struct proc *p2, struct thread *td2,
 	 * Per-process PaX flags.
 	 */
 	p2->p_pax = p1->p_pax;
+	/*
+	 * Ptrace hardening flags.
+	 */
+	p2->p_ptrace_hardening = p1->p_ptrace_hardening;
 
 	/*
 	 * p_limit is copy-on-write.  Bump its refcount.

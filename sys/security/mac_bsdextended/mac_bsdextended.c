@@ -48,6 +48,7 @@
  */
 
 #include "opt_pax.h"
+#include "opt_ptrace_hardening.h"
 
 #include <sys/param.h>
 #include <sys/acl.h>
@@ -60,6 +61,7 @@
 #include <sys/mutex.h>
 #include <sys/param.h>
 #include <sys/pax.h>
+#include <sys/ptrace_hardening.h>
 #include <sys/priv.h>
 #include <sys/proc.h>
 #include <sys/systm.h>
@@ -138,7 +140,7 @@ ugidfw_rule_valid(struct mac_bsdextended_rule *rule)
 #endif
 
 #ifdef PTRACE_HARDENING
-	if ((rule->mbr_ptracehd | MBI_ALLPTRACE_HARDENING) !=
+	if ((rule->mbr_ptrace_hardening | MBI_ALLPTRACE_HARDENING) !=
 		MBI_ALLPTRACE_HARDENING)
 		return (EINVAL);
 #endif
@@ -437,8 +439,8 @@ ugidfw_rulecheck(struct mac_bsdextended_rule *rule,
 #endif
 
 #ifdef PTRACE_HARDENING
-	if (imgp != NULL && imgp->proc != NULL)
-		ptrace_hardening_proc(imgp->proc, rule->mbr_ptracehd);
+	if (imgp != NULL)
+		ptrace_hardening_mode(imgp,	rule->mbr_ptrace_hardening);
 #endif
 
 	/*

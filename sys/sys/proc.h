@@ -540,7 +540,7 @@ struct proc {
 	u_int		p_stype;	/* (c) Stop event type. */
 	char		p_step;		/* (c) Process is stopped. */
 	u_int		p_pax;		/* (b) PaX is enabled to this process */
-	u_int		p_ptracehd;	/* ptrace hardening mode */
+	u_int		p_ptrace_hardening;	/* ptrace hardening mode */
 	u_char		p_pfsflags;	/* (c) Procfs flags. */
 	struct nlminfo	*p_nlminfo;	/* (?) Only used by/for lockd. */
 	struct kaioinfo	*p_aioinfo;	/* (y) ASYNC I/O info. */
