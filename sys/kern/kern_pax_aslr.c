@@ -109,6 +109,9 @@ static uint32_t pax_get_status(struct proc *proc, struct prison **pr);
 static int pax_get_flags(struct proc *proc, uint32_t *flags);
 
 #ifdef PAX_SYSCTLS
+
+SYSCTL_DECL(_hardening_pax);
+
 /*
  * sysctls and tunables
  */
