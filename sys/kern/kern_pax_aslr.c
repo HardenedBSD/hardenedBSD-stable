@@ -93,16 +93,16 @@ int pax_aslr_compat_exec_len = PAX_ASLR_COMPAT_DELTA_EXEC_MIN_LEN;
 #endif /* PAX_ASLR_MAX_SEC */
 #endif /* COMPAT_FREEBSD32 */
 
-TUNABLE_INT("security.pax.aslr.status", &pax_aslr_status);
-TUNABLE_INT("security.pax.aslr.mmap_len", &pax_aslr_mmap_len);
-TUNABLE_INT("security.pax.aslr.debug", &pax_aslr_debug);
-TUNABLE_INT("security.pax.aslr.stack_len", &pax_aslr_stack_len);
-TUNABLE_INT("security.pax.aslr.exec_len", &pax_aslr_exec_len);
+TUNABLE_INT("hardening.pax.aslr.status", &pax_aslr_status);
+TUNABLE_INT("hardening.pax.aslr.mmap_len", &pax_aslr_mmap_len);
+TUNABLE_INT("hardening.pax.aslr.debug", &pax_aslr_debug);
+TUNABLE_INT("hardening.pax.aslr.stack_len", &pax_aslr_stack_len);
+TUNABLE_INT("hardening.pax.aslr.exec_len", &pax_aslr_exec_len);
 #ifdef COMPAT_FREEBSD32
-TUNABLE_INT("security.pax.aslr.compat.status", &pax_aslr_compat_status);
-TUNABLE_INT("security.pax.aslr.compat.mmap", &pax_aslr_compat_mmap_len);
-TUNABLE_INT("security.pax.aslr.compat.stack", &pax_aslr_compat_stack_len);
-TUNABLE_INT("security.pax.aslr.compat.stack", &pax_aslr_compat_exec_len);
+TUNABLE_INT("hardening.pax.aslr.compat.status", &pax_aslr_compat_status);
+TUNABLE_INT("hardening.pax.aslr.compat.mmap", &pax_aslr_compat_mmap_len);
+TUNABLE_INT("hardening.pax.aslr.compat.stack", &pax_aslr_compat_stack_len);
+TUNABLE_INT("hardening.pax.aslr.compat.stack", &pax_aslr_compat_exec_len);
 #endif
 
 static uint32_t pax_get_status(struct proc *proc, struct prison **pr);
