@@ -504,7 +504,7 @@ pax_aslr_sysinit(void)
 	printf("[PAX ASLR] exec base: %d bit\n", pax_aslr_exec_len);
 	printf("[PAX ASLR] stack: %d bit\n", pax_aslr_stack_len);
 }
-SYSINIT(pax, SI_SUB_PAX, SI_ORDER_SECOND, pax_aslr_sysinit, NULL);
+SYSINIT(pax_aslr, SI_SUB_PAX, SI_ORDER_SECOND, pax_aslr_sysinit, NULL);
 
 uint32_t
 pax_get_status(struct proc *proc, struct prison **pr)
@@ -660,7 +660,7 @@ pax_compat_aslr_sysinit(void)
 	printf("[PAX ASLR (compat)] exec base: %d bit\n", pax_aslr_compat_exec_len);
 	printf("[PAX ASLR (compat)] stack: %d bit\n", pax_aslr_compat_stack_len);
 }
-SYSINIT(pax, SI_SUB_PAX, SI_ORDER_SECOND, pax_compat_aslr_sysinit, NULL);
+SYSINIT(pax_compat_aslr, SI_SUB_PAX, SI_ORDER_SECOND, pax_compat_aslr_sysinit, NULL);
 
 void
 _pax_aslr_init32(struct vmspace *vm, struct proc *p)

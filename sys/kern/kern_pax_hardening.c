@@ -101,7 +101,7 @@ pax_hardening_sysinit(void)
 
 	printf("[PAX HARDENING] MAP_32BIT enabled: %d\n", pax_map32_enabled_global);
 }
-SYSINIT(pax, SI_SUB_PAX, SI_ORDER_SECOND, pax_hardening_sysinit, NULL);
+SYSINIT(pax_hardening, SI_SUB_PAX, SI_ORDER_SECOND, pax_hardening_sysinit, NULL);
 
 #ifdef PAX_SYSCTLS
 static int

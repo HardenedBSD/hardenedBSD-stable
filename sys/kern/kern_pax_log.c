@@ -123,7 +123,7 @@ pax_log_sysinit(void)
 	printf("[PAX LOG] logging to system: %d\n", pax_log_log);
 	printf("[PAX LOG] logging to user: %d\n", pax_log_ulog);
 }
-SYSINIT(pax, SI_SUB_PAX, SI_ORDER_SECOND, pax_log_sysinit, NULL);
+SYSINIT(pax_log, SI_SUB_PAX, SI_ORDER_SECOND, pax_log_sysinit, NULL);
 
 #ifdef PAX_SYSCTLS
 static int
