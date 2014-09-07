@@ -593,8 +593,7 @@ sctp_handle_heartbeat_ack(struct sctp_heartbeat_chunk *cp,
 			store.sin6.sin6_family = cp->heartbeat.hb_info.addr_family;
 			store.sin6.sin6_len = cp->heartbeat.hb_info.addr_len;
 			store.sin6.sin6_port = stcb->rport;
-			memcpy(&store.sin6.sin6_addr, cp->heartbeat.hb_info.address,
-			    sizeof(store.sin6.sin6_addr));
+			memcpy(&store.sin6.sin6_addr, cp->heartbeat.hb_info.address, sizeof(struct in6_addr));
 		} else {
 			return;
 		}
@@ -2262,8 +2261,7 @@ sctp_process_cookie_new(struct mbuf *m, int iphlen, int offset,
 		store.sin6.sin6_family = AF_INET6;
 		store.sin6.sin6_len = sizeof(struct sockaddr_in6);
 		store.sin6.sin6_scope_id = cookie->scope_id;
-		memcpy(&store.sin6.sin6_addr, cookie->laddress,
-		    sizeof(store.sin6.sin6_addr));
+		memcpy(&store.sin6.sin6_addr, cookie->laddress, sizeof(struct in6_addr));
 		break;
 #endif
 	default:
@@ -2884,9 +2882,9 @@ sctp_handle_cookie_ack(struct sctp_cookie_ack_chunk *cp SCTP_UNUSED,
 
 	SCTPDBG(SCTP_DEBUG_INPUT2,
 	    "sctp_handle_cookie_ack: handling COOKIE-ACK\n");
-	if (stcb == NULL)
+	if ((stcb == NULL) || (net == NULL)) {
 		return;
-
+	}
 	asoc = &stcb->asoc;
 
 	sctp_stop_all_cookie_timers(stcb);
