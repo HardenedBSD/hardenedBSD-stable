@@ -484,6 +484,27 @@ sysctl_pax_aslr_compat_exec(SYSCTL_HANDLER_ARGS)
  * ASLR functions
  */
 
+static void
+pax_aslr_sysinit(void)
+{
+	switch (pax_aslr_status) {
+	case PAX_FEATURE_DISABLED:
+	case PAX_FEATURE_OPTIN:
+	case PAX_FEATURE_OPTOUT:
+	case PAX_FEATURE_FORCE_ENABLED:
+		break;
+	default:
+		printf("[PAX ASLR] WARNING, invalid PAX settings in loader.conf!"
+		    " (pax_aslr_status = %d)\n", pax_aslr_status);
+		pax_aslr_status = PAX_FEATURE_FORCE_ENABLED;
+		break;
+	}
+	printf("[PAX ASLR] status: %s\n", pax_status_str[pax_aslr_status]);
+	printf("[PAX ASLR] mmap: %d bit\n", pax_aslr_mmap_len);
+	printf("[PAX ASLR] exec base: %d bit\n", pax_aslr_exec_len);
+	printf("[PAX ASLR] stack: %d bit\n", pax_aslr_stack_len);
+}
+SYSINIT(pax, SI_SUB_PAX, SI_ORDER_SECOND, pax_aslr_sysinit, NULL);
 
 uint32_t
 pax_get_status(struct proc *proc, struct prison **pr)
@@ -619,6 +640,27 @@ _pax_aslr_init(struct vmspace *vm, struct proc *p)
 }
 
 #ifdef COMPAT_FREEBSD32
+static void
+pax_compat_aslr_sysinit(void)
+{
+	switch (pax_aslr_compat_status) {
+	case PAX_FEATURE_DISABLED:
+	case PAX_FEATURE_OPTIN:
+	case PAX_FEATURE_OPTOUT:
+	case PAX_FEATURE_FORCE_ENABLED:
+		break;
+	default:
+		printf("[PAX ASLR (compat)] WARNING, invalid PAX settings in loader.conf! "
+		    "(pax_aslr_compat_status = %d)\n", pax_aslr_compat_status);
+		pax_aslr_compat_status = PAX_FEATURE_FORCE_ENABLED;
+		break;
+	}
+	printf("[PAX ASLR (compat)] status: %s\n", pax_status_str[pax_aslr_compat_status]);
+	printf("[PAX ASLR (compat)] mmap: %d bit\n", pax_aslr_compat_mmap_len);
+	printf("[PAX ASLR (compat)] exec base: %d bit\n", pax_aslr_compat_exec_len);
+	printf("[PAX ASLR (compat)] stack: %d bit\n", pax_aslr_compat_stack_len);
+}
+
 void
 _pax_aslr_init32(struct vmspace *vm, struct proc *p)
 {

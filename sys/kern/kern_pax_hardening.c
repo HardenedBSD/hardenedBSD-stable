@@ -83,6 +83,19 @@ SYSCTL_PROC(_hardening, OID_AUTO, allow_map32bit,
     "1 - enabled.");
 TUNABLE_INT("security.pax.hardening.map32bit", &pax_map32_enabled_global);
 
+static void
+pax_hardening_sysinit(void)
+{
+	if (pax_map32_enabled_global > 1 || pax_map32_enabled_global < -1) {
+		printf("[PAX HARDENING] WARNING, invalid PAX settings in loader.conf! "
+		    "(pax_map32_enabled_global = %d)\n", pax_map32_enabled_global);
+		pax_map32_enabled_global = 1;
+	}
+
+	printf("[PAX HARDENING] MAP_32BIT enabled: %d\n", pax_map32_enabled_global);
+}
+SYSINIT(pax, SI_SUB_PAX, SI_ORDER_SECOND, pax_hardening_sysinit, NULL);
+
 static int
 sysctl_pax_map32(SYSCTL_HANDLER_ARGS)
 {

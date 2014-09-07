@@ -114,6 +114,14 @@ SYSCTL_PROC(_hardening_log, OID_AUTO, ulog,
     "1 - enabled ");
 TUNABLE_INT("security.pax.log.ulog", &pax_log_ulog);
 
+static void
+pax_log_sysinit(void)
+{
+	printf("[PAX LOG] logging to system: %d\n", pax_log_log);
+	printf("[PAX LOG] logging to user: %d\n", pax_log_ulog);
+}
+SYSINIT(pax, SI_SUB_PAX, SI_ORDER_SECOND, pax_log_sysinit, NULL);
+
 static int
 sysctl_pax_log_log(SYSCTL_HANDLER_ARGS)
 {

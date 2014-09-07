@@ -74,6 +74,14 @@ __FBSDID("$FreeBSD$");
 SYSCTL_NODE(_hardening, OID_AUTO, pax, CTLFLAG_RD, 0,
     "PaX (exploit mitigation) features.");
 
+const char *pax_status_str[] = {
+	[PAX_FEATURE_DISABLED] = "disabled",
+	[PAX_FEATURE_OPTIN] = "opt-in",
+	[PAX_FEATURE_OPTOUT] = "opt-out",
+	[PAX_FEATURE_FORCE_ENABLED] = "force enabled",
+	[PAX_FEATURE_UNKNOWN_STATUS] = "UNKNOWN -> changed to \"force enabled\""
+};
+
 struct prison *
 pax_get_prison(struct proc *proc)
 {
@@ -112,66 +120,8 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 static void
 pax_sysinit(void)
 {
-#if defined(PAX_ASLR)
-	const char *status_str[] = {
-		[0] = "disabled",
-		[1] = "opt-in",
-		[2] = "opt-out",
-		[3] = "force enabled",
-		[4] = "UNKNOWN -> changed to \"force enabled\""
-	};
-#endif
 
-#ifdef PAX_ASLR
-	switch (pax_aslr_status) {
-	case PAX_FEATURE_DISABLED:
-	case PAX_FEATURE_OPTIN:
-	case PAX_FEATURE_OPTOUT:
-	case PAX_FEATURE_FORCE_ENABLED:
-		break;
-	default:
-		printf("[PAX ASLR] WARNING, invalid PAX settings in loader.conf!"
-		    " (pax_aslr_status = %d)\n", pax_aslr_status);
-		pax_aslr_status = 3;
-		break;
-	}
-	printf("[PAX ASLR] status: %s\n", status_str[pax_aslr_status]);
-	printf("[PAX ASLR] mmap: %d bit\n", pax_aslr_mmap_len);
-	printf("[PAX ASLR] exec base: %d bit\n", pax_aslr_exec_len);
-	printf("[PAX ASLR] stack: %d bit\n", pax_aslr_stack_len);
-
-#ifdef COMPAT_FREEBSD32
-	switch (pax_aslr_compat_status) {
-	case PAX_FEATURE_DISABLED:
-	case PAX_FEATURE_OPTIN:
-	case PAX_FEATURE_OPTOUT:
-	case PAX_FEATURE_FORCE_ENABLED:
-		break;
-	default:
-		printf("[PAX ASLR (compat)] WARNING, invalid PAX settings in loader.conf! "
-		    "(pax_aslr_compat_status = %d)\n", pax_aslr_compat_status);
-		pax_aslr_compat_status = 3;
-		break;
-	}
-	printf("[PAX ASLR (compat)] status: %s\n", status_str[pax_aslr_compat_status]);
-	printf("[PAX ASLR (compat)] mmap: %d bit\n", pax_aslr_compat_mmap_len);
-	printf("[PAX ASLR (compat)] exec base: %d bit\n", pax_aslr_compat_exec_len);
-	printf("[PAX ASLR (compat)] stack: %d bit\n", pax_aslr_compat_stack_len);
-#endif /* COMPAT_FREEBSD32 */
-#endif /* PAX_ASLR */
-
-#ifdef PAX_HARDENING
-	if (pax_map32_enabled_global > 1 || pax_map32_enabled_global < -1) {
-		printf("[PAX HARDENING] WARNING, invalid PAX settings in loader.conf! "
-		    "(pax_map32_enabled_global = %d)\n", pax_map32_enabled_global);
-		pax_map32_enabled_global = 1;
-	}
-
-	printf("[PAX HARDENING] MAP_32BIT enabled: %d\n", pax_map32_enabled_global);
-#endif
-
-	printf("[PAX LOG] logging to system: %d\n", pax_log_log);
-	printf("[PAX LOG] logging to user: %d\n", pax_log_ulog);
+	printf("PAX: initialize and check PaX and HardeneBSD features.");
 }
 SYSINIT(pax, SI_SUB_PAX, SI_ORDER_FIRST, pax_sysinit, NULL);
 
