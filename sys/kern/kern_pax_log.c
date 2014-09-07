@@ -95,6 +95,10 @@ static int sysctl_pax_log_ulog(SYSCTL_HANDLER_ARGS);
 int pax_log_log = PAX_LOG_LOG;
 int pax_log_ulog = PAX_LOG_ULOG;
 
+TUNABLE_INT("hardening.log.log", &pax_log_log);
+TUNABLE_INT("hardening.log.ulog", &pax_log_ulog);
+
+#ifdef PAX_SYSCTLS
 SYSCTL_NODE(_hardening, OID_AUTO, log, CTLFLAG_RD, 0,
     "Hardening related logging facility.");
 
@@ -104,7 +108,6 @@ SYSCTL_PROC(_hardening_log, OID_AUTO, log,
     "log to syslog "
     "0 - disabled, "
     "1 - enabled ");
-TUNABLE_INT("security.pax.log.log", &pax_log_log);
 
 SYSCTL_PROC(_hardening_log, OID_AUTO, ulog,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
@@ -112,7 +115,7 @@ SYSCTL_PROC(_hardening_log, OID_AUTO, ulog,
     "log to user terminal"
     "0 - disabled, "
     "1 - enabled ");
-TUNABLE_INT("security.pax.log.ulog", &pax_log_ulog);
+#endif
 
 static void
 pax_log_sysinit(void)
@@ -122,6 +125,7 @@ pax_log_sysinit(void)
 }
 SYSINIT(pax, SI_SUB_PAX, SI_ORDER_SECOND, pax_log_sysinit, NULL);
 
+#ifdef PAX_SYSCTLS
 static int
 sysctl_pax_log_log(SYSCTL_HANDLER_ARGS)
 {
@@ -171,6 +175,6 @@ sysctl_pax_log_ulog(SYSCTL_HANDLER_ARGS)
 
 	return (0);
 }
-
+#endif
 
 __PAX_LOG_TEMPLATE(ASLR, aslr)
