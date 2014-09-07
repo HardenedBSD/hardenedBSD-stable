@@ -229,6 +229,15 @@ ahci_attach(device_t dev)
 
 	ahci_ctlr_setup(dev);
 
+	/* Setup interrupts. */
+	if (ahci_setup_interrupt(dev)) {
+		bus_dma_tag_destroy(ctlr->dma_tag);
+		bus_release_resource(dev, SYS_RES_MEMORY, ctlr->r_rid,
+		    ctlr->r_mem);
+		rman_fini(&ctlr->sc_iomem);
+		return ENXIO;
+	}
+
 	i = 0;
 	for (u = ctlr->ichannels; u != 0; u >>= 1)
 		i += (u & 1);
@@ -350,7 +359,9 @@ ahci_setup_interrupt(device_t dev)
 	for (i = 0; i < ctlr->numirqs; i++) {
 		ctlr->irqs[i].ctlr = ctlr;
 		ctlr->irqs[i].r_irq_rid = i + (ctlr->msi ? 1 : 0);
-		if (ctlr->numirqs == 1 || i >= ctlr->channels ||
+		if (ctlr->channels == 1 && !ctlr->ccc)
+			ctlr->irqs[i].mode = AHCI_IRQ_MODE_ONE;
+		else if (ctlr->numirqs == 1 || i >= ctlr->channels ||
 		    (ctlr->ccc && i == ctlr->cccv))
 			ctlr->irqs[i].mode = AHCI_IRQ_MODE_ALL;
 		else if (i == ctlr->numirqs - 1)
@@ -1535,8 +1546,9 @@ ahci_execute_transaction(struct ahci_slot *slot)
 		/*
 		 * Marvell HBAs with non-RAID firmware do not wait for
 		 * readiness after soft reset, so we have to wait here.
-		 * Marvell RAIDs have no this problem, but instead sometimes
-		 * forget to update FIS receive area, breaking this wait.
+		 * Marvell RAIDs do not have this problem, but instead
+		 * sometimes forget to update FIS receive area, breaking
+		 * this wait.
 		 */
 		if ((ch->quirks & AHCI_Q_NOBSYRES) == 0 &&
 		    (ch->quirks & AHCI_Q_ATI_PMP_BUG) == 0 &&
