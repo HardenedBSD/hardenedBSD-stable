@@ -82,7 +82,7 @@ static int sysctl_pax_allow_map32(SYSCTL_HANDLER_ARGS);
 #ifdef PAX_SYSCTLS
 SYSCTL_PROC(_hardening, OID_AUTO, allow_map32bit,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
-    NULL, 0, sysctl_pax_map32, "I",
+    NULL, 0, sysctl_pax_allow_map32, "I",
     "mmap MAP_32BIT support. "
     "0 - disabled, "
     "1 - enabled.");
