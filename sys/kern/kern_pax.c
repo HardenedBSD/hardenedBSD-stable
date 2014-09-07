@@ -71,7 +71,7 @@ __FBSDID("$FreeBSD$");
 
 #include <security/mac_bsdextended/mac_bsdextended.h>
 
-SYSCTL_NODE(_security, OID_AUTO, pax, CTLFLAG_RD, 0,
+SYSCTL_NODE(_hardening, OID_AUTO, pax, CTLFLAG_RD, 0,
     "PaX (exploit mitigation) features.");
 
 struct prison *
