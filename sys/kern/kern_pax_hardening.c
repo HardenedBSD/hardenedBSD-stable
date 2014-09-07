@@ -75,15 +75,10 @@ int pax_map32_enabled_global = 1;
 
 static int sysctl_pax_map32(SYSCTL_HANDLER_ARGS);
 
-SYSCTL_DECL(_security_pax);
-
-SYSCTL_NODE(_security_pax, OID_AUTO, hardening, CTLFLAG_RD, 0,
-    "Kernel hardening features");
-
-SYSCTL_PROC(_security_pax_hardening, OID_AUTO, map32bit,
+SYSCTL_PROC(_hardening, OID_AUTO, allow_map32bit,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_map32, "I",
-    "MAP_32BIT support. "
+    "mmap MAP_32BIT support. "
     "0 - disabled, "
     "1 - enabled.");
 TUNABLE_INT("security.pax.hardening.map32bit", &pax_map32_enabled_global);
