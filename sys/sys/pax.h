@@ -50,10 +50,7 @@ struct vm_offset_t;
 #define	PAX_FEATURE_FORCE_ENABLED	3
 #define	PAX_FEATURE_UNKNOWN_STATUS	4
 
-#define PAX_SEGVGUARD_DISABLED          0
-#define PAX_SEGVGUARD_OPTIN             1
-#define PAX_SEGVGUARD_OPTOUT            2
-#define PAX_SEGVGUARD_FORCE_ENABLED     3
+extern const char *pax_status_str[];
 
 #ifndef PAX_ASLR_DELTA
 #define	PAX_ASLR_DELTA(delta, lsb, len)	\
@@ -204,7 +201,6 @@ extern int pax_aslr_compat_stack_len;
 extern int pax_aslr_compat_exec_len;
 #endif /* COMPAT_FREEBSD32 */
 
-<<<<<<< HEAD
 #ifdef PAX_SEGVGUARD
 extern int pax_segvguard_status;
 extern int pax_segvguard_debug;
@@ -212,10 +208,7 @@ extern int pax_segvguard_expiry;
 extern int pax_segvguard_suspension;
 extern int pax_segvguard_maxcrashes;
 #endif /* PAX_SEGVGUARD */
-=======
-extern const char *pax_status_str[];
 
->>>>>>> hardened/current/master
 #ifdef PAX_HARDENING
 extern int pax_map32_enabled_global;
 #endif /* PAX_HARDENING*/
@@ -234,14 +227,10 @@ extern int pax_log_ulog;
 #define PAX_LOG_LOG		0
 #define PAX_LOG_ULOG		0
 
-<<<<<<< HEAD
 #define PAX_SEGVGUARD_EXPIRY        (2 * 60)
 #define PAX_SEGVGUARD_SUSPENSION    (10 * 60)
 #define PAX_SEGVGUARD_MAXCRASHES    5
 
-void pax_init(void);
-=======
->>>>>>> hardened/current/master
 void pax_init_prison(struct prison *pr);
 int pax_get_flags(struct proc *proc, uint32_t *flags);
 bool pax_aslr_active(struct proc *proc);
