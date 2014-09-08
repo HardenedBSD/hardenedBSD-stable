@@ -44,10 +44,13 @@ struct vm_offset_t;
 /*
  * used in sysctl handler
  */
-#define PAX_ASLR_DISABLED	0
-#define PAX_ASLR_OPTIN		1
-#define PAX_ASLR_OPTOUT		2
-#define PAX_ASLR_FORCE_ENABLED	3
+#define	PAX_FEATURE_DISABLED		0
+#define	PAX_FEATURE_OPTIN		1
+#define	PAX_FEATURE_OPTOUT		2
+#define	PAX_FEATURE_FORCE_ENABLED	3
+#define	PAX_FEATURE_UNKNOWN_STATUS	4
+
+extern const char *pax_status_str[];
 
 #define PAX_SEGVGUARD_DISABLED          0
 #define PAX_SEGVGUARD_OPTIN             1
@@ -232,7 +235,6 @@ extern int pax_log_ulog;
 #define PAX_SEGVGUARD_SUSPENSION    (10 * 60)
 #define PAX_SEGVGUARD_MAXCRASHES    5
 
-void pax_init(void);
 void pax_init_prison(struct prison *pr);
 int pax_get_flags(struct proc *proc, uint32_t *flags);
 bool pax_aslr_active(struct proc *proc);
