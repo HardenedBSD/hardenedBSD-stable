@@ -55,9 +55,13 @@
 #define MBI_FORCE_ASLR_DISABLED         0x02
 #define MBI_FORCE_SEGVGUARD_ENABLED	0x04
 #define MBI_FORCE_SEGVGUARD_DISABLED	0x08
+#define MBI_FORCE_PTRACE_HARDENING_ENABLED	0x10
+#define MBI_FORCE_PTRACE_HARDENING_DISABLED	0x20
 #define MBI_ALLPAX (MBI_FORCE_ASLR_ENABLED | MBI_FORCE_ASLR_DISABLED | \
 			    MBI_FORCE_SEGVGUARD_ENABLED | \
 			    MBI_FORCE_SEGVGUARD_DISABLED)
+#define MBI_ALLPTRACE_HARDENING (MBI_FORCE_PTRACE_HARDENING_ENABLED | \
+				MBI_FORCE_PTRACE_HARDENING_DISABLED)
 #define	MBI_ALLPERM	(MBI_EXEC | MBI_WRITE | MBI_READ | MBI_ADMIN | \
 			    MBI_STAT | MBI_APPEND)
 
@@ -120,6 +124,7 @@ struct mac_bsdextended_rule {
 	struct mac_bsdextended_object	mbr_object;
 	mode_t				mbr_mode;	/* maximum access */
 	uint32_t			mbr_pax;
+	uint32_t			mbr_ptrace_hardening;
 };
 
 #endif /* _SYS_SECURITY_MAC_BSDEXTENDED_H */
