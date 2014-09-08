@@ -52,6 +52,8 @@ __FBSDID("$FreeBSD$");
 
 #include <security/mac_bsdextended/mac_bsdextended.h>
 
+static void ptrace_hardening_sysinit(void);
+
 int ptrace_hardening_status = PTRACE_HARDENING_ENABLED;
 
 #ifdef PTRACE_HARDENING_GRP
@@ -165,8 +167,8 @@ ptrace_hardening_mode(struct image_params *imgp, uint32_t mode)
 	}
 }
 
-void
-ptrace_hardening_init(void)
+static void
+ptrace_hardening_sysinit(void)
 {
 	printf("[PTRACE HARDENING] %d\n", ptrace_hardening_status);
 
@@ -174,4 +176,4 @@ ptrace_hardening_init(void)
 	printf("[PTRACE HARDENING GROUP] %d\n", ptrace_hardening_allowed_gid);
 #endif
 }
-SYSINIT(ptrace, SI_SUB_PTRACE_HARDENING, SI_ORDER_FIRST, ptrace_hardening_init, NULL);
+SYSINIT(ptrace, SI_SUB_PTRACE_HARDENING, SI_ORDER_FIRST, ptrace_hardening_sysinit, NULL);
