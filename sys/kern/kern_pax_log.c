@@ -26,6 +26,8 @@
  * $FreeBSD$
  */
 
+#include "opt_pax.h"
+
 #include <sys/cdefs.h>
 
 #include <sys/param.h>
@@ -95,27 +97,37 @@ static int sysctl_pax_log_ulog(SYSCTL_HANDLER_ARGS);
 int pax_log_log = PAX_LOG_LOG;
 int pax_log_ulog = PAX_LOG_ULOG;
 
-SYSCTL_DECL(_security_pax);
+TUNABLE_INT("hardening.log.log", &pax_log_log);
+TUNABLE_INT("hardening.log.ulog", &pax_log_ulog);
 
-SYSCTL_NODE(_security_pax, OID_AUTO, log, CTLFLAG_RD, 0,
-    "PAX related logging facility.");
+#ifdef PAX_SYSCTLS
+SYSCTL_NODE(_hardening, OID_AUTO, log, CTLFLAG_RD, 0,
+    "Hardening related logging facility.");
 
-SYSCTL_PROC(_security_pax_log, OID_AUTO, log,
+SYSCTL_PROC(_hardening_log, OID_AUTO, log,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_log_log, "I",
     "log to syslog "
     "0 - disabled, "
     "1 - enabled ");
-TUNABLE_INT("security.pax.log.log", &pax_log_log);
 
-SYSCTL_PROC(_security_pax_log, OID_AUTO, ulog,
+SYSCTL_PROC(_hardening_log, OID_AUTO, ulog,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_log_ulog, "I",
     "log to user terminal"
     "0 - disabled, "
     "1 - enabled ");
-TUNABLE_INT("security.pax.log.ulog", &pax_log_ulog);
+#endif
 
+static void
+pax_log_sysinit(void)
+{
+	printf("[PAX LOG] logging to system: %d\n", pax_log_log);
+	printf("[PAX LOG] logging to user: %d\n", pax_log_ulog);
+}
+SYSINIT(pax_log, SI_SUB_PAX, SI_ORDER_SECOND, pax_log_sysinit, NULL);
+
+#ifdef PAX_SYSCTLS
 static int
 sysctl_pax_log_log(SYSCTL_HANDLER_ARGS)
 {
@@ -165,6 +177,6 @@ sysctl_pax_log_ulog(SYSCTL_HANDLER_ARGS)
 
 	return (0);
 }
-
+#endif
 
 __PAX_LOG_TEMPLATE(ASLR, aslr)

@@ -44,10 +44,13 @@ struct vm_offset_t;
 /*
  * used in sysctl handler
  */
-#define PAX_ASLR_DISABLED	0
-#define PAX_ASLR_OPTIN		1
-#define PAX_ASLR_OPTOUT		2
-#define PAX_ASLR_FORCE_ENABLED	3
+#define	PAX_FEATURE_DISABLED		0
+#define	PAX_FEATURE_OPTIN		1
+#define	PAX_FEATURE_OPTOUT		2
+#define	PAX_FEATURE_FORCE_ENABLED	3
+#define	PAX_FEATURE_UNKNOWN_STATUS	4
+
+extern const char *pax_status_str[];
 
 #ifndef PAX_ASLR_DELTA
 #define	PAX_ASLR_DELTA(delta, lsb, len)	\
@@ -216,7 +219,6 @@ extern int pax_log_ulog;
 #define PAX_LOG_LOG		0
 #define PAX_LOG_ULOG		0
 
-void pax_init(void);
 void pax_init_prison(struct prison *pr);
 bool pax_aslr_active(struct proc *proc);
 void _pax_aslr_init(struct vmspace *vm, struct proc *p);
