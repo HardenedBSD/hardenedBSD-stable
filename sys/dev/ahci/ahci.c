@@ -187,10 +187,9 @@ ahci_attach(device_t dev)
 	ctlr->ichannels = ATA_INL(ctlr->r_mem, AHCI_PI);
 
 	/* Identify and set separate quirks for HBA and RAID f/w Marvells. */
-	if ((ctlr->quirks & AHCI_Q_NOBSYRES) &&
-	    (ctlr->quirks & AHCI_Q_ALTSIG) &&
+	if ((ctlr->quirks & AHCI_Q_ALTSIG) &&
 	    (ctlr->caps & AHCI_CAP_SPM) == 0)
-		ctlr->quirks &= ~AHCI_Q_NOBSYRES;
+		ctlr->quirks |= AHCI_Q_NOBSYRES;
 
 	if (ctlr->quirks & AHCI_Q_1CH) {
 		ctlr->caps &= ~AHCI_CAP_NPMASK;
@@ -229,6 +228,15 @@ ahci_attach(device_t dev)
 	}
 
 	ahci_ctlr_setup(dev);
+
+	/* Setup interrupts. */
+	if (ahci_setup_interrupt(dev)) {
+		bus_dma_tag_destroy(ctlr->dma_tag);
+		bus_release_resource(dev, SYS_RES_MEMORY, ctlr->r_rid,
+		    ctlr->r_mem);
+		rman_fini(&ctlr->sc_iomem);
+		return ENXIO;
+	}
 
 	i = 0;
 	for (u = ctlr->ichannels; u != 0; u >>= 1)
@@ -351,7 +359,9 @@ ahci_setup_interrupt(device_t dev)
 	for (i = 0; i < ctlr->numirqs; i++) {
 		ctlr->irqs[i].ctlr = ctlr;
 		ctlr->irqs[i].r_irq_rid = i + (ctlr->msi ? 1 : 0);
-		if (ctlr->numirqs == 1 || i >= ctlr->channels ||
+		if (ctlr->channels == 1 && !ctlr->ccc)
+			ctlr->irqs[i].mode = AHCI_IRQ_MODE_ONE;
+		else if (ctlr->numirqs == 1 || i >= ctlr->channels ||
 		    (ctlr->ccc && i == ctlr->cccv))
 			ctlr->irqs[i].mode = AHCI_IRQ_MODE_ALL;
 		else if (i == ctlr->numirqs - 1)
@@ -1533,9 +1543,16 @@ ahci_execute_transaction(struct ahci_slot *slot)
 			}
 		}
 
-		/* Marvell controllers do not wait for readyness. */
-		if ((ch->quirks & AHCI_Q_NOBSYRES) && softreset == 2 &&
-		    et == AHCI_ERR_NONE) {
+		/*
+		 * Marvell HBAs with non-RAID firmware do not wait for
+		 * readiness after soft reset, so we have to wait here.
+		 * Marvell RAIDs do not have this problem, but instead
+		 * sometimes forget to update FIS receive area, breaking
+		 * this wait.
+		 */
+		if ((ch->quirks & AHCI_Q_NOBSYRES) == 0 &&
+		    (ch->quirks & AHCI_Q_ATI_PMP_BUG) == 0 &&
+		    softreset == 2 && et == AHCI_ERR_NONE) {
 			while ((val = fis[2]) & ATA_S_BUSY) {
 				DELAY(10);
 				if (count++ >= timeout)

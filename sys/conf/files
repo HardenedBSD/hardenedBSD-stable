@@ -2542,6 +2542,7 @@ dev/usb/serial/usb_serial.c 	optional ucom | u3g | uark | ubsa | ubser | \
 #
 dev/usb/misc/ufm.c		optional ufm
 dev/usb/misc/udbp.c		optional udbp
+dev/usb/misc/uled.c		optional uled
 #
 # USB input drivers
 #
@@ -3179,8 +3180,9 @@ libkern/inet_pton.c		standard
 libkern/jenkins_hash.c		standard
 libkern/mcount.c		optional profiling-routine
 libkern/memcchr.c		standard
-libkern/memchr.c		optional fdt
+libkern/memchr.c		optional fdt | gdb
 libkern/memcmp.c		standard
+libkern/memmem.c		optional gdb
 libkern/qsort.c			standard
 libkern/qsort_r.c		standard
 libkern/random.c		standard

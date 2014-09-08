@@ -3245,6 +3245,7 @@ static int
 filt_soread(struct knote *kn, long hint)
 {
 	struct socket *so;
+	int ret;
 
 	so = kn->kn_fp->f_data;
 	SOCKBUF_LOCK_ASSERT(&so->so_rcv);
@@ -3265,11 +3266,14 @@ filt_soread(struct knote *kn, long hint)
 			return 1;
 	}
 
+	CURVNET_SET(so->so_vnet);
 	if (V_socket_hhh[HHOOK_FILT_SOREAD]->hhh_nhooks > 0)
-		/* This hook returning non-zero indicates an event, not error */
-		return (hhook_run_socket(so, NULL, HHOOK_FILT_SOREAD));
-	
-	return (0);
+		ret = hhook_run_socket(so, NULL, HHOOK_FILT_SOREAD);
+	else
+		ret = 0;
+	CURVNET_RESTORE();
+
+	return (ret);
 }
 
 static void
@@ -3294,8 +3298,10 @@ filt_sowrite(struct knote *kn, long hint)
 	SOCKBUF_LOCK_ASSERT(&so->so_snd);
 	kn->kn_data = sbspace(&so->so_snd);
 
+	CURVNET_SET(so->so_vnet);
 	if (V_socket_hhh[HHOOK_FILT_SOWRITE]->hhh_nhooks > 0)
 		hhook_run_socket(so, kn, HHOOK_FILT_SOWRITE);
+	CURVNET_RESTORE();
 
 	if (so->so_snd.sb_state & SBS_CANTSENDMORE) {
 		kn->kn_flags |= EV_EOF;
