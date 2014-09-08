@@ -52,11 +52,6 @@ struct vm_offset_t;
 
 extern const char *pax_status_str[];
 
-#define PAX_SEGVGUARD_DISABLED          0
-#define PAX_SEGVGUARD_OPTIN             1
-#define PAX_SEGVGUARD_OPTOUT            2
-#define PAX_SEGVGUARD_FORCE_ENABLED     3
-
 #ifndef PAX_ASLR_DELTA
 #define	PAX_ASLR_DELTA(delta, lsb, len)	\
 	(((delta) & ((1UL << (len)) - 1)) << (lsb))
@@ -213,6 +208,7 @@ extern int pax_segvguard_expiry;
 extern int pax_segvguard_suspension;
 extern int pax_segvguard_maxcrashes;
 #endif /* PAX_SEGVGUARD */
+
 #ifdef PAX_HARDENING
 extern int pax_map32_enabled_global;
 #endif /* PAX_HARDENING*/
