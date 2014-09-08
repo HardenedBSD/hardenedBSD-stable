@@ -42,6 +42,8 @@ __FBSDID("$FreeBSD$");
 #include <sys/stat.h>
 #include <sys/proc.h>
 #include <sys/sysctl.h>
+#include <sys/sbuf.h>
+#include <sys/limits.h>
 #include <sys/queue.h>
 #include <sys/libkern.h>
 
@@ -50,17 +52,22 @@ __FBSDID("$FreeBSD$");
 
 #include <sys/ptrace_hardening.h>
 
+#include <machine/stdarg.h>
+
 #include <security/mac_bsdextended/mac_bsdextended.h>
 
 static void ptrace_hardening_sysinit(void);
+static void ptrace_hardening_log(const char *, const char *, ...);
 
 int ptrace_hardening_status = PTRACE_HARDENING_ENABLED;
+int ptrace_hardening_log_status = 0;
 
 #ifdef PTRACE_HARDENING_GRP
 gid_t ptrace_hardening_allowed_gid = 0;
 #endif
 
 TUNABLE_INT("hardening.ptrace.status", &ptrace_hardening_status);
+TUNABLE_INT("hardening.ptrace.log", &ptrace_hardening_log_status);
 
 #ifdef PTRACE_HARDENING_GRP
 TUNABLE_INT("hardening.ptrace.allowed_gid", &ptrace_hardening_allowed_gid);
@@ -71,6 +78,7 @@ static int sysctl_ptrace_hardening_status(SYSCTL_HANDLER_ARGS);
 #ifdef PTRACE_HARDENING_GRP
 static int sysctl_ptrace_hardening_gid(SYSCTL_HANDLER_ARGS);
 #endif
+static int sysctl_ptrace_hardening_log(SYSCTL_HANDLER_ARGS);
 
 SYSCTL_NODE(_hardening, OID_AUTO, ptrace, CTLFLAG_RD, 0,
 	"PTrace settings.");
@@ -84,10 +92,15 @@ SYSCTL_PROC(_hardening_ptrace, OID_AUTO, status,
 
 #ifdef PTRACE_HARDENING_GRP
 SYSCTL_PROC(_hardening_ptrace, OID_AUTO, allowed_gid,
-	CTLTYPE_UINT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
-	NULL, 0, sysctl_ptrace_hardening_gid, "IU",
+	CTLTYPE_ULONG|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
+	NULL, 0, sysctl_ptrace_hardening_gid, "LU",
 	"Allowed gid");
 #endif
+
+SYSCTL_PROC(_hardening_ptrace, OID_AUTO, log,
+	CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
+	NULL, 0, sysctl_ptrace_hardening_log, "I",
+	"Logging");
 
 int
 sysctl_ptrace_hardening_status(SYSCTL_HANDLER_ARGS)
@@ -113,16 +126,40 @@ sysctl_ptrace_hardening_status(SYSCTL_HANDLER_ARGS)
 int
 sysctl_ptrace_hardening_gid(SYSCTL_HANDLER_ARGS)
 {
-	int err, val = ptrace_hardening_allowed_gid;
-	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
+	int err;
+	long val = ptrace_hardening_allowed_gid;
+	err = sysctl_handle_long(oidp, &val, sizeof(long), req);
 	if (err || (req->newptr == NULL))
 		return (err);
+
+	if (val < 0 || val > GID_MAX)
+		return (EINVAL);
 
 	ptrace_hardening_allowed_gid = val;
 
 	return (0);
 }
 #endif
+
+int
+sysctl_ptrace_hardening_log(SYSCTL_HANDLER_ARGS)
+{
+	int err, val = ptrace_hardening_log_status;
+	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
+	if (err || (req->newptr == NULL))
+		return (err);
+
+	switch (val) {
+	case 0:
+	case 1:
+		ptrace_hardening_log_status = val;
+		break;
+	default:
+		return (EINVAL);
+	}
+
+	return (0);
+}
 
 int
 ptrace_hardening(struct thread *td, u_int ptrace_hardening_flag)
@@ -135,15 +172,19 @@ ptrace_hardening(struct thread *td, u_int ptrace_hardening_flag)
 		return (0);
 
 	uid_t uid = td->td_ucred->cr_ruid;
-#ifdef PTRACE_HARDENING_GRP
 	gid_t gid = td->td_ucred->cr_rgid;
-	if (uid && ptrace_hardening_allowed_gid &&
-		gid != ptrace_hardening_allowed_gid)
-		return (EPERM);
+#ifdef PTRACE_HARDENING_GRP
+	if (uid && (ptrace_hardening_allowed_gid &&
+		gid != ptrace_hardening_allowed_gid)) {
 #else
-	if (uid)
-		return (EPERM);
+	if (uid) {
 #endif
+
+		ptrace_hardening_log(__func__, 
+			"forbidden ptrace call attempt "
+			"from %ld:%ld user", uid, gid);
+		return (EPERM);
+	}
 
 	return (0);
 }
@@ -170,10 +211,43 @@ ptrace_hardening_mode(struct image_params *imgp, uint32_t mode)
 static void
 ptrace_hardening_sysinit(void)
 {
-	printf("[PTRACE HARDENING] %d\n", ptrace_hardening_status);
+	printf("[PTRACE HARDENING] status : %d\n", ptrace_hardening_status);
 
 #ifdef PTRACE_HARDENING_GRP
-	printf("[PTRACE HARDENING GROUP] %d\n", ptrace_hardening_allowed_gid);
+	printf("[PTRACE HARDENING] allowed gid : %d\n", 
+			ptrace_hardening_allowed_gid);
 #endif
+	printf("[PTRACE HARDENING] log : %d\n", ptrace_hardening_log_status);
 }
 SYSINIT(ptrace, SI_SUB_PTRACE_HARDENING, SI_ORDER_FIRST, ptrace_hardening_sysinit, NULL);
+
+static void
+ptrace_hardening_log(const char *caller_name, const char *fmt, ...)
+{
+	struct sbuf *sb;
+	va_list args;	
+
+	if (ptrace_hardening_log_status == 0)
+		return;
+
+	sb = sbuf_new_auto();
+	if (sb == NULL)
+		panic("%s: Could not allocate memory", __func__);
+
+	sbuf_printf(sb, "[PTRACE HARDENING] ");
+
+	if (caller_name != NULL)
+		sbuf_printf(sb, "%s: ", caller_name);
+	va_start(args, fmt);
+	
+	sbuf_vprintf(sb, fmt, args);
+
+	va_end(args);
+
+	if (sbuf_finish(sb) != 0)
+		panic("%s: Could not generate message", __func__);
+
+	printf("%s", sbuf_data(sb));
+
+	sbuf_delete(sb);
+}
