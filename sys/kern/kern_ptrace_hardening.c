@@ -58,10 +58,10 @@ int ptrace_hardening_status = PTRACE_HARDENING_ENABLED;
 gid_t ptrace_hardening_allowed_gid = 0;
 #endif
 
-TUNABLE_INT("security.ptrace.hardening.status", &ptrace_hardening_status);
+TUNABLE_INT("hardening.ptrace.status", &ptrace_hardening_status);
 
 #ifdef PTRACE_HARDENING_GRP
-TUNABLE_INT("security.ptrace.hardening.allowed_gid", &ptrace_hardening_allowed_gid);
+TUNABLE_INT("hardening.ptrace.allowed_gid", &ptrace_hardening_allowed_gid);
 #endif
 
 static int sysctl_ptrace_hardening_status(SYSCTL_HANDLER_ARGS);
@@ -70,16 +70,10 @@ static int sysctl_ptrace_hardening_status(SYSCTL_HANDLER_ARGS);
 static int sysctl_ptrace_hardening_gid(SYSCTL_HANDLER_ARGS);
 #endif
 
-SYSCTL_DECL(_security);
-SYSCTL_DECL(_security_ptrace);
-
-SYSCTL_NODE(_security, OID_AUTO, ptrace, CTLFLAG_RD, 0,
+SYSCTL_NODE(_hardening, OID_AUTO, ptrace, CTLFLAG_RD, 0,
 	"PTrace settings.");
 
-SYSCTL_NODE(_security_ptrace, OID_AUTO, hardening, CTLFLAG_RD, 0,
-	"PTrace hardening settings.");
-
-SYSCTL_PROC(_security_ptrace_hardening, OID_AUTO, status, 
+SYSCTL_PROC(_hardening_ptrace, OID_AUTO, status, 
 	CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE, 
 	NULL, 0, sysctl_ptrace_hardening_status, "I",
 	"Restrictions status. "
@@ -87,7 +81,7 @@ SYSCTL_PROC(_security_ptrace_hardening, OID_AUTO, status,
 	"1 - enabled");
 
 #ifdef PTRACE_HARDENING_GRP
-SYSCTL_PROC(_security_ptrace_hardening, OID_AUTO, allowed_gid,
+SYSCTL_PROC(_hardening_ptrace, OID_AUTO, allowed_gid,
 	CTLTYPE_UINT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
 	NULL, 0, sysctl_ptrace_hardening_gid, "IU",
 	"Allowed gid");
