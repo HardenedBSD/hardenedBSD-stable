@@ -114,17 +114,23 @@ MALLOC_DEFINE(M_PAX, "pax_segvguard", "PaX segvguard memory");
 
 struct mtx segvguard_mtx;
 
+TUNABLE_INT("hardening.pax.segvguard.status", &pax_segvguard_status);
+TUNABLE_INT("hardening.pax.segvguard.debug", &pax_segvguard_debug);
+TUNABLE_INT("hardening.pax.segvguard.expiry_timeout", &pax_segvguard_expiry);
+TUNABLE_INT("hardening.pax.segvguard.suspend_timeout", &pax_segvguard_suspension);
+TUNABLE_INT("hardening.pax.segvguard.max_crashes", &pax_segvguard_maxcrashes);
+
+#ifdef PAX_SYSCTLS
 static int sysctl_pax_segvguard_status(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_segvguard_debug(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_segvguard_expiry(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_segvguard_suspension(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_segvguard_maxcrashes(SYSCTL_HANDLER_ARGS);
 
-SYSCTL_DECL(_security_pax);
+SYSCTL_DECL(_hardening_pax);
+SYSCTL_NODE(_hardening_pax, OID_AUTO, segvguard, CTLFLAG_RD, 0, "PaX segvguard");
 
-SYSCTL_NODE(_security_pax, OID_AUTO, segvguard, CTLFLAG_RD, 0, "PaX segvguard");
-
-SYSCTL_PROC(_security_pax_segvguard, OID_AUTO, status,
+SYSCTL_PROC(_hardening_pax_segvguard, OID_AUTO, status,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_segvguard_status, "I",
     "Guard status. "
@@ -132,32 +138,29 @@ SYSCTL_PROC(_security_pax_segvguard, OID_AUTO, status,
     "1 - opt-in,  "
     "2 - opt-out, "
     "3 - force enabled");
-TUNABLE_INT("security.pax.segvguard.status", &pax_segvguard_status);
 
-SYSCTL_PROC(_security_pax_segvguard, OID_AUTO, debug,
+SYSCTL_PROC(_hardening_pax_segvguard, OID_AUTO, debug,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_segvguard_debug, "I",
     "Debug mode.");
-TUNABLE_INT("security.pax.segvguard.debug", &pax_segvguard_debug);
 
-SYSCTL_PROC(_security_pax_segvguard, OID_AUTO, expiry_timeout,
+SYSCTL_PROC(_hardening_pax_segvguard, OID_AUTO, expiry_timeout,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_segvguard_expiry, "I",
     "Entry expiry timeout (in seconds).");
-TUNABLE_INT("security.pax.segvguard.expiry_timeout", &pax_segvguard_expiry);
 
-SYSCTL_PROC(_security_pax_segvguard, OID_AUTO, suspend_timeout,
-    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
+SYSCTL_PROC(_hardening_pax_segvguard, OID_AUTO, suspend_timeout,
+    CTLTYPE_INT|CTLFLag_rwtun|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_segvguard_suspension, "I",
     "Entry suspension timeout (in seconds).");
-TUNABLE_INT("security.pax.segvguard.suspend_timeout", &pax_segvguard_suspension);
 
-SYSCTL_PROC(_security_pax_segvguard, OID_AUTO, max_crashes,
+SYSCTL_PROC(_hardening_pax_segvguard, OID_AUTO, max_crashes,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_segvguard_maxcrashes, "I",
     "Max number of crashes before expiry.");
-TUNABLE_INT("security.pax.segvguard.max_crashes", &pax_segvguard_maxcrashes);
+#endif
 
+#ifdef PAX_SYSCTLS
 static int
 sysctl_pax_segvguard_status(SYSCTL_HANDLER_ARGS)
 {
@@ -276,6 +279,7 @@ sysctl_pax_segvguard_debug(SYSCTL_HANDLER_ARGS)
 
 	return (0);
 }
+#endif
 
 
 static bool
