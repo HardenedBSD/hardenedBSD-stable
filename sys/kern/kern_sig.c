@@ -40,6 +40,7 @@ __FBSDID("$FreeBSD$");
 #include "opt_compat.h"
 #include "opt_ktrace.h"
 #include "opt_core.h"
+#include "opt_pax.h"
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -82,6 +83,10 @@ __FBSDID("$FreeBSD$");
 #include <vm/vm.h>
 #include <vm/vm_extern.h>
 #include <vm/uma.h>
+
+#ifdef PAX_SEGVGUARD
+#include <sys/pax.h>
+#endif
 
 #include <sys/jail.h>
 
@@ -2937,6 +2942,9 @@ sigexit(td, sig)
 			    td->td_ucred ? td->td_ucred->cr_uid : -1,
 			    sig &~ WCOREFLAG,
 			    sig & WCOREFLAG ? " (core dumped)" : "");
+#ifdef PAX_SEGVGUARD
+		pax_segvguard_segfault(curthread, curthread->td_proc->p_textvp, p->p_comm);
+#endif
 	} else {
 		PROC_UNLOCK(p);
 	}

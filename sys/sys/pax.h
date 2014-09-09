@@ -201,6 +201,14 @@ extern int pax_aslr_compat_stack_len;
 extern int pax_aslr_compat_exec_len;
 #endif /* COMPAT_FREEBSD32 */
 
+#ifdef PAX_SEGVGUARD
+extern int pax_segvguard_status;
+extern int pax_segvguard_debug;
+extern int pax_segvguard_expiry;
+extern int pax_segvguard_suspension;
+extern int pax_segvguard_maxcrashes;
+#endif /* PAX_SEGVGUARD */
+
 #ifdef PAX_HARDENING
 extern int pax_map32_enabled_global;
 #endif /* PAX_HARDENING*/
@@ -219,7 +227,12 @@ extern int pax_log_ulog;
 #define PAX_LOG_LOG		0
 #define PAX_LOG_ULOG		0
 
+#define PAX_SEGVGUARD_EXPIRY        (2 * 60)
+#define PAX_SEGVGUARD_SUSPENSION    (10 * 60)
+#define PAX_SEGVGUARD_MAXCRASHES    5
+
 void pax_init_prison(struct prison *pr);
+int pax_get_flags(struct proc *proc, uint32_t *flags);
 bool pax_aslr_active(struct proc *proc);
 void _pax_aslr_init(struct vmspace *vm, struct proc *p);
 void _pax_aslr_init32(struct vmspace *vm, struct proc *p);
@@ -233,6 +246,10 @@ int pax_map32_enabled(struct thread *td);
 
 void pax_log_aslr(const char *func, const char *fmt, ...);
 void pax_ulog_aslr(const char *func, const char *fmt, ...);
+
+int pax_segvguard_check(struct thread *, struct vnode *, const char *);
+int pax_segvguard_segfault(struct thread *, struct vnode *, const char *);
+void pax_segvguard_remove(struct thread *td, struct vnode *vn);
 
 #endif /* _KERNEL */
 

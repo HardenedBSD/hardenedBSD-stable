@@ -106,7 +106,6 @@ TUNABLE_INT("hardening.pax.aslr.compat.stack", &pax_aslr_compat_exec_len);
 #endif
 
 static uint32_t pax_get_status(struct proc *proc, struct prison **pr);
-static int pax_get_flags(struct proc *proc, uint32_t *flags);
 
 #ifdef PAX_SYSCTLS
 
@@ -519,30 +518,6 @@ pax_get_status(struct proc *proc, struct prison **pr)
 	else
 		return pax_aslr_status;
 }
-
-static int
-pax_get_flags(struct proc *proc, uint32_t *flags)
-{
-	*flags = 0;
-
-	if (proc != NULL)
-		*flags = proc->p_pax;
-	else
-		return (1);
-
-	if (((*flags & 0xaaaaaaaa) & ((*flags & 0x55555555) << 1)) != 0) {
-		/*
-		 * indicate flags inconsistencies in dmesg and in user terminal
-		 */
-		pax_log_aslr(__func__, "inconsistent paxflags: %x\n", *flags);
-		pax_ulog_aslr(NULL, "inconsistent paxflags: %x\n", *flags);
-
-		return (1);
-	}
-
-	return (0);
-}
-
 
 bool
 pax_aslr_active(struct proc *proc)

@@ -54,6 +54,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/lock.h>
 #include <sys/malloc.h>
 #include <sys/mutex.h>
+#include <sys/pax.h>
 #include <sys/priv.h>
 #include <sys/proc.h>
 #include <sys/procdesc.h>
@@ -184,16 +185,7 @@ SYSCTL_INT(_kern, OID_AUTO, lastpid, CTLFLAG_RD, &lastpid, 0,
  * modulus that is too big causes a LOT more process table scans and slows
  * down fork processing as the pidchecked caching is defeated.
  */
-#ifdef PAX_HARDENING
-/*
- * XXXOP:
- * change this hardcoded value
- * initialize with random number which based sysinit function
- */
-static int randompid = 58393;
-#else
 static int randompid = 0;
-#endif
 
 static int
 sysctl_kern_randompid(SYSCTL_HANDLER_ARGS)
@@ -526,6 +518,10 @@ do_fork(struct thread *td, int flags, struct proc *p2, struct thread *td2,
 	 * Per-process PaX flags.
 	 */
 	p2->p_pax = p1->p_pax;
+	/*
+	 * Ptrace hardening flags.
+	 */
+	p2->p_ptrace_hardening = p1->p_ptrace_hardening;
 
 	/*
 	 * p_limit is copy-on-write.  Bump its refcount.
@@ -767,6 +763,15 @@ fork1(struct thread *td, int flags, int pages, struct proc **procp,
 	static int curfail;
 	static struct timeval lastfail;
 	struct file *fp_procdesc = NULL;
+
+#ifdef PAX_SEGVGUARD
+	if (td->td_proc->p_pid != 0) {
+		error = pax_segvguard_check(curthread, curthread->td_proc->p_textvp,
+				td->td_proc->p_comm);
+		if (error)
+			return (error);
+	}
+#endif
 
 	/* Check for the undefined or unimplemented flags. */
 	if ((flags & ~(RFFLAGS | RFTSIGFLAGS(RFTSIGMASK))) != 0)
