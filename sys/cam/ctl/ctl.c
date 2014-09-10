@@ -2543,7 +2543,7 @@ ctl_ioctl(struct cdev *dev, u_long cmd, caddr_t addr, int flag,
 
 		mtx_lock(&softc->ctl_lock);
 		if (((ooa_hdr->flags & CTL_OOA_FLAG_ALL_LUNS) == 0)
-		 && ((ooa_hdr->lun_num > CTL_MAX_LUNS)
+		 && ((ooa_hdr->lun_num >= CTL_MAX_LUNS)
 		  || (softc->ctl_luns[ooa_hdr->lun_num] == NULL))) {
 			mtx_unlock(&softc->ctl_lock);
 			free(entries, M_CTL);
@@ -2738,7 +2738,7 @@ ctl_ioctl(struct cdev *dev, u_long cmd, caddr_t addr, int flag,
 #ifdef CTL_IO_DELAY
 		mtx_lock(&softc->ctl_lock);
 
-		if ((delay_info->lun_id > CTL_MAX_LUNS)
+		if ((delay_info->lun_id >= CTL_MAX_LUNS)
 		 || (softc->ctl_luns[delay_info->lun_id] == NULL)) {
 			delay_info->status = CTL_DELAY_STATUS_INVALID_LUN;
 		} else {
@@ -2899,6 +2899,7 @@ ctl_ioctl(struct cdev *dev, u_long cmd, caddr_t addr, int flag,
 		lun = softc->ctl_luns[err_desc->lun_id];
 		if (lun == NULL) {
 			mtx_unlock(&softc->ctl_lock);
+			free(new_err_desc, M_CTL);
 			printf("%s: CTL_ERROR_INJECT: invalid LUN %ju\n",
 			       __func__, (uintmax_t)err_desc->lun_id);
 			retval = EINVAL;
@@ -7962,7 +7963,8 @@ retry:
 			scsi_ulto2b(i / CTL_MAX_INIT_PER_PORT,
 			    res_desc->rel_trgt_port_id);
 			len = 0;
-			port = softc->ctl_ports[i / CTL_MAX_INIT_PER_PORT];
+			port = softc->ctl_ports[
+			    ctl_port_idx(i / CTL_MAX_INIT_PER_PORT)];
 			if (port != NULL)
 				len = ctl_create_iid(port,
 				    i % CTL_MAX_INIT_PER_PORT,
@@ -10584,24 +10586,28 @@ ctl_inquiry_std(struct ctl_scsiio *ctsio)
 	 */
 	if (lun == NULL || (val = ctl_get_opt(&lun->be_lun->options,
 	    "vendor")) == NULL) {
-		strcpy(inq_ptr->vendor, CTL_VENDOR);
+		strncpy(inq_ptr->vendor, CTL_VENDOR, sizeof(inq_ptr->vendor));
 	} else {
 		memset(inq_ptr->vendor, ' ', sizeof(inq_ptr->vendor));
 		strncpy(inq_ptr->vendor, val,
 		    min(sizeof(inq_ptr->vendor), strlen(val)));
 	}
 	if (lun == NULL) {
-		strcpy(inq_ptr->product, CTL_DIRECT_PRODUCT);
+		strncpy(inq_ptr->product, CTL_DIRECT_PRODUCT,
+		    sizeof(inq_ptr->product));
 	} else if ((val = ctl_get_opt(&lun->be_lun->options, "product")) == NULL) {
 		switch (lun->be_lun->lun_type) {
 		case T_DIRECT:
-			strcpy(inq_ptr->product, CTL_DIRECT_PRODUCT);
+			strncpy(inq_ptr->product, CTL_DIRECT_PRODUCT,
+			    sizeof(inq_ptr->product));
 			break;
 		case T_PROCESSOR:
-			strcpy(inq_ptr->product, CTL_PROCESSOR_PRODUCT);
+			strncpy(inq_ptr->product, CTL_PROCESSOR_PRODUCT,
+			    sizeof(inq_ptr->product));
 			break;
 		default:
-			strcpy(inq_ptr->product, CTL_UNKNOWN_PRODUCT);
+			strncpy(inq_ptr->product, CTL_UNKNOWN_PRODUCT,
+			    sizeof(inq_ptr->product));
 			break;
 		}
 	} else {
@@ -12015,12 +12021,11 @@ ctl_lun_reset(struct ctl_lun *lun, union ctl_io *io, ctl_ua_type ua_type)
 	return (0);
 }
 
-static int
+static void
 ctl_abort_tasks_lun(struct ctl_lun *lun, uint32_t targ_port, uint32_t init_id,
     int other_sc)
 {
 	union ctl_io *xio;
-	int found;
 
 	mtx_assert(&lun->lun_lock, MA_OWNED);
 
@@ -12042,7 +12047,6 @@ ctl_abort_tasks_lun(struct ctl_lun *lun, uint32_t targ_port, uint32_t init_id,
 			    init_id != xio->io_hdr.nexus.initid.id)
 				xio->io_hdr.flags |= CTL_FLAG_ABORT_STATUS;
 			xio->io_hdr.flags |= CTL_FLAG_ABORT;
-			found = 1;
 			if (!other_sc && !(lun->flags & CTL_LUN_PRIMARY_SC)) {
 				union ctl_ha_msg msg_info;
 
@@ -12058,7 +12062,6 @@ ctl_abort_tasks_lun(struct ctl_lun *lun, uint32_t targ_port, uint32_t init_id,
 			}
 		}
 	}
-	return (found);
 }
 
 static int
