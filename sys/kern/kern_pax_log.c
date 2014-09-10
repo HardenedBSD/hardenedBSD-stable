@@ -35,19 +35,27 @@
 #include <sys/types.h>
 #include <sys/kernel.h>
 #include <sys/pax.h>
+#include <sys/proc.h>
+#include <sys/lock.h>
+#include <sys/sx.h>
 #include <sys/sbuf.h>
 #include <sys/jail.h>
 #include <machine/stdarg.h>
 
 #define __PAX_LOG_TEMPLATE(SUBJECT, name)					\
 void										\
-pax_log_##name(const char *caller_name, const char* fmt, ...)			\
+pax_log_##name(struct proc *p, const char *caller_name, 		\
+		const char* fmt, ...)			\
 {										\
 	struct sbuf *sb;							\
 	va_list args;								\
+	bool w_locked;						\
 										\
 	if (pax_log_log == 0)							\
 		return;								\
+	sx_slock(&proctree_lock);			\
+	if ((w_locked = PROC_LOCKED(p)))	\
+		PROC_UNLOCK(p);					\
 										\
 	sb = sbuf_new_auto();							\
 	if (sb == NULL)								\
@@ -63,6 +71,9 @@ pax_log_##name(const char *caller_name, const char* fmt, ...)			\
 										\
 	printf("%s", sbuf_data(sb));						\
 	sbuf_delete(sb);							\
+	if (w_locked && !PROC_LOCKED(p))			\
+		PROC_LOCK(p);					\
+	sx_sunlock(&proctree_lock);			\
 }										\
 										\
 void										\
@@ -70,9 +81,15 @@ pax_ulog_##name(const char *caller_name, const char* fmt, ...)			\
 {										\
 	struct sbuf *sb;							\
 	va_list args;								\
+	struct thread *td;					\
+	bool w_locked;						\
 										\
 	if (pax_log_ulog == 0)							\
 		return;								\
+	sx_slock(&proctree_lock);		\
+	td = curthread;					\
+	if ((w_locked = PROC_LOCKED(td->td_proc)))			\
+		PROC_UNLOCK(td->td_proc);					\
 										\
 	sb = sbuf_new_auto();							\
 	if (sb == NULL)								\
@@ -87,7 +104,10 @@ pax_ulog_##name(const char *caller_name, const char* fmt, ...)			\
 		panic("%s: Could not generate message", __func__);		\
 										\
 	uprintf("%s", sbuf_data(sb));						\
-	sbuf_delete(sb);							\
+	sbuf_delete(sb);					\
+	if (w_locked && !PROC_LOCKED(td->td_proc))						\
+		PROC_LOCK(td->td_proc);						\
+	sx_sunlock(&proctree_lock);			\
 }
 
 
