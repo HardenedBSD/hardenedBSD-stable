@@ -36,31 +36,28 @@
 #include <sys/kernel.h>
 #include <sys/pax.h>
 #include <sys/proc.h>
-#include <sys/lock.h>
-#include <sys/sx.h>
 #include <sys/sbuf.h>
 #include <sys/jail.h>
 #include <machine/stdarg.h>
 
-#define __PAX_LOG_TEMPLATE(SUBJECT, name)					\
+#define __HARDENING_LOG_TEMPLATE(MAIN, SUBJECT, prefix, name)					\
 void										\
-pax_log_##name(struct proc *p, const char *caller_name, 		\
+prefix##_log_##name(struct proc *p, const char *caller_name, 		\
 		const char* fmt, ...)			\
 {										\
 	struct sbuf *sb;							\
 	va_list args;								\
 	bool w_locked;						\
 										\
-	if (pax_log_log == 0)							\
+	if (hardening_log_log == 0)							\
 		return;								\
-	sx_slock(&proctree_lock);			\
 	if ((w_locked = PROC_LOCKED(p)))	\
 		PROC_UNLOCK(p);					\
 										\
 	sb = sbuf_new_auto();							\
 	if (sb == NULL)								\
 		panic("%s: Could not allocate memory", __func__);		\
-	sbuf_printf(sb, "[PAX "#SUBJECT"] ");					\
+	sbuf_printf(sb, "["#MAIN" "#SUBJECT"] ");					\
 	if (caller_name != NULL)						\
 		sbuf_printf(sb, "%s: ", caller_name);				\
 	va_start(args, fmt);							\
@@ -73,20 +70,18 @@ pax_log_##name(struct proc *p, const char *caller_name, 		\
 	sbuf_delete(sb);							\
 	if (w_locked && !PROC_LOCKED(p))			\
 		PROC_LOCK(p);					\
-	sx_sunlock(&proctree_lock);			\
 }										\
 										\
 void										\
-pax_ulog_##name(const char *caller_name, const char* fmt, ...)			\
+prefix##_ulog_##name(const char *caller_name, const char* fmt, ...)			\
 {										\
 	struct sbuf *sb;							\
 	va_list args;								\
 	struct thread *td;					\
 	bool w_locked;						\
 										\
-	if (pax_log_ulog == 0)							\
+	if (hardening_log_ulog == 0)							\
 		return;								\
-	sx_slock(&proctree_lock);		\
 	td = curthread;					\
 	if ((w_locked = PROC_LOCKED(td->td_proc)))			\
 		PROC_UNLOCK(td->td_proc);					\
@@ -94,7 +89,7 @@ pax_ulog_##name(const char *caller_name, const char* fmt, ...)			\
 	sb = sbuf_new_auto();							\
 	if (sb == NULL)								\
 		panic("%s: Could not allocate memory", __func__);		\
-	sbuf_printf(sb, "[PAX "#SUBJECT"] ");					\
+	sbuf_printf(sb, "["#MAIN" "#SUBJECT"] ");					\
 	if (caller_name != NULL)						\
 		sbuf_printf(sb, "%s: ", caller_name);				\
 	va_start(args, fmt);							\
@@ -107,18 +102,17 @@ pax_ulog_##name(const char *caller_name, const char* fmt, ...)			\
 	sbuf_delete(sb);					\
 	if (w_locked && !PROC_LOCKED(td->td_proc))						\
 		PROC_LOCK(td->td_proc);						\
-	sx_sunlock(&proctree_lock);			\
 }
 
 
-static int sysctl_pax_log_log(SYSCTL_HANDLER_ARGS);
-static int sysctl_pax_log_ulog(SYSCTL_HANDLER_ARGS);
+static int sysctl_hardening_log_log(SYSCTL_HANDLER_ARGS);
+static int sysctl_hardening_log_ulog(SYSCTL_HANDLER_ARGS);
 
-int pax_log_log = PAX_LOG_LOG;
-int pax_log_ulog = PAX_LOG_ULOG;
+int hardening_log_log = HARDENING_LOG_LOG;
+int hardening_log_ulog = HARDENING_LOG_ULOG;
 
-TUNABLE_INT("hardening.log.log", &pax_log_log);
-TUNABLE_INT("hardening.log.ulog", &pax_log_ulog);
+TUNABLE_INT("hardening.log.log", &hardening_log_log);
+TUNABLE_INT("hardening.log.ulog", &hardening_log_ulog);
 
 #ifdef PAX_SYSCTLS
 SYSCTL_NODE(_hardening, OID_AUTO, log, CTLFLAG_RD, 0,
@@ -126,35 +120,35 @@ SYSCTL_NODE(_hardening, OID_AUTO, log, CTLFLAG_RD, 0,
 
 SYSCTL_PROC(_hardening_log, OID_AUTO, log,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
-    NULL, 0, sysctl_pax_log_log, "I",
+    NULL, 0, sysctl_hardening_log_log, "I",
     "log to syslog "
     "0 - disabled, "
     "1 - enabled ");
 
 SYSCTL_PROC(_hardening_log, OID_AUTO, ulog,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
-    NULL, 0, sysctl_pax_log_ulog, "I",
+    NULL, 0, sysctl_hardening_log_ulog, "I",
     "log to user terminal"
     "0 - disabled, "
     "1 - enabled ");
 #endif
 
 static void
-pax_log_sysinit(void)
+hardening_log_sysinit(void)
 {
-	printf("[PAX LOG] logging to system: %d\n", pax_log_log);
-	printf("[PAX LOG] logging to user: %d\n", pax_log_ulog);
+	printf("[HARDENING LOG] logging to system: %d\n", hardening_log_log);
+	printf("[HARDENING LOG] logging to user: %d\n", hardening_log_ulog);
 }
-SYSINIT(pax_log, SI_SUB_PAX, SI_ORDER_SECOND, pax_log_sysinit, NULL);
+SYSINIT(hardening_log, SI_SUB_PAX, SI_ORDER_SECOND, hardening_log_sysinit, NULL);
 
 #ifdef PAX_SYSCTLS
 static int
-sysctl_pax_log_log(SYSCTL_HANDLER_ARGS)
+sysctl_hardening_log_log(SYSCTL_HANDLER_ARGS)
 {
 	int err;
 	int val;
 
-	val = pax_log_log;
+	val = hardening_log_log;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
 	if (err || !req->newptr)
 		return (err);
@@ -168,18 +162,18 @@ sysctl_pax_log_log(SYSCTL_HANDLER_ARGS)
 
 	}
 
-	pax_log_log = val;
+	hardening_log_log = val;
 
 	return (0);
 }
 
 static int
-sysctl_pax_log_ulog(SYSCTL_HANDLER_ARGS)
+sysctl_hardening_log_ulog(SYSCTL_HANDLER_ARGS)
 {
 	int err;
 	int val;
 
-	val = pax_log_ulog;
+	val = hardening_log_ulog;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
 	if (err || !req->newptr)
 		return (err);
@@ -193,10 +187,10 @@ sysctl_pax_log_ulog(SYSCTL_HANDLER_ARGS)
 
 	}
 
-	pax_log_ulog = val;
+	hardening_log_ulog = val;
 
 	return (0);
 }
 #endif
 
-__PAX_LOG_TEMPLATE(ASLR, aslr)
+__HARDENING_LOG_TEMPLATE(PAX, ASLR, pax, aslr)
