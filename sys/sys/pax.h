@@ -214,8 +214,8 @@ extern int pax_segvguard_maxcrashes;
 extern int pax_map32_enabled_global;
 #endif /* PAX_HARDENING*/
 
-extern int pax_log_log;
-extern int pax_log_ulog;
+extern int hardening_log_log;
+extern int hardening_log_ulog;
 
 #define ELF_NOTE_TYPE_PAX_TAG   3
 #define PAX_NOTE_MPROTECT   0x01
@@ -225,8 +225,8 @@ extern int pax_log_ulog;
 #define PAX_NOTE_ASLR       0x10
 #define PAX_NOTE_NOASLR     0x20
 
-#define PAX_LOG_LOG		0
-#define PAX_LOG_ULOG		0
+#define HARDENING_LOG_LOG		0
+#define HARDENING_LOG_ULOG		0
 
 #define PAX_SEGVGUARD_EXPIRY        (2 * 60)
 #define PAX_SEGVGUARD_SUSPENSION    (10 * 60)
