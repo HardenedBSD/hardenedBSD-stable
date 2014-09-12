@@ -201,6 +201,7 @@ struct prison {
 	int              pr_pax_segvguard_suspension;   /* (p) Number of seconds to suspend an application */
 	int              pr_pax_segvguard_maxcrashes;   /* (p) Maximum number of crashes before suspending application */
 	int		 pr_pax_map32_enabled;		/* (p) MAP_32BIT enabled (amd64 only) */
+	void		 *pr_secfw_mac;			/* (p) secfw metadata */
 };
 
 struct prison_racct {
