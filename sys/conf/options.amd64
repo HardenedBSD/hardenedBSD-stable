@@ -65,6 +65,3 @@ XENHVM			opt_global.h
 
 # options for the Intel C600 SAS driver (isci)
 ISCI_LOGGING	opt_isci.h
-
-# PaX-inspired hardening features
-PAX_HARDENING	opt_pax.h

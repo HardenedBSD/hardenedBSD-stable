@@ -150,7 +150,7 @@ SYSCTL_PROC(_hardening_pax_segvguard, OID_AUTO, expiry_timeout,
     "Entry expiry timeout (in seconds).");
 
 SYSCTL_PROC(_hardening_pax_segvguard, OID_AUTO, suspend_timeout,
-    CTLTYPE_INT|CTLFLag_rwtun|CTLFLAG_PRISON|CTLFLAG_SECURE,
+    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_segvguard_suspension, "I",
     "Entry suspension timeout (in seconds).");
 

@@ -54,6 +54,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/lock.h>
 #include <sys/malloc.h>
 #include <sys/mutex.h>
+#include <sys/pax.h>
 #include <sys/priv.h>
 #include <sys/proc.h>
 #include <sys/procdesc.h>
@@ -81,10 +82,6 @@ __FBSDID("$FreeBSD$");
 #include <vm/vm_map.h>
 #include <vm/vm_extern.h>
 #include <vm/uma.h>
-
-#ifdef PAX_SEGVGUARD
-#include <sys/pax.h>
-#endif
 
 #ifdef KDTRACE_HOOKS
 #include <sys/dtrace_bsd.h>
@@ -521,6 +518,10 @@ do_fork(struct thread *td, int flags, struct proc *p2, struct thread *td2,
 	 * Per-process PaX flags.
 	 */
 	p2->p_pax = p1->p_pax;
+	/*
+	 * Ptrace hardening flags.
+	 */
+	p2->p_ptrace_hardening = p1->p_ptrace_hardening;
 
 	/*
 	 * p_limit is copy-on-write.  Bump its refcount.

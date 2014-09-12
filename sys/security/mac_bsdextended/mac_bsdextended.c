@@ -48,6 +48,7 @@
  */
 
 #include "opt_pax.h"
+#include "opt_ptrace_hardening.h"
 
 #include <sys/param.h>
 #include <sys/acl.h>
@@ -60,6 +61,7 @@
 #include <sys/mutex.h>
 #include <sys/param.h>
 #include <sys/pax.h>
+#include <sys/ptrace_hardening.h>
 #include <sys/priv.h>
 #include <sys/proc.h>
 #include <sys/systm.h>
@@ -134,6 +136,12 @@ ugidfw_rule_valid(struct mac_bsdextended_rule *rule)
 		return (EINVAL);
 #ifdef PAX_ASLR
 	if ((rule->mbr_pax | MBI_ALLPAX) != MBI_ALLPAX)
+		return (EINVAL);
+#endif
+
+#ifdef PTRACE_HARDENING
+	if ((rule->mbr_ptrace_hardening | MBI_ALLPTRACE_HARDENING) !=
+		MBI_ALLPTRACE_HARDENING)
 		return (EINVAL);
 #endif
 	if ((rule->mbr_mode | MBI_ALLPERM) != MBI_ALLPERM)
@@ -428,6 +436,11 @@ ugidfw_rulecheck(struct mac_bsdextended_rule *rule,
 #if defined(PAX_ASLR) || defined(PAX_SEGVGUARD)
 	if (imgp != NULL)
 		pax_elf(imgp, rule->mbr_pax);
+#endif
+
+#ifdef PTRACE_HARDENING
+	if (imgp != NULL)
+		ptrace_hardening_mode(imgp,	rule->mbr_ptrace_hardening);
 #endif
 
 	/*
