@@ -1,7 +1,5 @@
-#!/bin/sh
 #-
-# Copyright (c) 2011 Nathan Whitehorn
-# Copyright (c) 2013 Devin Teske
+# Copyright (c) 2014 Ian Lepore
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -27,24 +25,23 @@
 #
 # $FreeBSD$
 #
-############################################################ MAIN
 
-cat $BSDINSTALL_TMPETC/rc.conf.* >> $BSDINSTALL_TMPETC/rc.conf
-rm $BSDINSTALL_TMPETC/rc.conf.*
+#include <sys/types.h>
+#include <dev/ofw/openfirm.h>
 
-cp $BSDINSTALL_TMPETC/* $BSDINSTALL_CHROOT/etc
+#
+# This is the interface that fdt_pinctrl drivers provide to other drivers.
+#
 
-cat $BSDINSTALL_TMPBOOT/loader.conf.* >> $BSDINSTALL_TMPBOOT/loader.conf
-rm $BSDINSTALL_TMPBOOT/loader.conf.*
-df -t zfs $BSDINSTALL_CHROOT > /dev/null && echo "zfs_load=\"YES\"" >> $BSDINSTALL_TMPBOOT/loader.conf
+INTERFACE fdt_pinctrl;
 
-cp $BSDINSTALL_TMPBOOT/* $BSDINSTALL_CHROOT/boot
+#
+# Set pins to the specified configuration.  The cfgxref arg is an xref phandle
+# to a descendent node (child, grandchild, ...) of the pinctrl device node.
+# Returns 0 on success or a standard errno value.
+#
+METHOD int configure {
+	device_t	pinctrl;
+	phandle_t	cfgxref;
+};
 
-[ "${debugFile#+}" ] && cp "${debugFile#+}" $BSDINSTALL_CHROOT/var/log/
-
-# Set up other things from installed config
-chroot $BSDINSTALL_CHROOT /usr/bin/newaliases > /dev/null 2>&1
-
-################################################################################
-# END
-################################################################################
