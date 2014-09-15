@@ -208,10 +208,10 @@ sys_mmap(td, uap)
 	vm_offset_t orig_addr;
 #endif
 	vm_size_t size, pageoff;
-	vm_prot_t cap_maxprot, prot, maxprot;
+	vm_prot_t cap_maxprot, maxprot;
 	void *handle;
 	objtype_t handle_type;
-	int align, error, flags;
+	int align, error, flags, prot;
 	off_t pos;
 	struct vmspace *vms = td->td_proc->p_vmspace;
 	cap_rights_t rights;
@@ -221,7 +221,7 @@ sys_mmap(td, uap)
 	orig_addr = addr;
 #endif
 	size = uap->len;
-	prot = uap->prot & VM_PROT_ALL;
+	prot = uap->prot;
 	flags = uap->flags;
 	pos = uap->pos;
 
@@ -252,7 +252,22 @@ sys_mmap(td, uap)
 		flags |= MAP_ANON;
 		pos = 0;
 	}
+	/* XXX: MAP_RENAME, MAP_NORESERVE */
+	if ((flags & ~(MAP_SHARED | MAP_PRIVATE | MAP_FIXED | MAP_HASSEMAPHORE |
+	    MAP_STACK | MAP_NOSYNC | MAP_ANON | MAP_EXCL | MAP_NOCORE |
+	    MAP_PREFAULT_READ |
+#ifdef MAP_32BIT
+	    MAP_32BIT |
+#endif
+	    MAP_ALIGNMENT_MASK)) != 0)
+		return (EINVAL);
 	if ((flags & (MAP_EXCL | MAP_FIXED)) == MAP_EXCL)
+		return (EINVAL);
+	if ((flags & (MAP_ANON | MAP_SHARED | MAP_PRIVATE)) == 0 ||
+	    (flags & (MAP_SHARED | MAP_PRIVATE)) == (MAP_SHARED | MAP_PRIVATE))
+		return (EINVAL);
+	if (prot != PROT_NONE &&
+	    (prot & ~(PROT_READ | PROT_WRITE | PROT_EXEC)) != 0)
 		return (EINVAL);
 
 	/*
@@ -429,9 +444,12 @@ sys_mmap(td, uap)
 map:
 	td->td_fpop = fp;
 	maxprot &= cap_maxprot;
+
 #ifdef PAX_ASLR
 	pax_aslr_mmap(td->td_proc, &addr, orig_addr, flags);
 #endif
+
+	/* This relies on VM_PROT_* matching PROT_*. */
 	error = vm_mmap(&vms->vm_map, &addr, size, prot, maxprot,
 	    flags, handle_type, handle, pos);
 	td->td_fpop = NULL;
