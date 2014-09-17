@@ -923,11 +923,12 @@ RACCT		opt_global.h
 # Resource Limits
 RCTL		opt_global.h
 
-# PaX - hardening options
+# PaX-inspired hardening features
 PAX_ASLR	opt_pax.h
 PAX_ASLR_MAX_SEC	opt_pax.h
 PAX_SYSCTLS	opt_pax.h
 PAX_SEGVGUARD	opt_pax.h
+PAX_HARDENING	opt_pax.h
 
 PTRACE_HARDENING	opt_ptrace_hardening.h
 PTRACE_HARDENING_GRP	opt_ptrace_hardening.h
@@ -938,6 +939,4 @@ RANDOM_FORTUNA	opt_random.h
 RANDOM_DEBUG	opt_random.h
 RANDOM_RWFILE	opt_random.h
 
-# PaX-inspired hardening features
-PAX_HARDENING	opt_pax.h
 
