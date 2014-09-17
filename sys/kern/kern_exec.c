@@ -52,7 +52,6 @@ __FBSDID("$FreeBSD$");
 #include <sys/wait.h>
 #include <sys/malloc.h>
 #include <sys/priv.h>
-#include <sys/pax.h>
 #include <sys/proc.h>
 #include <sys/pioctl.h>
 #include <sys/namei.h>
@@ -69,6 +68,10 @@ __FBSDID("$FreeBSD$");
 #include <sys/stat.h>
 #ifdef KTRACE
 #include <sys/ktrace.h>
+#endif
+
+#if defined(PAX_SEGVGUARD) || defined(PAX_ASLR)
+#include <sys/pax.h>
 #endif
 
 #include <vm/vm.h>
@@ -513,6 +516,11 @@ interpret:
 		}
 		error = (*execsw[i]->ex_imgact)(imgp);
 	}
+
+#ifdef PAX_SEGVGUARD
+	if (!error)
+		error = pax_segvguard_check(td, imgp->vp, args->fname);
+#endif
 
 	if (error) {
 		if (error == -1) {

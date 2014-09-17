@@ -39,6 +39,7 @@
 __FBSDID("$FreeBSD$");
 
 #include "opt_compat.h"
+#include "opt_pax.h"
 #include "opt_posix.h"
 #include "opt_config.h"
 
@@ -82,6 +83,8 @@ SYSCTL_ROOT_NODE(OID_AUTO,  compat, CTLFLAG_RW, 0,
 	"Compatibility code");
 SYSCTL_ROOT_NODE(OID_AUTO, security, CTLFLAG_RW, 0, 
      	"Security");
+SYSCTL_ROOT_NODE(OID_AUTO, hardening, CTLFLAG_RW, 0,
+	"Kernel hardening features");
 #ifdef REGRESSION
 SYSCTL_ROOT_NODE(OID_AUTO, regression, CTLFLAG_RW, 0,
      "Regression test MIB");

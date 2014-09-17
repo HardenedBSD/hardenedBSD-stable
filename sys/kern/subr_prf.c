@@ -38,6 +38,7 @@
 __FBSDID("$FreeBSD$");
 
 #include "opt_ddb.h"
+#include "opt_pax.h"
 #include "opt_printf.h"
 
 #include <sys/param.h>
@@ -983,7 +984,11 @@ msgbufinit(void *ptr, int size)
 	oldp = msgbufp;
 }
 
-static int unprivileged_read_msgbuf = 1;
+#ifdef PAX_HARDENING
+int unprivileged_read_msgbuf = 0;
+#else
+int unprivileged_read_msgbuf = 1;
+#endif
 SYSCTL_INT(_security_bsd, OID_AUTO, unprivileged_read_msgbuf,
     CTLFLAG_RW, &unprivileged_read_msgbuf, 0,
     "Unprivileged processes may read the kernel message buffer");

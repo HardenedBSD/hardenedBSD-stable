@@ -71,8 +71,16 @@ __FBSDID("$FreeBSD$");
 
 #include <security/mac_bsdextended/mac_bsdextended.h>
 
-SYSCTL_NODE(_security, OID_AUTO, pax, CTLFLAG_RD, 0,
+SYSCTL_NODE(_hardening, OID_AUTO, pax, CTLFLAG_RD, 0,
     "PaX (exploit mitigation) features.");
+
+const char *pax_status_str[] = {
+	[PAX_FEATURE_DISABLED] = "disabled",
+	[PAX_FEATURE_OPTIN] = "opt-in",
+	[PAX_FEATURE_OPTOUT] = "opt-out",
+	[PAX_FEATURE_FORCE_ENABLED] = "force enabled",
+	[PAX_FEATURE_UNKNOWN_STATUS] = "UNKNOWN -> changed to \"force enabled\""
+};
 
 struct prison *
 pax_get_prison(struct proc *proc)
@@ -81,6 +89,36 @@ pax_get_prison(struct proc *proc)
 		return (NULL);
 
 	return (proc->p_ucred->cr_prison);
+}
+
+int
+pax_get_flags(struct proc *proc, uint32_t *flags)
+{
+	*flags = 0;
+
+	if (proc != NULL)
+		*flags = proc->p_pax;
+	else
+		return (1);
+
+	if ((*flags & ~PAX_NOTE_ALL) != 0) {
+		pax_log_aslr(__func__, "unknown paxflags: %x\n", *flags);
+		pax_ulog_aslr(NULL, "unknown paxflags: %x\n", *flags);
+
+		return (1);
+	}
+
+	if (((*flags & PAX_NOTE_ALL_ENABLED) & ((*flags & PAX_NOTE_ALL_DISABLED) >> 1)) != 0) {
+		/*
+		 * indicate flags inconsistencies in dmesg and in user terminal
+		 */
+		pax_log_aslr(__func__, "inconsistent paxflags: %x\n", *flags);
+		pax_ulog_aslr(NULL, "inconsistent paxflags: %x\n", *flags);
+
+		return (1);
+	}
+
+	return (0);
 }
 
 void
@@ -93,6 +131,10 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 			flags |= PAX_NOTE_ASLR;
 		else if (mode & MBI_FORCE_ASLR_DISABLED)
 			flags |= PAX_NOTE_NOASLR;
+		if (mode & MBI_FORCE_SEGVGUARD_ENABLED)
+			flags |= PAX_NOTE_GUARD;
+		else if (mode & MBI_FORCE_SEGVGUARD_DISABLED)
+			flags |= PAX_NOTE_NOGUARD;
 	}
 
 	if (imgp != NULL) {
@@ -109,71 +151,13 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 /*
  * print out PaX settings on boot time, and validate some of them
  */
-void
-pax_init(void)
+static void
+pax_sysinit(void)
 {
-#if defined(PAX_ASLR)
-	const char *status_str[] = {
-		[0] = "disabled",
-		[1] = "opt-in",
-		[2] = "opt-out",
-		[3] = "force enabled",
-		[4] = "UNKNOWN -> changed to \"force enabled\""
-	};
-#endif
 
-#ifdef PAX_ASLR
-	switch (pax_aslr_status) {
-	case PAX_ASLR_DISABLED:
-	case PAX_ASLR_OPTIN:
-	case PAX_ASLR_OPTOUT:
-	case PAX_ASLR_FORCE_ENABLED:
-		break;
-	default:
-		printf("[PAX ASLR] WARNING, invalid PAX settings in loader.conf!"
-		    " (pax_aslr_status = %d)\n", pax_aslr_status);
-		pax_aslr_status = 3;
-		break;
-	}
-	printf("[PAX ASLR] status: %s\n", status_str[pax_aslr_status]);
-	printf("[PAX ASLR] mmap: %d bit\n", pax_aslr_mmap_len);
-	printf("[PAX ASLR] exec base: %d bit\n", pax_aslr_exec_len);
-	printf("[PAX ASLR] stack: %d bit\n", pax_aslr_stack_len);
-
-#ifdef COMPAT_FREEBSD32
-	switch (pax_aslr_compat_status) {
-	case PAX_ASLR_DISABLED:
-	case PAX_ASLR_OPTIN:
-	case PAX_ASLR_OPTOUT:
-	case PAX_ASLR_FORCE_ENABLED:
-		break;
-	default:
-		printf("[PAX ASLR (compat)] WARNING, invalid PAX settings in loader.conf! "
-		    "(pax_aslr_compat_status = %d)\n", pax_aslr_compat_status);
-		pax_aslr_compat_status = 3;
-		break;
-	}
-	printf("[PAX ASLR (compat)] status: %s\n", status_str[pax_aslr_compat_status]);
-	printf("[PAX ASLR (compat)] mmap: %d bit\n", pax_aslr_compat_mmap_len);
-	printf("[PAX ASLR (compat)] exec base: %d bit\n", pax_aslr_compat_exec_len);
-	printf("[PAX ASLR (compat)] stack: %d bit\n", pax_aslr_compat_stack_len);
-#endif /* COMPAT_FREEBSD32 */
-#endif /* PAX_ASLR */
-
-#ifdef PAX_HARDENING
-	if (pax_map32_enabled_global > 1 || pax_map32_enabled_global < -1) {
-		printf("[PAX HARDENING] WARNING, invalid PAX settings in loader.conf! "
-		    "(pax_map32_enabled_global = %d)\n", pax_map32_enabled_global);
-		pax_map32_enabled_global = 1;
-	}
-
-	printf("[PAX HARDENING] MAP_32BIT enabled: %d\n", pax_map32_enabled_global);
-#endif
-
-	printf("[PAX LOG] logging to system: %d\n", pax_log_log);
-	printf("[PAX LOG] logging to user: %d\n", pax_log_ulog);
+	printf("PAX: initialize and check PaX and HardeneBSD features.\n");
 }
-SYSINIT(pax, SI_SUB_PAX, SI_ORDER_FIRST, pax_init, NULL);
+SYSINIT(pax, SI_SUB_PAX, SI_ORDER_FIRST, pax_sysinit, NULL);
 
 void
 pax_init_prison(struct prison *pr)
@@ -205,6 +189,14 @@ pax_init_prison(struct prison *pr)
 	pr->pr_pax_aslr_compat_exec_len = pax_aslr_compat_exec_len;
 #endif /* COMPAT_FREEBSD32 */
 #endif /* PAX_ASLR */
+
+#ifdef PAX_SEGVGUARD
+	pr->pr_pax_segvguard_status = pax_segvguard_status;
+	pr->pr_pax_segvguard_debug = pax_segvguard_debug;
+	pr->pr_pax_segvguard_expiry = pax_segvguard_expiry;
+	pr->pr_pax_segvguard_suspension = pax_segvguard_suspension;
+	pr->pr_pax_segvguard_maxcrashes = pax_segvguard_maxcrashes;
+#endif
 
 #ifdef PAX_HARDENING
 	pr->pr_pax_map32_enabled = pax_map32_enabled_global;

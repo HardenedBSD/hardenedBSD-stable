@@ -67,7 +67,7 @@ __FBSDID("$FreeBSD$");
 
 FEATURE(aslr, "Address Space Layout Randomization.");
 
-int pax_aslr_status = PAX_ASLR_OPTOUT;
+int pax_aslr_status = PAX_FEATURE_OPTOUT;
 int pax_aslr_debug = 0;
 
 #ifdef PAX_ASLR_MAX_SEC
@@ -81,7 +81,7 @@ int pax_aslr_exec_len = PAX_ASLR_DELTA_EXEC_DEF_LEN;
 #endif /* PAX_ASLR_MAX_SEC */
 
 #ifdef COMPAT_FREEBSD32
-int pax_aslr_compat_status = PAX_ASLR_OPTOUT;
+int pax_aslr_compat_status = PAX_FEATURE_OPTOUT;
 #ifdef PAX_ASLR_MAX_SEC
 int pax_aslr_compat_mmap_len = PAX_ASLR_COMPAT_DELTA_MMAP_MAX_LEN;
 int pax_aslr_compat_stack_len = PAX_ASLR_COMPAT_DELTA_STACK_MAX_LEN;
@@ -93,22 +93,24 @@ int pax_aslr_compat_exec_len = PAX_ASLR_COMPAT_DELTA_EXEC_MIN_LEN;
 #endif /* PAX_ASLR_MAX_SEC */
 #endif /* COMPAT_FREEBSD32 */
 
-TUNABLE_INT("security.pax.aslr.status", &pax_aslr_status);
-TUNABLE_INT("security.pax.aslr.mmap_len", &pax_aslr_mmap_len);
-TUNABLE_INT("security.pax.aslr.debug", &pax_aslr_debug);
-TUNABLE_INT("security.pax.aslr.stack_len", &pax_aslr_stack_len);
-TUNABLE_INT("security.pax.aslr.exec_len", &pax_aslr_exec_len);
+TUNABLE_INT("hardening.pax.aslr.status", &pax_aslr_status);
+TUNABLE_INT("hardening.pax.aslr.mmap_len", &pax_aslr_mmap_len);
+TUNABLE_INT("hardening.pax.aslr.debug", &pax_aslr_debug);
+TUNABLE_INT("hardening.pax.aslr.stack_len", &pax_aslr_stack_len);
+TUNABLE_INT("hardening.pax.aslr.exec_len", &pax_aslr_exec_len);
 #ifdef COMPAT_FREEBSD32
-TUNABLE_INT("security.pax.aslr.compat.status", &pax_aslr_compat_status);
-TUNABLE_INT("security.pax.aslr.compat.mmap", &pax_aslr_compat_mmap_len);
-TUNABLE_INT("security.pax.aslr.compat.stack", &pax_aslr_compat_stack_len);
-TUNABLE_INT("security.pax.aslr.compat.stack", &pax_aslr_compat_exec_len);
+TUNABLE_INT("hardening.pax.aslr.compat.status", &pax_aslr_compat_status);
+TUNABLE_INT("hardening.pax.aslr.compat.mmap", &pax_aslr_compat_mmap_len);
+TUNABLE_INT("hardening.pax.aslr.compat.stack", &pax_aslr_compat_stack_len);
+TUNABLE_INT("hardening.pax.aslr.compat.stack", &pax_aslr_compat_exec_len);
 #endif
 
 static uint32_t pax_get_status(struct proc *proc, struct prison **pr);
-static int pax_get_flags(struct proc *proc, uint32_t *flags);
 
 #ifdef PAX_SYSCTLS
+
+SYSCTL_DECL(_hardening_pax);
+
 /*
  * sysctls and tunables
  */
@@ -118,12 +120,11 @@ static int sysctl_pax_aslr_mmap(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_stack(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_exec(SYSCTL_HANDLER_ARGS);
 
-SYSCTL_DECL(_security_pax);
 
-SYSCTL_NODE(_security_pax, OID_AUTO, aslr, CTLFLAG_RD, 0,
+SYSCTL_NODE(_hardening_pax, OID_AUTO, aslr, CTLFLAG_RD, 0,
     "Address Space Layout Randomization.");
 
-SYSCTL_PROC(_security_pax_aslr, OID_AUTO, status,
+SYSCTL_PROC(_hardening_pax_aslr, OID_AUTO, status,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_aslr_status, "I",
     "Restrictions status. "
@@ -132,24 +133,24 @@ SYSCTL_PROC(_security_pax_aslr, OID_AUTO, status,
     "2 - opt-out, "
     "3 - force enabled");
 
-SYSCTL_PROC(_security_pax_aslr, OID_AUTO, debug,
+SYSCTL_PROC(_hardening_pax_aslr, OID_AUTO, debug,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_aslr_debug, "I",
     "ASLR debug mode");
 
-SYSCTL_PROC(_security_pax_aslr, OID_AUTO, mmap_len,
+SYSCTL_PROC(_hardening_pax_aslr, OID_AUTO, mmap_len,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_aslr_mmap, "I",
     "Number of bits randomized for mmap(2) calls. "
     "32 bit: [8,16] 64 bit: [16,32]");
 
-SYSCTL_PROC(_security_pax_aslr, OID_AUTO, stack_len,
+SYSCTL_PROC(_hardening_pax_aslr, OID_AUTO, stack_len,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_aslr_stack, "I",
     "Number of bits randomized for the stack. "
     "32 bit: [6,12] 64 bit: [12,21]");
 
-SYSCTL_PROC(_security_pax_aslr, OID_AUTO, exec_len,
+SYSCTL_PROC(_hardening_pax_aslr, OID_AUTO, exec_len,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_aslr_exec, "I",
     "Number of bits randomized for the PIE exec base. "
@@ -169,10 +170,10 @@ sysctl_pax_aslr_status(SYSCTL_HANDLER_ARGS)
 		return (err);
 
 	switch (val) {
-	case PAX_ASLR_DISABLED:
-	case PAX_ASLR_OPTIN:
-	case PAX_ASLR_OPTOUT:
-	case PAX_ASLR_FORCE_ENABLED:
+	case PAX_FEATURE_DISABLED:
+	case PAX_FEATURE_OPTIN:
+	case PAX_FEATURE_OPTOUT:
+	case PAX_FEATURE_FORCE_ENABLED:
 		if ((pr == NULL) || (pr == &prison0))
 			pax_aslr_status = val;
 
@@ -319,10 +320,10 @@ static int sysctl_pax_aslr_compat_mmap(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_compat_stack(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_compat_exec(SYSCTL_HANDLER_ARGS);
 
-SYSCTL_NODE(_security_pax_aslr, OID_AUTO, compat, CTLFLAG_RD, 0,
+SYSCTL_NODE(_hardening_pax_aslr, OID_AUTO, compat, CTLFLAG_RD, 0,
     "Setting for COMPAT_FREEBSD32 and linuxulator.");
 
-SYSCTL_PROC(_security_pax_aslr_compat, OID_AUTO, status,
+SYSCTL_PROC(_hardening_pax_aslr_compat, OID_AUTO, status,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON,
     NULL, 0, sysctl_pax_aslr_compat_status, "I",
     "Restrictions status. "
@@ -331,19 +332,19 @@ SYSCTL_PROC(_security_pax_aslr_compat, OID_AUTO, status,
     "2 - global enabled, "
     "3 - force global enabled");
 
-SYSCTL_PROC(_security_pax_aslr_compat, OID_AUTO, mmap_len,
+SYSCTL_PROC(_hardening_pax_aslr_compat, OID_AUTO, mmap_len,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON,
     NULL, 0, sysctl_pax_aslr_compat_mmap, "I",
     "Number of bits randomized for mmap(2) calls. "
     "32 bit: [8,16]");
 
-SYSCTL_PROC(_security_pax_aslr_compat, OID_AUTO, stack_len,
+SYSCTL_PROC(_hardening_pax_aslr_compat, OID_AUTO, stack_len,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON,
     NULL, 0, sysctl_pax_aslr_compat_stack, "I",
     "Number of bits randomized for the stack. "
     "32 bit: [6,12]");
 
-SYSCTL_PROC(_security_pax_aslr_compat, OID_AUTO, exec_len,
+SYSCTL_PROC(_hardening_pax_aslr_compat, OID_AUTO, exec_len,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON,
     NULL, 0, sysctl_pax_aslr_compat_exec, "I",
     "Number of bits randomized for the PIE exec base. "
@@ -363,10 +364,10 @@ sysctl_pax_aslr_compat_status(SYSCTL_HANDLER_ARGS)
 		return (err);
 
 	switch (val) {
-	case PAX_ASLR_DISABLED:
-	case PAX_ASLR_OPTIN:
-	case PAX_ASLR_OPTOUT:
-	case PAX_ASLR_FORCE_ENABLED:
+	case PAX_FEATURE_DISABLED:
+	case PAX_FEATURE_OPTIN:
+	case PAX_FEATURE_OPTOUT:
+	case PAX_FEATURE_FORCE_ENABLED:
 		if ((pr == NULL) || (pr == &prison0))
 			pax_aslr_compat_status = val;
 
@@ -482,6 +483,27 @@ sysctl_pax_aslr_compat_exec(SYSCTL_HANDLER_ARGS)
  * ASLR functions
  */
 
+static void
+pax_aslr_sysinit(void)
+{
+	switch (pax_aslr_status) {
+	case PAX_FEATURE_DISABLED:
+	case PAX_FEATURE_OPTIN:
+	case PAX_FEATURE_OPTOUT:
+	case PAX_FEATURE_FORCE_ENABLED:
+		break;
+	default:
+		printf("[PAX ASLR] WARNING, invalid PAX settings in loader.conf!"
+		    " (pax_aslr_status = %d)\n", pax_aslr_status);
+		pax_aslr_status = PAX_FEATURE_FORCE_ENABLED;
+		break;
+	}
+	printf("[PAX ASLR] status: %s\n", pax_status_str[pax_aslr_status]);
+	printf("[PAX ASLR] mmap: %d bit\n", pax_aslr_mmap_len);
+	printf("[PAX ASLR] exec base: %d bit\n", pax_aslr_exec_len);
+	printf("[PAX ASLR] stack: %d bit\n", pax_aslr_stack_len);
+}
+SYSINIT(pax_aslr, SI_SUB_PAX, SI_ORDER_SECOND, pax_aslr_sysinit, NULL);
 
 uint32_t
 pax_get_status(struct proc *proc, struct prison **pr)
@@ -497,30 +519,6 @@ pax_get_status(struct proc *proc, struct prison **pr)
 		return pax_aslr_status;
 }
 
-static int
-pax_get_flags(struct proc *proc, uint32_t *flags)
-{
-	*flags = 0;
-
-	if (proc != NULL)
-		*flags = proc->p_pax;
-	else
-		return (1);
-
-	if (((*flags & 0xaaaaaaaa) & ((*flags & 0x55555555) << 1)) != 0) {
-		/*
-		 * indicate flags inconsistencies in dmesg and in user terminal
-		 */
-		pax_log_aslr(__func__, "inconsistent paxflags: %x\n", *flags);
-		pax_ulog_aslr(NULL, "inconsistent paxflags: %x\n", *flags);
-
-		return (1);
-	}
-
-	return (0);
-}
-
-
 bool
 pax_aslr_active(struct proc *proc)
 {
@@ -534,10 +532,10 @@ pax_aslr_active(struct proc *proc)
 
 	status = pax_get_status(proc, &pr);
 
-	if (status == PAX_ASLR_DISABLED)
+	if (status == PAX_FEATURE_DISABLED)
 		return (false);
 
-	if (status == PAX_ASLR_FORCE_ENABLED)
+	if (status == PAX_FEATURE_FORCE_ENABLED)
 		return (true);
 
 	ret = pax_get_flags(proc, &flags);
@@ -547,7 +545,7 @@ pax_aslr_active(struct proc *proc)
 		 */
 		return (true);
 
-	if ((status == PAX_ASLR_OPTIN) && (flags & PAX_NOTE_ASLR) == 0) {
+	if ((status == PAX_FEATURE_OPTIN) && (flags & PAX_NOTE_ASLR) == 0) {
 		/*
 		 * indicate option inconsistencies in dmesg and in user terminal
 		 */
@@ -558,7 +556,7 @@ pax_aslr_active(struct proc *proc)
 		return (false);
 	}
 
-	if ((status == PAX_ASLR_OPTOUT) && (flags & PAX_NOTE_NOASLR) != 0) {
+	if ((status == PAX_FEATURE_OPTOUT) && (flags & PAX_NOTE_NOASLR) != 0) {
 		/*
 		 * indicate option inconsistencies in dmesg and in user terminal
 		 */
@@ -617,6 +615,28 @@ _pax_aslr_init(struct vmspace *vm, struct proc *p)
 }
 
 #ifdef COMPAT_FREEBSD32
+static void
+pax_compat_aslr_sysinit(void)
+{
+	switch (pax_aslr_compat_status) {
+	case PAX_FEATURE_DISABLED:
+	case PAX_FEATURE_OPTIN:
+	case PAX_FEATURE_OPTOUT:
+	case PAX_FEATURE_FORCE_ENABLED:
+		break;
+	default:
+		printf("[PAX ASLR (compat)] WARNING, invalid PAX settings in loader.conf! "
+		    "(pax_aslr_compat_status = %d)\n", pax_aslr_compat_status);
+		pax_aslr_compat_status = PAX_FEATURE_FORCE_ENABLED;
+		break;
+	}
+	printf("[PAX ASLR (compat)] status: %s\n", pax_status_str[pax_aslr_compat_status]);
+	printf("[PAX ASLR (compat)] mmap: %d bit\n", pax_aslr_compat_mmap_len);
+	printf("[PAX ASLR (compat)] exec base: %d bit\n", pax_aslr_compat_exec_len);
+	printf("[PAX ASLR (compat)] stack: %d bit\n", pax_aslr_compat_stack_len);
+}
+SYSINIT(pax_compat_aslr, SI_SUB_PAX, SI_ORDER_SECOND, pax_compat_aslr_sysinit, NULL);
+
 void
 _pax_aslr_init32(struct vmspace *vm, struct proc *p)
 {

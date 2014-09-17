@@ -384,5 +384,7 @@ options 	WITNESS_SKIPSPIN        # Don't run witness on spinlocks
 options 	ALT_BREAK_TO_DEBUGGER
 options 	BREAK_TO_DEBUGGER
 
-options		PAX_ASLR
-options		MAC_BSDEXTENDED
+options 	PAX_ASLR
+options 	PAX_SYSCTLS
+options 	PAX_HARDENING
+options 	MAC_BSDEXTENDED

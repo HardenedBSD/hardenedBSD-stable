@@ -33,6 +33,7 @@
 __FBSDID("$FreeBSD$");
 
 #include "opt_compat.h"
+#include "opt_ptrace_hardening.h"
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -50,6 +51,9 @@ __FBSDID("$FreeBSD$");
 #include <sys/sx.h>
 #include <sys/malloc.h>
 #include <sys/signalvar.h>
+#ifdef PTRACE_HARDENING
+#include <sys/ptrace_hardening.h>
+#endif
 
 #include <machine/reg.h>
 
@@ -647,7 +651,6 @@ kern_ptrace(struct thread *td, int req, pid_t pid, void *addr, int data)
 	struct ptrace_lwpinfo32 *pl32 = NULL;
 	struct ptrace_lwpinfo plr;
 #endif
-
 	curp = td->td_proc;
 
 	/* Lock proctree before locking the process. */
@@ -692,6 +695,15 @@ kern_ptrace(struct thread *td, int req, pid_t pid, void *addr, int data)
 		}
 	}
 	AUDIT_ARG_PROCESS(p);
+
+#ifdef PTRACE_HARDENING
+	u_int p_ptrace_hardening = p->p_ptrace_hardening;
+	error = ptrace_hardening(td, p_ptrace_hardening);
+
+	if (error)
+		goto fail;
+#endif
+
 
 	if ((p->p_flag & P_WEXIT) != 0) {
 		error = ESRCH;
