@@ -101,6 +101,13 @@ pax_get_flags(struct proc *proc, uint32_t *flags)
 	else
 		return (1);
 
+	if (*flags & ~PAX_NOTE_ALL) {
+		pax_log_aslr(__func__, "unknown paxflags: %x\n", *flags);
+		pax_ulog_aslr(NULL, "unknown paxflags: %x\n", *flags);
+
+		return (1);
+	}
+
 	if (((*flags & 0xaaaaaaaa) & ((*flags & 0x55555555) << 1)) != 0) {
 		/*
 		 * indicate flags inconsistencies in dmesg and in user terminal
