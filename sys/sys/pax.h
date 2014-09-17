@@ -224,6 +224,11 @@ extern int pax_log_ulog;
 #define PAX_NOTE_ASLR       0x10
 #define PAX_NOTE_NOASLR     0x20
 
+#define PAX_NOTE_ALL	(PAX_NOTE_MPROTECT | PAX_NOTE_NOMPROTECT | \
+			PAX_NOTE_GUARD | PAX_NOTE_NOGUARD | \
+			PAX_NOTE_ASLR | PAX_NOTE_NOASLR | \
+			0)
+
 #define PAX_LOG_LOG		0
 #define PAX_LOG_ULOG		0
 
