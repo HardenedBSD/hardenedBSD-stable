@@ -102,7 +102,7 @@ pax_get_flags(struct proc *proc, uint32_t *flags)
 		return (1);
 
 	if ((*flags & ~PAX_NOTE_ALL) != 0) {
-		pax_log_aslr(__func__, "unknown paxflags: %x\n", *flags);
+		pax_log_aslr(proc, __func__, "unknown paxflags: %x\n", *flags);
 		pax_ulog_aslr(NULL, "unknown paxflags: %x\n", *flags);
 
 		return (1);
