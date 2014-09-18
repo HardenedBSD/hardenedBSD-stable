@@ -258,6 +258,8 @@ int pax_segvguard_check(struct thread *, struct vnode *, const char *);
 int pax_segvguard_segfault(struct thread *, struct vnode *, const char *);
 void pax_segvguard_remove(struct thread *td, struct vnode *vn);
 
+int hbsd_uprintf(const char *fmt, ...);
+
 #endif /* _KERNEL */
 
 #endif /* __SYS_PAX_H */
