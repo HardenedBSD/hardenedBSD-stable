@@ -98,7 +98,7 @@ prefix##_ulog_##name(const char *caller_name, const char* fmt, ...)			\
 	if (sbuf_finish(sb) != 0)						\
 		panic("%s: Could not generate message", __func__);		\
 										\
-	uprintf("%s", sbuf_data(sb));						\
+	hbsd_uprintf("%s", sbuf_data(sb));						\
 	sbuf_delete(sb);					\
 	if (w_locked && !PROC_LOCKED(td->td_proc))						\
 		PROC_LOCK(td->td_proc);						\
