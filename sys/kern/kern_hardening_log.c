@@ -128,51 +128,6 @@ SYSCTL_PROC(_hardening_log, OID_AUTO, ulog,
     "1 - enabled ");
 #endif
 
-/*
- * Uprintf prints to the controlling terminal for the current process.
- */
-int
-hbsd_uprintf(const char *fmt, ...)
-{
-	va_list ap;
-	struct putchar_arg pca;
-	struct proc *p;
-	struct thread *td;
-	int locked, retval;
-
-	td = curthread;
-	if (TD_IS_IDLETHREAD(td))
-		return (0);
-
-	sx_slock(&proctree_lock);
-	p = td->td_proc;
-	if ((locked = PROC_LOCKED(p))
-		PROC_LOCK(p);
-	if ((p->p_flag & P_CONTROLT) == 0) {
-		if (locked)
-			PROC_UNLOCK(p);
-		sx_sunlock(&proctree_lock);
-		return (0);
-	}
-	SESS_LOCK(p->p_session);
-	pca.tty = p->p_session->s_ttyp;
-	SESS_UNLOCK(p->p_session);
-	if (locked)
-		PROC_UNLOCK(p);
-	if (pca.tty == NULL) {
-		sx_sunlock(&proctree_lock);
-		return (0);
-	}
-	pca.flags = TOTTY;
-	pca.p_bufr = NULL;
-	va_start(ap, fmt);
-	tty_lock(pca.tty);
-	sx_sunlock(&proctree_lock);
-	retval = kvprintf(fmt, putchar, &pca, 10, ap);
-	tty_unlock(pca.tty);
-	va_end(ap);
-	return (retval);
-}
 
 static void
 hardening_log_sysinit(void)
