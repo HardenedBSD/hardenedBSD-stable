@@ -616,7 +616,7 @@ if_attach_internal(struct ifnet *ifp, int vmove)
 	}
 
 	if (ifp->if_get_counter == NULL)
-		ifp->if_get_counter = if_get_counter_compat;
+		ifp->if_get_counter = if_get_counter_default;
 
 	if (!vmove) {
 #ifdef MAC
@@ -1389,7 +1389,7 @@ if_rtdel(struct radix_node *rn, void *arg)
  * Return counter values from old racy non-pcpu counters.
  */
 uint64_t
-if_get_counter_compat(struct ifnet *ifp, ifnet_counter cnt)
+if_get_counter_default(struct ifnet *ifp, ift_counter cnt)
 {
 
 	switch (cnt) {
@@ -1426,7 +1426,7 @@ if_get_counter_compat(struct ifnet *ifp, ifnet_counter cnt)
  * between the stack and a driver, but function supports them all.
  */
 void
-if_inc_counter(struct ifnet *ifp, ifnet_counter cnt, int64_t inc)
+if_inc_counter(struct ifnet *ifp, ift_counter cnt, int64_t inc)
 {
 
 	switch (cnt) {
@@ -4093,6 +4093,13 @@ void if_setqflushfn(if_t ifp, if_qflush_fn_t flush_fn)
 {
 	((struct ifnet *)ifp)->if_qflush = flush_fn;
 	
+}
+
+void
+if_setgetcounterfn(if_t ifp, if_get_counter_t fn)
+{
+
+	ifp->if_get_counter = fn;
 }
 
 /* Revisit these - These are inline functions originally. */
