@@ -47,12 +47,9 @@ prefix##_log_##name(struct proc *p, const char *caller_name, 			\
 {										\
 	struct sbuf *sb;							\
 	va_list args;								\
-	bool w_locked;								\
 										\
 	if (hardening_log_log == 0)						\
 		return;								\
-	if ((w_locked = PROC_LOCKED(p)))					\
-		PROC_UNLOCK(p);							\
 										\
 	sb = sbuf_new_auto();							\
 	if (sb == NULL)								\
@@ -68,8 +65,6 @@ prefix##_log_##name(struct proc *p, const char *caller_name, 			\
 										\
 	printf("%s", sbuf_data(sb));						\
 	sbuf_delete(sb);							\
-	if (w_locked && !PROC_LOCKED(p))					\
-		PROC_LOCK(p);							\
 }										\
 										\
 void										\
