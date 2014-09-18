@@ -72,14 +72,9 @@ prefix##_ulog_##name(const char *caller_name, const char* fmt, ...)		\
 {										\
 	struct sbuf *sb;							\
 	va_list args;								\
-	struct thread *td;							\
-	bool w_locked;								\
 										\
 	if (hardening_log_ulog == 0)						\
 		return;								\
-	td = curthread;								\
-	if ((w_locked = PROC_LOCKED(td->td_proc)))				\
-		PROC_UNLOCK(td->td_proc);					\
 										\
 	sb = sbuf_new_auto();							\
 	if (sb == NULL)								\
@@ -95,8 +90,6 @@ prefix##_ulog_##name(const char *caller_name, const char* fmt, ...)		\
 										\
 	hbsd_uprintf("%s", sbuf_data(sb));					\
 	sbuf_delete(sb);							\
-	if (w_locked && !PROC_LOCKED(td->td_proc))				\
-		PROC_LOCK(td->td_proc);						\
 }
 
 
