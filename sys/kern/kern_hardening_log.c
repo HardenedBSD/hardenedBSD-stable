@@ -40,24 +40,24 @@
 #include <sys/jail.h>
 #include <machine/stdarg.h>
 
-#define __HARDENING_LOG_TEMPLATE(MAIN, SUBJECT, prefix, name)					\
+#define __HARDENING_LOG_TEMPLATE(MAIN, SUBJECT, prefix, name)			\
 void										\
-prefix##_log_##name(struct proc *p, const char *caller_name, 		\
-		const char* fmt, ...)			\
+prefix##_log_##name(struct proc *p, const char *caller_name, 			\
+		const char* fmt, ...)						\
 {										\
 	struct sbuf *sb;							\
 	va_list args;								\
-	bool w_locked;						\
+	bool w_locked;								\
 										\
-	if (hardening_log_log == 0)							\
+	if (hardening_log_log == 0)						\
 		return;								\
-	if ((w_locked = PROC_LOCKED(p)))	\
-		PROC_UNLOCK(p);					\
+	if ((w_locked = PROC_LOCKED(p)))					\
+		PROC_UNLOCK(p);							\
 										\
 	sb = sbuf_new_auto();							\
 	if (sb == NULL)								\
 		panic("%s: Could not allocate memory", __func__);		\
-	sbuf_printf(sb, "["#MAIN" "#SUBJECT"] ");					\
+	sbuf_printf(sb, "["#MAIN" "#SUBJECT"] ");				\
 	if (caller_name != NULL)						\
 		sbuf_printf(sb, "%s: ", caller_name);				\
 	va_start(args, fmt);							\
@@ -68,28 +68,28 @@ prefix##_log_##name(struct proc *p, const char *caller_name, 		\
 										\
 	printf("%s", sbuf_data(sb));						\
 	sbuf_delete(sb);							\
-	if (w_locked && !PROC_LOCKED(p))			\
-		PROC_LOCK(p);					\
+	if (w_locked && !PROC_LOCKED(p))					\
+		PROC_LOCK(p);							\
 }										\
 										\
 void										\
-prefix##_ulog_##name(const char *caller_name, const char* fmt, ...)			\
+prefix##_ulog_##name(const char *caller_name, const char* fmt, ...)		\
 {										\
 	struct sbuf *sb;							\
 	va_list args;								\
-	struct thread *td;					\
-	bool w_locked;						\
+	struct thread *td;							\
+	bool w_locked;								\
 										\
-	if (hardening_log_ulog == 0)							\
+	if (hardening_log_ulog == 0)						\
 		return;								\
-	td = curthread;					\
-	if ((w_locked = PROC_LOCKED(td->td_proc)))			\
+	td = curthread;								\
+	if ((w_locked = PROC_LOCKED(td->td_proc)))				\
 		PROC_UNLOCK(td->td_proc);					\
 										\
 	sb = sbuf_new_auto();							\
 	if (sb == NULL)								\
 		panic("%s: Could not allocate memory", __func__);		\
-	sbuf_printf(sb, "["#MAIN" "#SUBJECT"] ");					\
+	sbuf_printf(sb, "["#MAIN" "#SUBJECT"] ");				\
 	if (caller_name != NULL)						\
 		sbuf_printf(sb, "%s: ", caller_name);				\
 	va_start(args, fmt);							\
@@ -98,9 +98,9 @@ prefix##_ulog_##name(const char *caller_name, const char* fmt, ...)			\
 	if (sbuf_finish(sb) != 0)						\
 		panic("%s: Could not generate message", __func__);		\
 										\
-	hbsd_uprintf("%s", sbuf_data(sb));						\
-	sbuf_delete(sb);					\
-	if (w_locked && !PROC_LOCKED(td->td_proc))						\
+	hbsd_uprintf("%s", sbuf_data(sb));					\
+	sbuf_delete(sb);							\
+	if (w_locked && !PROC_LOCKED(td->td_proc))				\
 		PROC_LOCK(td->td_proc);						\
 }
 
