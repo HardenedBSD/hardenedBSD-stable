@@ -796,7 +796,8 @@ vt_allocate_keyboard(struct vt_device *vd)
 				continue;
 
 			bzero(&ki, sizeof(ki));
-			strcpy(ki.kb_name, k->kb_name);
+			strncpy(ki.kb_name, k->kb_name, sizeof(ki.kb_name));
+			ki.kb_name[sizeof(ki.kb_name) - 1] = '\0';
 			ki.kb_unit = k->kb_unit;
 
 			kbdd_ioctl(k0, KBADDKBD, (caddr_t) &ki);
@@ -2131,7 +2132,7 @@ skip_thunk:
 		win = *(int *)data - 1;
 		DPRINTF(5, "%s%d: VT_ACTIVATE ttyv%d ", SC_DRIVER_NAME,
 		    VT_UNIT(vw), win);
-		if ((win > VT_MAXWINDOWS) || (win < 0))
+		if ((win >= VT_MAXWINDOWS) || (win < 0))
 			return (EINVAL);
 		return (vt_proc_window_switch(vd->vd_windows[win]));
 	}
