@@ -484,18 +484,8 @@ vt_scroll(struct vt_window *vw, int offset, int whence)
 	vt_termsize(vw->vw_device, vw->vw_font, &size);
 
 	diff = vthistory_seek(&vw->vw_buf, offset, whence);
-	/*
-	 * Offset changed, please update Nth lines on screen.
-	 * +N - Nth lines at top;
-	 * -N - Nth lines at bottom.
-	 */
-
-	if (diff < -size.tp_row || diff > size.tp_row) {
+	if (diff)
 		vw->vw_device->vd_flags |= VDF_INVALID;
-		vt_resume_flush_timer(vw->vw_device, 0);
-		return;
-	}
-	vw->vw_device->vd_flags |= VDF_INVALID; /*XXX*/
 	vt_resume_flush_timer(vw->vw_device, 0);
 }
 
@@ -992,7 +982,6 @@ vt_flush(struct vt_device *vd)
 {
 	struct vt_window *vw;
 	struct vt_font *vf;
-	struct vt_bufmask tmask;
 	term_rect_t tarea;
 	term_pos_t size;
 #ifndef SC_NO_CUTPASTE
@@ -1048,14 +1037,13 @@ vt_flush(struct vt_device *vd)
 		vt_mark_mouse_position_as_dirty(vd);
 #endif
 
-	vtbuf_undirty(&vw->vw_buf, &tarea, &tmask);
+	vtbuf_undirty(&vw->vw_buf, &tarea);
 	vt_termsize(vd, vf, &size);
 
 	/* Force a full redraw when the screen contents are invalid. */
 	if (vd->vd_flags & VDF_INVALID) {
 		tarea.tr_begin.tp_row = tarea.tr_begin.tp_col = 0;
 		tarea.tr_end = size;
-		tmask.vbm_row = tmask.vbm_col = VBM_DIRTY;
 
 		vd->vd_flags &= ~VDF_INVALID;
 	}
@@ -1182,6 +1170,13 @@ vtterm_cnprobe(struct terminal *tm, struct consdev *cp)
 		vw->vw_font = vtfont_ref(&vt_font_default);
 		vt_compute_drawable_area(vw);
 	}
+
+	/*
+	 * The original screen size was faked (_VTDEFW x _VTDEFH). Now
+	 * that we have the real viewable size, fix it in the static
+	 * buffer.
+	 */
+	vt_termsize(vd, vw->vw_font, &vw->vw_buf.vb_scr_size);
 
 	vtbuf_init_early(&vw->vw_buf);
 	vt_winsize(vd, vw->vw_font, &wsz);
