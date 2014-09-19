@@ -163,6 +163,10 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 			} else {
 				flags &= ~PAX_NOTE_ASLR;
 				flags |= PAX_NOTE_NOASLR;
+				pax_log_aslr(proc, __func__,
+		"ASLR is opt-in, and executable don't have enabled ASLR!\n");
+				pax_ulog_aslr(NULL,
+		"ASLR is opt-in, and executable don't have enabled ASLR!\n");
 			}
 		}
 
@@ -170,6 +174,10 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 			if (mode & MBI_FORCE_ASLR_DISABLED) {
 				flags &= ~PAX_NOTE_ASLR;
 				flags |= PAX_NOTE_NOASLR;
+				pax_log_aslr(proc, __func__,
+		 "ASLR is opt-out, and executable explicitly disabled ASLR!\n");
+				pax_ulog_aslr(NULL,
+		 "ASLR is opt-out, and executable explicitly disabled ASLR!\n");
 			} else {
 				flags |= PAX_NOTE_ASLR;
 				flags &= ~PAX_NOTE_NOASLR;
