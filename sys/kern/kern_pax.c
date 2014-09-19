@@ -183,7 +183,52 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 				flags &= ~PAX_NOTE_NOASLR;
 			}
 		}
+#endif
 
+#ifdef PAX_SEGVGUARD
+		pr = pax_get_prison(imgp->proc);
+		if (pr != NULL)
+			status = pr->pr_pax_segvguard_status;
+		else
+			status = pax_segvguard_status;
+
+		if (status == PAX_FEATURE_DISABLED) {
+			flags &= ~PAX_NOTE_SEGVGUARD;
+			flags |= PAX_NOTE_NOSEGVGUARD;
+		}
+
+		if (status == PAX_FEATURE_FORCE_ENABLED) {
+			flags |= PAX_NOTE_SEGVGUARD;
+			flags &= ~PAX_NOTE_NOSEGVGUARD;
+		}
+
+		if (status == PAX_FEATURE_OPTIN) {
+			if (mode & MBI_FORCE_SEGVGUARD_ENABLED) {
+				flags |= PAX_NOTE_SEGVGUARD;
+				flags &= ~PAX_NOTE_NOSEGVGUARD;
+			} else {
+				flags &= ~PAX_NOTE_SEGVGUARD;
+				flags |= PAX_NOTE_NOSEGVGUARD;
+				pax_log_segvguard(proc, __func__,
+	"SEGVGUARD is opt-in, and executable don't have enabled SEGVGUARD!\n");
+				pax_ulog_segvguard(NULL,
+	"SEGVGUARD is opt-in, and executable don't have enabled SEGVGUARD!\n");
+			}
+		}
+
+		if (status == PAX_FEATURE_OPTOUT) {
+			if (mode & MBI_FORCE_SEGVGUARD_DISABLED) {
+				flags &= ~PAX_NOTE_SEGVGUARD;
+				flags |= PAX_NOTE_NOSEGVGUARD;
+				pax_log_segvguard(proc, __func__,
+	 "SEGVGUARD is opt-out, and executable explicitly disabled SEGVGUARD!\n");
+				pax_ulog_segvguard(NULL,
+	 "SEGVGUARD is opt-out, and executable explicitly disabled SEGVGUARD!\n");
+			} else {
+				flags |= PAX_NOTE_SEGVGUARD;
+				flags &= ~PAX_NOTE_NOSEGVGUARD;
+			}
+		}
 #endif
 
 	if (imgp != NULL) {
