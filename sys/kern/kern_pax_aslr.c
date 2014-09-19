@@ -549,7 +549,7 @@ pax_aslr_active(struct proc *proc)
 		/*
 		 * indicate option inconsistencies in dmesg and in user terminal
 		 */
-		pax_log_aslr(__func__,
+		pax_log_aslr(proc, __func__,
 		    "ASLR is opt-in, and executable does not have ASLR enabled\n");
 		pax_ulog_aslr(NULL,
 		    "ASLR is opt-in, and executable does not have ASLR enabled\n");
@@ -560,7 +560,7 @@ pax_aslr_active(struct proc *proc)
 		/*
 		 * indicate option inconsistencies in dmesg and in user terminal
 		 */
-		pax_log_aslr(__func__,
+		pax_log_aslr(proc, __func__,
 		    "ASLR is opt-out, and executable explicitly disabled ASLR\n");
 		pax_ulog_aslr(NULL,
 		    "ASLR is opt-out, and executable explicitly disabled ASLR\n");
