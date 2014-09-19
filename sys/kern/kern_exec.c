@@ -51,6 +51,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/imgact_elf.h>
 #include <sys/wait.h>
 #include <sys/malloc.h>
+#include <sys/pax.h>
 #include <sys/priv.h>
 #include <sys/proc.h>
 #include <sys/pioctl.h>
@@ -68,10 +69,6 @@ __FBSDID("$FreeBSD$");
 #include <sys/stat.h>
 #ifdef KTRACE
 #include <sys/ktrace.h>
-#endif
-
-#if defined(PAX_SEGVGUARD) || defined(PAX_ASLR)
-#include <sys/pax.h>
 #endif
 
 #include <vm/vm.h>
@@ -409,8 +406,10 @@ do_execve(td, args, mac_p)
 	imgp->stack_prot = 0;
 	imgp->pax_flags = 0;
 
-#if defined(PAX_ASLR)
-	pax_elf(imgp, 0);
+#if defined(PAX_ASLR) || defined(PAX_SEGVGUARD) || defined(PAX_MPROTECT)
+	error = pax_elf(imgp, 0);
+	if (error)
+		goto exec_fail;
 #endif
 
 #ifdef MAC

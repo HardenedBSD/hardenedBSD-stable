@@ -248,7 +248,7 @@ void pax_aslr_mmap(struct proc *p, vm_offset_t *addr,
     vm_offset_t orig_addr, int flags);
 void pax_aslr_stack(struct thread *td, uintptr_t *addr);
 struct prison *pax_get_prison(struct proc *proc);
-void pax_elf(struct image_params *, uint32_t);
+int pax_elf(struct image_params *, uint32_t);
 int pax_map32_enabled(struct thread *td);
 
 void pax_log_aslr(struct proc *, const char *func, const char *fmt, ...);

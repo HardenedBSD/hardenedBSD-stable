@@ -101,27 +101,10 @@ pax_get_flags(struct proc *proc, uint32_t *flags)
 	else
 		return (1);
 
-	if ((*flags & ~PAX_NOTE_ALL) != 0) {
-		pax_log_aslr(proc, __func__, "unknown paxflags: %x\n", *flags);
-		pax_ulog_aslr(NULL, "unknown paxflags: %x\n", *flags);
-
-		return (1);
-	}
-
-	if (((*flags & PAX_NOTE_ALL_ENABLED) & ((*flags & PAX_NOTE_ALL_DISABLED) >> 1)) != 0) {
-		/*
-		 * indicate flags inconsistencies in dmesg and in user terminal
-		 */
-		pax_log_aslr(proc, __func__, "inconsistent paxflags: %x\n", *flags);
-		pax_ulog_aslr(NULL, "inconsistent paxflags: %x\n", *flags);
-
-		return (1);
-	}
-
 	return (0);
 }
 
-void
+int
 pax_elf(struct image_params *imgp, uint32_t mode)
 {
 	u_int flags = 0;
@@ -137,6 +120,23 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 			flags |= PAX_NOTE_NOGUARD;
 	}
 
+	if ((flags & ~PAX_NOTE_ALL) != 0) {
+		pax_log_aslr(imgp->proc, __func__, "unknown paxflags: %x\n", flags);
+		pax_ulog_aslr(NULL, "unknown paxflags: %x\n", flags);
+
+		return (1);
+	}
+
+	if (((flags & PAX_NOTE_ALL_ENABLED) & ((flags & PAX_NOTE_ALL_DISABLED) >> 1)) != 0) {
+		/*
+		 * indicate flags inconsistencies in dmesg and in user terminal
+		 */
+		pax_log_aslr(imgp->proc, __func__, "inconsistent paxflags: %x\n", flags);
+		pax_ulog_aslr(NULL, "inconsistent paxflags: %x\n", flags);
+
+		return (1);
+	}
+
 	if (imgp != NULL) {
 		imgp->pax_flags = flags;
 		if (imgp->proc != NULL) {
@@ -145,6 +145,8 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 			PROC_UNLOCK(imgp->proc);
 		}
 	}
+
+	return (0);
 }
 
 
