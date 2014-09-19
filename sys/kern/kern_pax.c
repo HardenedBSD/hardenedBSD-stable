@@ -107,16 +107,18 @@ pax_get_flags(struct proc *proc, uint32_t *flags)
 int
 pax_elf(struct image_params *imgp, uint32_t mode)
 {
+	struct prison *pr;
 	u_int flags = 0;
+	u_int status = 0;
 
 	if ((mode & MBI_ALLPAX) != MBI_ALLPAX) {
 		if (mode & MBI_FORCE_ASLR_ENABLED)
 			flags |= PAX_NOTE_ASLR;
-		else if (mode & MBI_FORCE_ASLR_DISABLED)
+		if (mode & MBI_FORCE_ASLR_DISABLED)
 			flags |= PAX_NOTE_NOASLR;
 		if (mode & MBI_FORCE_SEGVGUARD_ENABLED)
 			flags |= PAX_NOTE_GUARD;
-		else if (mode & MBI_FORCE_SEGVGUARD_DISABLED)
+		if (mode & MBI_FORCE_SEGVGUARD_DISABLED)
 			flags |= PAX_NOTE_NOGUARD;
 	}
 
@@ -136,6 +138,45 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 
 		return (1);
 	}
+
+#ifdef PAX_ASLR
+		if (status == PAX_FEATURE_DISABLED) {
+			flags &= ~PAX_NOTE_ASLR;
+			flags |= PAX_NOTE_NOASLR;
+		}
+
+		if (status == PAX_FEATURE_FORCE_ENABLED) {
+			flags |= PAX_NOTE_ASLR;
+			flags &= ~PAX_NOTE_NOASLR;
+		}
+
+		pr = pax_get_prison(imgp->proc);
+		if (pr != NULL)
+			status = pr->pr_pax_aslr_status;
+		else
+			status = pax_aslr_status;
+
+		if (status == PAX_FEATURE_OPTIN) {
+			if (mode & MBI_FORCE_ASLR_ENABLED) {
+				flags |= PAX_NOTE_ASLR;
+				flags &= ~PAX_NOTE_NOASLR;
+			} else {
+				flags &= ~PAX_NOTE_ASLR;
+				flags |= PAX_NOTE_NOASLR;
+			}
+		}
+
+		if (status == PAX_FEATURE_OPTOUT) {
+			if (mode & MBI_FORCE_ASLR_DISABLED) {
+				flags &= ~PAX_NOTE_ASLR;
+				flags |= PAX_NOTE_NOASLR;
+			} else {
+				flags |= PAX_NOTE_ASLR;
+				flags &= ~PAX_NOTE_NOASLR;
+			}
+		}
+
+#endif
 
 	if (imgp != NULL) {
 		imgp->pax_flags = flags;
