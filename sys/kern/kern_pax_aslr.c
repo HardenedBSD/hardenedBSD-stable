@@ -105,7 +105,7 @@ TUNABLE_INT("hardening.pax.aslr.compat.stack", &pax_aslr_compat_stack_len);
 TUNABLE_INT("hardening.pax.aslr.compat.stack", &pax_aslr_compat_exec_len);
 #endif
 
-static uint32_t pax_get_status(struct proc *proc, struct prison **pr);
+static uint32_t pax_get_aslr_status(struct proc *proc, struct prison **pr);
 
 #ifdef PAX_SYSCTLS
 
@@ -505,8 +505,8 @@ pax_aslr_sysinit(void)
 }
 SYSINIT(pax_aslr, SI_SUB_PAX, SI_ORDER_SECOND, pax_aslr_sysinit, NULL);
 
-uint32_t
-pax_get_status(struct proc *proc, struct prison **pr)
+static uint32_t
+pax_get_aslr_status(struct proc *proc, struct prison **pr)
 {
 	*pr = NULL;
 
@@ -530,7 +530,7 @@ pax_aslr_active(struct proc *proc)
 	if (proc == NULL)
 		return (true);
 
-	status = pax_get_status(proc, &pr);
+	status = pax_get_aslr_status(proc, &pr);
 
 	if (status == PAX_FEATURE_DISABLED)
 		return (false);
