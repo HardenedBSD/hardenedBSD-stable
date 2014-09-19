@@ -105,8 +105,6 @@ TUNABLE_INT("hardening.pax.aslr.compat.stack", &pax_aslr_compat_stack_len);
 TUNABLE_INT("hardening.pax.aslr.compat.stack", &pax_aslr_compat_exec_len);
 #endif
 
-static uint32_t pax_get_aslr_status(struct proc *proc, struct prison **pr);
-
 #ifdef PAX_SYSCTLS
 
 SYSCTL_DECL(_hardening_pax);
@@ -505,38 +503,11 @@ pax_aslr_sysinit(void)
 }
 SYSINIT(pax_aslr, SI_SUB_PAX, SI_ORDER_SECOND, pax_aslr_sysinit, NULL);
 
-static uint32_t
-pax_get_aslr_status(struct proc *proc, struct prison **pr)
-{
-	*pr = NULL;
-
-	if ((proc != NULL) && (proc->p_ucred != NULL))
-		*pr = proc->p_ucred->cr_prison;
-
-	if (*pr != NULL)
-		return ((*pr)->pr_pax_aslr_status);
-	else
-		return pax_aslr_status;
-}
-
 bool
 pax_aslr_active(struct proc *proc)
 {
-	int status;
-	struct prison *pr;
-	uint32_t flags;
+	u_int flags;
 	bool ret;
-
-	if (proc == NULL)
-		return (true);
-
-	status = pax_get_aslr_status(proc, &pr);
-
-	if (status == PAX_FEATURE_DISABLED)
-		return (false);
-
-	if (status == PAX_FEATURE_FORCE_ENABLED)
-		return (true);
 
 	ret = pax_get_flags(proc, &flags);
 	if (ret != 0)
@@ -545,27 +516,11 @@ pax_aslr_active(struct proc *proc)
 		 */
 		return (true);
 
-	if ((status == PAX_FEATURE_OPTIN) && (flags & PAX_NOTE_ASLR) == 0) {
-		/*
-		 * indicate option inconsistencies in dmesg and in user terminal
-		 */
-		pax_log_aslr(proc, __func__,
-		    "ASLR is opt-in, and executable does not have ASLR enabled\n");
-		pax_ulog_aslr(NULL,
-		    "ASLR is opt-in, and executable does not have ASLR enabled\n");
-		return (false);
-	}
+	if ((flags & PAX_NOTE_ASLR) == PAX_NOTE_ASLR)
+		return (true);
 
-	if ((status == PAX_FEATURE_OPTOUT) && (flags & PAX_NOTE_NOASLR) != 0) {
-		/*
-		 * indicate option inconsistencies in dmesg and in user terminal
-		 */
-		pax_log_aslr(proc, __func__,
-		    "ASLR is opt-out, and executable explicitly disabled ASLR\n");
-		pax_ulog_aslr(NULL,
-		    "ASLR is opt-out, and executable explicitly disabled ASLR\n");
+	if ((flags & PAX_NOTE_NOASLR) == PAX_NOTE_NOASLR)
 		return (false);
-	}
 
 	return (true);
 }

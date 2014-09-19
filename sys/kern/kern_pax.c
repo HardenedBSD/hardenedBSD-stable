@@ -140,6 +140,12 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 	}
 
 #ifdef PAX_ASLR
+		pr = pax_get_prison(imgp->proc);
+		if (pr != NULL)
+			status = pr->pr_pax_aslr_status;
+		else
+			status = pax_aslr_status;
+
 		if (status == PAX_FEATURE_DISABLED) {
 			flags &= ~PAX_NOTE_ASLR;
 			flags |= PAX_NOTE_NOASLR;
@@ -149,12 +155,6 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 			flags |= PAX_NOTE_ASLR;
 			flags &= ~PAX_NOTE_NOASLR;
 		}
-
-		pr = pax_get_prison(imgp->proc);
-		if (pr != NULL)
-			status = pr->pr_pax_aslr_status;
-		else
-			status = pax_aslr_status;
 
 		if (status == PAX_FEATURE_OPTIN) {
 			if (mode & MBI_FORCE_ASLR_ENABLED) {
