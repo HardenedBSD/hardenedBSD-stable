@@ -217,7 +217,6 @@ extern int pax_map32_enabled_global;
 extern int hardening_log_log;
 extern int hardening_log_ulog;
 
-#define ELF_NOTE_TYPE_PAX_TAG   3
 #define PAX_NOTE_MPROTECT   0x01
 #define PAX_NOTE_NOMPROTECT 0x02
 #define PAX_NOTE_GUARD      0x04
