@@ -281,28 +281,77 @@ sysctl_pax_segvguard_debug(SYSCTL_HANDLER_ARGS)
 }
 #endif
 
+void
+pax_segvguard_parse_flags(imgp, mode)
+{
+	struct prison *pr;
+	u_int status;
+
+	pr = pax_get_prison(imgp->proc);
+	if (pr != NULL)
+		status = pr->pr_pax_segvguard_status;
+	else
+		status = pax_segvguard_status;
+
+	if (status == PAX_FEATURE_DISABLED) {
+		flags &= ~PAX_NOTE_SEGVGUARD;
+		flags |= PAX_NOTE_NOSEGVGUARD;
+	}
+
+	if (status == PAX_FEATURE_FORCE_ENABLED) {
+		flags |= PAX_NOTE_SEGVGUARD;
+		flags &= ~PAX_NOTE_NOSEGVGUARD;
+	}
+
+	if (status == PAX_FEATURE_OPTIN) {
+		if (mode & MBI_FORCE_SEGVGUARD_ENABLED) {
+			flags |= PAX_NOTE_SEGVGUARD;
+			flags &= ~PAX_NOTE_NOSEGVGUARD;
+		} else {
+			flags &= ~PAX_NOTE_SEGVGUARD;
+			flags |= PAX_NOTE_NOSEGVGUARD;
+			pax_log_segvguard(proc, __func__,
+			    "SEGVGUARD is opt-in, and executable don't have "
+			    "enabled SEGVGUARD!\n");
+			pax_ulog_segvguard(NULL,
+			    "SEGVGUARD is opt-in, and executable don't have "
+			    "enabled SEGVGUARD!\n");
+		}
+	}
+
+	if (status == PAX_FEATURE_OPTOUT) {
+		if (mode & MBI_FORCE_SEGVGUARD_DISABLED) {
+			flags &= ~PAX_NOTE_SEGVGUARD;
+			flags |= PAX_NOTE_NOSEGVGUARD;
+			pax_log_segvguard(proc, __func__,
+			    "SEGVGUARD is opt-out, and executable explicitly "
+			    "disabled SEGVGUARD!\n");
+			pax_ulog_segvguard(NULL,
+			    "SEGVGUARD is opt-out, and executable explicitly "
+			    "disabled SEGVGUARD!\n");
+		} else {
+			flags |= PAX_NOTE_SEGVGUARD;
+			flags &= ~PAX_NOTE_NOSEGVGUARD;
+		}
+	}
+}
+
 
 static bool
 pax_segvguard_active(struct vnode *vn, struct proc *proc)
 {
-	int status;
-	struct prison *pr;
 	struct vattr vap;
-	uint32_t flags;
+	u_int flags;
 	bool ret;
 
 	if (proc == NULL)
 		return (true);
 
-	pr = pax_get_prison(proc);
-
-	status = (pr != NULL) ? pr->pr_pax_segvguard_status : pax_segvguard_status;
-
 	ret = pax_get_flags(proc, &flags);
 	if(ret != 0)
-	/*
-	 * invalid flags, we should force SEGVGUARD
-	 */
+		/*
+		 * invalid flags, we should force SEGVGUARD
+		 */
 		return (true);
 
 	/* lock? */
