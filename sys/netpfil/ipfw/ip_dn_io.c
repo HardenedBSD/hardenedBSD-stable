@@ -751,15 +751,10 @@ dummynet_send(struct mbuf *m)
 			/* extract the dummynet info, rename the tag
 			 * to carry reinject info.
 			 */
-			if (pkt->dn_dir == (DIR_OUT | PROTO_LAYER2) &&
-				pkt->ifp == NULL) {
-				dst = DIR_DROP;
-			} else {
-				dst = pkt->dn_dir;
-				ifp = pkt->ifp;
-				tag->m_tag_cookie = MTAG_IPFW_RULE;
-				tag->m_tag_id = 0;
-			}
+			dst = pkt->dn_dir;
+			ifp = pkt->ifp;
+			tag->m_tag_cookie = MTAG_IPFW_RULE;
+			tag->m_tag_id = 0;
 		}
 
 		switch (dst) {
