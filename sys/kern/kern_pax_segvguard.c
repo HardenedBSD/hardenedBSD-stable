@@ -343,14 +343,17 @@ pax_segvguard_parse_flags(struct image_params *imgp, u_int mode)
 
 
 static bool
-pax_segvguard_active(struct vnode *vn, struct proc *proc)
+pax_segvguard_active(struct proc *proc)
 {
 	struct vattr vap;
+	struct vnode *vn;
 	u_int flags;
 	bool ret;
 
 	if (proc == NULL)
 		return (true);
+
+	vn = proc->p_textvp;
 
 	ret = pax_get_flags(proc, &flags);
 	if(ret != 0)
@@ -466,18 +469,20 @@ pax_segvguard_remove(struct thread *td, struct vnode *vn)
 }
 
 int
-pax_segvguard_segfault(struct thread *td, struct vnode *v, const char *name)
+pax_segvguard_segfault(struct thread *td, const char *name)
 {
 	struct pax_segvguard_entry *se;
 	struct prison *pr;
+	struct vnode *v;
 	sbintime_t sbt;
 
+	v = td->td_proc->p_textvp;
 	if (v == NULL)
 		return (EFAULT);
 
 	pr = pax_get_prison(td->td_proc);
 
-	if (pax_segvguard_active(v, td->td_proc) == false)
+	if (pax_segvguard_active(td->td_proc) == false)
 		return (0);
 
 	sbt = sbinuptime();
@@ -530,7 +535,7 @@ pax_segvguard_check(struct thread *td, struct vnode *v, const char *name)
 	if (v == NULL)
 		return (EFAULT);
 
-	if (pax_segvguard_active(v, td->td_proc) == false)
+	if (pax_segvguard_active(td->td_proc) == false)
 		return (0);
 
 	sbt = sbinuptime();

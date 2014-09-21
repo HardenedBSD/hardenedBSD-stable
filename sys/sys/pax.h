@@ -273,7 +273,7 @@ void pax_ulog_aslr(const char *func, const char *fmt, ...);
  * SegvGuard related functions
  */
 int pax_segvguard_check(struct thread *, struct vnode *, const char *);
-int pax_segvguard_segfault(struct thread *, struct vnode *, const char *);
+int pax_segvguard_segfault(struct thread *, const char *);
 u_int pax_segvguard_setup_flags(struct image_params *imgp, u_int mode);
 void pax_segvguard_remove(struct thread *td, struct vnode *vn);
 
