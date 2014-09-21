@@ -398,8 +398,8 @@ pax_segvguard_update_flags_if_setuid(struct image_params *imgp, struct vnode *vn
 		}
 
 		if ((vap.va_mode & (S_ISUID | S_ISGID)) != 0) {
-			*flags |= PAX_NOTE_SEGVGUARD;
-			*flags &= ~PAX_NOTE_NOSEGVGUARD;
+			flags |= PAX_NOTE_SEGVGUARD;
+			flags &= ~PAX_NOTE_NOSEGVGUARD;
 
 			imgp->proc->p_pax = flags;
 
