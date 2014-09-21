@@ -702,7 +702,7 @@ pax_aslr_stack(struct thread *td, uintptr_t *addr)
 }
 
 u_int
-pax_aslr_setup(struct image_params *imgp, u_int mode)
+pax_aslr_setup_flags(struct image_params *imgp, u_int mode)
 {
 	struct prison *pr;
 	u_int flags, status;
@@ -719,11 +719,15 @@ pax_aslr_setup(struct image_params *imgp, u_int mode)
 	if (status == PAX_FEATURE_DISABLED) {
 		flags &= ~PAX_NOTE_ASLR;
 		flags |= PAX_NOTE_NOASLR;
+
+		return (flags);
 	}
 
 	if (status == PAX_FEATURE_FORCE_ENABLED) {
 		flags |= PAX_NOTE_ASLR;
 		flags &= ~PAX_NOTE_NOASLR;
+
+		return (flags);
 	}
 
 	if (status == PAX_FEATURE_OPTIN) {
@@ -738,6 +742,8 @@ pax_aslr_setup(struct image_params *imgp, u_int mode)
 			pax_ulog_aslr(NULL,
 	"ASLR is opt-in, and executable don't have enabled ASLR!\n");
 		}
+
+		return (flags);
 	}
 
 	if (status == PAX_FEATURE_OPTOUT) {
@@ -752,7 +758,15 @@ pax_aslr_setup(struct image_params *imgp, u_int mode)
 			flags |= PAX_NOTE_ASLR;
 			flags &= ~PAX_NOTE_NOASLR;
 		}
+
+		return (flags);
 	}
+
+	/*
+	 * unknown status, force ASLR
+	 */
+	flags |= PAX_NOTE_ASLR;
+	flags &= ~PAX_NOTE_NOASLR;
 
 	return (flags);
 }
