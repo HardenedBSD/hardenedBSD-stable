@@ -409,11 +409,17 @@ pax_segvguard_update_flags_if_setuid(struct image_params *imgp, struct vnode *vn
 			return (ret);
 		}
 
+		CTR3(KTR_PAX, "%s: pid = %d p_pax = %x - before update",
+		    proc->p_pid,__func__, flags);
+
 		if ((vap.va_mode & (S_ISUID | S_ISGID)) != 0) {
 			flags |= PAX_NOTE_SEGVGUARD;
 			flags &= ~PAX_NOTE_NOSEGVGUARD;
 
 			imgp->proc->p_pax = flags;
+
+			CTR3(KTR_PAX, "%s: pid = %d p_pax = %x - after update",
+			    proc->p_pid,__func__, flags);
 
 			return (ret);
 		}
