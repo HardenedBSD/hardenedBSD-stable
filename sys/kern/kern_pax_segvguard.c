@@ -439,6 +439,9 @@ pax_segvguard_active(struct proc *proc)
 		 */
 		return (true);
 
+	CTR3(KTR_PAX, "%s: pid = %d p_pax = %x",
+	    proc->p_pid,__func__, flags);
+
 	if ((flags & PAX_NOTE_SEGVGUARD) == PAX_NOTE_SEGVGUARD)
 		return (true);
 
