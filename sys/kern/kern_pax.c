@@ -188,7 +188,7 @@ pax_init_prison(struct prison *pr)
 	if (pr->pr_pax_set)
 		return;
 
-	mtx_lock(&(pr->pr_mtx));
+	prison_lock(pr);
 
 	if (pax_aslr_debug)
 		uprintf("[PaX ASLR] %s: Setting prison %s ASLR variables\n",
@@ -223,5 +223,5 @@ pax_init_prison(struct prison *pr)
 
 	pr->pr_pax_set = 1;
 
-	mtx_unlock(&(pr->pr_mtx));
+	prison_unlock(pr);
 }
