@@ -53,6 +53,11 @@ struct vm_offset_t;
 
 extern const char *pax_status_str[];
 
+#define PAX_FEATURE_SIMPLE_DISABLED	0
+#define PAX_FEATURE_SIMPLE_ENABLED	1
+
+extern const char *pax_status_simple_str[];
+
 #ifndef PAX_ASLR_DELTA
 #define	PAX_ASLR_DELTA(delta, lsb, len)	\
 	(((delta) & ((1UL << (len)) - 1)) << (lsb))

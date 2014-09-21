@@ -82,6 +82,11 @@ const char *pax_status_str[] = {
 	[PAX_FEATURE_UNKNOWN_STATUS] = "UNKNOWN -> changed to \"force enabled\""
 };
 
+const char *pax_status_simple_str[] = {
+	[PAX_FEATURE_SIMPLE_DISABLED] = "disabled",
+	[PAX_FEATURE_SIMPLE_ENABLED] = "enabled"
+};
+
 struct prison *
 pax_get_prison(struct proc *proc)
 {
