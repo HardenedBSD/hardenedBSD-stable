@@ -324,27 +324,6 @@ pax_segvguard_parse_flags(struct image_params *imgp, u_int mode)
 	}
 
 	if (status == PAX_FEATURE_OPTIN) {
-		struct vattr vap;
-		struct vnode *vn;
-		int ret;
-
-		vn = imgp->proc->p_textvp;
-		/* lock? */
-		ret = VOP_GETATTR(vn, &vap, proc->p_ucred);
-		if (ret != 0) {
-			flags |= PAX_NOTE_SEGVGUARD;
-			flags &= ~PAX_NOTE_NOSEGVGUARD;
-
-			return (flags);
-		}
-
-		if ((vap.va_mode & (S_ISUID | S_ISGID)) != 0) {
-			flags |= PAX_NOTE_SEGVGUARD;
-			flags &= ~PAX_NOTE_NOSEGVGUARD;
-
-			return (flags);
-		}
-
 		if (mode & MBI_SEGVGUARD_ENABLED) {
 			flags |= PAX_NOTE_SEGVGUARD;
 			flags &= ~PAX_NOTE_NOSEGVGUARD;
@@ -387,6 +366,48 @@ pax_segvguard_parse_flags(struct image_params *imgp, u_int mode)
 	flags &= ~PAX_NOTE_NOSEGVGUARD;
 
 	return (flags);
+}
+
+int
+pax_segvguard_update_flags_if_setuid(struct image_params *imgp, struct vnode *vn)
+{
+	int ret;
+
+	ret = 0;
+
+	if (status == PAX_FEATURE_OPTIN) {
+		u_int flags;
+		struct vattr vap;
+
+		flags = imgp->proc->p_pax;
+
+		/* lock? */
+		ret = VOP_GETATTR(vn, &vap, proc->p_ucred);
+		if (ret != 0) {
+			flags |= PAX_NOTE_SEGVGUARD;
+			flags &= ~PAX_NOTE_NOSEGVGUARD;
+			/*
+			 * XXXOP: alert the user:
+			 *  pax_log_log
+			 *  pax_log_ulog
+			 */
+
+			imgp->proc->p_pax = flags;
+
+			return (ret);
+		}
+
+		if ((vap.va_mode & (S_ISUID | S_ISGID)) != 0) {
+			*flags |= PAX_NOTE_SEGVGUARD;
+			*flags &= ~PAX_NOTE_NOSEGVGUARD;
+
+			imgp->proc->p_pax = flags;
+
+			return (ret);
+		}
+	}
+
+	return (ret);
 }
 
 

@@ -468,6 +468,17 @@ interpret:
 		imgp->vp = binvp;
 	}
 
+#ifdef PAX_SEGVGUARD
+	/*
+	 * XXXOP: check return value
+	 */
+	(void)pax_segvguard_update_flags_if_setuid(imgp, imgp->vp);
+#if 0
+	if (error)
+		goto exec_fail_dealloc;
+#endif
+#endif
+
 	/*
 	 * Check file permissions (also 'opens' file)
 	 */
