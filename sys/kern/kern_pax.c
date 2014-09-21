@@ -159,6 +159,10 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 
 	flags = flags_aslr | flags_segvuard | flags_hardening;
 
+
+	CTR2(KTR_PAX, "%s : flags: %x mode %x",
+	    flags, mode);
+
 	if (imgp != NULL) {
 		imgp->pax_flags = flags;
 		if (imgp->proc != NULL) {
@@ -196,7 +200,7 @@ pax_init_prison(struct prison *pr)
 	prison_lock(pr);
 
 	if (pax_aslr_debug)
-		uprintf("[PaX ASLR] %s: Setting prison %s ASLR variables\n",
+		uprintf("[PaX] %s: Setting prison %s PaX variables\n",
 		    __func__, pr->pr_name);
 
 #ifdef PAX_ASLR
