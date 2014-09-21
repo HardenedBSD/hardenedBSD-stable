@@ -268,6 +268,8 @@ void pax_aslr_stack(struct thread *td, uintptr_t *addr);
 int hbsd_uprintf(const char *fmt, ...);
 void pax_log_aslr(struct proc *, const char *func, const char *fmt, ...);
 void pax_ulog_aslr(const char *func, const char *fmt, ...);
+void pax_log_segvguard(struct proc *, const char *func, const char *fmt, ...);
+void pax_ulog_segvguard(const char *func, const char *fmt, ...);
 
 /*
  * SegvGuard related functions
