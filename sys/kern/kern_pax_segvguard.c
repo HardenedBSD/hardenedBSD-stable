@@ -267,6 +267,7 @@ sysctl_pax_segvguard_maxcrashes(SYSCTL_HANDLER_ARGS)
 		prison_lock(pr);
 		pr->pr_pax_segvguard_maxcrashes = val;
 		prison_unlock(pr);
+	}
 
 	return (0);
 }
@@ -291,13 +292,14 @@ sysctl_pax_segvguard_debug(SYSCTL_HANDLER_ARGS)
 		prison_lock(pr);
 		pr->pr_pax_segvguard_debug = val;
 		prison_unlock(pr);
+	}
 
 	return (0);
 }
 #endif
 
 u_int
-pax_segvguard_parse_flags(struct image_params *imgp, u_int mode)
+pax_segvguard_setup_flags(struct image_params *imgp, u_int mode)
 {
 	struct prison *pr;
 	u_int flags, status;
@@ -332,7 +334,7 @@ pax_segvguard_parse_flags(struct image_params *imgp, u_int mode)
 		} else {
 			flags &= ~PAX_NOTE_SEGVGUARD;
 			flags |= PAX_NOTE_NOSEGVGUARD;
-			pax_log_segvguard(proc, __func__,
+			pax_log_segvguard(imgp->proc, __func__,
 			    "SEGVGUARD is opt-in, and executable don't have "
 			    "enabled SEGVGUARD!\n");
 			pax_ulog_segvguard(NULL,
@@ -347,7 +349,7 @@ pax_segvguard_parse_flags(struct image_params *imgp, u_int mode)
 		if (mode & MBI_SEGVGUARD_DISABLED) {
 			flags &= ~PAX_NOTE_SEGVGUARD;
 			flags |= PAX_NOTE_NOSEGVGUARD;
-			pax_log_segvguard(proc, __func__,
+			pax_log_segvguard(imgp->proc, __func__,
 			    "SEGVGUARD is opt-out, and executable explicitly "
 			    "disabled SEGVGUARD!\n");
 			pax_ulog_segvguard(NULL,
@@ -374,8 +376,16 @@ int
 pax_segvguard_update_flags_if_setuid(struct image_params *imgp, struct vnode *vn)
 {
 	int ret;
+	struct prison *pr;
+	u_int status;
 
 	ret = 0;
+
+	pr = pax_get_prison(imgp->proc);
+	if (pr != NULL)
+		status = pr->pr_pax_segvguard_status;
+	else
+		status = pax_segvguard_status;
 
 	if (status == PAX_FEATURE_OPTIN) {
 		u_int flags;
@@ -384,7 +394,7 @@ pax_segvguard_update_flags_if_setuid(struct image_params *imgp, struct vnode *vn
 		flags = imgp->proc->p_pax;
 
 		/* lock? */
-		ret = VOP_GETATTR(vn, &vap, proc->p_ucred);
+		ret = VOP_GETATTR(vn, &vap, imgp->proc->p_ucred);
 		if (ret != 0) {
 			flags |= PAX_NOTE_SEGVGUARD;
 			flags &= ~PAX_NOTE_NOSEGVGUARD;
