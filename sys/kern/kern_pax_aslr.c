@@ -700,3 +700,59 @@ pax_aslr_stack(struct thread *td, uintptr_t *addr)
 	CTR3(KTR_PAX, "%s: orig_addr=%p, new_addr=%p\n",
 	    __func__, (void *)orig_addr, (void *)*addr);
 }
+
+u_int
+pax_aslr_setup(struct image_params *imgp, u_int mode)
+{
+	struct prison *pr;
+	u_int flags, status;
+
+	flags = 0;
+	status = 0;
+
+	pr = pax_get_prison(imgp->proc);
+	if (pr != NULL)
+		status = pr->pr_pax_aslr_status;
+	else
+		status = pax_aslr_status;
+
+	if (status == PAX_FEATURE_DISABLED) {
+		flags &= ~PAX_NOTE_ASLR;
+		flags |= PAX_NOTE_NOASLR;
+	}
+
+	if (status == PAX_FEATURE_FORCE_ENABLED) {
+		flags |= PAX_NOTE_ASLR;
+		flags &= ~PAX_NOTE_NOASLR;
+	}
+
+	if (status == PAX_FEATURE_OPTIN) {
+		if (mode & MBI_FORCE_ASLR_ENABLED) {
+			flags |= PAX_NOTE_ASLR;
+			flags &= ~PAX_NOTE_NOASLR;
+		} else {
+			flags &= ~PAX_NOTE_ASLR;
+			flags |= PAX_NOTE_NOASLR;
+			pax_log_aslr(proc, __func__,
+	"ASLR is opt-in, and executable don't have enabled ASLR!\n");
+			pax_ulog_aslr(NULL,
+	"ASLR is opt-in, and executable don't have enabled ASLR!\n");
+		}
+	}
+
+	if (status == PAX_FEATURE_OPTOUT) {
+		if (mode & MBI_FORCE_ASLR_DISABLED) {
+			flags &= ~PAX_NOTE_ASLR;
+			flags |= PAX_NOTE_NOASLR;
+			pax_log_aslr(proc, __func__,
+	 "ASLR is opt-out, and executable explicitly disabled ASLR!\n");
+			pax_ulog_aslr(NULL,
+	 "ASLR is opt-out, and executable explicitly disabled ASLR!\n");
+		} else {
+			flags |= PAX_NOTE_ASLR;
+			flags &= ~PAX_NOTE_NOASLR;
+		}
+	}
+
+	return (flags);
+}

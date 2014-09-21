@@ -254,6 +254,7 @@ void _pax_aslr_init32(struct vmspace *vm, struct proc *p);
 void pax_aslr_init(struct image_params *imgp);
 void pax_aslr_mmap(struct proc *p, vm_offset_t *addr, 
     vm_offset_t orig_addr, int flags);
+u_int pax_aslr_setup_flags(struct image_params *imgp, u_int mode);
 void pax_aslr_stack(struct thread *td, uintptr_t *addr);
 
 /*
@@ -268,6 +269,7 @@ void pax_ulog_aslr(const char *func, const char *fmt, ...);
  */
 int pax_segvguard_check(struct thread *, struct vnode *, const char *);
 int pax_segvguard_segfault(struct thread *, struct vnode *, const char *);
+u_int pax_segvguard_setup_flags(struct image_params *imgp, u_int mode);
 void pax_segvguard_remove(struct thread *td, struct vnode *vn);
 
 /*

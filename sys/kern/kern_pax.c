@@ -107,9 +107,10 @@ pax_get_flags(struct proc *proc, uint32_t *flags)
 int
 pax_elf(struct image_params *imgp, uint32_t mode)
 {
-	struct prison *pr;
-	u_int flags = 0;
-	u_int status = 0;
+	u_int flags, flags_aslr, flags_segvuard, flags_hardening;
+
+	flags = 0;
+	flags_aslr = flags_segvuard = flags_hardening = 0;
 
 	if ((mode & MBI_ALLPAX) != MBI_ALLPAX) {
 		if (mode & MBI_ASLR_ENABLED)
@@ -140,54 +141,18 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 	}
 
 #ifdef PAX_ASLR
-		pr = pax_get_prison(imgp->proc);
-		if (pr != NULL)
-			status = pr->pr_pax_aslr_status;
-		else
-			status = pax_aslr_status;
-
-		if (status == PAX_FEATURE_DISABLED) {
-			flags &= ~PAX_NOTE_ASLR;
-			flags |= PAX_NOTE_NOASLR;
-		}
-
-		if (status == PAX_FEATURE_FORCE_ENABLED) {
-			flags |= PAX_NOTE_ASLR;
-			flags &= ~PAX_NOTE_NOASLR;
-		}
-
-		if (status == PAX_FEATURE_OPTIN) {
-			if (mode & MBI_FORCE_ASLR_ENABLED) {
-				flags |= PAX_NOTE_ASLR;
-				flags &= ~PAX_NOTE_NOASLR;
-			} else {
-				flags &= ~PAX_NOTE_ASLR;
-				flags |= PAX_NOTE_NOASLR;
-				pax_log_aslr(proc, __func__,
-		"ASLR is opt-in, and executable don't have enabled ASLR!\n");
-				pax_ulog_aslr(NULL,
-		"ASLR is opt-in, and executable don't have enabled ASLR!\n");
-			}
-		}
-
-		if (status == PAX_FEATURE_OPTOUT) {
-			if (mode & MBI_FORCE_ASLR_DISABLED) {
-				flags &= ~PAX_NOTE_ASLR;
-				flags |= PAX_NOTE_NOASLR;
-				pax_log_aslr(proc, __func__,
-		 "ASLR is opt-out, and executable explicitly disabled ASLR!\n");
-				pax_ulog_aslr(NULL,
-		 "ASLR is opt-out, and executable explicitly disabled ASLR!\n");
-			} else {
-				flags |= PAX_NOTE_ASLR;
-				flags &= ~PAX_NOTE_NOASLR;
-			}
-		}
+	flags_aslr = pax_aslr_setup_flags(imgp, mode);
 #endif
 
 #ifdef PAX_SEGVGUARD
-	pax_segvguard_parse_flags(imgp, mode);
+	flags_segvuard = pax_segvguard_setup_flags(imgp, mode);
 #endif
+
+#ifdef PAX_HARDENING_noyet
+	flags_segvuard = pax_hardening_setup_flags(imgp, mode);
+#endif
+
+	flags = flags_aslr | flags_segvuard | flags_hardening;
 
 	if (imgp != NULL) {
 		imgp->pax_flags = flags;

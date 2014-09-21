@@ -281,11 +281,14 @@ sysctl_pax_segvguard_debug(SYSCTL_HANDLER_ARGS)
 }
 #endif
 
-void
-pax_segvguard_parse_flags(imgp, mode)
+u_int
+pax_segvguard_parse_flags(struct image_params *imgp, u_int mode)
 {
 	struct prison *pr;
-	u_int status;
+	u_int flags, status;
+
+	flags = 0;
+	status = 0;
 
 	pr = pax_get_prison(imgp->proc);
 	if (pr != NULL)
@@ -334,6 +337,8 @@ pax_segvguard_parse_flags(imgp, mode)
 			flags &= ~PAX_NOTE_NOSEGVGUARD;
 		}
 	}
+
+	return (flags);
 }
 
 
