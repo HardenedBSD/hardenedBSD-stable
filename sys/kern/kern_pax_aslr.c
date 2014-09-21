@@ -46,6 +46,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/proc.h>
 #include <sys/elf_common.h>
 #include <sys/mount.h>
+#include <sys/pax.h>
 #include <sys/sysctl.h>
 #include <sys/vnode.h>
 #include <sys/queue.h>
@@ -63,12 +64,12 @@ __FBSDID("$FreeBSD$");
 
 #include <machine/elf.h>
 
-#include <sys/pax.h>
+#include <security/mac_bsdextended/mac_bsdextended.h>
 
 FEATURE(aslr, "Address Space Layout Randomization.");
 
 int pax_aslr_status = PAX_FEATURE_OPTOUT;
-int pax_aslr_debug = 0;
+int pax_aslr_debug = PAX_FEATURE_SIMPLE_DISABLED;
 
 #ifdef PAX_ASLR_MAX_SEC
 int pax_aslr_mmap_len = PAX_ASLR_DELTA_MMAP_MAX_LEN;

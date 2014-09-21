@@ -46,6 +46,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/proc.h>
 #include <sys/elf_common.h>
 #include <sys/mount.h>
+#include <sys/pax.h>
 #include <sys/sysctl.h>
 #include <sys/vnode.h>
 #include <sys/queue.h>
@@ -66,7 +67,8 @@ __FBSDID("$FreeBSD$");
 
 #include <machine/elf.h>
 
-#include <sys/pax.h>
+#include <security/mac_bsdextended/mac_bsdextended.h>
+
 
 FEATURE(segvguard, "Segmentation fault protection.");
 
