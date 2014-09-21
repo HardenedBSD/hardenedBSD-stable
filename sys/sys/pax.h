@@ -217,12 +217,12 @@ extern int pax_map32_enabled_global;
 extern int hardening_log_log;
 extern int hardening_log_ulog;
 
-#define PAX_NOTE_MPROTECT   0x01
-#define PAX_NOTE_NOMPROTECT 0x02
-#define PAX_NOTE_GUARD      0x04
-#define PAX_NOTE_NOGUARD    0x08
-#define PAX_NOTE_ASLR       0x10
-#define PAX_NOTE_NOASLR     0x20
+#define PAX_NOTE_MPROTECT	0x01
+#define PAX_NOTE_NOMPROTECT	0x02
+#define PAX_NOTE_GUARD		0x04
+#define PAX_NOTE_NOGUARD	0x08
+#define PAX_NOTE_ASLR		0x10
+#define PAX_NOTE_NOASLR		0x20
 
 #define PAX_NOTE_ALL_ENABLED	\
 			(PAX_NOTE_MPROTECT | PAX_NOTE_GUARD | PAX_NOTE_ASLR)
@@ -233,12 +233,21 @@ extern int hardening_log_ulog;
 #define HARDENING_LOG_LOG		0
 #define HARDENING_LOG_ULOG		0
 
-#define PAX_SEGVGUARD_EXPIRY        (2 * 60)
-#define PAX_SEGVGUARD_SUSPENSION    (10 * 60)
-#define PAX_SEGVGUARD_MAXCRASHES    5
+#define PAX_SEGVGUARD_EXPIRY		(2 * 60)
+#define PAX_SEGVGUARD_SUSPENSION	(10 * 60)
+#define PAX_SEGVGUARD_MAXCRASHES	5
 
-void pax_init_prison(struct prison *pr);
+/*
+ * generic pax functions
+ */
+int pax_elf(struct image_params *, uint32_t);
 int pax_get_flags(struct proc *proc, uint32_t *flags);
+struct prison *pax_get_prison(struct proc *proc);
+void pax_init_prison(struct prison *pr);
+
+/*
+ * ASLR related functions
+ */
 bool pax_aslr_active(struct proc *proc);
 void _pax_aslr_init(struct vmspace *vm, struct proc *p);
 void _pax_aslr_init32(struct vmspace *vm, struct proc *p);
@@ -246,18 +255,25 @@ void pax_aslr_init(struct image_params *imgp);
 void pax_aslr_mmap(struct proc *p, vm_offset_t *addr, 
     vm_offset_t orig_addr, int flags);
 void pax_aslr_stack(struct thread *td, uintptr_t *addr);
-struct prison *pax_get_prison(struct proc *proc);
-int pax_elf(struct image_params *, uint32_t);
-int pax_map32_enabled(struct thread *td);
 
+/*
+ * Log related functions
+ */
+int hbsd_uprintf(const char *fmt, ...);
 void pax_log_aslr(struct proc *, const char *func, const char *fmt, ...);
 void pax_ulog_aslr(const char *func, const char *fmt, ...);
 
+/*
+ * SegvGuard related functions
+ */
 int pax_segvguard_check(struct thread *, struct vnode *, const char *);
 int pax_segvguard_segfault(struct thread *, struct vnode *, const char *);
 void pax_segvguard_remove(struct thread *td, struct vnode *vn);
 
-int hbsd_uprintf(const char *fmt, ...);
+/*
+ * Hardening related functions
+ */
+int pax_map32_enabled(struct thread *td);
 
 #endif /* _KERNEL */
 
