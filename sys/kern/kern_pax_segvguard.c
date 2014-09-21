@@ -71,7 +71,7 @@ __FBSDID("$FreeBSD$");
 FEATURE(segvguard, "Segmentation fault protection.");
 
 int pax_segvguard_status = PAX_FEATURE_OPTIN;
-int pax_segvguard_debug = 0;
+int pax_segvguard_debug = PAX_FEATURE_SIMPLE_DISABLED;
 int pax_segvguard_expiry = PAX_SEGVGUARD_EXPIRY;
 int pax_segvguard_suspension = PAX_SEGVGUARD_SUSPENSION;
 int pax_segvguard_maxcrashes = PAX_SEGVGUARD_MAXCRASHES;
@@ -612,7 +612,17 @@ pax_segvguard_sysinit(void)
 	printf("[PAX SEGVGUARD] expiry: %d sec\n", pax_segvguard_expiry);
 	printf("[PAX SEGVGUARD] suspension: %d sec\n", pax_segvguard_suspension);
 	printf("[PAX SEGVGUARD] maxcrahes: %d\n", pax_segvguard_maxcrashes);
-	printf("[PAX SEGVGUARD] debug: %d\n", pax_segvguard_debug);
+
+	switch (pax_segvguard_status) {
+	case PAX_FEATURE_SIMPLE_DISABLED:
+	case PAX_FEATURE_SIMPLE_ENABLED:
+		break;
+	default:
+		printf("[PAX SEGVGUARD] WARNING, invalid settings in loader.conf!"
+		    " (pax_segvguard_debug = %d)\n", pax_segvguard_debug);
+		pax_segvguard_debug = PAX_FEATURE_SIMPLE_ENABLED;
+	}
+	printf("[PAX SEGVGUARD] debug: %s\n", pax_status_simple_str[pax_segvguard_debug]);
 
 	mtx_init(&segvguard_mtx, "segvguard mutex", NULL, MTX_DEF);
 
