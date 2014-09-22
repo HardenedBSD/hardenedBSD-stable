@@ -125,8 +125,29 @@ SYSCTL_PROC(_hardening_log, OID_AUTO, ulog,
 static void
 hardening_log_sysinit(void)
 {
-	printf("[HARDENING LOG] logging to system: %d\n", hardening_log_log);
-	printf("[HARDENING LOG] logging to user: %d\n", hardening_log_ulog);
+	switch (hardening_log_log) {
+	case PAX_FEATURE_SIMPLE_DISABLED:
+	case PAX_FEATURE_SIMPLE_ENABLED:
+		break;
+	default:
+		printf("[HARDENING LOG] WARNING, invalid settings in loader.conf!"
+		    " (hardening.log.log = %d)\n", hardening_log_log);
+		hardening_log_log = PAX_FEATURE_SIMPLE_ENABLED;
+	}
+	printf("[HARDENING LOG] logging to system: %s\n",
+	    pax_status_simple_str[hardening_log_log]);
+
+	switch (hardening_log_ulog) {
+	case PAX_FEATURE_SIMPLE_DISABLED:
+	case PAX_FEATURE_SIMPLE_ENABLED:
+		break;
+	default:
+		printf("[HARDENING LOG] WARNING, invalid settings in loader.conf!"
+		    " (hardening.log.ulog = %d)\n", hardening_log_ulog);
+		hardening_log_ulog = PAX_FEATURE_SIMPLE_ENABLED;
+	}
+	printf("[HARDENING LOG] logging to user: %s\n",
+	    pax_status_simple_str[hardening_log_ulog]);
 }
 SYSINIT(hardening_log, SI_SUB_PAX, SI_ORDER_SECOND, hardening_log_sysinit, NULL);
 
@@ -143,8 +164,8 @@ sysctl_hardening_log_log(SYSCTL_HANDLER_ARGS)
 		return (err);
 
 	switch (val) {
-	case	0:
-	case	1:
+	case	PAX_FEATURE_SIMPLE_DISABLED :
+	case	PAX_FEATURE_SIMPLE_ENABLED :
 		break;
 	default:
 		return (EINVAL);
@@ -168,8 +189,8 @@ sysctl_hardening_log_ulog(SYSCTL_HANDLER_ARGS)
 		return (err);
 
 	switch (val) {
-	case	0:
-	case	1:
+	case	PAX_FEATURE_SIMPLE_DISABLED :
+	case	PAX_FEATURE_SIMPLE_ENABLED :
 		break;
 	default:
 		return (EINVAL);
@@ -183,3 +204,4 @@ sysctl_hardening_log_ulog(SYSCTL_HANDLER_ARGS)
 #endif
 
 __HARDENING_LOG_TEMPLATE(PAX, ASLR, pax, aslr)
+__HARDENING_LOG_TEMPLATE(PAX, SEGVGUARD, pax, segvguard)

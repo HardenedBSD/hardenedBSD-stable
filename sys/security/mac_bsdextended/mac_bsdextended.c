@@ -433,9 +433,10 @@ ugidfw_rulecheck(struct mac_bsdextended_rule *rule,
 		return (EACCES);
 	}
 
-#if defined(PAX_ASLR) || defined(PAX_SEGVGUARD)
+#if defined(PAX_ASLR) || defined(PAX_SEGVGUARD) || defined(PAX_MPROTECT)
 	if (imgp != NULL)
-		pax_elf(imgp, rule->mbr_pax);
+		if (pax_elf(imgp, rule->mbr_pax) != 0)
+			return (EACCES);
 #endif
 
 #ifdef PTRACE_HARDENING

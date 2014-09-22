@@ -2943,7 +2943,7 @@ sigexit(td, sig)
 			    sig &~ WCOREFLAG,
 			    sig & WCOREFLAG ? " (core dumped)" : "");
 #ifdef PAX_SEGVGUARD
-		pax_segvguard_segfault(curthread, curthread->td_proc->p_textvp, p->p_comm);
+		pax_segvguard_segfault(curthread, p->p_comm);
 #endif
 	} else {
 		PROC_UNLOCK(p);
