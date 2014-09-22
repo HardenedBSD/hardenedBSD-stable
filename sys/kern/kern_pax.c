@@ -160,8 +160,8 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 	flags = flags_aslr | flags_segvuard | flags_hardening;
 
 
-	CTR2(KTR_PAX, "%s : flags: %x mode %x",
-	    flags, mode);
+	CTR3(KTR_PAX, "%s : flags = %x mode = %x",
+	    __func__, flags, mode);
 
 	if (imgp != NULL) {
 		imgp->pax_flags = flags;
