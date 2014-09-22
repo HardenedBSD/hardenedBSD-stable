@@ -518,7 +518,7 @@ pax_aslr_active(struct proc *proc)
 		return (true);
 
 	CTR3(KTR_PAX, "%s: pid = %d p_pax = %x",
-	    proc->p_pid,__func__, flags);
+	    __func__, proc->p_pid, flags);
 
 	if ((flags & PAX_NOTE_ASLR) == PAX_NOTE_ASLR)
 		return (true);
