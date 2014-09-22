@@ -5308,12 +5308,14 @@ ctl_scsi_release(struct ctl_scsiio *ctsio)
 	int length, longid, thirdparty_id, resv_id;
 	struct ctl_softc *ctl_softc;
 	struct ctl_lun *lun;
+	uint32_t residx;
 
 	length = 0;
 	resv_id = 0;
 
 	CTL_DEBUG_PRINT(("ctl_scsi_release\n"));
 
+	residx = ctl_get_resindex(&ctsio->io_hdr.nexus);
 	lun = (struct ctl_lun *)ctsio->io_hdr.ctl_private[CTL_PRIV_LUN].ptr;
 	ctl_softc = control_softc;
 
@@ -5371,14 +5373,8 @@ ctl_scsi_release(struct ctl_scsiio *ctsio)
 	 * released, though, by the initiator who made it or by one of
 	 * several reset type events.
 	 */
-	if (lun->flags & CTL_LUN_RESERVED) {
-		if ((ctsio->io_hdr.nexus.initid.id == lun->rsv_nexus.initid.id)
-		 && (ctsio->io_hdr.nexus.targ_port == lun->rsv_nexus.targ_port)
-		 && (ctsio->io_hdr.nexus.targ_target.id ==
-		     lun->rsv_nexus.targ_target.id)) {
+	if ((lun->flags & CTL_LUN_RESERVED) && (lun->res_idx == residx))
 			lun->flags &= ~CTL_LUN_RESERVED;
-		}
-	}
 
 	mtx_unlock(&lun->lun_lock);
 
@@ -5402,6 +5398,7 @@ ctl_scsi_reserve(struct ctl_scsiio *ctsio)
 	uint64_t thirdparty_id;
 	struct ctl_softc *ctl_softc;
 	struct ctl_lun *lun;
+	uint32_t residx;
 
 	extent = 0;
 	thirdparty = 0;
@@ -5412,6 +5409,7 @@ ctl_scsi_reserve(struct ctl_scsiio *ctsio)
 
 	CTL_DEBUG_PRINT(("ctl_reserve\n"));
 
+	residx = ctl_get_resindex(&ctsio->io_hdr.nexus);
 	lun = (struct ctl_lun *)ctsio->io_hdr.ctl_private[CTL_PRIV_LUN].ptr;
 	ctl_softc = control_softc;
 
@@ -5460,19 +5458,14 @@ ctl_scsi_reserve(struct ctl_scsiio *ctsio)
 		thirdparty_id = scsi_8btou64(ctsio->kern_data_ptr);
 
 	mtx_lock(&lun->lun_lock);
-	if (lun->flags & CTL_LUN_RESERVED) {
-		if ((ctsio->io_hdr.nexus.initid.id != lun->rsv_nexus.initid.id)
-		 || (ctsio->io_hdr.nexus.targ_port != lun->rsv_nexus.targ_port)
-		 || (ctsio->io_hdr.nexus.targ_target.id !=
-		     lun->rsv_nexus.targ_target.id)) {
-			ctsio->scsi_status = SCSI_STATUS_RESERV_CONFLICT;
-			ctsio->io_hdr.status = CTL_SCSI_ERROR;
-			goto bailout;
-		}
+	if ((lun->flags & CTL_LUN_RESERVED) && (lun->res_idx != residx)) {
+		ctsio->scsi_status = SCSI_STATUS_RESERV_CONFLICT;
+		ctsio->io_hdr.status = CTL_SCSI_ERROR;
+		goto bailout;
 	}
 
 	lun->flags |= CTL_LUN_RESERVED;
-	lun->rsv_nexus = ctsio->io_hdr.nexus;
+	lun->res_idx = residx;
 
 	ctsio->scsi_status = SCSI_STATUS_OK;
 	ctsio->io_hdr.status = CTL_SUCCESS;
@@ -6066,7 +6059,7 @@ ctl_unmap(struct ctl_scsiio *ctsio)
 	struct scsi_unmap *cdb;
 	struct ctl_ptr_len_flags *ptrlen;
 	struct scsi_unmap_header *hdr;
-	struct scsi_unmap_desc *buf, *end, *range;
+	struct scsi_unmap_desc *buf, *end, *endnz, *range;
 	uint64_t lba;
 	uint32_t num_blocks;
 	int len, retval;
@@ -6119,6 +6112,7 @@ ctl_unmap(struct ctl_scsiio *ctsio)
 	buf = (struct scsi_unmap_desc *)(hdr + 1);
 	end = buf + len / sizeof(*buf);
 
+	endnz = buf;
 	for (range = buf; range < end; range++) {
 		lba = scsi_8btou64(range->lba);
 		num_blocks = scsi_4btoul(range->length);
@@ -6128,6 +6122,19 @@ ctl_unmap(struct ctl_scsiio *ctsio)
 			ctl_done((union ctl_io *)ctsio);
 			return (CTL_RETVAL_COMPLETE);
 		}
+		if (num_blocks != 0)
+			endnz = range + 1;
+	}
+
+	/*
+	 * Block backend can not handle zero last range.
+	 * Filter it out and return if there is nothing left.
+	 */
+	len = (uint8_t *)endnz - (uint8_t *)buf;
+	if (len == 0) {
+		ctl_set_success(ctsio);
+		ctl_done((union ctl_io *)ctsio);
+		return (CTL_RETVAL_COMPLETE);
 	}
 
 	mtx_lock(&lun->lun_lock);
@@ -11260,6 +11267,7 @@ ctl_scsiio_lun_check(struct ctl_softc *ctl_softc, struct ctl_lun *lun,
     const struct ctl_cmd_entry *entry, struct ctl_scsiio *ctsio)
 {
 	int retval;
+	uint32_t residx;
 
 	retval = 0;
 
@@ -11284,12 +11292,10 @@ ctl_scsiio_lun_check(struct ctl_softc *ctl_softc, struct ctl_lun *lun,
 	 * even on reserved LUNs, and if this initiator isn't the one who
 	 * reserved us, reject the command with a reservation conflict.
 	 */
+	residx = ctl_get_resindex(&ctsio->io_hdr.nexus);
 	if ((lun->flags & CTL_LUN_RESERVED)
 	 && ((entry->flags & CTL_CMD_FLAG_ALLOW_ON_RESV) == 0)) {
-		if ((ctsio->io_hdr.nexus.initid.id != lun->rsv_nexus.initid.id)
-		 || (ctsio->io_hdr.nexus.targ_port != lun->rsv_nexus.targ_port)
-		 || (ctsio->io_hdr.nexus.targ_target.id !=
-		     lun->rsv_nexus.targ_target.id)) {
+		if (lun->res_idx != residx) {
 			ctsio->scsi_status = SCSI_STATUS_RESERV_CONFLICT;
 			ctsio->io_hdr.status = CTL_SCSI_ERROR;
 			retval = 1;
@@ -11297,11 +11303,8 @@ ctl_scsiio_lun_check(struct ctl_softc *ctl_softc, struct ctl_lun *lun,
 		}
 	}
 
-	if ( (lun->flags & CTL_LUN_PR_RESERVED)
+	if ((lun->flags & CTL_LUN_PR_RESERVED)
 	 && ((entry->flags & CTL_CMD_FLAG_ALLOW_ON_PR_RESV) == 0)) {
-		uint32_t residx;
-
-		residx = ctl_get_resindex(&ctsio->io_hdr.nexus);
 		/*
 		 * if we aren't registered or it's a res holder type
 		 * reservation and this isn't the res holder then set a
@@ -12167,9 +12170,10 @@ ctl_i_t_nexus_reset(union ctl_io *io)
 {
 	struct ctl_softc *softc = control_softc;
 	struct ctl_lun *lun;
-	uint32_t initindex;
+	uint32_t initindex, residx;
 
 	initindex = ctl_get_initindex(&io->io_hdr.nexus);
+	residx = ctl_get_resindex(&io->io_hdr.nexus);
 	mtx_lock(&softc->ctl_lock);
 	STAILQ_FOREACH(lun, &softc->lun_list, links) {
 		mtx_lock(&lun->lun_lock);
@@ -12179,6 +12183,8 @@ ctl_i_t_nexus_reset(union ctl_io *io)
 #ifdef CTL_WITH_CA
 		ctl_clear_mask(lun->have_ca, initindex);
 #endif
+		if ((lun->flags & CTL_LUN_RESERVED) && (lun->res_idx == residx))
+			lun->flags &= ~CTL_LUN_RESERVED;
 		lun->pending_ua[initindex] |= CTL_UA_I_T_NEXUS_LOSS;
 		mtx_unlock(&lun->lun_lock);
 	}
