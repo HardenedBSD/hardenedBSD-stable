@@ -1,7 +1,7 @@
 # $FreeBSD$
 
 mkimg_blksz_list="512 4096"
-mkimg_format_list="raw vhd vhdf vmdk"
+mkimg_format_list="qcow raw vhd vhdf vmdk"
 mkimg_geom_list="1x1 63x255"
 mkimg_scheme_list="apm bsd ebr gpt mbr pc98 vtoc8"
 
@@ -91,7 +91,8 @@ mkimg_test()
     hexdump -C $image > $result
     baseline=`atf_get_srcdir`/$image
     if test "x$mkimg_update_baseline" = "xyes"; then
-	echo '# $FreeBSD$' > $image.gz.uu
+	# Prevent keyword expansion when writing the keyword.
+	(echo -n '# $'; echo -n FreeBSD; echo '$') > $image.gz.uu
 	gzip -c $result | uuencode $image.gz >> $image.gz.uu
 	rm $image $result _tmp-*
     else
