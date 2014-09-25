@@ -199,9 +199,8 @@ pax_init_prison(struct prison *pr)
 
 	prison_lock(pr);
 
-	if (pax_aslr_debug)
-		uprintf("[PaX] %s: Setting prison %s PaX variables\n",
-		    __func__, pr->pr_name);
+	CTR2(KTR_PAX, "%s: Setting prison %s PaX variables\n",
+	    __func__, pr->pr_name);
 
 #ifdef PAX_ASLR
 	pr->pr_pax_aslr_status = pax_aslr_status;
