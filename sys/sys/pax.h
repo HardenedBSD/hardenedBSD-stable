@@ -216,20 +216,6 @@ extern int pax_map32_enabled_global;
 extern int pax_log_log;
 extern int pax_log_ulog;
 
-#define ELF_NOTE_TYPE_PAX_TAG   3
-#define PAX_NOTE_MPROTECT   0x01
-#define PAX_NOTE_NOMPROTECT 0x02
-#define PAX_NOTE_GUARD      0x04
-#define PAX_NOTE_NOGUARD    0x08
-#define PAX_NOTE_ASLR       0x10
-#define PAX_NOTE_NOASLR     0x20
-
-#define PAX_NOTE_ALL_ENABLED	\
-			(PAX_NOTE_MPROTECT | PAX_NOTE_GUARD | PAX_NOTE_ASLR)
-#define PAX_NOTE_ALL_DISABLED	\
-			(PAX_NOTE_NOMPROTECT | PAX_NOTE_NOGUARD | PAX_NOTE_NOASLR)
-#define PAX_NOTE_ALL	(PAX_NOTE_ALL_ENABLED | PAX_NOTE_ALL_DISABLED)
-
 #define PAX_LOG_LOG		0
 #define PAX_LOG_ULOG		0
 
@@ -258,5 +244,19 @@ int pax_segvguard_segfault(struct thread *, struct vnode *, const char *);
 void pax_segvguard_remove(struct thread *td, struct vnode *vn);
 
 #endif /* _KERNEL */
+
+#define ELF_NOTE_TYPE_PAX_TAG   3
+#define PAX_NOTE_MPROTECT   0x01
+#define PAX_NOTE_NOMPROTECT 0x02
+#define PAX_NOTE_GUARD      0x04
+#define PAX_NOTE_NOGUARD    0x08
+#define PAX_NOTE_ASLR       0x10
+#define PAX_NOTE_NOASLR     0x20
+
+#define PAX_NOTE_ALL_ENABLED	\
+			(PAX_NOTE_MPROTECT | PAX_NOTE_GUARD | PAX_NOTE_ASLR)
+#define PAX_NOTE_ALL_DISABLED	\
+			(PAX_NOTE_NOMPROTECT | PAX_NOTE_NOGUARD | PAX_NOTE_NOASLR)
+#define PAX_NOTE_ALL	(PAX_NOTE_ALL_ENABLED | PAX_NOTE_ALL_DISABLED)
 
 #endif /* __SYS_PAX_H */

@@ -76,6 +76,7 @@
 #define	PT_VM_ENTRY	41	/* Get VM map (entry) */
 
 #define PT_FIRSTMACH    64	/* for machine-specific requests */
+#define PT_PAX		65	/* Toggle PaX-inspired hardening features */
 #include <machine/ptrace.h>	/* machine-specific requests, if any */
 
 struct ptrace_io_desc {
