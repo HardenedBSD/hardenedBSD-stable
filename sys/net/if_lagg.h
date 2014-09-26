@@ -146,11 +146,8 @@ struct lagg_reqflags {
  * Internal kernel part
  */
 
-#define	lp_ifname		lp_ifp->if_xname	/* interface name */
-#define	lp_link_state		lp_ifp->if_link_state	/* link state */
-
 #define	LAGG_PORTACTIVE(_tp)	(					\
-	((_tp)->lp_link_state == LINK_STATE_UP) &&			\
+	((_tp)->lp_ifp->if_link_state == LINK_STATE_UP) &&		\
 	((_tp)->lp_ifp->if_flags & IFF_UP)				\
 )
 
@@ -201,7 +198,7 @@ struct lagg_softc {
 							 * events */
 	struct lagg_port		*sc_primary;	/* primary port */
 	struct ifmedia			sc_media;	/* media config */
-	caddr_t				sc_psc;		/* protocol data */
+	void				*sc_psc;	/* protocol data */
 	uint32_t			sc_seq;		/* sequence counter */
 	uint32_t			sc_flags;
 
@@ -216,20 +213,6 @@ struct lagg_softc {
 	struct task			sc_lladdr_task;
 	SLIST_HEAD(__llqhd, lagg_llq)	sc_llq_head;	/* interfaces to program
 							   the lladdr on */
-
-	/* lagg protocol callbacks */
-	void	(*sc_detach)(struct lagg_softc *);
-	int	(*sc_start)(struct lagg_softc *, struct mbuf *);
-	struct mbuf *(*sc_input)(struct lagg_softc *, struct lagg_port *,
-		    struct mbuf *);
-	int	(*sc_port_create)(struct lagg_port *);
-	void	(*sc_port_destroy)(struct lagg_port *);
-	void	(*sc_linkstate)(struct lagg_port *);
-	void	(*sc_init)(struct lagg_softc *);
-	void	(*sc_stop)(struct lagg_softc *);
-	void	(*sc_lladdr)(struct lagg_softc *);
-	void	(*sc_req)(struct lagg_softc *, caddr_t);
-	void	(*sc_portreq)(struct lagg_port *, caddr_t);
 	eventhandler_tag vlan_attach;
 	eventhandler_tag vlan_detach;
 	struct callout			sc_callout;
@@ -249,7 +232,7 @@ struct lagg_port {
 	uint32_t			lp_flags;	/* port flags */
 	int				lp_ifflags;	/* saved ifp flags */
 	void				*lh_cookie;	/* if state hook */
-	caddr_t				lp_psc;		/* protocol data */
+	void				*lp_psc;	/* protocol data */
 	int				lp_detaching;	/* ifnet is detaching */
 
 	SLIST_HEAD(__mclhd, lagg_mc)	lp_mc_head;	/* multicast addresses */
