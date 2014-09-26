@@ -92,7 +92,6 @@ __FBSDID("$FreeBSD$");
 
 #include <security/audit/audit.h>
 #include <security/mac/mac_framework.h>
-#include <security/mac_bsdextended/mac_bsdextended.h>
 
 #ifdef KDTRACE_HOOKS
 #include <sys/dtrace_bsd.h>
@@ -411,7 +410,7 @@ do_execve(td, args, mac_p)
 	imgp->pax_flags = 0;
 
 #if defined(PAX_ASLR)
-	pax_elf(imgp, p->p_pax & PAX_NOTE_NOASLR ? MBI_FORCE_ASLR_DISABLED : 0);
+	pax_elf(imgp, 0);
 #endif
 
 #ifdef MAC
