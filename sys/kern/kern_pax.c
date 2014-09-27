@@ -82,6 +82,11 @@ const char *pax_status_str[] = {
 	[PAX_FEATURE_UNKNOWN_STATUS] = "UNKNOWN -> changed to \"force enabled\""
 };
 
+const char *pax_status_simple_str[] = {
+	[PAX_FEATURE_SIMPLE_DISABLED] = "disabled",
+	[PAX_FEATURE_SIMPLE_ENABLED] = "enabled"
+};
+
 struct prison *
 pax_get_prison(struct proc *proc)
 {
@@ -101,34 +106,62 @@ pax_get_flags(struct proc *proc, uint32_t *flags)
 	else
 		return (1);
 
-	if (((*flags & 0xaaaaaaaa) & ((*flags & 0x55555555) << 1)) != 0) {
-		/*
-		 * indicate flags inconsistencies in dmesg and in user terminal
-		 */
-		pax_log_aslr(__func__, "inconsistent paxflags: %x\n", *flags);
-		pax_ulog_aslr(NULL, "inconsistent paxflags: %x\n", *flags);
+	return (0);
+}
+
+int
+pax_elf(struct image_params *imgp, uint32_t mode)
+{
+	u_int flags, flags_aslr, flags_segvuard, flags_hardening;
+
+	flags = 0;
+	flags_aslr = flags_segvuard = flags_hardening = 0;
+
+	if ((mode & MBI_ALLPAX) != MBI_ALLPAX) {
+		if (mode & MBI_ASLR_ENABLED)
+			flags |= PAX_NOTE_ASLR;
+		if (mode & MBI_ASLR_DISABLED)
+			flags |= PAX_NOTE_NOASLR;
+		if (mode & MBI_SEGVGUARD_ENABLED)
+			flags |= PAX_NOTE_SEGVGUARD;
+		if (mode & MBI_SEGVGUARD_DISABLED)
+			flags |= PAX_NOTE_NOSEGVGUARD;
+	}
+
+	if ((flags & ~PAX_NOTE_ALL) != 0) {
+		pax_log_aslr(imgp->proc, __func__, "unknown paxflags: %x\n", flags);
+		pax_ulog_aslr(NULL, "unknown paxflags: %x\n", flags);
 
 		return (1);
 	}
 
-	return (0);
-}
+	if (((flags & PAX_NOTE_ALL_ENABLED) & ((flags & PAX_NOTE_ALL_DISABLED) >> 1)) != 0) {
+		/*
+		 * indicate flags inconsistencies in dmesg and in user terminal
+		 */
+		pax_log_aslr(imgp->proc, __func__, "inconsistent paxflags: %x\n", flags);
+		pax_ulog_aslr(NULL, "inconsistent paxflags: %x\n", flags);
 
-void
-pax_elf(struct image_params *imgp, uint32_t mode)
-{
-	u_int flags = 0;
-
-	if ((mode & MBI_ALLPAX) != MBI_ALLPAX) {
-		if (mode & MBI_FORCE_ASLR_ENABLED)
-			flags |= PAX_NOTE_ASLR;
-		else if (mode & MBI_FORCE_ASLR_DISABLED)
-			flags |= PAX_NOTE_NOASLR;
-		if (mode & MBI_FORCE_SEGVGUARD_ENABLED)
-			flags |= PAX_NOTE_GUARD;
-		else if (mode & MBI_FORCE_SEGVGUARD_DISABLED)
-			flags |= PAX_NOTE_NOGUARD;
+		return (1);
 	}
+
+#ifdef PAX_ASLR
+	flags_aslr = pax_aslr_setup_flags(imgp, mode);
+#endif
+
+#ifdef PAX_SEGVGUARD
+	flags_segvuard = pax_segvguard_setup_flags(imgp, mode);
+#endif
+
+#ifdef PAX_HARDENING_noyet
+	flags_segvuard = pax_hardening_setup_flags(imgp, mode);
+#endif
+
+	flags = flags_aslr | flags_segvuard | flags_hardening;
+
+
+	CTR3(KTR_PAX, "%s : flags = %x mode = %x",
+	    __func__, flags, mode);
 
 	if (imgp != NULL) {
 		imgp->pax_flags = flags;
@@ -138,6 +171,8 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 			PROC_UNLOCK(imgp->proc);
 		}
 	}
+
+	return (0);
 }
 
 
@@ -162,11 +197,10 @@ pax_init_prison(struct prison *pr)
 	if (pr->pr_pax_set)
 		return;
 
-	mtx_lock(&(pr->pr_mtx));
+	prison_lock(pr);
 
-	if (pax_aslr_debug)
-		uprintf("[PaX ASLR] %s: Setting prison %s ASLR variables\n",
-		    __func__, pr->pr_name);
+	CTR2(KTR_PAX, "%s: Setting prison %s PaX variables\n",
+	    __func__, pr->pr_name);
 
 #ifdef PAX_ASLR
 	pr->pr_pax_aslr_status = pax_aslr_status;
@@ -191,11 +225,11 @@ pax_init_prison(struct prison *pr)
 	pr->pr_pax_segvguard_maxcrashes = pax_segvguard_maxcrashes;
 #endif
 
-#ifdef PAX_HARDENING
+#if defined(PAX_HARDENING) && defined(MAP_32BIT)
 	pr->pr_pax_map32_enabled = pax_map32_enabled_global;
 #endif
 
 	pr->pr_pax_set = 1;
 
-	mtx_unlock(&(pr->pr_mtx));
+	prison_unlock(pr);
 }
