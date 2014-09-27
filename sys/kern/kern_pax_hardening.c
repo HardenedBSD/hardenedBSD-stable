@@ -72,9 +72,9 @@ __FBSDID("$FreeBSD$");
 #include <security/mac_bsdextended/mac_bsdextended.h>
 
 #ifdef PAX_HARDENING
-int pax_map32_enabled_global = 0;
+int pax_map32_enabled_global = PAX_FEATURE_SIMPLE_DISABLED;
 #else
-int pax_map32_enabled_global = 1;
+int pax_map32_enabled_global = PAX_FEATURE_SIMPLE_ENABLED;
 #endif
 
 static int sysctl_pax_allow_map32(SYSCTL_HANDLER_ARGS);
@@ -93,13 +93,17 @@ TUNABLE_INT("hardening.allow_map32bit", &pax_map32_enabled_global);
 static void
 pax_hardening_sysinit(void)
 {
-	if (pax_map32_enabled_global > 1 || pax_map32_enabled_global < -1) {
-		printf("[PAX HARDENING] WARNING, invalid PAX settings in loader.conf! "
-		    "(pax_map32_enabled_global = %d)\n", pax_map32_enabled_global);
-		pax_map32_enabled_global = 1;
+	switch (pax_map32_enabled_global) {
+	case PAX_FEATURE_SIMPLE_DISABLED:
+	case PAX_FEATURE_SIMPLE_ENABLED:
+		break;
+	default:
+		printf("[PAX HARDENING] WARNING, invalid settings in loader.conf!"
+		    " (pax_map32_enabled_global = %d)\n", pax_map32_enabled_global);
+		pax_map32_enabled_global = PAX_FEATURE_SIMPLE_DISABLED;
 	}
-
-	printf("[PAX HARDENING] MAP_32BIT enabled: %d\n", pax_map32_enabled_global);
+	printf("[PAX HARDENING] mmap MAP32_bit support: %s\n",
+	    pax_status_simple_str[pax_map32_enabled_global]);
 }
 SYSINIT(pax_hardening, SI_SUB_PAX, SI_ORDER_SECOND, pax_hardening_sysinit, NULL);
 

@@ -517,7 +517,7 @@ bsde_rule_to_string(struct mac_bsdextended_rule *rule, char *buf, size_t buflen)
 		left -= len;
 		cur += len;
 
-		if (rule->mbr_pax & MBI_FORCE_ASLR_ENABLED) {
+		if (rule->mbr_pax & MBI_ASLR_ENABLED) {
 			len = snprintf(cur, left, "A");
 			if (len < 0 || len > left)
 				goto truncated;
@@ -526,7 +526,7 @@ bsde_rule_to_string(struct mac_bsdextended_rule *rule, char *buf, size_t buflen)
 			cur += len;
 		}
 
-		if (rule->mbr_pax & MBI_FORCE_ASLR_DISABLED) {
+		if (rule->mbr_pax & MBI_ASLR_DISABLED) {
 			len = snprintf(cur, left, "a");
 			if (len < 0 || len > left)
 				goto truncated;
@@ -535,7 +535,7 @@ bsde_rule_to_string(struct mac_bsdextended_rule *rule, char *buf, size_t buflen)
 			cur += len;
 		}
 
-		if (rule->mbr_pax & MBI_FORCE_SEGVGUARD_DISABLED) {
+		if (rule->mbr_pax & MBI_SEGVGUARD_DISABLED) {
 			len = snprintf(cur, left, "s");
 			if (len < 0 || len > left)
 				goto truncated;
@@ -544,7 +544,7 @@ bsde_rule_to_string(struct mac_bsdextended_rule *rule, char *buf, size_t buflen)
 			cur += len;
 		}
 
-		if (rule->mbr_pax & MBI_FORCE_SEGVGUARD_ENABLED) {
+		if (rule->mbr_pax & MBI_SEGVGUARD_ENABLED) {
 			len = snprintf(cur, left, "S");
 			if (len < 0 || len > left)
 				goto truncated;
@@ -576,7 +576,7 @@ bsde_rule_to_string(struct mac_bsdextended_rule *rule, char *buf, size_t buflen)
 				goto truncated;
 
 			left -= len;
-			cur += len; 	
+			cur += len; 
 		}
 	}
 
@@ -1116,16 +1116,16 @@ bsde_parse_paxflags(int argc, char *argv[], uint32_t *pax, size_t buflen, char *
 	for (i = 0; i < strlen(argv[0]); i++) {
 		switch (argv[0][i]) {
 		case 'A':
-			*pax |= MBI_FORCE_ASLR_ENABLED;
+			*pax |= MBI_ASLR_ENABLED;
 			break;
 		case 'a':
-			*pax |= MBI_FORCE_ASLR_DISABLED;
+			*pax |= MBI_ASLR_DISABLED;
 			break;
 		case 'S':
-			*pax |= MBI_FORCE_SEGVGUARD_ENABLED;
+			*pax |= MBI_SEGVGUARD_ENABLED;
 			break;
 		case 's':
-			*pax |= MBI_FORCE_SEGVGUARD_DISABLED;
+			*pax |= MBI_SEGVGUARD_DISABLED;
 			break;
 		default:
 			len = snprintf(errstr, buflen, "Unknown mode letter: %c",

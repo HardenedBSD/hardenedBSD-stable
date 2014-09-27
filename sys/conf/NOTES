@@ -2990,6 +2990,12 @@ options 	RANDOM_RWFILE	# Read and write entropy cache
 # Module to enable execution of application via emulators like QEMU
 options         IMAGACT_BINMISC
 
-# Address Space Layout Randomization (ASLR)
-options		PAX_ASLR
-options		PAX_SYSCTLS
+# PAX and HardenedBSD related knobs
+options 	PAX_ASLR	# Address Space Layout Randomization
+options 	PAX_ASLR_MAX_SEC	# ASLR with higher settings (probably breaks your system)
+options 	PAX_HARDENING	# Other hardening features
+options 	PAX_SEGVGUARD	# Track and ban failing process
+options 	PAX_SYSCTLS	# Run-time settings for PAX and Hardening
+options 	PTRACE_HARDENING
+options 	PTRACE_HARDENING_GRP
+

@@ -46,6 +46,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/proc.h>
 #include <sys/elf_common.h>
 #include <sys/mount.h>
+#include <sys/pax.h>
 #include <sys/sysctl.h>
 #include <sys/vnode.h>
 #include <sys/queue.h>
@@ -66,12 +67,13 @@ __FBSDID("$FreeBSD$");
 
 #include <machine/elf.h>
 
-#include <sys/pax.h>
+#include <security/mac_bsdextended/mac_bsdextended.h>
+
 
 FEATURE(segvguard, "Segmentation fault protection.");
 
 int pax_segvguard_status = PAX_FEATURE_OPTIN;
-int pax_segvguard_debug = 0;
+int pax_segvguard_debug = PAX_FEATURE_SIMPLE_DISABLED;
 int pax_segvguard_expiry = PAX_SEGVGUARD_EXPIRY;
 int pax_segvguard_suspension = PAX_SEGVGUARD_SUSPENSION;
 int pax_segvguard_maxcrashes = PAX_SEGVGUARD_MAXCRASHES;
@@ -182,8 +184,11 @@ sysctl_pax_segvguard_status(SYSCTL_HANDLER_ARGS)
 	case    PAX_FEATURE_FORCE_ENABLED:
 		if ((pr == NULL) || (pr == &prison0))
 			pax_segvguard_status = val;
-		if (pr != NULL)
+		if (pr != NULL) {
+			prison_lock(pr);
 			pr->pr_pax_segvguard_status = val;
+			prison_unlock(pr);
+		}
 		break;
 	default:
 		return (EINVAL);
@@ -208,8 +213,11 @@ sysctl_pax_segvguard_expiry(SYSCTL_HANDLER_ARGS)
 
 	if ((pr == NULL) || (pr == &prison0))
 		pax_segvguard_expiry = val;
-	if (pr != NULL)
+	if (pr != NULL) {
+		prison_lock(pr);
 		pr->pr_pax_segvguard_expiry = val;
+		prison_unlock(pr);
+	}
 
 	return (0);
 }
@@ -230,8 +238,11 @@ sysctl_pax_segvguard_suspension(SYSCTL_HANDLER_ARGS)
 
 	if ((pr == NULL) || (pr == &prison0))
 		pax_segvguard_suspension = val;
-	if (pr != NULL)
+	if (pr != NULL) {
+		prison_lock(pr);
 		pr->pr_pax_segvguard_suspension = val;
+		prison_unlock(pr);
+	}
 
 	return (0);
 }
@@ -252,8 +263,11 @@ sysctl_pax_segvguard_maxcrashes(SYSCTL_HANDLER_ARGS)
 
 	if ((pr == NULL) || (pr == &prison0))
 		pax_segvguard_maxcrashes = val;
-	if (pr != NULL)
+	if (pr != NULL) {
+		prison_lock(pr);
 		pr->pr_pax_segvguard_maxcrashes = val;
+		prison_unlock(pr);
+	}
 
 	return (0);
 }
@@ -274,61 +288,171 @@ sysctl_pax_segvguard_debug(SYSCTL_HANDLER_ARGS)
 
 	if ((pr == NULL) || (pr == &prison0))
 		pax_segvguard_debug = val;
-	if (pr != NULL)
+	if (pr != NULL) {
+		prison_lock(pr);
 		pr->pr_pax_segvguard_debug = val;
+		prison_unlock(pr);
+	}
 
 	return (0);
 }
 #endif
 
+u_int
+pax_segvguard_setup_flags(struct image_params *imgp, u_int mode)
+{
+	struct prison *pr;
+	u_int flags, status;
+
+	flags = 0;
+	status = 0;
+
+	pr = pax_get_prison(imgp->proc);
+	if (pr != NULL)
+		status = pr->pr_pax_segvguard_status;
+	else
+		status = pax_segvguard_status;
+
+	if (status == PAX_FEATURE_DISABLED) {
+		flags &= ~PAX_NOTE_SEGVGUARD;
+		flags |= PAX_NOTE_NOSEGVGUARD;
+
+		return (flags);
+	}
+
+	if (status == PAX_FEATURE_FORCE_ENABLED) {
+		flags |= PAX_NOTE_SEGVGUARD;
+		flags &= ~PAX_NOTE_NOSEGVGUARD;
+
+		return (flags);
+	}
+
+	if (status == PAX_FEATURE_OPTIN) {
+		if (mode & MBI_SEGVGUARD_ENABLED) {
+			flags |= PAX_NOTE_SEGVGUARD;
+			flags &= ~PAX_NOTE_NOSEGVGUARD;
+		} else {
+			flags &= ~PAX_NOTE_SEGVGUARD;
+			flags |= PAX_NOTE_NOSEGVGUARD;
+			pax_log_segvguard(imgp->proc, __func__,
+			    "SEGVGUARD is opt-in, and executable don't have "
+			    "enabled SEGVGUARD!\n");
+			pax_ulog_segvguard(NULL,
+			    "SEGVGUARD is opt-in, and executable don't have "
+			    "enabled SEGVGUARD!\n");
+		}
+
+		return (flags);
+	}
+
+	if (status == PAX_FEATURE_OPTOUT) {
+		if (mode & MBI_SEGVGUARD_DISABLED) {
+			flags &= ~PAX_NOTE_SEGVGUARD;
+			flags |= PAX_NOTE_NOSEGVGUARD;
+			pax_log_segvguard(imgp->proc, __func__,
+			    "SEGVGUARD is opt-out, and executable explicitly "
+			    "disabled SEGVGUARD!\n");
+			pax_ulog_segvguard(NULL,
+			    "SEGVGUARD is opt-out, and executable explicitly "
+			    "disabled SEGVGUARD!\n");
+		} else {
+			flags |= PAX_NOTE_SEGVGUARD;
+			flags &= ~PAX_NOTE_NOSEGVGUARD;
+		}
+
+		return (flags);
+	}
+
+	/*
+	 * unknown status, force segvguard
+	 */
+	flags |= PAX_NOTE_SEGVGUARD;
+	flags &= ~PAX_NOTE_NOSEGVGUARD;
+
+	return (flags);
+}
+
+int
+pax_segvguard_update_flags_if_setuid(struct image_params *imgp, struct vnode *vn)
+{
+	int ret;
+	struct prison *pr;
+	u_int status;
+
+	ret = 0;
+
+	pr = pax_get_prison(imgp->proc);
+	if (pr != NULL)
+		status = pr->pr_pax_segvguard_status;
+	else
+		status = pax_segvguard_status;
+
+	if (status == PAX_FEATURE_OPTIN) {
+		u_int flags;
+		struct vattr vap;
+
+		flags = imgp->proc->p_pax;
+
+		/* lock? */
+		ret = VOP_GETATTR(vn, &vap, imgp->proc->p_ucred);
+		if (ret != 0) {
+			flags |= PAX_NOTE_SEGVGUARD;
+			flags &= ~PAX_NOTE_NOSEGVGUARD;
+			/*
+			 * XXXOP: alert the user:
+			 *  pax_log_log
+			 *  pax_log_ulog
+			 */
+
+			imgp->proc->p_pax = flags;
+
+			return (ret);
+		}
+
+		CTR3(KTR_PAX, "%s: pid = %d p_pax = %x - before update",
+		    __func__, proc->p_pid, flags);
+
+		if ((vap.va_mode & (S_ISUID | S_ISGID)) != 0) {
+			flags |= PAX_NOTE_SEGVGUARD;
+			flags &= ~PAX_NOTE_NOSEGVGUARD;
+
+			imgp->proc->p_pax = flags;
+
+			CTR3(KTR_PAX, "%s: pid = %d p_pax = %x - after update",
+			    __func__, proc->p_pid, flags);
+
+			return (ret);
+		}
+	}
+
+	return (ret);
+}
+
 
 static bool
-pax_segvguard_active(struct vnode *vn, struct proc *proc)
+pax_segvguard_active(struct proc *proc)
 {
-	int status;
-	struct prison *pr;
-	struct vattr vap;
-	uint32_t flags;
+	u_int flags;
 	bool ret;
 
 	if (proc == NULL)
 		return (true);
 
-	pr = pax_get_prison(proc);
-
-	status = (pr != NULL) ? pr->pr_pax_segvguard_status : pax_segvguard_status;
-
 	ret = pax_get_flags(proc, &flags);
-	if(ret != 0)
-	/*
-	 * invalid flags, we should force SEGVGUARD
-	 */
+	if (ret != 0)
+		/*
+		 * invalid flags, we should force SEGVGUARD
+		 */
 		return (true);
 
-	/* lock? */
-	ret = VOP_GETATTR(vn, &vap, proc->p_ucred);
-	if(ret != 0)
+	CTR3(KTR_PAX, "%s: pid = %d p_pax = %x",
+	    __func__, proc->p_pid, flags);
+
+	if ((flags & PAX_NOTE_SEGVGUARD) == PAX_NOTE_SEGVGUARD)
 		return (true);
 
-	switch (status) {
-	case    PAX_FEATURE_DISABLED:
+	if ((flags & PAX_NOTE_NOSEGVGUARD) == PAX_NOTE_NOSEGVGUARD)
 		return (false);
-	case    PAX_FEATURE_FORCE_ENABLED:
-		return (true);
-	case    PAX_FEATURE_OPTIN:
-		if ((vap.va_mode & (S_ISUID | S_ISGID)) != 0
-				|| (flags & PAX_NOTE_GUARD) == PAX_NOTE_GUARD)
-			return (true);
-		else
-			return (false);
-		break;
-	case    PAX_FEATURE_OPTOUT:
-		if ((flags & PAX_NOTE_NOGUARD) == PAX_NOTE_NOGUARD)
-			return (false);
-		break;
-	default:
-		return (true);
-	}
 
 	return (true);
 }
@@ -342,7 +466,7 @@ pax_segvguard_add(struct thread *td, struct vnode *vn, sbintime_t sbt)
 	int error;
 
 	error = vn_stat(vn, &sb, td->td_ucred, NOCRED, curthread);
-	if(error != 0) {
+	if (error != 0) {
 		printf("%s:%d stat error. Bailing.\n", __func__, __LINE__);
 		return (NULL);
 	}
@@ -376,7 +500,7 @@ pax_segvguard_lookup(struct thread *td, struct vnode *vn)
 	int error;
 
 	error = vn_stat(vn, &sb, td->td_ucred, NOCRED, curthread);
-	if(error != 0) {
+	if (error != 0) {
 		printf("%s:%d stat error. Bailing.\n", __func__, __LINE__);
 		return (NULL);
 	}
@@ -404,7 +528,7 @@ pax_segvguard_remove(struct thread *td, struct vnode *vn)
 
 	v = pax_segvguard_lookup(td, vn);
 
-	if(v != NULL) {
+	if (v != NULL) {
 		LIST_REMOVE(v, se_entry);
 		free(v, M_PAX);
 	}
@@ -412,18 +536,20 @@ pax_segvguard_remove(struct thread *td, struct vnode *vn)
 }
 
 int
-pax_segvguard_segfault(struct thread *td, struct vnode *v, const char *name)
+pax_segvguard_segfault(struct thread *td, const char *name)
 {
 	struct pax_segvguard_entry *se;
 	struct prison *pr;
+	struct vnode *v;
 	sbintime_t sbt;
 
+	v = td->td_proc->p_textvp;
 	if (v == NULL)
 		return (EFAULT);
 
 	pr = pax_get_prison(td->td_proc);
 
-	if (pax_segvguard_active(v, td->td_proc) == false)
+	if (pax_segvguard_active(td->td_proc) == false)
 		return (0);
 
 	sbt = sbinuptime();
@@ -476,7 +602,7 @@ pax_segvguard_check(struct thread *td, struct vnode *v, const char *name)
 	if (v == NULL)
 		return (EFAULT);
 
-	if (pax_segvguard_active(v, td->td_proc) == false)
+	if (pax_segvguard_active(td->td_proc) == false)
 		return (0);
 
 	sbt = sbinuptime();
@@ -528,7 +654,17 @@ pax_segvguard_sysinit(void)
 	printf("[PAX SEGVGUARD] expiry: %d sec\n", pax_segvguard_expiry);
 	printf("[PAX SEGVGUARD] suspension: %d sec\n", pax_segvguard_suspension);
 	printf("[PAX SEGVGUARD] maxcrahes: %d\n", pax_segvguard_maxcrashes);
-	printf("[PAX SEGVGUARD] debug: %d\n", pax_segvguard_debug);
+
+	switch (pax_segvguard_status) {
+	case PAX_FEATURE_SIMPLE_DISABLED:
+	case PAX_FEATURE_SIMPLE_ENABLED:
+		break;
+	default:
+		printf("[PAX SEGVGUARD] WARNING, invalid settings in loader.conf!"
+		    " (pax_segvguard_debug = %d)\n", pax_segvguard_debug);
+		pax_segvguard_debug = PAX_FEATURE_SIMPLE_ENABLED;
+	}
+	printf("[PAX SEGVGUARD] debug: %s\n", pax_status_simple_str[pax_segvguard_debug]);
 
 	mtx_init(&segvguard_mtx, "segvguard mutex", NULL, MTX_DEF);
 
