@@ -668,5 +668,3 @@ options 	VM_KMEM_SIZE_SCALE
 options 	NDISAPI
 device		ndis
 
-# PaX-inspired hardening features
-options		PAX_HARDENING

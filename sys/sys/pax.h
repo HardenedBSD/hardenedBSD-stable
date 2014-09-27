@@ -37,6 +37,7 @@
 struct image_params;
 struct prison;
 struct thread;
+struct proc;
 struct vnode;
 struct vmspace;
 struct vm_offset_t;
@@ -51,6 +52,11 @@ struct vm_offset_t;
 #define	PAX_FEATURE_UNKNOWN_STATUS	4
 
 extern const char *pax_status_str[];
+
+#define PAX_FEATURE_SIMPLE_DISABLED	0
+#define PAX_FEATURE_SIMPLE_ENABLED	1
+
+extern const char *pax_status_simple_str[];
 
 #ifndef PAX_ASLR_DELTA
 #define	PAX_ASLR_DELTA(delta, lsb, len)	\
@@ -213,43 +219,75 @@ extern int pax_segvguard_maxcrashes;
 extern int pax_map32_enabled_global;
 #endif /* PAX_HARDENING*/
 
-extern int pax_log_log;
-extern int pax_log_ulog;
+extern int hardening_log_log;
+extern int hardening_log_ulog;
 
-#define ELF_NOTE_TYPE_PAX_TAG   3
-#define PAX_NOTE_MPROTECT   0x01
-#define PAX_NOTE_NOMPROTECT 0x02
-#define PAX_NOTE_GUARD      0x04
-#define PAX_NOTE_NOGUARD    0x08
-#define PAX_NOTE_ASLR       0x10
-#define PAX_NOTE_NOASLR     0x20
+#define PAX_NOTE_MPROTECT	0x00000001
+#define PAX_NOTE_NOMPROTECT	0x00000002
+#define PAX_NOTE_SEGVGUARD	0x00000004
+#define PAX_NOTE_NOSEGVGUARD	0x00000008
+#define PAX_NOTE_ASLR		0x00000010
+#define PAX_NOTE_NOASLR		0x00000020
 
-#define PAX_LOG_LOG		0
-#define PAX_LOG_ULOG		0
+#define PAX_NOTE_RESERVED0	0x40000000
+#define PAX_NOTE_FINALIZED	0x80000000
 
-#define PAX_SEGVGUARD_EXPIRY        (2 * 60)
-#define PAX_SEGVGUARD_SUSPENSION    (10 * 60)
-#define PAX_SEGVGUARD_MAXCRASHES    5
+#define PAX_NOTE_ALL_ENABLED	\
+			(PAX_NOTE_MPROTECT | PAX_NOTE_SEGVGUARD | PAX_NOTE_ASLR)
+#define PAX_NOTE_ALL_DISABLED	\
+			(PAX_NOTE_NOMPROTECT | PAX_NOTE_NOSEGVGUARD | PAX_NOTE_NOASLR)
+#define PAX_NOTE_ALL	(PAX_NOTE_ALL_ENABLED | PAX_NOTE_ALL_DISABLED)
 
-void pax_init_prison(struct prison *pr);
+#define HARDENING_LOG_LOG		PAX_FEATURE_DISABLED
+#define HARDENING_LOG_ULOG		PAX_FEATURE_SIMPLE_DISABLED
+
+#define PAX_SEGVGUARD_EXPIRY		(2 * 60)
+#define PAX_SEGVGUARD_SUSPENSION	(10 * 60)
+#define PAX_SEGVGUARD_MAXCRASHES	5
+
+/*
+ * generic pax functions
+ */
+int pax_elf(struct image_params *, uint32_t);
 int pax_get_flags(struct proc *proc, uint32_t *flags);
+struct prison *pax_get_prison(struct proc *proc);
+void pax_init_prison(struct prison *pr);
+
+/*
+ * ASLR related functions
+ */
 bool pax_aslr_active(struct proc *proc);
 void _pax_aslr_init(struct vmspace *vm, struct proc *p);
 void _pax_aslr_init32(struct vmspace *vm, struct proc *p);
 void pax_aslr_init(struct image_params *imgp);
 void pax_aslr_mmap(struct proc *p, vm_offset_t *addr, 
     vm_offset_t orig_addr, int flags);
+u_int pax_aslr_setup_flags(struct image_params *imgp, u_int mode);
 void pax_aslr_stack(struct thread *td, uintptr_t *addr);
-struct prison *pax_get_prison(struct proc *proc);
-void pax_elf(struct image_params *, uint32_t);
-int pax_map32_enabled(struct thread *td);
 
-void pax_log_aslr(const char *func, const char *fmt, ...);
+/*
+ * Log related functions
+ */
+int hbsd_uprintf(const char *fmt, ...);
+void pax_log_aslr(struct proc *, const char *func, const char *fmt, ...);
 void pax_ulog_aslr(const char *func, const char *fmt, ...);
+void pax_log_segvguard(struct proc *, const char *func, const char *fmt, ...);
+void pax_ulog_segvguard(const char *func, const char *fmt, ...);
 
+/*
+ * SegvGuard related functions
+ */
 int pax_segvguard_check(struct thread *, struct vnode *, const char *);
-int pax_segvguard_segfault(struct thread *, struct vnode *, const char *);
+int pax_segvguard_segfault(struct thread *, const char *);
 void pax_segvguard_remove(struct thread *td, struct vnode *vn);
+u_int pax_segvguard_setup_flags(struct image_params *imgp, u_int mode);
+int pax_segvguard_update_flags_if_setuid(struct image_params *imgp,
+    struct vnode *vn);
+
+/*
+ * Hardening related functions
+ */
+int pax_map32_enabled(struct thread *td);
 
 #endif /* _KERNEL */
 
