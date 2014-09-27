@@ -23,13 +23,13 @@ typedef struct
 #define	ROTL32(v, n)							\
 	(U32V((v) << (n)) | ((v) >> (32 - (n))))
 
-#define	U8TO32_LITTLE(p)						\
+#define	U8TO32_LITTLE(p)					\
 	(((u32)((p)[0]))		|					\
-	((u32)((p)[1]) << 8)	|					\
-	((u32)((p)[2]) << 16)	|					\
-	((u32)((p)[3]) << 24))
+	 ((u32)((p)[1]) << 8)	|					\
+	 ((u32)((p)[2]) << 16)	|					\
+	 ((u32)((p)[3]) << 24))
 
-#define	U32TO8_LITTLE(p, v)						\
+#define	U32TO8_LITTLE(p, v)					\
 	do {										\
 		(p)[0] = U8V((v));						\
 		(p)[1] = U8V((v) >> 8);					\

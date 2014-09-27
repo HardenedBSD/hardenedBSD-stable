@@ -19,15 +19,7 @@
  */
 
 /*
- * Arc4 random number generator for OpenBSD.
- *
- * This code is derived from section 17.1 of Applied Cryptography,
- * second edition, which describes a stream cipher allegedly
- * compatible with RSA Labs "RC4" cipher (the actual description of
- * which is a trade secret).  The same algorithm is used as a stream
- * cipher called "arcfour" in Tatu Ylonen's ssh package.
- *
- * RC4 is a registered trademark of RSA Laboratories.
+ * ChaCha based random number generator for OpenBSD.
  */
 
 #include <sys/cdefs.h>
