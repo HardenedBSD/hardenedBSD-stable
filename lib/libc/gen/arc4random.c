@@ -3,6 +3,7 @@
 /*
  * Copyright (c) 1996, David Mazieres <dm@uun.org>
  * Copyright (c) 2008, Damien Miller <djm@openbsd.org>
+ * Copyright (c) 2013, Markus Friedl <markus@openbsd.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -37,6 +38,7 @@ __FBSDID("$FreeBSD$");
 #include <limits.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/sysctl.h>
@@ -46,22 +48,22 @@ __FBSDID("$FreeBSD$");
 #include "libc_private.h"
 #include "un-namespace.h"
 
+#define KEYSTREAM_ONLY
+#include "chacha_private.h"
+
 #ifdef __GNUC__
 #define inline __inline
 #else				/* !__GNUC__ */
 #define inline
 #endif				/* !__GNUC__ */
 
-struct arc4_stream {
-	u_int8_t i;
-	u_int8_t j;
-	u_int8_t s[256];
-};
-
 static pthread_mutex_t	arc4random_mtx = PTHREAD_MUTEX_INITIALIZER;
 
 #define	RANDOMDEV	"/dev/random"
-#define	KEYSIZE		128
+#define	KEYSZ		32
+#define	IVSZ		8
+#define	BLOCKSZ		64
+#define	RSBUFSZ		(16 * BLOCKSZ)
 #define	_ARC4_LOCK()						\
 	do {							\
 		if (__isthreaded)				\
@@ -75,46 +77,29 @@ static pthread_mutex_t	arc4random_mtx = PTHREAD_MUTEX_INITIALIZER;
 	} while (0)
 
 static int rs_initialized;
-static struct arc4_stream rs;
-static pid_t arc4_stir_pid;
-static int arc4_count;
+static pid_t rs_stir_pid;
+static chacha_ctx rs;			/* chacha context for random keystream */
+static u_char rs_buf[RSBUFSZ];	/* keystream blocks */
+static size_t rs_have;			/* valid bytes at end of rs_buf */
+static size_t rs_count;			/* bytes still reseed */
 
 extern int __sysctl(int *name, u_int namelen, void *oldp, size_t *oldlenp,
     void *newp, size_t newlen);
 
-static inline u_int8_t arc4_getbyte(void);
-static void arc4_stir(void);
+static inline void _rs_rekey(u_char *dat, size_t datlen);
 
 static inline void
-arc4_init(void)
+_rs_init(u_char *buf, size_t n)
 {
-	int     n;
+	if (n < (KEYSZ+ IVSZ))
+		return;
 
-	for (n = 0; n < 256; n++)
-		rs.s[n] = n;
-	rs.i = 0;
-	rs.j = 0;
-}
-
-static inline void
-arc4_addrandom(u_char *dat, int datlen)
-{
-	int     n;
-	u_int8_t si;
-
-	rs.i--;
-	for (n = 0; n < 256; n++) {
-		rs.i = (rs.i + 1);
-		si = rs.s[rs.i];
-		rs.j = (rs.j + si + dat[n % datlen]);
-		rs.s[rs.i] = rs.s[rs.j];
-		rs.s[rs.j] = si;
-	}
-	rs.j = rs.i;
+	chacha_keysetup(&rs, buf, KEYSZ * 8, 0);
+	chacha_ivsetup(&rs, buf + KEYSZ);
 }
 
 static size_t
-arc4_sysctl(u_char *buf, size_t size)
+_rs_sysctl(u_char *buf, size_t size)
 {
 	int mib[2];
 	size_t len, done;
@@ -135,99 +120,146 @@ arc4_sysctl(u_char *buf, size_t size)
 	return (done);
 }
 
-static void
-arc4_stir(void)
+static size_t
+arc4_sysctl(u_char *buf, size_t size)
 {
-	int done, fd, i;
+	return (_rs_sysctl(buf, size));
+}
+
+static void
+_rs_stir(void)
+{
 	struct {
 		struct timeval	tv;
-		pid_t		pid;
-		u_char	 	rnd[KEYSIZE];
+		pid_t			pid;
+		u_char			rnd[KEYSZ + IVSZ];
 	} rdat;
+	int done, fd;
 
-	if (!rs_initialized) {
-		arc4_init();
-		rs_initialized = 1;
-	}
 	done = 0;
-	if (arc4_sysctl((u_char *)&rdat, KEYSIZE) == KEYSIZE)
+	if (_rs_sysctl((u_char *)&rdat, KEYSZ + IVSZ) == (KEYSZ + IVSZ))
 		done = 1;
+
 	if (!done) {
 		fd = _open(RANDOMDEV, O_RDONLY | O_CLOEXEC, 0);
 		if (fd >= 0) {
-			if (_read(fd, &rdat, KEYSIZE) == KEYSIZE)
+			if (_read(fd, &rdat, (KEYSZ + IVSZ)) == (KEYSZ + IVSZ))
 				done = 1;
 			(void)_close(fd);
 		}
 	}
+
 	if (!done) {
 		(void)gettimeofday(&rdat.tv, NULL);
 		rdat.pid = getpid();
 		/* We'll just take whatever was on the stack too... */
 	}
 
-	arc4_addrandom((u_char *)&rdat, KEYSIZE);
+	if (!rs_initialized) {
+		rs_initialized = 1;
+		_rs_init((u_char *)&rdat, KEYSZ + IVSZ);
+	} else {
+		_rs_rekey((u_char *)&rdat, KEYSZ + IVSZ);
+	}
 
-	/*
-	 * Discard early keystream, as per recommendations in:
-	 * "(Not So) Random Shuffles of RC4" by Ilya Mironov.
-	 */
-	for (i = 0; i < 1024; i++)
-		(void)arc4_getbyte();
-	arc4_count = 1600000;
+	memset((u_char *)&rdat, 0, sizeof(rdat));
+
+	/* invalidate rs_buf */
+	rs_have = 0;
+	memset(rs_buf, 0, RSBUFSZ);
+
+	rs_count = 1600000;
 }
 
-static void
-arc4_stir_if_needed(void)
+static inline void
+_rs_stir_if_needed(size_t len)
 {
 	pid_t pid = getpid();
 
-	if (arc4_count <= 0 || !rs_initialized || arc4_stir_pid != pid) {
-		arc4_stir_pid = pid;
-		arc4_stir();
+	if (rs_count <= len || !rs_initialized || rs_stir_pid != pid) {
+		rs_stir_pid = pid;
+		_rs_stir();
+	} else {	
+		rs_count -= len;
 	}
 }
 
-static inline u_int8_t
-arc4_getbyte(void)
+static inline void
+_rs_rekey(u_char *dat, size_t datlen)
 {
-	u_int8_t si, sj;
+#ifndef KEYSTREAM_ONLY
+	memset(rs_buf, 0, RSBUFSZ);
+#endif
 
-	rs.i = (rs.i + 1);
-	si = rs.s[rs.i];
-	rs.j = (rs.j + si);
-	sj = rs.s[rs.j];
-	rs.s[rs.i] = sj;
-	rs.s[rs.j] = si;
-	return (rs.s[(si + sj) & 0xff]);
+	/* fill rs_buf with the keystream */
+	chacha_encrypt_bytes(&rs, rs_buf, rs_buf, RSBUFSZ);
+	/* mix in optional user provided data */
+	if (dat) {
+		size_t i, m;
+
+		m = MIN(datlen, (KEYSZ + IVSZ));
+		for (i = 0; i < m; i++)
+			rs_buf[i] ^= dat[i];
+	}
+	/* immediatly reinit for backtracking resistance */
+	_rs_init(rs_buf, (KEYSZ + IVSZ));
+	memset(rs_buf, 0, (KEYSZ + IVSZ));
+	rs_have = (RSBUFSZ - KEYSZ - IVSZ);
 }
 
-static inline u_int32_t
-arc4_getword(void)
+static inline void
+_rs_random_buf(void *_buf, size_t n)
 {
-	u_int32_t val;
-	val = arc4_getbyte() << 24;
-	val |= arc4_getbyte() << 16;
-	val |= arc4_getbyte() << 8;
-	val |= arc4_getbyte();
-	return val;
+	u_char *buf = (u_char *)_buf;
+	u_char *keystream;
+	size_t m;
+
+	_rs_stir_if_needed(n);
+	while (n > 0) {
+		if (rs_have > 0) {
+			m = MIN(n, rs_have);
+			keystream = (rs_buf + RSBUFSZ - rs_have);
+			memcpy(buf, keystream, m);
+			memset(keystream, 0, m);
+			buf += m;
+			n -= m;
+			rs_have -= m;
+		}
+
+		if (rs_have == 0)
+			_rs_rekey(NULL, 0);
+	}
 }
 
-void
-arc4random_stir(void)
+static inline void
+_rs_random_u32(u_int32_t *val)
 {
-	_ARC4_LOCK();
-	arc4_stir();
-	_ARC4_UNLOCK();
+	u_char *keystream;
+
+	_rs_stir_if_needed(sizeof(*val));
+	if (rs_have < sizeof(*val))
+		_rs_rekey(NULL, 0);
+	keystream = (rs_buf + RSBUFSZ - rs_have);
+	memcpy(val, keystream, sizeof(*val));
+	memset(keystream, 0, sizeof(*val));
+	rs_have -= sizeof(*val);
 }
 
 void
 arc4random_addrandom(u_char *dat, int datlen)
 {
+	int m;
+
 	_ARC4_LOCK();
 	if (!rs_initialized)
-		arc4_stir();
-	arc4_addrandom(dat, datlen);
+		_rs_stir();
+
+	while (datlen > 0) {
+		m = MIN(datlen, (KEYSZ + IVSZ));
+		_rs_rekey(dat, m);
+		dat += m;
+		datlen -= m;
+	}
 	_ARC4_UNLOCK();
 }
 
@@ -235,10 +267,9 @@ u_int32_t
 arc4random(void)
 {
 	u_int32_t val;
+
 	_ARC4_LOCK();
-	arc4_count -= 4;
-	arc4_stir_if_needed();
-	val = arc4_getword();
+	_rs_random_u32(&val);
 	_ARC4_UNLOCK();
 	return val;
 }
@@ -246,50 +277,44 @@ arc4random(void)
 void
 arc4random_buf(void *_buf, size_t n)
 {
-	u_char *buf = (u_char *)_buf;
 	_ARC4_LOCK();
-	arc4_stir_if_needed();
-	while (n--) {
-		if (--arc4_count <= 0)
-			arc4_stir();
-		buf[n] = arc4_getbyte();
-	}
+	_rs_random_buf(_buf, n);
 	_ARC4_UNLOCK();
 }
 
-/*
- * Calculate a uniformly distributed random number less than upper_bound
- * avoiding "modulo bias".
- *
- * Uniformity is achieved by generating new random numbers until the one
- * returned is outside the range [0, 2**32 % upper_bound).  This
- * guarantees the selected random number will be inside
- * [2**32 % upper_bound, 2**32) which maps back to [0, upper_bound)
- * after reduction modulo upper_bound.
- */
+void
+arc4random_stir(void)
+{
+	_ARC4_LOCK();
+	_rs_stir();
+	_ARC4_UNLOCK();
+}
+
 u_int32_t
 arc4random_uniform(u_int32_t upper_bound)
 {
 	u_int32_t r, min;
 
 	if (upper_bound < 2)
-		return 0;
+		return (0);
 
 	/* 2**32 % x == (2**32 - x) % x */
 	min = -upper_bound % upper_bound;
+
 	/*
-	 * This could theoretically loop forever but each retry has
+	 * This could theorically loop forever but each retry has
 	 * p > 0.5 (worst case, usually far better) of selecting a
 	 * number inside the range we need, so it should rarely need
 	 * to re-roll.
 	 */
+
 	for (;;) {
 		r = arc4random();
 		if (r >= min)
 			break;
 	}
 
-	return r % upper_bound;
+	return (r % upper_bound);
 }
 
 #if 0
