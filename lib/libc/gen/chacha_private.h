@@ -42,10 +42,10 @@ typedef struct
 #define	PLUS(v, w)		(U32V((v) + (w)))
 #define	PLUSONE(v)		(PLUS((v), 1))
 
-#define	QUARTERROUND(a, b, c, d)				\
-	a = PLUS(a, b); d = ROTATE(XOR(d, a), 16);	\
-	c = PLUS(c, d); b = ROTATE(XOR(b, c), 12);	\
-	a = PLUS(a, b); d = ROTATE(XOR(d, a), 8);	\
+#define	QUARTERROUND(a, b, c, d)					\
+	a = PLUS(a, b); d = ROTATE(XOR(d, a), 16);			\
+	c = PLUS(c, d); b = ROTATE(XOR(b, c), 12);			\
+	a = PLUS(a, b); d = ROTATE(XOR(d, a), 8);			\
 	c = PLUS(c, d); b = ROTATE(XOR(b, c), 7);
 
 static const char sigma[16] = "expand 32-byte k";
