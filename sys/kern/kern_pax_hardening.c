@@ -92,7 +92,7 @@ SYSCTL_PROC(_hardening, OID_AUTO, allow_map32bit,
 SYSCTL_PROC(_hardening, OID_AUTO, allow_mprotect_exec,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_mprotect_exec, "I",
-    "mprotect(PROT_EXEC) protections. "
+    "Allow mprotect(PROT_EXEC) on a non-executable mapping. "
     "0 - disabled, "
     "1 - enabled.");
 #endif
