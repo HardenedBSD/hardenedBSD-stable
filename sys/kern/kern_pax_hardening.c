@@ -73,11 +73,14 @@ __FBSDID("$FreeBSD$");
 
 #ifdef PAX_HARDENING
 int pax_map32_enabled_global = PAX_FEATURE_SIMPLE_DISABLED;
+int pax_mprotect_exec_global = PAX_FEATURE_SIMPLE_DISABLED;
 #else
+int pax_mprotect_exec_global = PAX_FEATURE_SIMPLE_ENABLED;
 int pax_map32_enabled_global = PAX_FEATURE_SIMPLE_ENABLED;
 #endif
 
 static int sysctl_pax_allow_map32(SYSCTL_HANDLER_ARGS);
+static int sysctl_pax_mprotect_exec(SYSCTL_HANDLER_ARGS);
 
 #ifdef PAX_SYSCTLS
 SYSCTL_PROC(_hardening, OID_AUTO, allow_map32bit,
@@ -86,9 +89,16 @@ SYSCTL_PROC(_hardening, OID_AUTO, allow_map32bit,
     "mmap MAP_32BIT support. "
     "0 - disabled, "
     "1 - enabled.");
+SYSCTL_PROC(_hardening, OID_AUTO, allow_mprotect_exec,
+    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_SECURE,
+    NULL, 0, sysctl_pax_mprotect_exec, "I",
+    "mprotect(PROT_EXEC) protections. "
+    "0 - disabled, "
+    "1 - enabled.");
 #endif
 
 TUNABLE_INT("hardening.allow_map32bit", &pax_map32_enabled_global);
+TUNABLE_INT("hardening.allow_mprotect_exec", &pax_mprotect_exec_global);
 
 static void
 pax_hardening_sysinit(void)
@@ -104,6 +114,18 @@ pax_hardening_sysinit(void)
 	}
 	printf("[PAX HARDENING] mmap MAP32_bit support: %s\n",
 	    pax_status_simple_str[pax_map32_enabled_global]);
+
+	switch (pax_mprotect_exec_global) {
+	case PAX_FEATURE_SIMPLE_DISABLED:
+	case PAX_FEATURE_SIMPLE_ENABLED:
+		break;
+	default:
+		printf("[PAX HARDENING] WARNING, invalid settings in loader.conf!"
+		    " (pax_mprotect_exec_global = %d)\n", pax_mprotect_exec_global);
+		pax_mprotect_exec_global = PAX_FEATURE_SIMPLE_DISABLED;
+	}
+	printf("[PAX HARDENING] mmap MAP32_bit support: %s\n",
+	    pax_status_simple_str[pax_mprotect_exec_global]);
 }
 SYSINIT(pax_hardening, SI_SUB_PAX, SI_ORDER_SECOND, pax_hardening_sysinit, NULL);
 
@@ -135,6 +157,24 @@ sysctl_pax_allow_map32(SYSCTL_HANDLER_ARGS)
 
 	return (0);
 }
+
+static int
+sysctl_pax_mprotect_exec(SYSCTL_HANDLER_ARGS)
+{
+	int err, val;
+
+	val = pax_mprotect_exec_global;
+	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
+	if (err || (req->newptr == NULL))
+		return (err);
+
+	if (val > 1 || val < -1)
+		return (EINVAL);
+
+	pax_mprotect_exec_global = val;
+
+	return (0);
+}
 #endif
 
 int
@@ -148,4 +188,10 @@ pax_map32_enabled(struct thread *td)
 		return (pr->pr_pax_map32_enabled);
 
 	return (pax_map32_enabled_global);
+}
+
+int
+pax_mprotect_exec_enabled(void)
+{
+	return (pax_mprotect_exec_global);
 }
