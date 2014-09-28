@@ -35,6 +35,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/param.h>
 #include <sys/sysctl.h>
 #include <sys/time.h>
+#include <sys/mman.h>
 #include <pthread.h>
 
 #include "libc_private.h"
@@ -68,12 +69,21 @@ static pthread_mutex_t	arc4random_mtx = PTHREAD_MUTEX_INITIALIZER;
 			_pthread_mutex_unlock(&arc4random_mtx);	\
 	} while (0)
 
-static int rs_initialized;
-static pid_t rs_stir_pid;
-static chacha_ctx rs;			/* chacha context for random keystream */
-static u_char rs_buf[RSBUFSZ];	/* keystream blocks */
-static size_t rs_have;			/* valid bytes at end of rs_buf */
-static size_t rs_count;			/* bytes still reseed */
+/* Marked INHERIT_ZERO, so zero'd out in fork children. */
+static struct {
+	/* valid bytes at end of rs_buf */
+	size_t		rs_have;
+	/* bytes till reseed */
+	size_t		rs_count;
+} *rs;
+
+/* Preserved in fork children */
+static struct {
+	/* chacha context for random keystream */
+	chacha_ctx	ctx;		
+	/* keystream blocks */	
+	u_char		rs_buf[RSBUFSZ];
+} *rsx;
 
 extern int __sysctl(int *name, u_int namelen, void *oldp, size_t *oldlenp,
     void *newp, size_t newlen);
@@ -86,8 +96,29 @@ _rs_init(u_char *buf, size_t n)
 	if (n < (KEYSZ+ IVSZ))
 		return;
 
-	chacha_keysetup(&rs, buf, KEYSZ * 8, 0);
-	chacha_ivsetup(&rs, buf + KEYSZ);
+	if (rs == NULL) {
+		if ((rs = mmap(NULL, sizeof(*rs), PROT_READ|PROT_WRITE,
+			MAP_ANON|MAP_PRIVATE, -1, 0)) == MAP_FAILED)
+			abort();
+
+		if (minherit(rs, sizeof(*rs), INHERIT_ZERO) == -1) {
+			munmap(rs, sizeof(*rs));
+			abort();
+		}
+
+		if ((rsx = mmap(NULL, sizeof(*rsx), PROT_READ|PROT_WRITE,
+			MAP_ANON|MAP_PRIVATE, -1, 0)) == MAP_FAILED)
+			abort();
+
+		if (minherit(rsx, sizeof(*rsx), INHERIT_ZERO) == -1) {
+			munmap(rsx, sizeof(*rsx));
+			munmap(rs, sizeof(*rs));
+			abort();
+		}
+	}
+
+	chacha_keysetup(&rsx->ctx, buf, KEYSZ * 8, 0);
+	chacha_ivsetup(&rsx->ctx, buf + KEYSZ);
 }
 
 static size_t
@@ -123,8 +154,7 @@ _rs_stir(void)
 {
 	struct {
 		struct timeval	tv;
-		pid_t			pid;
-		u_char			rnd[KEYSZ + IVSZ];
+		u_char		rnd[KEYSZ + IVSZ];
 	} rdat;
 	int done, fd;
 
@@ -143,12 +173,10 @@ _rs_stir(void)
 
 	if (!done) {
 		(void)gettimeofday(&rdat.tv, NULL);
-		rdat.pid = getpid();
 		/* We'll just take whatever was on the stack too... */
 	}
 
-	if (!rs_initialized) {
-		rs_initialized = 1;
+	if (!rs) {
 		_rs_init((u_char *)&rdat, KEYSZ + IVSZ);
 	} else {
 		_rs_rekey((u_char *)&rdat, KEYSZ + IVSZ);
@@ -157,46 +185,42 @@ _rs_stir(void)
 	memset((u_char *)&rdat, 0, sizeof(rdat));
 
 	/* invalidate rs_buf */
-	rs_have = 0;
-	memset(rs_buf, 0, RSBUFSZ);
+	rs->rs_have = 0;
+	memset(rsx->rs_buf, 0, RSBUFSZ);
 
-	rs_count = 1600000;
+	rs->rs_count = 1600000;
 }
 
 static inline void
 _rs_stir_if_needed(size_t len)
 {
-	pid_t pid = getpid();
-
-	if (rs_count <= len || !rs_initialized || rs_stir_pid != pid) {
-		rs_stir_pid = pid;
+	if (!rs || rs->rs_count <= len)
 		_rs_stir();
-	} else {	
-		rs_count -= len;
-	}
+	else	
+		rs->rs_count -= len;
 }
 
 static inline void
 _rs_rekey(u_char *dat, size_t datlen)
 {
 #ifndef KEYSTREAM_ONLY
-	memset(rs_buf, 0, RSBUFSZ);
+	memset(rsx->rs_buf, 0, RSBUFSZ);
 #endif
 
 	/* fill rs_buf with the keystream */
-	chacha_encrypt_bytes(&rs, rs_buf, rs_buf, RSBUFSZ);
+	chacha_encrypt_bytes(&rsx->ctx, rsx->rs_buf, rsx->rs_buf, RSBUFSZ);
 	/* mix in optional user provided data */
 	if (dat) {
 		size_t i, m;
 
 		m = MIN(datlen, (KEYSZ + IVSZ));
 		for (i = 0; i < m; i++)
-			rs_buf[i] ^= dat[i];
+			rsx->rs_buf[i] ^= dat[i];
 	}
 	/* immediatly reinit for backtracking resistance */
-	_rs_init(rs_buf, (KEYSZ + IVSZ));
-	memset(rs_buf, 0, (KEYSZ + IVSZ));
-	rs_have = (RSBUFSZ - KEYSZ - IVSZ);
+	_rs_init(rsx->rs_buf, (KEYSZ + IVSZ));
+	memset(rsx->rs_buf, 0, (KEYSZ + IVSZ));
+	rs->rs_have = (RSBUFSZ - KEYSZ - IVSZ);
 }
 
 static inline void
@@ -208,17 +232,17 @@ _rs_random_buf(void *_buf, size_t n)
 
 	_rs_stir_if_needed(n);
 	while (n > 0) {
-		if (rs_have > 0) {
-			m = MIN(n, rs_have);
-			keystream = (rs_buf + RSBUFSZ - rs_have);
+		if (rs->rs_have > 0) {
+			m = MIN(n, rs->rs_have);
+			keystream = (rsx->rs_buf + RSBUFSZ - rs->rs_have);
 			memcpy(buf, keystream, m);
 			memset(keystream, 0, m);
 			buf += m;
 			n -= m;
-			rs_have -= m;
+			rs->rs_have -= m;
 		}
 
-		if (rs_have == 0)
+		if (rs->rs_have == 0)
 			_rs_rekey(NULL, 0);
 	}
 }
@@ -229,12 +253,12 @@ _rs_random_u32(u_int32_t *val)
 	u_char *keystream;
 
 	_rs_stir_if_needed(sizeof(*val));
-	if (rs_have < sizeof(*val))
+	if (rs->rs_have < sizeof(*val))
 		_rs_rekey(NULL, 0);
-	keystream = (rs_buf + RSBUFSZ - rs_have);
+	keystream = (rsx->rs_buf + RSBUFSZ - rs->rs_have);
 	memcpy(val, keystream, sizeof(*val));
 	memset(keystream, 0, sizeof(*val));
-	rs_have -= sizeof(*val);
+	rs->rs_have -= sizeof(*val);
 }
 
 void
@@ -243,7 +267,7 @@ arc4random_addrandom(u_char *dat, int datlen)
 	int m;
 
 	_ARC4_LOCK();
-	if (!rs_initialized)
+	if (!rs)
 		_rs_stir();
 
 	while (datlen > 0) {
