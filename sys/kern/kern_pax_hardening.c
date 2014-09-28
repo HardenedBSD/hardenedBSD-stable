@@ -75,8 +75,8 @@ __FBSDID("$FreeBSD$");
 int pax_map32_enabled_global = PAX_FEATURE_SIMPLE_DISABLED;
 int pax_mprotect_exec_global = PAX_FEATURE_SIMPLE_DISABLED;
 #else
-int pax_mprotect_exec_global = PAX_FEATURE_SIMPLE_ENABLED;
 int pax_map32_enabled_global = PAX_FEATURE_SIMPLE_ENABLED;
+int pax_mprotect_exec_global = PAX_FEATURE_SIMPLE_ENABLED;
 #endif
 
 static int sysctl_pax_allow_map32(SYSCTL_HANDLER_ARGS);
@@ -124,7 +124,7 @@ pax_hardening_sysinit(void)
 		    " (pax_mprotect_exec_global = %d)\n", pax_mprotect_exec_global);
 		pax_mprotect_exec_global = PAX_FEATURE_SIMPLE_DISABLED;
 	}
-	printf("[PAX HARDENING] mmap MAP32_bit support: %s\n",
+	printf("[PAX HARDENING] mprotect exec hardening: %s\n",
 	    pax_status_simple_str[pax_mprotect_exec_global]);
 }
 SYSINIT(pax_hardening, SI_SUB_PAX, SI_ORDER_SECOND, pax_hardening_sysinit, NULL);
