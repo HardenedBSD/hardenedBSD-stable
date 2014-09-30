@@ -47,6 +47,7 @@
 #include "opt_platform.h"
 #include "opt_sched.h"
 #include "opt_timer.h"
+#include "opt_pax.h"
 
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
@@ -113,6 +114,10 @@ __FBSDID("$FreeBSD$");
 
 #ifdef DDB
 #include <ddb/ddb.h>
+#endif
+
+#ifdef PAX_ASLR
+#include <sys/pax.h>
 #endif
 
 #ifdef DEBUG
@@ -239,7 +244,7 @@ sendsig(catcher, ksi, mask)
 
 	/* make room on the stack */
 	fp--;
-	
+
 	/* make the stack aligned */
 	fp = (struct sigframe *)STACKALIGN(fp);
 	/* Populate the siginfo frame. */
@@ -280,6 +285,10 @@ sendsig(catcher, ksi, mask)
 	tf->tf_pc = (register_t)catcher;
 	tf->tf_usr_sp = (register_t)fp;
 	tf->tf_usr_lr = (register_t)(PS_STRINGS - *(p->p_sysent->sv_szsigcode));
+#ifdef PAX_ASLR
+	pax_aslr_stack(td, &tf->tf_usr_lr);
+#endif
+
 
 	CTR3(KTR_SIG, "sendsig: return td=%p pc=%#x sp=%#x", td, tf->tf_usr_lr,
 	    tf->tf_usr_sp);
