@@ -381,30 +381,10 @@ do_execve(td, args, mac_p)
 	/*
 	 * Initialize part of the common data
 	 */
+	bzero(imgp, sizeof(*imgp));
 	imgp->proc = p;
-	imgp->execlabel = NULL;
 	imgp->attr = &attr;
-	imgp->entry_addr = 0;
-	imgp->reloc_base = 0;
-	imgp->vmspace_destroyed = 0;
-	imgp->interpreted = 0;
-	imgp->opened = 0;
-	imgp->interpreter_name = NULL;
-	imgp->auxargs = NULL;
-	imgp->vp = NULL;
-	imgp->object = NULL;
-	imgp->firstpage = NULL;
-	imgp->ps_strings = 0;
-	imgp->auxarg_size = 0;
 	imgp->args = args;
-	imgp->execpath = imgp->freepath = NULL;
-	imgp->execpathp = 0;
-	imgp->canary = 0;
-	imgp->canarylen = 0;
-	imgp->pagesizes = 0;
-	imgp->pagesizeslen = 0;
-	imgp->stack_prot = 0;
-	imgp->pax_flags = 0;
 
 #if defined(PAX_ASLR) || defined(PAX_SEGVGUARD) || defined(PAX_MPROTECT)
 	error = pax_elf(imgp, 0);
@@ -417,8 +397,6 @@ do_execve(td, args, mac_p)
 	if (error)
 		goto exec_fail;
 #endif
-
-	imgp->image_header = NULL;
 
 	/*
 	 * Translate the file name. namei() returns a vnode pointer
