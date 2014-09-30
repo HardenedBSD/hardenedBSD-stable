@@ -103,7 +103,7 @@ TUNABLE_INT("hardening.pax.aslr.exec_len", &pax_aslr_exec_len);
 TUNABLE_INT("hardening.pax.aslr.compat.status", &pax_aslr_compat_status);
 TUNABLE_INT("hardening.pax.aslr.compat.mmap", &pax_aslr_compat_mmap_len);
 TUNABLE_INT("hardening.pax.aslr.compat.stack", &pax_aslr_compat_stack_len);
-TUNABLE_INT("hardening.pax.aslr.compat.stack", &pax_aslr_compat_exec_len);
+TUNABLE_INT("hardening.pax.aslr.compat.exec", &pax_aslr_compat_exec_len);
 #endif
 
 #ifdef PAX_SYSCTLS
@@ -310,9 +310,7 @@ sysctl_pax_aslr_exec(SYSCTL_HANDLER_ARGS)
 	return (0);
 }
 
-/*
- * COMPAT_FREEBSD32 and linuxulator..
- */
+/* COMPAT_FREEBSD32 and linuxulator. */
 #ifdef COMPAT_FREEBSD32
 static int sysctl_pax_aslr_compat_status(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_compat_mmap(SYSCTL_HANDLER_ARGS);
