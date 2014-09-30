@@ -107,8 +107,10 @@ _rs_init(u_char *buf, size_t n)
 		}
 
 		if ((rsx = mmap(NULL, sizeof(*rsx), PROT_READ|PROT_WRITE,
-			MAP_ANON|MAP_PRIVATE, -1, 0)) == MAP_FAILED)
+			MAP_ANON|MAP_PRIVATE, -1, 0)) == MAP_FAILED) {
+			munmap(rs, sizeof(*rs));
 			abort();
+		}
 
 		if (minherit(rsx, sizeof(*rsx), INHERIT_ZERO) == -1) {
 			munmap(rsx, sizeof(*rsx));
