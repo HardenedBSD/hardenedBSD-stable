@@ -160,7 +160,7 @@ _rs_stir(int lock)
 	 * XXX read_random() returns unsafe numbers if the entropy
 	 * device is not loaded -- MarkM.
 	 */
-	r = read_random(key, sizeof(ARC4_KEYBYTES));
+	r = read_random(key, ARC4_KEYBYTES);
 	getmicrouptime(&tv_now);
 
 	if (lock)
