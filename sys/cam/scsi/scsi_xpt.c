@@ -1191,15 +1191,9 @@ out:
 				xpt_schedule(periph, priority);
 				goto out;
 			} else if (path->device->lun_id == 0 &&
-			    SID_ANSI_REV(inq_buf) > SCSI_REV_SPC2 &&
+			    SID_ANSI_REV(inq_buf) >= SCSI_REV_SPC2 &&
 			    (SCSI_QUIRK(path->device)->quirks &
 			     CAM_QUIRK_NORPTLUNS) == 0) {
-				if (path->device->flags &
-				    CAM_DEV_UNCONFIGURED) {
-					path->device->flags &=
-					    ~CAM_DEV_UNCONFIGURED;
-					xpt_acquire_device(path->device);
-				}
 				PROBE_SET_ACTION(softc, PROBE_REPORT_LUNS);
 				periph->path->target->rpl_size = 16;
 				xpt_release_ccb(done_ccb);
@@ -1310,14 +1304,6 @@ out:
 					    tlun, 8);
 					CAM_DEBUG(path, CAM_DEBUG_PROBE,
 					    ("lun 0 in position %u\n", idx));
-				} else {
-					/*
-					 * There is no lun 0 in our list. Destroy
-					 * the validity of the inquiry data so we
-					 * bail here and now.
-					 */
-					path->device->flags &=
-					    ~CAM_DEV_INQUIRY_DATA_VALID;
 				}
 			}
 			/*
@@ -1330,7 +1316,8 @@ out:
 			probe_purge_old(path, lp, softc->flags);
 			lp = NULL;
 		}
-		if (path->device->flags & CAM_DEV_INQUIRY_DATA_VALID) {
+		if (path->device->flags & CAM_DEV_INQUIRY_DATA_VALID &&
+		    SID_QUAL(&path->device->inq_data) == SID_QUAL_LU_CONNECTED) {
 			struct scsi_inquiry_data *inq_buf;
 			inq_buf = &path->device->inq_data;
 			if (INQ_DATA_TQ_ENABLED(inq_buf))
@@ -1345,6 +1332,8 @@ out:
 		if (lp) {
 			free(lp, M_CAMXPT);
 		}
+		PROBE_SET_ACTION(softc, PROBE_INVALID);
+		xpt_release_ccb(done_ccb);
 		break;
 	}
 	case PROBE_MODE_SENSE:
@@ -2074,6 +2063,9 @@ scsi_scan_bus(struct cam_periph *periph, union ccb *request_ccb)
 			mtx_unlock(&target->bus->eb_mtx);
 			if (nextdev != NULL) {
 				next_target = 0;
+			/*  -- stop if CAM_QUIRK_NOLUNS is set. */
+			} else if (SCSI_QUIRK(device)->quirks & CAM_QUIRK_NOLUNS) {
+				next_target = 1;
 			/*  -- this LUN is connected and its SCSI version
 			 *     allows more LUNs. */
 			} else if ((device->flags & CAM_DEV_UNCONFIGURED) == 0) {
