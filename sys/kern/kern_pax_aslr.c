@@ -141,7 +141,7 @@ SYSCTL_PROC(_hardening_pax_aslr, OID_AUTO, mmap_len,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_aslr_mmap, "I",
     "Number of bits randomized for mmap(2) calls. "
-    "32 bit: [8,16] 64 bit: [16,32]");
+    "32 bit: [8,20] 64 bit: [16,32]");
 
 SYSCTL_PROC(_hardening_pax_aslr, OID_AUTO, stack_len,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
@@ -153,7 +153,7 @@ SYSCTL_PROC(_hardening_pax_aslr, OID_AUTO, exec_len,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_aslr_exec, "I",
     "Number of bits randomized for the PIE exec base. "
-    "32 bit: [6,12] 64 bit: [12,21]");
+    "32 bit: [6,20] 64 bit: [12,21]");
 
 static int
 sysctl_pax_aslr_status(SYSCTL_HANDLER_ARGS)
