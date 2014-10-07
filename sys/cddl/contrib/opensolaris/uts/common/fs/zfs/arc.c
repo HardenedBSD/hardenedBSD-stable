@@ -711,9 +711,7 @@ uint64_t zfs_crc64_table[256];
  * Level 2 ARC
  */
 
-/* initial write max */
-#define	L2ARC_WRITE_SIZE	\
-    (8 * 1024 * 1024 * 2 / (ARC_BUFC_NUMMETADATALISTS + ARC_BUFC_NUMDATALISTS))
+#define	L2ARC_WRITE_SIZE	(8 * 1024 * 1024)	/* initial write max */
 #define	L2ARC_HEADROOM		2			/* num of writes */
 /*
  * If we discover during ARC scan any buffers to be compressed, we boost
@@ -5049,7 +5047,7 @@ l2arc_write_buffers(spa_t *spa, l2arc_dev_t *dev, uint64_t target_sz,
 		if (ab == NULL)
 			ARCSTAT_BUMP(arcstat_l2_write_buffer_list_null_iter);
 
-		headroom = target_sz * l2arc_headroom;
+		headroom = target_sz * l2arc_headroom * 2 / ARC_BUFC_NUMLISTS;
 		if (do_headroom_boost)
 			headroom = (headroom * l2arc_headroom_boost) / 100;
 
