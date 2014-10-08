@@ -49,7 +49,13 @@ __FBSDID("$FreeBSD$");
 #include <cam/scsi/scsi_all.h>
 #include <cam/scsi/scsi_message.h>
 #include <sys/taskqueue.h>
+#include <sys/kernel.h>
 
+
+#include <sys/time.h> /* XXX for pcpu.h */
+#include <sys/pcpu.h> /* XXX for PCPU_GET */
+
+#define smp_processor_id()  PCPU_GET(cpuid)
 
 /*
  * Function prototypes
@@ -77,10 +83,10 @@ void mrsas_fire_cmd(struct mrsas_softc *sc, u_int32_t req_desc_lo,
                     u_int32_t req_desc_hi);
 void mrsas_set_pd_lba(MRSAS_RAID_SCSI_IO_REQUEST *io_request, u_int8_t cdb_len, 
                     struct IO_REQUEST_INFO *io_info, union ccb *ccb, 
-                    MR_FW_RAID_MAP_ALL *local_map_ptr, u_int32_t ref_tag,
+                    MR_DRV_RAID_MAP_ALL *local_map_ptr, u_int32_t ref_tag,
                     u_int32_t ld_block_size);
 static void mrsas_freeze_simq(struct mrsas_mpt_cmd *cmd, struct cam_sim *sim);
-static void mrsas_poll(struct cam_sim *sim);
+static void mrsas_cam_poll(struct cam_sim *sim);
 static void mrsas_action(struct cam_sim *sim, union ccb *ccb);
 static void mrsas_scsiio_timeout(void *data);
 static void mrsas_data_load_cb(void *arg, bus_dma_segment_t *segs,
@@ -91,16 +97,16 @@ struct mrsas_mpt_cmd * mrsas_get_mpt_cmd(struct mrsas_softc *sc);
 MRSAS_REQUEST_DESCRIPTOR_UNION *mrsas_get_request_desc(struct mrsas_softc *sc, 
                     u_int16_t index);
 
-extern u_int16_t MR_TargetIdToLdGet(u_int32_t ldTgtId, MR_FW_RAID_MAP_ALL *map);
-extern u_int32_t MR_LdBlockSizeGet(u_int32_t ldTgtId, MR_FW_RAID_MAP_ALL *map,
+extern u_int16_t MR_TargetIdToLdGet(u_int32_t ldTgtId, MR_DRV_RAID_MAP_ALL *map);
+extern u_int32_t MR_LdBlockSizeGet(u_int32_t ldTgtId, MR_DRV_RAID_MAP_ALL *map,
     struct mrsas_softc *sc);
 extern void mrsas_isr(void *arg);
 extern void mrsas_aen_handler(struct mrsas_softc *sc);
 extern u_int8_t MR_BuildRaidContext(struct mrsas_softc *sc, 
         struct IO_REQUEST_INFO *io_info,RAID_CONTEXT *pRAID_Context, 
-        MR_FW_RAID_MAP_ALL *map);
+        MR_DRV_RAID_MAP_ALL *map);
 extern u_int16_t MR_LdSpanArrayGet(u_int32_t ld, u_int32_t span, 
-        MR_FW_RAID_MAP_ALL *map); 
+        MR_DRV_RAID_MAP_ALL *map);
 extern u_int16_t mrsas_get_updated_dev_handle(PLD_LOAD_BALANCE_INFO lbInfo,
         struct IO_REQUEST_INFO *io_info);
 extern u_int8_t megasas_get_best_arm(PLD_LOAD_BALANCE_INFO lbInfo, u_int8_t arm,
@@ -131,7 +137,7 @@ int mrsas_cam_attach(struct mrsas_softc *sc)
     /* 
      * Create SIM for bus 0 and register, also create path 
      */
-    sc->sim_0 = cam_sim_alloc(mrsas_action, mrsas_poll, "mrsas", sc,
+    sc->sim_0 = cam_sim_alloc(mrsas_action, mrsas_cam_poll, "mrsas", sc,
         device_get_unit(sc->mrsas_dev), &sc->sim_lock, mrsas_cam_depth,
         mrsas_cam_depth, devq);
     if (sc->sim_0 == NULL){
@@ -167,7 +173,7 @@ int mrsas_cam_attach(struct mrsas_softc *sc)
     /* 
      * Create SIM for bus 1 and register, also create path 
      */
-    sc->sim_1 = cam_sim_alloc(mrsas_action, mrsas_poll, "mrsas", sc,
+    sc->sim_1 = cam_sim_alloc(mrsas_action, mrsas_cam_poll, "mrsas", sc,
         device_get_unit(sc->mrsas_dev), &sc->sim_lock, mrsas_cam_depth,
         mrsas_cam_depth, devq);
     if (sc->sim_1 == NULL){
@@ -321,9 +327,9 @@ static void mrsas_action(struct cam_sim *sim, union ccb *ccb)
             ccb->cpi.protocol = PROTO_SCSI;
             ccb->cpi.protocol_version = SCSI_REV_2;
             if (ccb->cpi.bus_id == 0)
-                ccb->cpi.max_target = MRSAS_MAX_LD-1;
-            else
                 ccb->cpi.max_target = MRSAS_MAX_PD-1;
+            else
+                ccb->cpi.max_target = MRSAS_MAX_LD_IDS-1;
 #if (__FreeBSD_version > 704000)
             ccb->cpi.maxio = MRSAS_MAX_IO_SIZE;
 #endif
@@ -701,7 +707,7 @@ int mrsas_setup_io(struct mrsas_softc *sc, struct mrsas_mpt_cmd *cmd,
     struct ccb_hdr *ccb_h = &(ccb->ccb_h);
     struct ccb_scsiio *csio = &(ccb->csio);
     struct IO_REQUEST_INFO io_info;
-    MR_FW_RAID_MAP_ALL *map_ptr;
+    MR_DRV_RAID_MAP_ALL *map_ptr;
     u_int8_t fp_possible;
     u_int32_t start_lba_hi, start_lba_lo, ld_block_size;
     u_int32_t datalength = 0;
@@ -780,10 +786,10 @@ int mrsas_setup_io(struct mrsas_softc *sc, struct mrsas_mpt_cmd *cmd,
 		break;
     }
 
-    map_ptr = sc->raidmap_mem[(sc->map_id & 1)];
+    map_ptr = sc->ld_drv_map[(sc->map_id & 1)];
     ld_block_size = MR_LdBlockSizeGet(device_id, map_ptr, sc);
 
-    if ((MR_TargetIdToLdGet(device_id, map_ptr) >= MAX_LOGICAL_DRIVES) || 
+    if ((MR_TargetIdToLdGet(device_id, map_ptr) >= MAX_LOGICAL_DRIVES_EXT) ||
             (!sc->fast_path_io)) {
         io_request->RaidContext.regLockFlags = 0;
         fp_possible = 0;
@@ -794,7 +800,11 @@ int mrsas_setup_io(struct mrsas_softc *sc, struct mrsas_mpt_cmd *cmd,
             fp_possible = io_info.fpOkForIo;
     }
 
-    if (fp_possible) {
+	cmd->request_desc->SCSIIO.MSIxIndex =
+		sc->msix_vectors ? smp_processor_id() % sc->msix_vectors : 0;
+
+
+	if (fp_possible) {
         mrsas_set_pd_lba(io_request, csio->cdb_len, &io_info, ccb, map_ptr, 
             start_lba_lo, ld_block_size);
         io_request->Function = MPI2_FUNCTION_SCSI_IO_REQUEST;
@@ -851,12 +861,12 @@ int mrsas_build_dcdb(struct mrsas_softc *sc, struct mrsas_mpt_cmd *cmd,
 {
     struct ccb_hdr *ccb_h = &(ccb->ccb_h);
     u_int32_t device_id;
-    MR_FW_RAID_MAP_ALL *map_ptr;
+    MR_DRV_RAID_MAP_ALL *map_ptr;
     MRSAS_RAID_SCSI_IO_REQUEST *io_request;
 
     io_request = cmd->io_request;
     device_id = ccb_h->target_id;
-    map_ptr = sc->raidmap_mem[(sc->map_id & 1)];
+    map_ptr = sc->ld_drv_map[(sc->map_id & 1)];
 
     /* Check if this is for system PD */ 
     if (cam_sim_bus(sim) == 1 && 
@@ -867,7 +877,12 @@ int mrsas_build_dcdb(struct mrsas_softc *sc, struct mrsas_mpt_cmd *cmd,
         io_request->RaidContext.regLockFlags = 0;
         io_request->RaidContext.regLockRowLBA = 0;
         io_request->RaidContext.regLockLength = 0;
-        io_request->RaidContext.RAIDFlags = MR_RAID_FLAGS_IO_SUB_TYPE_SYSTEM_PD << 
+
+	// LSI TEST
+	//printf("LSI Debug bus %d device_id %d map_ptr->raidMap.devHndlInfo[device_id].curDevHdl %d \n",
+	//		cam_sim_bus(sim), device_id, map_ptr->raidMap.devHndlInfo[device_id].curDevHdl);
+
+	io_request->RaidContext.RAIDFlags = MR_RAID_FLAGS_IO_SUB_TYPE_SYSTEM_PD <<
             MR_RAID_CTX_RAID_FLAGS_IO_SUB_TYPE_SHIFT;
 	    if ((sc->device_id == MRSAS_INVADER) || (sc->device_id == MRSAS_FURY))
             io_request->IoFlags |= MPI25_SAS_DEVICE0_FLAGS_ENABLED_FAST_PATH;
@@ -876,6 +891,9 @@ int mrsas_build_dcdb(struct mrsas_softc *sc, struct mrsas_mpt_cmd *cmd,
             MRSAS_REQ_DESCRIPT_FLAGS_TYPE_SHIFT);
         cmd->request_desc->SCSIIO.DevHandle = 
             map_ptr->raidMap.devHndlInfo[device_id].curDevHdl;
+		cmd->request_desc->SCSIIO.MSIxIndex =
+			sc->msix_vectors ? smp_processor_id() % sc->msix_vectors : 0;
+
     }
     else {
         io_request->Function  = MRSAS_MPI2_FUNCTION_LD_IO_REQUEST;
@@ -1092,12 +1110,12 @@ void mrsas_cmd_done(struct mrsas_softc *sc, struct mrsas_mpt_cmd *cmd)
 }
 
 /**
- * mrsas_poll:               Polling entry point 
+ * mrsas_cam_poll:               Polling entry point
  * input:                    Pointer to SIM  
  *
  * This is currently a stub function.
  */
-static void mrsas_poll(struct cam_sim *sim)
+static void mrsas_cam_poll(struct cam_sim *sim)
 {
     struct mrsas_softc *sc = (struct mrsas_softc *)cam_sim_softc(sim);
     mrsas_isr((void *) sc);
