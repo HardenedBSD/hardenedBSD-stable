@@ -297,6 +297,7 @@ int pax_segvguard_update_flags_if_setuid(struct image_params *imgp,
  */
 int pax_map32_enabled(struct thread *td);
 int pax_mprotect_exec_enabled(void);
+int pax_procfs_harden(struct thread *td);
 
 #endif /* _KERNEL */
 

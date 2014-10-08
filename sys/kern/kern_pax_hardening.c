@@ -74,13 +74,16 @@ __FBSDID("$FreeBSD$");
 #ifdef PAX_HARDENING
 int pax_map32_enabled_global = PAX_FEATURE_SIMPLE_DISABLED;
 int pax_mprotect_exec_global = PAX_FEATURE_SIMPLE_DISABLED;
+int pax_proc_global = PAX_FEATURE_SIMPLE_ENABLED;
 #else
 int pax_map32_enabled_global = PAX_FEATURE_SIMPLE_ENABLED;
 int pax_mprotect_exec_global = PAX_FEATURE_SIMPLE_ENABLED;
+int pax_proc_global = PAX_FEATURE_SIMPLE_DISABLED;
 #endif
 
 static int sysctl_pax_allow_map32(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_mprotect_exec(SYSCTL_HANDLER_ARGS);
+static int sysctl_pax_proc(SYSCTL_HANDLER_ARGS);
 
 #ifdef PAX_SYSCTLS
 SYSCTL_PROC(_hardening, OID_AUTO, allow_map32bit,
@@ -95,10 +98,17 @@ SYSCTL_PROC(_hardening, OID_AUTO, allow_mprotect_exec,
     "Allow mprotect(PROT_EXEC) on a non-executable mapping. "
     "0 - disabled, "
     "1 - enabled.");
+SYSCTL_PROC(_hardening, OID_AUTO, procfs_harden,
+    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_SECURE,
+    NULL, 0, sysctl_pax_proc, "I",
+    "Harden procfs, disabling write of /proc/pid/mem. "
+    "0 - disabled, "
+    "1 - enabled.");
 #endif
 
 TUNABLE_INT("hardening.allow_map32bit", &pax_map32_enabled_global);
 TUNABLE_INT("hardening.allow_mprotect_exec", &pax_mprotect_exec_global);
+TUNABLE_INT("hardening.procfs_harden", &pax_proc_global);
 
 static void
 pax_hardening_sysinit(void)
@@ -126,6 +136,18 @@ pax_hardening_sysinit(void)
 	}
 	printf("[PAX HARDENING] mprotect exec hardening: %s\n",
 	    pax_status_simple_str[pax_mprotect_exec_global]);
+
+	switch (pax_proc_global) {
+	case PAX_FEATURE_SIMPLE_DISABLED:
+	case PAX_FEATURE_SIMPLE_ENABLED:
+		break;
+	default:
+		printf("[PAX HARDENING] WARNING, invalid settings in loader.conf!"
+		    " (pax_proc_global = %d)\n", pax_proc_global);
+		pax_proc_global = PAX_FEATURE_SIMPLE_DISABLED;
+	}
+	printf("[PAX HARDENING] procfs hardening: %s\n",
+	    pax_status_simple_str[pax_proc_global]);
 }
 SYSINIT(pax_hardening, SI_SUB_PAX, SI_ORDER_SECOND, pax_hardening_sysinit, NULL);
 
@@ -175,6 +197,34 @@ sysctl_pax_mprotect_exec(SYSCTL_HANDLER_ARGS)
 
 	return (0);
 }
+
+static int
+sysctl_pax_proc(SYSCTL_HANDLER_ARGS)
+{
+	struct prison *pr;
+	int err, val;
+
+	pr = pax_get_prison(req->td->td_proc);
+
+	val = (pr != NULL) ? pr->pr_pax_proc_harden : pax_proc_global;
+	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
+	if (err || (req->newptr == NULL))
+		return (err);
+
+	if (val > 1 || val < -1)
+		return (EINVAL);
+
+	if ((pr == NULL) || (pr == &prison0))
+		pax_proc_global = val;
+
+	if (pr != NULL) {
+		prison_lock(pr);
+		pr->pr_pax_proc_harden = val;
+		prison_unlock(pr);
+	}
+
+	return (0);
+}
 #endif
 
 int
@@ -194,4 +244,17 @@ int
 pax_mprotect_exec_enabled(void)
 {
 	return (pax_mprotect_exec_global);
+}
+
+int
+pax_procfs_harden(struct thread *td)
+{
+	struct prison *pr;
+
+	pr = pax_get_prison(td->td_proc);
+
+	if (pr != NULL && pr != &prison0)
+		return (pr->pr_pax_proc_harden ? EPERM : 0);
+
+	return (pax_proc_global ? EPERM : 0);
 }
