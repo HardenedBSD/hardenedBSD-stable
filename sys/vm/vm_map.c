@@ -73,6 +73,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/ktr.h>
 #include <sys/lock.h>
 #include <sys/mutex.h>
+#include <sys/pax.h>
 #include <sys/proc.h>
 #include <sys/vmmeter.h>
 #include <sys/mman.h>
@@ -2011,6 +2012,15 @@ vm_map_protect(vm_map_t map, vm_offset_t start, vm_offset_t end,
 	current = entry;
 	while ((current != &map->header) && (current->start < end)) {
 		old_prot = current->protection;
+#ifdef PAX_HARDENING
+		if ((new_prot & VM_PROT_EXECUTE) == VM_PROT_EXECUTE &&
+		    ((old_prot & VM_PROT_EXECUTE) != VM_PROT_EXECUTE)) {
+			if (pax_mprotect_exec_enabled() == 0) {
+				vm_map_unlock(map);
+				return (KERN_PROTECTION_FAILURE);
+			}
+		}
+#endif
 
 		if (set_max)
 			current->protection =
