@@ -54,6 +54,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/types.h>
 #include <sys/kthread.h>
 #include <sys/taskqueue.h>
+#include <sys/smp.h>
 
 
 /* 
@@ -64,8 +65,12 @@ static d_close_t    mrsas_close;
 static d_read_t     mrsas_read;
 static d_write_t    mrsas_write;
 static d_ioctl_t    mrsas_ioctl;
+static d_poll_t	    mrsas_poll;
 
+static struct mrsas_mgmt_info mrsas_mgmt_info;
 static struct mrsas_ident *mrsas_find_ident(device_t);
+static int mrsas_setup_msix(struct mrsas_softc *sc);
+static int mrsas_allocate_msix(struct mrsas_softc *sc);
 static void mrsas_shutdown_ctlr(struct mrsas_softc *sc, u_int32_t opcode);
 static void mrsas_flush_cache(struct mrsas_softc *sc);
 static void mrsas_reset_reply_desc(struct mrsas_softc *sc);
@@ -79,7 +84,7 @@ static int mrsas_setup_irq(struct mrsas_softc *sc);
 static int mrsas_alloc_mem(struct mrsas_softc *sc);
 static int mrsas_init_fw(struct mrsas_softc *sc);
 static int mrsas_setup_raidmap(struct mrsas_softc *sc);
-static int mrsas_complete_cmd(struct mrsas_softc *sc);
+static int mrsas_complete_cmd(struct mrsas_softc *sc, u_int32_t MSIxIndex);
 static int mrsas_clear_intr(struct mrsas_softc *sc);
 static int mrsas_get_ctrl_info(struct mrsas_softc *sc, 
                           struct mrsas_ctrl_info *ctrl_info);
@@ -137,10 +142,10 @@ extern void mrsas_free_frame(struct mrsas_softc *sc, struct mrsas_mfi_cmd *cmd);
 extern int mrsas_alloc_mfi_cmds(struct mrsas_softc *sc);
 extern void mrsas_release_mpt_cmd(struct mrsas_mpt_cmd *cmd); 
 extern struct mrsas_mpt_cmd *mrsas_get_mpt_cmd(struct mrsas_softc *sc);
-extern int mrsas_passthru(struct mrsas_softc *sc, void *arg);
+extern int mrsas_passthru(struct mrsas_softc *sc, void *arg, u_long ioctlCmd);
 extern uint8_t MR_ValidateMapInfo(struct mrsas_softc *sc);
-extern u_int16_t MR_GetLDTgtId(u_int32_t ld, MR_FW_RAID_MAP_ALL *map);
-extern MR_LD_RAID *MR_LdRaidGet(u_int32_t ld, MR_FW_RAID_MAP_ALL *map);
+extern u_int16_t MR_GetLDTgtId(u_int32_t ld, MR_DRV_RAID_MAP_ALL *map);
+extern MR_LD_RAID *MR_LdRaidGet(u_int32_t ld, MR_DRV_RAID_MAP_ALL *map);
 extern void mrsas_xpt_freeze(struct mrsas_softc *sc);
 extern void mrsas_xpt_release(struct mrsas_softc *sc);
 extern MRSAS_REQUEST_DESCRIPTOR_UNION *mrsas_get_request_desc(struct mrsas_softc *sc,
@@ -149,7 +154,6 @@ extern int mrsas_bus_scan_sim(struct mrsas_softc *sc, struct cam_sim *sim);
 static int mrsas_alloc_evt_log_info_cmd(struct mrsas_softc *sc);
 static void mrsas_free_evt_log_info_cmd(struct mrsas_softc *sc);
 SYSCTL_NODE(_hw, OID_AUTO, mrsas, CTLFLAG_RD, 0, "MRSAS Driver Parameters");
-
 
 /**
  * PCI device struct and table
@@ -181,6 +185,7 @@ static struct cdevsw mrsas_cdevsw = {
     .d_read =   mrsas_read,
     .d_write =  mrsas_write,
     .d_ioctl =  mrsas_ioctl,
+    .d_poll =	mrsas_poll,
     .d_name =   "mrsas",
 };
 
@@ -657,7 +662,7 @@ mrsas_register_aen(struct mrsas_softc *sc, u_int32_t seq_num,
 	dcmd->data_xfer_len = sizeof(struct mrsas_evt_detail);
 	dcmd->opcode = MR_DCMD_CTRL_EVENT_WAIT;
 	dcmd->mbox.w[0] = seq_num;
-    sc->last_seq_num = seq_num;
+	sc->last_seq_num = seq_num;
 	dcmd->mbox.w[1] = curr_aen.word;
 	dcmd->sgl.sge32[0].phys_addr = (u_int32_t) sc->evt_detail_phys_addr;
 	dcmd->sgl.sge32[0].length = sizeof(struct mrsas_evt_detail);
@@ -708,8 +713,63 @@ static int mrsas_start_aen(struct mrsas_softc *sc)
 
 	return mrsas_register_aen(sc, eli.newest_seq_num + 1,
 				class_locale.word);
+
 }
 
+/**
+ * mrsas_setup_msix:	Allocate MSI-x vectors
+ * @sc:					Adapter soft state
+ */
+static int mrsas_setup_msix(struct mrsas_softc *sc)
+{
+	int i;
+	for (i = 0; i < sc->msix_vectors; i++) {
+		sc->irq_context[i].sc = sc;
+        sc->irq_context[i].MSIxIndex = i;
+		sc->irq_id[i] = i + 1;
+		sc->mrsas_irq[i] = bus_alloc_resource_any
+			(sc->mrsas_dev, SYS_RES_IRQ, &sc->irq_id[i]
+			 , RF_ACTIVE);
+		if (sc->mrsas_irq[i] == NULL) {
+			device_printf(sc->mrsas_dev, "Can't allocate MSI-x\n");
+			goto irq_alloc_failed;
+		}
+		if (bus_setup_intr(sc->mrsas_dev,
+			sc->mrsas_irq[i],
+			INTR_MPSAFE|INTR_TYPE_CAM,
+			NULL, mrsas_isr, &sc->irq_context[i],
+			&sc->intr_handle[i])) {
+			device_printf(sc->mrsas_dev,
+				"Cannot set up MSI-x interrupt handler\n");
+			goto irq_alloc_failed;
+		}
+	}
+	return SUCCESS;
+
+irq_alloc_failed:
+	mrsas_teardown_intr(sc);
+	return (FAIL);
+}
+
+/**
+ * mrsas_allocate_msix:		Setup MSI-x vectors
+ * @sc:						Adapter soft state
+ */
+static int mrsas_allocate_msix(struct mrsas_softc *sc)
+{
+	if (pci_alloc_msix(sc->mrsas_dev, &sc->msix_vectors) == 0) {
+		device_printf(sc->mrsas_dev, "Using MSI-X with %d number"
+				" of vectors\n", sc->msix_vectors);
+	} else {
+		device_printf(sc->mrsas_dev, "MSI-x setup failed\n");
+		goto irq_alloc_failed;
+	}
+	return SUCCESS;
+
+irq_alloc_failed:
+	mrsas_teardown_intr(sc);
+	return (FAIL);
+}
 /**
  * mrsas_attach:            PCI entry point
  * input:                   device struct pointer 
@@ -763,6 +823,9 @@ static int mrsas_attach(device_t dev)
     mtx_init(&sc->mfi_cmd_pool_lock, "mrsas_mfi_cmd_pool_lock", NULL, MTX_DEF);
     mtx_init(&sc->raidmap_lock, "mrsas_raidmap_lock", NULL, MTX_DEF);
 
+    /* Intialize a counting Semaphore to take care no. of concurrent IOCTLs */
+    sema_init(&sc->ioctl_count_sema, MRSAS_MAX_MFI_CMDS-5, IOCTL_SEMA_DESCRIPTION);
+
     /* Intialize linked list */
     TAILQ_INIT(&sc->mrsas_mpt_cmd_list_head);
     TAILQ_INIT(&sc->mrsas_mfi_cmd_list_head);
@@ -775,11 +838,15 @@ static int mrsas_attach(device_t dev)
     sc->mrsas_cdev = make_dev(&mrsas_cdevsw, device_get_unit(dev), UID_ROOT,
         GID_OPERATOR, (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP), "mrsas%u",
         device_get_unit(dev));
+    if (device_get_unit(dev) == 0)
+		make_dev_alias(sc->mrsas_cdev, "megaraid_sas_ioctl_node");
     if (sc->mrsas_cdev)
     	sc->mrsas_cdev->si_drv1 = sc;
 
     sc->adprecovery = MRSAS_HBA_OPERATIONAL;
 	sc->UnevenSpanSupport = 0;
+
+    sc->msix_enable = 0;
 
     /* Initialize Firmware */
     if (mrsas_init_fw(sc) != SUCCESS) {
@@ -790,6 +857,7 @@ static int mrsas_attach(device_t dev)
     if ((mrsas_cam_attach(sc) != SUCCESS)) {
         goto attach_fail_cam;
     }
+
 
     /* Register IRQs */
     if (mrsas_setup_irq(sc) != SUCCESS) {
@@ -816,6 +884,17 @@ static int mrsas_attach(device_t dev)
 		goto fail_start_aen;
 	}
 
+    /*
+     * Add this controller to mrsas_mgmt_info structure so that it
+     * can be exported to management applications
+     */
+    if (device_get_unit(dev) == 0)
+        memset(&mrsas_mgmt_info, 0, sizeof(mrsas_mgmt_info));
+
+    mrsas_mgmt_info.count++;
+    mrsas_mgmt_info.sc_ptr[mrsas_mgmt_info.max_index] = sc;
+    mrsas_mgmt_info.max_index++;
+
     return (0);
 
 fail_start_aen:
@@ -824,7 +903,9 @@ attach_fail_irq:
 attach_fail_cam:
     mrsas_cam_detach(sc);
 attach_fail_fw:
-//attach_fail_raidmap:
+    /* if MSIX vector is allocated and FW Init FAILED then release MSIX */
+    if (sc->msix_enable == 1)
+		pci_release_msi(sc->mrsas_dev);
     mrsas_free_mem(sc);
     mtx_destroy(&sc->sim_lock);
     mtx_destroy(&sc->aen_lock);
@@ -834,6 +915,8 @@ attach_fail_fw:
     mtx_destroy(&sc->mpt_cmd_pool_lock);
     mtx_destroy(&sc->mfi_cmd_pool_lock);
     mtx_destroy(&sc->raidmap_lock);
+    /* Destroy the counting semaphore created for Ioctl */
+    sema_destroy(&sc->ioctl_count_sema);
 attach_fail:
     destroy_dev(sc->mrsas_cdev);
     if (sc->reg_res){
@@ -858,6 +941,22 @@ static int mrsas_detach(device_t dev)
 
     sc = device_get_softc(dev);
     sc->remove_in_progress = 1;
+
+    /* Destroy the character device so no other IOCTL will be handled */
+    destroy_dev(sc->mrsas_cdev);
+
+    /*
+     * Take the instance off the instance array. Note that we will not
+     * decrement the max_index. We let this array be sparse array
+     */
+    for (i = 0; i < mrsas_mgmt_info.max_index; i++) {
+            if (mrsas_mgmt_info.sc_ptr[i] == sc) {
+                    mrsas_mgmt_info.count--;
+                    mrsas_mgmt_info.sc_ptr[i] = NULL;
+                    break;
+            }
+    }
+
     if(sc->ocr_thread_active)
         wakeup(&sc->ocr_chan);
     while(sc->reset_in_progress){
@@ -893,13 +992,22 @@ static int mrsas_detach(device_t dev)
     mtx_destroy(&sc->mpt_cmd_pool_lock);
     mtx_destroy(&sc->mfi_cmd_pool_lock);
     mtx_destroy(&sc->raidmap_lock);
+
+    /* Wait for all the semaphores to be released */
+    while (sema_value(&sc->ioctl_count_sema) != (MRSAS_MAX_MFI_CMDS-5))
+        pause("mr_shutdown", hz);
+
+    /* Destroy the counting semaphore created for Ioctl */
+    sema_destroy(&sc->ioctl_count_sema);
+
     if (sc->reg_res){
         bus_release_resource(sc->mrsas_dev,
                  SYS_RES_MEMORY, sc->reg_res_id, sc->reg_res);
     }
-    destroy_dev(sc->mrsas_cdev);
+
     if (sc->sysctl_tree != NULL)
         sysctl_ctx_free(&sc->sysctl_ctx);
+
     return (0);
 }
 
@@ -928,6 +1036,9 @@ void mrsas_free_mem(struct mrsas_softc *sc)
             bus_dmamem_free(sc->raidmap_tag[i], sc->raidmap_mem[i], sc->raidmap_dmamap[i]);
         if (sc->raidmap_tag[i] != NULL)
             bus_dma_tag_destroy(sc->raidmap_tag[i]);
+
+	if (sc->ld_drv_map[i] != NULL)
+		free(sc->ld_drv_map[i], M_MRSAS);
     }
 
     /* 
@@ -1051,11 +1162,28 @@ void mrsas_free_mem(struct mrsas_softc *sc)
  */
 void mrsas_teardown_intr(struct mrsas_softc *sc)
 {
-    if (sc->intr_handle)
-        bus_teardown_intr(sc->mrsas_dev, sc->mrsas_irq, sc->intr_handle);
-    if (sc->mrsas_irq != NULL)
-        bus_release_resource(sc->mrsas_dev, SYS_RES_IRQ, sc->irq_id, sc->mrsas_irq);
-    sc->intr_handle = NULL;
+    int i;
+    if (!sc->msix_enable) {
+	    if (sc->intr_handle[0])
+		bus_teardown_intr(sc->mrsas_dev, sc->mrsas_irq[0], sc->intr_handle[0]);
+	    if (sc->mrsas_irq[0] != NULL)
+		bus_release_resource(sc->mrsas_dev, SYS_RES_IRQ, sc->irq_id[0], sc->mrsas_irq[0]);
+	    sc->intr_handle[0] = NULL;
+    } else {
+		for (i = 0; i < sc->msix_vectors; i++) {
+			if (sc->intr_handle[i])
+				bus_teardown_intr(sc->mrsas_dev, sc->mrsas_irq[i],
+					sc->intr_handle[i]);
+
+			if (sc->mrsas_irq[i] != NULL)
+				bus_release_resource(sc->mrsas_dev, SYS_RES_IRQ,
+					sc->irq_id[i], sc->mrsas_irq[i]);
+
+			sc->intr_handle[i] = NULL;
+		}
+		pci_release_msi(sc->mrsas_dev);
+	}
+
 }
 
 /**
@@ -1098,8 +1226,19 @@ mrsas_ioctl(struct cdev *dev, u_long cmd, caddr_t arg, int flag, d_thread_t *td)
     struct mrsas_softc *sc;
     int ret = 0, i = 0; 
 
-    sc = (struct mrsas_softc *)(dev->si_drv1);
-    
+    struct mrsas_iocpacket *user_ioc = (struct mrsas_iocpacket *)arg;
+
+    /* get the Host number & the softc from data sent by the Application */
+    sc = mrsas_mgmt_info.sc_ptr[user_ioc->host_no];
+
+    if ((mrsas_mgmt_info.max_index == user_ioc->host_no) || (sc == NULL)) {
+            printf ("Please check the controller number\n");
+            if (sc == NULL)
+                    printf ("There is NO such Host no. %d\n", user_ioc->host_no);
+
+            return ENOENT;
+    }
+
     if (sc->remove_in_progress) {
         mrsas_dprint(sc, MRSAS_INFO,
             "Driver remove or shutdown called.\n");
@@ -1128,15 +1267,58 @@ mrsas_ioctl(struct cdev *dev, u_long cmd, caddr_t arg, int flag, d_thread_t *td)
 
 do_ioctl:
     switch (cmd) {
-        case MRSAS_IOC_FIRMWARE_PASS_THROUGH:
-            ret = mrsas_passthru(sc, (void *)arg);
+        case MRSAS_IOC_FIRMWARE_PASS_THROUGH64:
+#ifdef COMPAT_FREEBSD32
+        case MRSAS_IOC_FIRMWARE_PASS_THROUGH32:
+#endif
+            /* Decrement the Ioctl counting Semaphore before getting an mfi command */
+            sema_wait(&sc->ioctl_count_sema);
+
+            ret = mrsas_passthru(sc, (void *)arg, cmd);
+
+	    /* Increment the Ioctl counting semaphore value */
+	    sema_post(&sc->ioctl_count_sema);
+
             break;
         case MRSAS_IOC_SCAN_BUS:
             ret = mrsas_bus_scan(sc);
             break;
+	default:
+		mrsas_dprint(sc, MRSAS_TRACE, "IOCTL command 0x%lx is not handled\n", cmd);
+		ret = ENOENT;
     }
  
     return (ret);
+}
+
+/**
+ * mrsas_poll:       poll entry point for mrsas driver fd
+ *
+ * This function is the entry point for poll from the OS.  It waits for
+ * some AEN events to be triggered from the controller and notifies back.
+ */
+static int
+mrsas_poll(struct cdev *dev, int poll_events, struct thread *td)
+{
+	struct mrsas_softc *sc;
+	int revents = 0;
+
+	sc = dev->si_drv1;
+
+	if (poll_events & (POLLIN | POLLRDNORM)) {
+		if (sc->mrsas_aen_triggered) {
+			revents |= poll_events & (POLLIN | POLLRDNORM);
+		}
+	}
+
+	if (revents == 0) {
+		if (poll_events & (POLLIN | POLLRDNORM)) {
+			sc->mrsas_poll_waiting = 1;
+			selrecord(td, &sc->mrsas_select);
+		}
+	}
+
+	return revents;
 }
 
 /**
@@ -1149,19 +1331,29 @@ do_ioctl:
  */
 static int mrsas_setup_irq(struct mrsas_softc *sc)
 {
-    sc->irq_id = 0;
-    sc->mrsas_irq = bus_alloc_resource_any(sc->mrsas_dev, SYS_RES_IRQ,
-                        &sc->irq_id, RF_SHAREABLE | RF_ACTIVE);
-    if (sc->mrsas_irq == NULL){
-        device_printf(sc->mrsas_dev, "Cannot allocate interrupt\n");
-        return (FAIL);
-    }
-    if (bus_setup_intr(sc->mrsas_dev, sc->mrsas_irq, INTR_MPSAFE|INTR_TYPE_CAM,
-                       NULL, mrsas_isr, sc, &sc->intr_handle)) {
-        device_printf(sc->mrsas_dev, "Cannot set up interrupt\n");
-        return (FAIL);
-    }
+    if (sc->msix_enable && (mrsas_setup_msix(sc) == SUCCESS))
+		device_printf(sc->mrsas_dev, "MSI-x interrupts setup success\n");
 
+	else {
+			device_printf(sc->mrsas_dev, "Fall back to legacy interrupt\n");
+			sc->irq_context[0].sc = sc;
+			sc->irq_context[0].MSIxIndex = 0;
+			sc->irq_id[0] = 0;
+			sc->mrsas_irq[0] = bus_alloc_resource_any(sc->mrsas_dev,
+				SYS_RES_IRQ, &sc->irq_id[0], RF_SHAREABLE | RF_ACTIVE);
+			if (sc->mrsas_irq[0] == NULL){
+				device_printf(sc->mrsas_dev, "Cannot allocate legcay"
+					"interrupt\n");
+				return (FAIL);
+			}
+			if (bus_setup_intr(sc->mrsas_dev, sc->mrsas_irq[0],
+					INTR_MPSAFE|INTR_TYPE_CAM, NULL, mrsas_isr,
+					&sc->irq_context[0], &sc->intr_handle[0])) {
+					device_printf(sc->mrsas_dev, "Cannot set up legacy"
+						"interrupt\n");
+				return (FAIL);
+			}
+	}
     return (0);
 }
 
@@ -1175,16 +1367,16 @@ static int mrsas_setup_irq(struct mrsas_softc *sc)
  */
 void mrsas_isr(void *arg)
 {
-    struct mrsas_softc *sc = (struct mrsas_softc *)arg;
-    int status;
+    struct mrsas_irq_context *irq_context = (struct mrsas_irq_context *)arg;
+    struct mrsas_softc *sc = irq_context->sc;
+    int status = 0;
 
-    /* Clear FW state change interrupt */
-    status = mrsas_clear_intr(sc);
+	if (!sc->msix_vectors) {
+		status = mrsas_clear_intr(sc);
+			if (!status)
+				return;
+	}
 
-    /* Not our interrupt */
-    if (!status)
-        return;
-    
     /* If we are resetting, bail */
     if (test_bit(MRSAS_FUSION_IN_RESET, &sc->reset_flags)) {
         printf(" Entered into ISR when OCR is going active. \n");
@@ -1192,7 +1384,7 @@ void mrsas_isr(void *arg)
         return;
     }
     /* Process for reply request and clear response interrupt */
-    if (mrsas_complete_cmd(sc) != SUCCESS) 
+    if (mrsas_complete_cmd(sc, irq_context->MSIxIndex) != SUCCESS)
         mrsas_clear_intr(sc);
 
     return;
@@ -1209,7 +1401,7 @@ void mrsas_isr(void *arg)
  * the command type and perform the appropriate action.  Before we
  * return, we clear the response interrupt.
  */
-static int mrsas_complete_cmd(struct mrsas_softc *sc)
+static int mrsas_complete_cmd(struct mrsas_softc *sc, u_int32_t MSIxIndex)
 {
     Mpi2ReplyDescriptorsUnion_t *desc;
     MPI2_SCSI_IO_SUCCESS_REPLY_DESCRIPTOR *reply_desc;
@@ -1230,7 +1422,9 @@ static int mrsas_complete_cmd(struct mrsas_softc *sc)
         return (DONE);
 
     desc = sc->reply_desc_mem;
-    desc += sc->last_reply_idx;
+    //desc += sc->last_reply_idx[0];
+    desc += ((MSIxIndex * sc->reply_alloc_sz)/sizeof(MPI2_REPLY_DESCRIPTORS_UNION))
+               + sc->last_reply_idx[MSIxIndex];
 
     reply_desc = (MPI2_SCSI_IO_SUCCESS_REPLY_DESCRIPTOR *)desc;
 
@@ -1275,18 +1469,19 @@ static int mrsas_complete_cmd(struct mrsas_softc *sc)
                 break;
         }
 
-        sc->last_reply_idx++;
-        if (sc->last_reply_idx >= sc->reply_q_depth) 
-            sc->last_reply_idx = 0;
+        sc->last_reply_idx[MSIxIndex]++;
+        if (sc->last_reply_idx[MSIxIndex] >= sc->reply_q_depth)
+            sc->last_reply_idx[MSIxIndex] = 0;
 
         desc->Words = ~((uint64_t)0x00); /* set it back to all 0xFFFFFFFFs */
         num_completed++;
         threshold_reply_count++;
 
         /* Get the next reply descriptor */
-        if (!sc->last_reply_idx)
+        if (!sc->last_reply_idx[MSIxIndex]){
             desc = sc->reply_desc_mem;
-        else
+            desc += ((MSIxIndex * sc->reply_alloc_sz)/sizeof(MPI2_REPLY_DESCRIPTORS_UNION));
+        } else
             desc++;
 
         reply_desc = (MPI2_SCSI_IO_SUCCESS_REPLY_DESCRIPTOR *)desc;
@@ -1303,18 +1498,40 @@ static int mrsas_complete_cmd(struct mrsas_softc *sc)
          * completed.
          */
         if (threshold_reply_count >= THRESHOLD_REPLY_COUNT) {
-            mrsas_write_reg(sc, offsetof(mrsas_reg_set, reply_post_host_index),
-                            sc->last_reply_idx);
-            threshold_reply_count = 0;
+				if (sc->msix_enable) {
+					if ((sc->device_id == MRSAS_INVADER) ||
+						(sc->device_id == MRSAS_FURY))
+						mrsas_write_reg(sc, sc->msix_reg_offset[MSIxIndex/8],
+						   ((MSIxIndex & 0x7) << 24) |
+						   sc->last_reply_idx[MSIxIndex]);
+					 else
+						mrsas_write_reg(sc, sc->msix_reg_offset[0], (MSIxIndex << 24) |
+						   sc->last_reply_idx[MSIxIndex]);
+				 } else
+					mrsas_write_reg(sc, offsetof(mrsas_reg_set,
+					 reply_post_host_index),sc->last_reply_idx[0]);
+
+				 threshold_reply_count = 0;
+				}
         }
-    }
 
     /* No match, just return */
     if (num_completed == 0)
         return (DONE);
 
     /* Clear response interrupt */
-    mrsas_write_reg(sc, offsetof(mrsas_reg_set, reply_post_host_index),sc->last_reply_idx); 
+     if (sc->msix_enable) {
+	     if ((sc->device_id == MRSAS_INVADER) ||
+                    (sc->device_id == MRSAS_FURY)){
+		    mrsas_write_reg(sc, sc->msix_reg_offset[MSIxIndex/8],
+                       ((MSIxIndex & 0x7) << 24) |
+                       sc->last_reply_idx[MSIxIndex]);
+		} else
+		    mrsas_write_reg(sc, sc->msix_reg_offset[0], (MSIxIndex << 24) |
+                       sc->last_reply_idx[MSIxIndex]);
+     } else
+            mrsas_write_reg(sc, offsetof(mrsas_reg_set,
+                 reply_post_host_index),sc->last_reply_idx[0]);
 
     return(0);
 }
@@ -1377,7 +1594,7 @@ void mrsas_map_mpt_cmd_status(struct mrsas_mpt_cmd *cmd, u_int8_t status, u_int8
 static int mrsas_alloc_mem(struct mrsas_softc *sc)
 {
     u_int32_t verbuf_size, io_req_size, reply_desc_size, sense_size,
-              chain_frame_size, evt_detail_size;
+              chain_frame_size, evt_detail_size, count;
 
     /*
      * Allocate parent DMA tag
@@ -1491,10 +1708,11 @@ static int mrsas_alloc_mem(struct mrsas_softc *sc)
         return (ENOMEM);
     }
 
+    count = sc->msix_vectors > 0 ? sc->msix_vectors : 1;
     /*
      * Allocate Reply Descriptor Array
      */ 
-    reply_desc_size = sc->reply_alloc_sz; 
+    reply_desc_size = sc->reply_alloc_sz * count;
     if (bus_dma_tag_create( sc->mrsas_parent_tag,   // parent
                             16, 0,                   // algnmnt, boundary
                             BUS_SPACE_MAXADDR_32BIT,// lowaddr
@@ -1634,9 +1852,58 @@ mrsas_addr_cb(void *arg, bus_dma_segment_t *segs, int nsegs, int error)
  * Allocate DMA memory for the RAID maps and perform setup.
  */
 static int mrsas_setup_raidmap(struct mrsas_softc *sc)
-{       
-    sc->map_sz = sizeof(MR_FW_RAID_MAP) +
-                (sizeof(MR_LD_SPAN_MAP) * (MAX_LOGICAL_DRIVES - 1));
+{
+	int i;
+
+	sc->drv_supported_vd_count =
+		MRSAS_MAX_LD_CHANNELS * MRSAS_MAX_DEV_PER_CHANNEL;
+	sc->drv_supported_pd_count =
+		MRSAS_MAX_PD_CHANNELS * MRSAS_MAX_DEV_PER_CHANNEL;
+
+	if(sc->max256vdSupport) {
+		sc->fw_supported_vd_count = MAX_LOGICAL_DRIVES_EXT;
+		sc->fw_supported_pd_count = MAX_PHYSICAL_DEVICES;
+	} else {
+		sc->fw_supported_vd_count = MAX_LOGICAL_DRIVES;
+		sc->fw_supported_pd_count = MAX_PHYSICAL_DEVICES;
+	}
+
+#if VD_EXT_DEBUG
+	device_printf(sc->mrsas_dev, "FW supports: max256vdSupport = %s\n",
+			sc->max256vdSupport ? "YES":"NO");
+	device_printf(sc->mrsas_dev, "FW supports %dVDs %dPDs\n"
+		"DRIVER supports %dVDs  %dPDs \n",
+		sc->fw_supported_vd_count, sc->fw_supported_pd_count,
+		sc->drv_supported_vd_count, sc->drv_supported_pd_count);
+#endif
+
+	sc->old_map_sz = sizeof(MR_FW_RAID_MAP) +
+		(sizeof(MR_LD_SPAN_MAP) * (sc->fw_supported_vd_count - 1));
+	sc->new_map_sz = sizeof(MR_FW_RAID_MAP_EXT);
+	sc->drv_map_sz = sizeof(MR_DRV_RAID_MAP) +
+		(sizeof(MR_LD_SPAN_MAP) * (sc->drv_supported_vd_count-1));
+
+	for (i = 0; i < 2; i++) {
+		sc->ld_drv_map[i] =
+			(void*) malloc(sc->drv_map_sz, M_MRSAS, M_NOWAIT);
+		/* Do Error handling */
+		if (!sc->ld_drv_map[i]) {
+			device_printf(sc->mrsas_dev, "Could not allocate memory for local map");
+
+			if (i == 1)
+				free (sc->ld_drv_map[0], M_MRSAS);
+			//ABORT driver initialization
+			goto ABORT;
+		}
+	}
+
+    sc->max_map_sz = max(sc->old_map_sz, sc->new_map_sz);
+
+    if(sc->max256vdSupport)
+	sc->current_map_sz = sc->new_map_sz;
+    else
+	sc->current_map_sz = sc->old_map_sz;
+
 
     for (int i=0; i < 2; i++)
     {
@@ -1645,28 +1912,36 @@ static int mrsas_setup_raidmap(struct mrsas_softc *sc)
                             BUS_SPACE_MAXADDR_32BIT,// lowaddr
                             BUS_SPACE_MAXADDR,      // highaddr
                             NULL, NULL,             // filter, filterarg
-                            sc->map_sz,             // maxsize
+                            sc->max_map_sz,         // maxsize
                             1,                      // nsegments
-                            sc->map_sz,             // maxsegsize
+                            sc->max_map_sz,         // maxsegsize
                             BUS_DMA_ALLOCNOW,       // flags
                             NULL, NULL,             // lockfunc, lockarg
                             &sc->raidmap_tag[i])) {
-            device_printf(sc->mrsas_dev, "Cannot allocate raid map tag.\n");
-            return (ENOMEM);
+		device_printf(sc->mrsas_dev,
+				"Cannot allocate raid map tag.\n");
+		return (ENOMEM);
         }
-        if (bus_dmamem_alloc(sc->raidmap_tag[i], (void **)&sc->raidmap_mem[i],
-                BUS_DMA_NOWAIT, &sc->raidmap_dmamap[i])) {
-            device_printf(sc->mrsas_dev, "Cannot allocate raidmap memory.\n");
-            return (ENOMEM);
+        if (bus_dmamem_alloc(sc->raidmap_tag[i],
+				(void **)&sc->raidmap_mem[i],
+				BUS_DMA_NOWAIT, &sc->raidmap_dmamap[i])) {
+		device_printf(sc->mrsas_dev,
+				"Cannot allocate raidmap memory.\n");
+		return (ENOMEM);
         }
+
+	bzero (sc->raidmap_mem[i], sc->max_map_sz);
+
         if (bus_dmamap_load(sc->raidmap_tag[i], sc->raidmap_dmamap[i],
-                sc->raidmap_mem[i], sc->map_sz, mrsas_addr_cb, &sc->raidmap_phys_addr[i],
-                BUS_DMA_NOWAIT)){
+				sc->raidmap_mem[i], sc->max_map_sz,
+				mrsas_addr_cb, &sc->raidmap_phys_addr[i],
+				BUS_DMA_NOWAIT)){
             device_printf(sc->mrsas_dev, "Cannot load raidmap memory.\n");
             return (ENOMEM);
         }
         if (!sc->raidmap_mem[i]) {
-            device_printf(sc->mrsas_dev, "Cannot allocate memory for raid map.\n");
+            device_printf(sc->mrsas_dev,
+			    "Cannot allocate memory for raid map.\n");
             return (ENOMEM);
         }
     }
@@ -1675,6 +1950,9 @@ static int mrsas_setup_raidmap(struct mrsas_softc *sc)
         mrsas_sync_map_info(sc);
 
     return (0);
+
+ABORT:
+    return (1);
 }
 
 /**
@@ -1690,13 +1968,15 @@ static int mrsas_setup_raidmap(struct mrsas_softc *sc)
  */
 static int mrsas_init_fw(struct mrsas_softc *sc)
 {
+
+    int ret, loop, ocr = 0;
     u_int32_t max_sectors_1;
     u_int32_t max_sectors_2;
     u_int32_t tmp_sectors;
     struct mrsas_ctrl_info *ctrl_info;
-
-    int ret, ocr = 0;
-
+    u_int32_t scratch_pad_2;
+    int msix_enable = 0;
+    int fw_msix_count = 0;
       
     /* Make sure Firmware is ready */
     ret = mrsas_transition_to_ready(sc, ocr);
@@ -1704,17 +1984,86 @@ static int mrsas_init_fw(struct mrsas_softc *sc)
         return(ret);
 	}
 
-    /* Get operational params, sge flags, send init cmd to ctlr */
+
+    /* MSI-x index 0- reply post host index register */
+	sc->msix_reg_offset[0] = MPI2_REPLY_POST_HOST_INDEX_OFFSET;
+	/* Check if MSI-X is supported while in ready state */
+	msix_enable = (mrsas_read_reg(sc, offsetof(mrsas_reg_set, outbound_scratch_pad)) & 0x4000000) >> 0x1a;
+
+	if (msix_enable) {
+		scratch_pad_2 = mrsas_read_reg(sc, offsetof(mrsas_reg_set,
+			outbound_scratch_pad_2));
+
+		/* Check max MSI-X vectors */
+		if (sc->device_id == MRSAS_TBOLT) {
+			sc->msix_vectors = (scratch_pad_2
+				& MR_MAX_REPLY_QUEUES_OFFSET) + 1;
+			fw_msix_count = sc->msix_vectors;
+		} else {
+			/* Invader/Fury supports 96 MSI-X vectors */
+			sc->msix_vectors = ((scratch_pad_2
+				& MR_MAX_REPLY_QUEUES_EXT_OFFSET)
+				>> MR_MAX_REPLY_QUEUES_EXT_OFFSET_SHIFT) +				1;
+			fw_msix_count = sc->msix_vectors;
+
+			/* Save 1-15 reply post index address to local
+			 * memory
+			 * Index 0 is already saved from reg offset
+			 * MPI2_REPLY_POST_HOST_INDEX_OFFSET
+			 */
+			for (loop = 1; loop < MR_MAX_MSIX_REG_ARRAY;
+				loop++) {
+				sc->msix_reg_offset[loop] =
+				MPI2_SUP_REPLY_POST_HOST_INDEX_OFFSET +
+				(loop * 0x10);
+			}
+		}
+
+		/* Don't bother allocating more MSI-X vectors than cpus */
+		sc->msix_vectors = min(sc->msix_vectors,
+					 mp_ncpus);
+
+		/* Allocate MSI-x vectors */
+		if (mrsas_allocate_msix(sc) == SUCCESS)
+			sc->msix_enable = 1;
+		else
+			sc->msix_enable = 0;
+
+		device_printf(sc->mrsas_dev, "FW supports <%d> MSIX vector,"
+						"Online CPU %d Current MSIX <%d>\n",
+						fw_msix_count, mp_ncpus, sc->msix_vectors);
+	}
+
+	/* Get operational params, sge flags, send init cmd to ctlr */
     if (mrsas_init_adapter(sc) != SUCCESS){
         device_printf(sc->mrsas_dev, "Adapter initialize Fail.\n");
         return(1);
-    } 
+    }
 
     /* Allocate internal commands for pass-thru */
     if (mrsas_alloc_mfi_cmds(sc) != SUCCESS){
         device_printf(sc->mrsas_dev, "Allocate MFI cmd failed.\n");
         return(1);
-    } 
+    }
+
+    /*
+     * Get the controller info from FW, so that
+     * the MAX VD support availability can be decided.
+     */
+    ctrl_info = malloc(sizeof(struct mrsas_ctrl_info), M_MRSAS, M_NOWAIT);
+    if (!ctrl_info)
+        device_printf(sc->mrsas_dev, "Malloc for ctrl_info failed.\n");
+
+    if (mrsas_get_ctrl_info(sc, ctrl_info)) {
+        device_printf(sc->mrsas_dev, "Unable to get FW ctrl_info.\n");
+    }
+
+    sc->max256vdSupport =
+	    (u_int8_t) ctrl_info->adapterOperations3.supportMaxExtLDs;
+
+    if (ctrl_info->max_lds > 64){
+	sc->max256vdSupport = 1;
+	}
        
     if (mrsas_setup_raidmap(sc) != SUCCESS) {
         device_printf(sc->mrsas_dev, "Set up RAID map failed.\n");
@@ -1722,15 +2071,12 @@ static int mrsas_init_fw(struct mrsas_softc *sc)
 	}
 
     /* For pass-thru, get PD/LD list and controller info */
-    memset(sc->pd_list, 0, MRSAS_MAX_PD * sizeof(struct mrsas_pd_list));
+    memset(sc->pd_list, 0,
+		    MRSAS_MAX_PD * sizeof(struct mrsas_pd_list));
     mrsas_get_pd_list(sc);
 
-    memset(sc->ld_ids, 0xff, MRSAS_MAX_LD);
+    memset(sc->ld_ids, 0xff, MRSAS_MAX_LD_IDS);
     mrsas_get_ld_list(sc);
-
-	//memset(sc->log_to_span, 0, MRSAS_MAX_LD * sizeof(LD_SPAN_INFO));
-
-    ctrl_info = malloc(sizeof(struct mrsas_ctrl_info), M_MRSAS, M_NOWAIT);
 
     /*
      * Compute the max allowed sectors per IO: The controller info has two
@@ -1742,33 +2088,32 @@ static int mrsas_init_fw(struct mrsas_softc *sc)
      * to calculate max_sectors_1. So the number ended up as zero always.
      */
     tmp_sectors = 0;
-    if (ctrl_info && !mrsas_get_ctrl_info(sc, ctrl_info)) {
-        max_sectors_1 = (1 << ctrl_info->stripe_sz_ops.min) *
-                    ctrl_info->max_strips_per_io;
-        max_sectors_2 = ctrl_info->max_request_size;
-        tmp_sectors = min(max_sectors_1 , max_sectors_2);
-        sc->disableOnlineCtrlReset = 
-            ctrl_info->properties.OnOffProperties.disableOnlineCtrlReset;
-        sc->UnevenSpanSupport = 
-            ctrl_info->adapterOperations2.supportUnevenSpans;
-        if(sc->UnevenSpanSupport) {
-            device_printf(sc->mrsas_dev, "FW supports: UnevenSpanSupport=%x\n",
-                sc->UnevenSpanSupport);
-            if (MR_ValidateMapInfo(sc))
-           	    sc->fast_path_io = 1;
-            else
-                sc->fast_path_io = 0;
-
-        }
-    }
+    max_sectors_1 = (1 << ctrl_info->stripe_sz_ops.min) *
+	    ctrl_info->max_strips_per_io;
+    max_sectors_2 = ctrl_info->max_request_size;
+    tmp_sectors = min(max_sectors_1 , max_sectors_2);
     sc->max_sectors_per_req = sc->max_num_sge * MRSAS_PAGE_SIZE / 512;
 
     if (tmp_sectors && (sc->max_sectors_per_req > tmp_sectors))
         sc->max_sectors_per_req = tmp_sectors;
 
+    sc->disableOnlineCtrlReset =
+            ctrl_info->properties.OnOffProperties.disableOnlineCtrlReset;
+    sc->UnevenSpanSupport =
+            ctrl_info->adapterOperations2.supportUnevenSpans;
+    if(sc->UnevenSpanSupport) {
+        printf("FW supports: UnevenSpanSupport=%x\n\n",
+			sc->UnevenSpanSupport);
+
+       if (MR_ValidateMapInfo(sc))
+	    sc->fast_path_io = 1;
+        else
+            sc->fast_path_io = 0;
+    }
+
     if (ctrl_info)
         free(ctrl_info, M_MRSAS);
-   
+
     return(0);
 }
 
@@ -1786,6 +2131,7 @@ int mrsas_init_adapter(struct mrsas_softc *sc)
     uint32_t status;
     u_int32_t max_cmd;
     int ret;
+    int i = 0;
 
     /* Read FW status register */
     status = mrsas_read_reg(sc, offsetof(mrsas_reg_set, outbound_scratch_pad));
@@ -1798,7 +2144,7 @@ int mrsas_init_adapter(struct mrsas_softc *sc)
     max_cmd = sc->max_fw_cmds;
 
     /* Determine allocation size of command frames */
-    sc->reply_q_depth = ((max_cmd *2 +1 +15)/16*16);
+    sc->reply_q_depth = ((max_cmd +1 +15)/16*16);
     sc->request_alloc_sz = sizeof(MRSAS_REQUEST_DESCRIPTOR_UNION) * max_cmd;
     sc->reply_alloc_sz = sizeof(MPI2_REPLY_DESCRIPTORS_UNION) * (sc->reply_q_depth);
     sc->io_frames_alloc_sz = MRSAS_MPI2_RAID_DEFAULT_IO_FRAME_SIZE + (MRSAS_MPI2_RAID_DEFAULT_IO_FRAME_SIZE * (max_cmd + 1));
@@ -1815,7 +2161,9 @@ int mrsas_init_adapter(struct mrsas_softc *sc)
     sc->chain_offset_io_request = (MRSAS_MPI2_RAID_DEFAULT_IO_FRAME_SIZE - 
         sizeof(MPI2_SGE_IO_UNION))/16;
 
-    sc->last_reply_idx = 0;
+    int count = sc->msix_vectors > 0 ? sc->msix_vectors : 1;
+    for (i = 0 ; i < count; i++)
+		sc->last_reply_idx[i] = 0;
 
     ret = mrsas_alloc_mem(sc);
     if (ret != SUCCESS)
@@ -1828,6 +2176,7 @@ int mrsas_init_adapter(struct mrsas_softc *sc)
     ret = mrsas_ioc_init(sc);
     if (ret != SUCCESS)
         return(ret);
+
 	
     
     return(0);
@@ -1921,11 +2270,20 @@ int mrsas_ioc_init(struct mrsas_softc *sc)
     IOCInitMsg->ReplyDescriptorPostQueueDepth = sc->reply_q_depth;
     IOCInitMsg->ReplyDescriptorPostQueueAddress = sc->reply_desc_phys_addr;
     IOCInitMsg->SystemRequestFrameBaseAddress = sc->io_request_phys_addr;
+    IOCInitMsg->HostMSIxVectors = (sc->msix_vectors > 0 ? sc->msix_vectors : 0);
 
     init_frame = (struct mrsas_init_frame *)sc->ioc_init_mem;
     init_frame->cmd = MFI_CMD_INIT;
     init_frame->cmd_status = 0xFF;
     init_frame->flags |= MFI_FRAME_DONT_POST_IN_REPLY_QUEUE;
+
+    /* driver support Extended MSIX */
+    if ((sc->device_id == MRSAS_INVADER) ||
+         (sc->device_id == MRSAS_FURY)) {
+             init_frame->driver_operations.
+                mfi_capabilities.support_additional_msix = 1;
+    }
+
 
     if (sc->verbuf_mem) {
         snprintf((char *)sc->verbuf_mem, strlen(MRSAS_VERSION)+2,"%s\n",
@@ -1934,6 +2292,7 @@ int mrsas_ioc_init(struct mrsas_softc *sc)
         init_frame->driver_ver_hi = 0;
     }
 
+    init_frame->driver_operations.mfi_capabilities.support_max_255lds = 1;
     phys_addr = (bus_addr_t)sc->ioc_init_phys_mem + 1024;
     init_frame->queue_info_new_phys_addr_lo = phys_addr;
     init_frame->data_xfer_len = sizeof(Mpi2IOCInitRequest_t);
@@ -1991,7 +2350,7 @@ int mrsas_ioc_init(struct mrsas_softc *sc)
 int mrsas_alloc_mpt_cmds(struct mrsas_softc *sc)
 {
     int i, j;
-    u_int32_t max_cmd;
+    u_int32_t max_cmd, count;
     struct mrsas_mpt_cmd *cmd;
     pMpi2ReplyDescriptorsUnion_t reply_desc;
     u_int32_t offset, chain_offset, sense_offset;
@@ -2061,7 +2420,8 @@ int mrsas_alloc_mpt_cmds(struct mrsas_softc *sc)
     
     /* Initialize reply descriptor array to 0xFFFFFFFF */
     reply_desc = sc->reply_desc_mem;
-    for (i = 0; i < sc->reply_q_depth; i++, reply_desc++) {
+    count = sc->msix_vectors > 0 ? sc->msix_vectors : 1;
+    for (i = 0; i < sc->reply_q_depth * count ; i++, reply_desc++) {
         reply_desc->Words = MRSAS_ULONG_MAX;
     }
     return(0);
@@ -2278,11 +2638,14 @@ mrsas_ocr_thread(void *arg)
  */
 void  mrsas_reset_reply_desc(struct mrsas_softc *sc)
 {
-    int i;
+    int i, count;
     pMpi2ReplyDescriptorsUnion_t reply_desc;
 
-    sc->last_reply_idx = 0;
-    reply_desc = sc->reply_desc_mem;
+    count = sc->msix_vectors > 0 ? sc->msix_vectors : 1;
+    for (i = 0 ; i < count ; i++)
+		sc->last_reply_idx[i] = 0;
+
+	reply_desc = sc->reply_desc_mem;
     for (i = 0; i < sc->reply_q_depth; i++, reply_desc++) {
         reply_desc->Words = MRSAS_ULONG_MAX;
     }
@@ -2468,7 +2831,7 @@ int mrsas_reset_ctrl(struct mrsas_softc *sc)
 
             /* Reset load balance info */
             memset(sc->load_balance_info, 0, 
-                   sizeof(LD_LOAD_BALANCE_INFO) * MAX_LOGICAL_DRIVES); 
+                   sizeof(LD_LOAD_BALANCE_INFO) * MAX_LOGICAL_DRIVES_EXT);
 
             if (!mrsas_get_map_info(sc))
                 mrsas_sync_map_info(sc);
@@ -2519,7 +2882,8 @@ void mrsas_kill_hba (struct mrsas_softc *sc)
 int mrsas_wait_for_outstanding(struct mrsas_softc *sc)
 {
     int i, outstanding, retval = 0;
-    u_int32_t fw_state;
+    u_int32_t fw_state, count, MSIxIndex;
+
 
     for (i = 0; i < MRSAS_RESET_WAIT_TIME; i++) {
         if (sc->remove_in_progress) {
@@ -2544,7 +2908,9 @@ int mrsas_wait_for_outstanding(struct mrsas_softc *sc)
         if (!(i % MRSAS_RESET_NOTICE_INTERVAL)) {
             mrsas_dprint(sc, MRSAS_OCR, "[%2d]waiting for %d "
                                 "commands to complete\n",i,outstanding);
-            mrsas_complete_cmd(sc);
+            count = sc->msix_vectors > 0 ? sc->msix_vectors : 1;
+            for (MSIxIndex = 0 ; MSIxIndex < count; MSIxIndex++)
+                  mrsas_complete_cmd(sc, MSIxIndex);
         }
         DELAY(1000 * 1000);
     }
@@ -2965,13 +3331,12 @@ mrsas_complete_mptmfi_passthru(struct mrsas_softc *sc, struct mrsas_mfi_cmd *cmd
                 mtx_unlock(&sc->raidmap_lock);
                 break;
             }
-#if 0 //currently not supporting event handling, so commenting out
             if (cmd->frame->dcmd.opcode == MR_DCMD_CTRL_EVENT_GET_INFO ||
                     cmd->frame->dcmd.opcode == MR_DCMD_CTRL_EVENT_GET) {
-                mrsas_poll_wait_aen = 0;
+				sc->mrsas_aen_triggered = 0;
             }
-#endif
-            /* See if got an event notification */
+
+			/* See if got an event notification */
             if (cmd->frame->dcmd.opcode == MR_DCMD_CTRL_EVENT_WAIT)
                 mrsas_complete_aen(sc, cmd);
             else
@@ -3135,25 +3500,27 @@ static int mrsas_get_ld_map_info(struct mrsas_softc *sc)
     int retcode = 0;
     struct mrsas_mfi_cmd *cmd;
     struct mrsas_dcmd_frame *dcmd;
-    MR_FW_RAID_MAP_ALL *map;
+    void *map;
     bus_addr_t map_phys_addr = 0;
 
     cmd = mrsas_get_mfi_cmd(sc);
     if (!cmd) {
-        device_printf(sc->mrsas_dev, "Cannot alloc for ld map info cmd.\n");
+        device_printf(sc->mrsas_dev,
+			"Cannot alloc for ld map info cmd.\n");
         return 1;
     }
 
     dcmd = &cmd->frame->dcmd;
 
-    map = sc->raidmap_mem[(sc->map_id & 1)];
+    map = (void *)sc->raidmap_mem[(sc->map_id & 1)];
     map_phys_addr = sc->raidmap_phys_addr[(sc->map_id & 1)];
     if (!map) {
-        device_printf(sc->mrsas_dev, "Failed to alloc mem for ld map info.\n");
+        device_printf(sc->mrsas_dev,
+			"Failed to alloc mem for ld map info.\n");
         mrsas_release_mfi_cmd(cmd);
         return (ENOMEM);
     }
-    memset(map, 0, sizeof(*map));
+    memset(map, 0, sizeof(sc->max_map_sz));
     memset(dcmd->mbox.b, 0, MFI_MBOX_SIZE);
 
     dcmd->cmd = MFI_CMD_DCMD;
@@ -3162,18 +3529,21 @@ static int mrsas_get_ld_map_info(struct mrsas_softc *sc)
     dcmd->flags = MFI_FRAME_DIR_READ;
     dcmd->timeout = 0;
     dcmd->pad_0 = 0;
-    dcmd->data_xfer_len = sc->map_sz;
+    dcmd->data_xfer_len = sc->current_map_sz;
     dcmd->opcode = MR_DCMD_LD_MAP_GET_INFO;
     dcmd->sgl.sge32[0].phys_addr = map_phys_addr;
-    dcmd->sgl.sge32[0].length = sc->map_sz;
+    dcmd->sgl.sge32[0].length = sc->current_map_sz;
+
     if (!mrsas_issue_polled(sc, cmd))
         retcode = 0;
-    else  
+    else
     {
-        device_printf(sc->mrsas_dev, "Fail to send get LD map info cmd.\n");
+        device_printf(sc->mrsas_dev,
+			"Fail to send get LD map info cmd.\n");
         retcode = 1;
     }
     mrsas_release_mfi_cmd(cmd);
+
     return(retcode);
 }
 
@@ -3191,26 +3561,28 @@ static int mrsas_sync_map_info(struct mrsas_softc *sc)
     struct mrsas_dcmd_frame *dcmd;
     uint32_t size_sync_info, num_lds;
     MR_LD_TARGET_SYNC *target_map = NULL;
-    MR_FW_RAID_MAP_ALL *map;
+    MR_DRV_RAID_MAP_ALL *map;
     MR_LD_RAID  *raid;
     MR_LD_TARGET_SYNC *ld_sync;
     bus_addr_t map_phys_addr = 0;
 
     cmd = mrsas_get_mfi_cmd(sc);
     if (!cmd) {
-        device_printf(sc->mrsas_dev, "Cannot alloc for sync map info cmd\n");
+        device_printf(sc->mrsas_dev,
+			"Cannot alloc for sync map info cmd\n");
         return 1;
     }
 
-    map = sc->raidmap_mem[sc->map_id & 1];
+    map = sc->ld_drv_map[sc->map_id & 1];
     num_lds = map->raidMap.ldCount;
-    
+
     dcmd = &cmd->frame->dcmd;
     size_sync_info = sizeof(MR_LD_TARGET_SYNC) * num_lds;
     memset(dcmd->mbox.b, 0, MFI_MBOX_SIZE);
 
-    target_map = (MR_LD_TARGET_SYNC *)sc->raidmap_mem[(sc->map_id - 1) & 1];
-    memset(target_map, 0, sizeof(MR_FW_RAID_MAP_ALL));
+    target_map =
+	    (MR_LD_TARGET_SYNC *)sc->raidmap_mem[(sc->map_id - 1) & 1];
+    memset(target_map, 0, sc->max_map_sz);
 
     map_phys_addr = sc->raidmap_phys_addr[(sc->map_id - 1) & 1];
 
@@ -3228,16 +3600,17 @@ static int mrsas_sync_map_info(struct mrsas_softc *sc)
     dcmd->flags = MFI_FRAME_DIR_WRITE;
     dcmd->timeout = 0;
     dcmd->pad_0 = 0;
-    dcmd->data_xfer_len = sc->map_sz;
+    dcmd->data_xfer_len = sc->current_map_sz;
     dcmd->mbox.b[0] = num_lds;
     dcmd->mbox.b[1] = MRSAS_DCMD_MBOX_PEND_FLAG;
     dcmd->opcode = MR_DCMD_LD_MAP_GET_INFO;
     dcmd->sgl.sge32[0].phys_addr = map_phys_addr;
-    dcmd->sgl.sge32[0].length = sc->map_sz;
+    dcmd->sgl.sge32[0].length = sc->current_map_sz;
 
     sc->map_update_cmd = cmd;
     if (mrsas_issue_dcmd(sc, cmd)) {
-        device_printf(sc->mrsas_dev, "Fail to send sync map info command.\n");
+        device_printf(sc->mrsas_dev,
+			"Fail to send sync map info command.\n");
         return(1);
     }
     return(retcode);
@@ -3263,7 +3636,8 @@ static int mrsas_get_pd_list(struct mrsas_softc *sc)
 
     cmd = mrsas_get_mfi_cmd(sc);
     if (!cmd) {
-        device_printf(sc->mrsas_dev, "Cannot alloc for get PD list cmd\n");
+        device_printf(sc->mrsas_dev,
+			"Cannot alloc for get PD list cmd\n");
         return 1;
     }
 
@@ -3272,7 +3646,8 @@ static int mrsas_get_pd_list(struct mrsas_softc *sc)
     tcmd = malloc(sizeof(struct mrsas_tmp_dcmd), M_MRSAS, M_NOWAIT);
     pd_list_size = MRSAS_MAX_PD * sizeof(struct MR_PD_LIST);
     if (mrsas_alloc_tmp_dcmd(sc, tcmd, pd_list_size) != SUCCESS) {
-        device_printf(sc->mrsas_dev, "Cannot alloc dmamap for get PD list cmd\n");
+        device_printf(sc->mrsas_dev,
+			"Cannot alloc dmamap for get PD list cmd\n");
         mrsas_release_mfi_cmd(cmd);
         return(ENOMEM);
     }
@@ -3304,11 +3679,14 @@ static int mrsas_get_pd_list(struct mrsas_softc *sc)
     pd_count = MRSAS_MAX_PD;
     pd_addr = pd_list_mem->addr;
     if (retcode == 0 && pd_list_mem->count < pd_count) {
-        memset(sc->local_pd_list, 0, MRSAS_MAX_PD * sizeof(struct mrsas_pd_list));
+        memset(sc->local_pd_list, 0,
+			MRSAS_MAX_PD * sizeof(struct mrsas_pd_list));
         for (pd_index = 0; pd_index < pd_list_mem->count; pd_index++) {
             sc->local_pd_list[pd_addr->deviceId].tid = pd_addr->deviceId;
-            sc->local_pd_list[pd_addr->deviceId].driveType = pd_addr->scsiDevType;
-            sc->local_pd_list[pd_addr->deviceId].driveState = MR_PD_STATE_SYSTEM;
+            sc->local_pd_list[pd_addr->deviceId].driveType =
+		    pd_addr->scsiDevType;
+            sc->local_pd_list[pd_addr->deviceId].driveState =
+		    MR_PD_STATE_SYSTEM;
             pd_addr++;
         }
     }
@@ -3340,7 +3718,8 @@ static int mrsas_get_ld_list(struct mrsas_softc *sc)
 
     cmd = mrsas_get_mfi_cmd(sc);
     if (!cmd) {
-        device_printf(sc->mrsas_dev, "Cannot alloc for get LD list cmd\n");
+        device_printf(sc->mrsas_dev,
+			"Cannot alloc for get LD list cmd\n");
         return 1;
     }
 
@@ -3349,7 +3728,8 @@ static int mrsas_get_ld_list(struct mrsas_softc *sc)
     tcmd = malloc(sizeof(struct mrsas_tmp_dcmd), M_MRSAS, M_NOWAIT);
     ld_list_size = sizeof(struct MR_LD_LIST);
     if (mrsas_alloc_tmp_dcmd(sc, tcmd, ld_list_size) != SUCCESS) {
-        device_printf(sc->mrsas_dev, "Cannot alloc dmamap for get LD list cmd\n");
+        device_printf(sc->mrsas_dev,
+			"Cannot alloc dmamap for get LD list cmd\n");
         mrsas_release_mfi_cmd(cmd);
         return(ENOMEM);
     }
@@ -3358,6 +3738,9 @@ static int mrsas_get_ld_list(struct mrsas_softc *sc)
         ld_list_phys_addr = tcmd->tmp_dcmd_phys_addr;
     }
     memset(dcmd->mbox.b, 0, MFI_MBOX_SIZE);
+
+    if (sc->max256vdSupport)
+        dcmd->mbox.b[0]=1;
 
     dcmd->cmd = MFI_CMD_DCMD;
     dcmd->cmd_status = 0xFF;
@@ -3375,10 +3758,15 @@ static int mrsas_get_ld_list(struct mrsas_softc *sc)
     else 
         retcode = 1;
 
+#if VD_EXT_DEBUG
+    printf ("Number of LDs %d\n", ld_list_mem->ldCount);
+#endif
+
      /* Get the instance LD list */ 
-     if ((retcode == 0) && (ld_list_mem->ldCount <= (MAX_LOGICAL_DRIVES))){
+     if ((retcode == 0) &&
+		     (ld_list_mem->ldCount <= sc->fw_supported_vd_count)){
         sc->CurLdCount = ld_list_mem->ldCount;
-        memset(sc->ld_ids, 0xff, MRSAS_MAX_LD);
+        memset(sc->ld_ids, 0xff, MAX_LOGICAL_DRIVES_EXT);
         for (ld_index = 0; ld_index < ld_list_mem->ldCount; ld_index++) {
             if (ld_list_mem->ldList[ld_index].state != 0) {
                 ids = ld_list_mem->ldList[ld_index].ref.ld_context.targetId;
@@ -3635,7 +4023,11 @@ void mrsas_complete_aen(struct mrsas_softc *sc, struct mrsas_mfi_cmd *cmd)
 	* Don't signal app if it is just an aborted previously registered aen
 	*/
 	if ((!cmd->abort_aen) && (sc->remove_in_progress == 0)) {
-		/* TO DO (?) */
+		sc->mrsas_aen_triggered = 1;
+		if (sc->mrsas_poll_waiting) {
+			sc->mrsas_poll_waiting = 0;
+			selwakeup(&sc->mrsas_select);
+		}
 	}
 	else
 		cmd->abort_aen = 0;
