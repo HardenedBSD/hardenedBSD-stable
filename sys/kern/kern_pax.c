@@ -88,21 +88,21 @@ const char *pax_status_simple_str[] = {
 };
 
 struct prison *
-pax_get_prison(struct proc *proc)
+pax_get_prison(struct proc *p)
 {
-	if ((proc == NULL) || (proc->p_ucred == NULL))
+	if ((p == NULL) || (p->p_ucred == NULL))
 		return (NULL);
 
-	return (proc->p_ucred->cr_prison);
+	return (p->p_ucred->cr_prison);
 }
 
 int
-pax_get_flags(struct proc *proc, uint32_t *flags)
+pax_get_flags(struct proc *p, uint32_t *flags)
 {
 	*flags = 0;
 
-	if (proc != NULL)
-		*flags = proc->p_pax;
+	if (p != NULL)
+		*flags = p->p_pax;
 	else
 		return (1);
 
