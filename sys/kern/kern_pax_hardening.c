@@ -83,7 +83,7 @@ int pax_procfs_harden_global = PAX_FEATURE_SIMPLE_DISABLED;
 
 static int sysctl_pax_allow_map32(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_mprotect_exec(SYSCTL_HANDLER_ARGS);
-static int sysctl_pax_proc(SYSCTL_HANDLER_ARGS);
+static int sysctl_pax_procfs(SYSCTL_HANDLER_ARGS);
 
 #ifdef PAX_SYSCTLS
 SYSCTL_PROC(_hardening, OID_AUTO, allow_map32bit,
@@ -100,7 +100,7 @@ SYSCTL_PROC(_hardening, OID_AUTO, allow_mprotect_exec,
     "1 - enabled.");
 SYSCTL_PROC(_hardening, OID_AUTO, procfs_harden,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_SECURE,
-    NULL, 0, sysctl_pax_proc, "I",
+    NULL, 0, sysctl_pax_procfs, "I",
     "Harden procfs, disabling write of /proc/pid/mem. "
     "0 - disabled, "
     "1 - enabled.");
@@ -199,14 +199,14 @@ sysctl_pax_mprotect_exec(SYSCTL_HANDLER_ARGS)
 }
 
 static int
-sysctl_pax_proc(SYSCTL_HANDLER_ARGS)
+sysctl_pax_procfs(SYSCTL_HANDLER_ARGS)
 {
 	struct prison *pr;
 	int err, val;
 
 	pr = pax_get_prison(req->td->td_proc);
 
-	val = (pr != NULL) ? pr->pr_pax_proc_harden : pax_procfs_harden_global;
+	val = (pr != NULL) ? pr->pr_pax_procfs_harden : pax_procfs_harden_global;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
 	if (err || (req->newptr == NULL))
 		return (err);
@@ -219,7 +219,7 @@ sysctl_pax_proc(SYSCTL_HANDLER_ARGS)
 
 	if (pr != NULL) {
 		prison_lock(pr);
-		pr->pr_pax_proc_harden = val;
+		pr->pr_pax_procfs_harden = val;
 		prison_unlock(pr);
 	}
 
@@ -254,7 +254,7 @@ pax_procfs_harden(struct thread *td)
 	pr = pax_get_prison(td->td_proc);
 
 	if (pr != NULL && pr != &prison0)
-		return (pr->pr_pax_proc_harden ? EPERM : 0);
+		return (pr->pr_pax_procfs_harden ? EPERM : 0);
 
 	return (pax_procfs_harden_global ? EPERM : 0);
 }
