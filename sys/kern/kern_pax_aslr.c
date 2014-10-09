@@ -503,12 +503,12 @@ pax_aslr_sysinit(void)
 SYSINIT(pax_aslr, SI_SUB_PAX, SI_ORDER_SECOND, pax_aslr_sysinit, NULL);
 
 bool
-pax_aslr_active(struct proc *proc)
+pax_aslr_active(struct proc *p)
 {
 	u_int flags;
 	bool ret;
 
-	ret = pax_get_flags(proc, &flags);
+	ret = pax_get_flags(p, &flags);
 	if (ret != 0)
 		/*
 		 * invalid flags, we should force ASLR
@@ -516,7 +516,7 @@ pax_aslr_active(struct proc *proc)
 		return (true);
 
 	CTR3(KTR_PAX, "%s: pid = %d p_pax = %x",
-	    __func__, proc->p_pid, flags);
+	    __func__, p->p_pid, flags);
 
 	if ((flags & PAX_NOTE_ASLR) == PAX_NOTE_ASLR)
 		return (true);
@@ -690,7 +690,7 @@ pax_aslr_mmap(struct proc *p, vm_offset_t *addr, vm_offset_t orig_addr, int flag
 }
 
 void
-pax_aslr_stack(struct thread *td, uintptr_t *addr)
+pax_aslr_stack(struct proc *p, uintptr_t *addr)
 {
 	uintptr_t orig_addr;
 
@@ -698,7 +698,7 @@ pax_aslr_stack(struct thread *td, uintptr_t *addr)
 		return;
 
 	orig_addr = *addr;
-	*addr -= td->td_proc->p_vmspace->vm_aslr_delta_stack;
+	*addr -= p->p_vmspace->vm_aslr_delta_stack;
 	CTR3(KTR_PAX, "%s: orig_addr=%p, new_addr=%p\n",
 	    __func__, (void *)orig_addr, (void *)*addr);
 }
