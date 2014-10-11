@@ -202,6 +202,7 @@ struct prison {
 	int              pr_pax_segvguard_maxcrashes;   /* (p) Maximum number of crashes before suspending application */
 	int		 pr_pax_map32_enabled;		/* (p) MAP_32BIT enabled (amd64 only) */
 	int		 pr_pax_procfs_harden;		/* (p) Harden procfs */
+	int		 pr_pax_mprotect_exec;		/* (p) Disallow setting exec bit on non-exec mappings */
 };
 
 struct prison_racct {
