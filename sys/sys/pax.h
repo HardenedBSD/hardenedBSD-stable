@@ -42,6 +42,32 @@ struct vnode;
 struct vmspace;
 struct vm_offset_t;
 
+struct hardening_features {
+	int	 hr_pax_aslr_status;		/* (p) PaX ASLR enabled */
+	int	 hr_pax_aslr_debug;		/* (p) PaX ASLR debug */
+	int	 hr_pax_aslr_mmap_len;		/* (p) Number of bits randomized with mmap */
+	int	 hr_pax_aslr_stack_len;		/* (p) Number of bits randomized with stack */
+	int	 hr_pax_aslr_exec_len;		/* (p) Number of bits randomized with the execbase */
+	int	 hr_pax_aslr_compat_status;	/* (p) PaX ASLR enabled (compat32) */
+	int	 hr_pax_aslr_compat_mmap_len;	/* (p) Number of bits randomized with mmap (compat32) */
+	int	 hr_pax_aslr_compat_stack_len;	/* (p) Number of bits randomized with stack (compat32) */
+	int	 hr_pax_aslr_compat_exec_len;	/* (p) Number of bits randomized with the execbase (compat32) */
+	int	 hr_pax_segvguard_status;       /* (p) PaX segvguard enabled */
+	int	 hr_pax_segvguard_debug;        /* (p) PaX segvguard debug */
+	int	 hr_pax_segvguard_expiry;       /* (p) Number of seconds to expire an entry */
+	int	 hr_pax_segvguard_suspension;   /* (p) Number of seconds to suspend an application */
+	int	 hr_pax_segvguard_maxcrashes;   /* (p) Maximum number of crashes before suspending application */
+	int	 hr_pax_map32_enabled;		/* (p) MAP_32BIT enabled (amd64 only) */
+	int	 hr_ptrace_hardening_set;		/* (p) Ptrace flags set */
+	int	 hr_ptrace_hardening_status;	/* (p) Ptrace hardening enabled */
+	int	 hr_ptrace_hardening_flag_status;	/* (p) Ptrace hardening flag enabled */
+	int	 hr_ptrace_request_flags_all;	/* (p) Ptrace hardening request set for all */
+	char	 hr_ptrace_request_flags[65];	/* (p) Ptrace requests types */
+	gid_t	 hr_ptrace_hardening_allowed_gid;	/* (p) Ptrace hardening per gid */
+	int	 hr_pax_procfs_harden;		/* (p) Harden procfs */
+	int	 hr_pax_mprotect_exec;		/* (p) Disallow setting exec bit on non-exec mappings */
+};
+
 /*
  * used in sysctl handler
  */
