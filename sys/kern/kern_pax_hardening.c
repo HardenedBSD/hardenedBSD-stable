@@ -144,7 +144,7 @@ pax_hardening_sysinit(void)
 	default:
 		printf("[PAX HARDENING] WARNING, invalid settings in loader.conf!"
 		    " (pax_procfs_harden_global = %d)\n", pax_procfs_harden_global);
-		pax_procfs_harden_global = PAX_FEATURE_SIMPLE_DISABLED;
+		pax_procfs_harden_global = PAX_FEATURE_SIMPLE_ENABLED;
 	}
 	printf("[PAX HARDENING] procfs hardening: %s\n",
 	    pax_status_simple_str[pax_procfs_harden_global]);
@@ -183,9 +183,12 @@ sysctl_pax_allow_map32(SYSCTL_HANDLER_ARGS)
 static int
 sysctl_pax_mprotect_exec(SYSCTL_HANDLER_ARGS)
 {
+	struct prison *pr;
 	int err, val;
 
-	val = pax_mprotect_exec_global;
+	pr = pax_get_prison(req->td->td_proc);
+
+	val = (pr != NULL) ? pr->pr_pax_mprotect_exec : pax_mprotect_exec_global;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
 	if (err || (req->newptr == NULL))
 		return (err);
@@ -193,7 +196,14 @@ sysctl_pax_mprotect_exec(SYSCTL_HANDLER_ARGS)
 	if (val > 1 || val < -1)
 		return (EINVAL);
 
-	pax_mprotect_exec_global = val;
+	if ((pr == NULL) || (pr == &prison0))
+		pax_mprotect_exec_global = val;
+
+	if (pr != NULL) {
+		prison_lock(pr);
+		pr->pr_pax_mprotect_exec = val;
+		prison_unlock(pr);
+	}
 
 	return (0);
 }
