@@ -225,6 +225,8 @@ extern int pax_segvguard_maxcrashes;
 
 #ifdef PAX_HARDENING
 extern int pax_map32_enabled_global;
+extern int pax_mprotect_exec_global;
+extern int pax_procfs_harden_global;
 #endif /* PAX_HARDENING*/
 
 extern int hardening_log_log;
