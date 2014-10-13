@@ -32,16 +32,7 @@
 #ifndef	__SYS_PAX_H
 #define	__SYS_PAX_H
 
-#ifdef _KERNEL
-
-struct image_params;
-struct prison;
-struct thread;
-struct proc;
-struct vnode;
-struct vmspace;
-struct vm_offset_t;
-
+#if defined(_KERNEL) || defined(_WANT_PRISON)
 struct hardening_features {
 	int	 hr_pax_aslr_status;		/* (p) PaX ASLR enabled */
 	int	 hr_pax_aslr_debug;		/* (p) PaX ASLR debug */
@@ -67,6 +58,17 @@ struct hardening_features {
 	int	 hr_pax_procfs_harden;		/* (p) Harden procfs */
 	int	 hr_pax_mprotect_exec;		/* (p) Disallow setting exec bit on non-exec mappings */
 };
+#endif
+
+#ifdef _KERNEL
+
+struct image_params;
+struct prison;
+struct thread;
+struct proc;
+struct vnode;
+struct vmspace;
+struct vm_offset_t;
 
 /*
  * used in sysctl handler

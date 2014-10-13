@@ -30,8 +30,11 @@
 #ifndef _SYS_JAIL_H_
 #define _SYS_JAIL_H_
 
-#ifdef _KERNEL
+#if defined(_KERNEL) || defined(_WANT_PRISON)
 #include <sys/pax.h>
+#endif
+
+#ifdef _KERNEL
 
 struct jail_v0 {
 	u_int32_t	version;
