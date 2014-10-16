@@ -122,8 +122,9 @@ procfs_doprocfpregs(PFS_FILL_ARGS)
 		PROC_LOCK(p);
 	}
 	if (error == 0 && uio->uio_rw == UIO_WRITE) {
-		if (!P_SHOULDSTOP(p))
+		if (!P_SHOULDSTOP(p)) {
 			error = EBUSY;
+		}
 #ifdef PAX_HARDENING
 		else if ((error = pax_procfs_harden(td2)) == 0) {
 #else

@@ -123,8 +123,9 @@ procfs_doprocdbregs(PFS_FILL_ARGS)
 		PROC_LOCK(p);
 	}
 	if (error == 0 && uio->uio_rw == UIO_WRITE) {
-		if (!P_SHOULDSTOP(p)) /* XXXKSE should be P_TRACED? */
+		if (!P_SHOULDSTOP(p)) /* XXXKSE should be P_TRACED? */ {
 			error = EBUSY;
+		}
 #ifdef PAX_HARDENING
 		else if ((error = pax_procfs_harden(td2)) == 0) {
 #else
