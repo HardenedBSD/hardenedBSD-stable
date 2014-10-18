@@ -521,8 +521,8 @@ pax_segvguard_lookup(struct thread *td, struct vnode *vn)
 	return (NULL);
 }
 
-void
-pax_segvguard_remove(struct thread *td, struct vnode *vn)
+static void
+pax_segvguard_remove_locked(struct thread *td, struct vnode *vn)
 {
 	struct pax_segvguard_entry *v;
 
@@ -532,6 +532,15 @@ pax_segvguard_remove(struct thread *td, struct vnode *vn)
 		LIST_REMOVE(v, se_entry);
 		free(v, M_PAX);
 	}
+
+}
+
+void
+pax_segvguard_remove(struct thread *td, struct vnode *vn)
+{
+	mtx_lock(&segvguard_mtx);
+	pax_segvguard_remove_locked(td, vn);
+	mtx_unlock(&segvguard_mtx);
 
 }
 
@@ -616,7 +625,7 @@ pax_segvguard_check(struct thread *td, struct vnode *v, const char *name)
 			printf("PaX Segvguard: [%s (%d)] Suspension "
 					"expired.\n", name, td->td_proc->p_pid);
 
-			pax_segvguard_remove(td, v);
+			pax_segvguard_remove_locked(td, v);
 			mtx_unlock(&segvguard_mtx);
 			return (0);
 		}
