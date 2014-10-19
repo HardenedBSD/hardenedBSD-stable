@@ -19,6 +19,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/lock.h>
 #include <sys/mutex.h>
 #include <sys/time.h>
+#include <sys/systm.h>
 
 #define KEYSTREAM_ONLY
 #include <crypto/chacha_private.h>
@@ -154,14 +155,14 @@ _rs_stir(int lock)
 {
 	u_int8_t key[KEYSZ + IVSZ], *p;
 	int r, n;
-	struct timeval tv_now;
+	struct timespec ts_now;
 
 	/*
 	 * XXX read_random() returns unsafe numbers if the entropy
 	 * device is not loaded -- MarkM.
 	 */
 	r = read_random(key, ARC4_KEYBYTES);
-	getmicrouptime(&tv_now);
+	nanotime(&ts_now);
 
 	if (lock)
 		mtx_lock(&arc4_mtx);
@@ -177,16 +178,18 @@ _rs_stir(int lock)
 	 * Even if read_random does not provide some bytes
 	 * we have at least the possibility to fill with some time value
 	 */
-	for (p = (u_int8_t *)&tv_now, n = 0; n < sizeof(tv_now); n++)
+	for (p = (u_int8_t *)&ts_now, n = 0; n < sizeof(ts_now); n++)
 		key[n] ^= p[n];
 
 	_rs_seed(key, sizeof(key));
 
-	arc4_t_reseed = tv_now.tv_sec + ARC4_RESEED_SECONDS;
+	arc4_t_reseed = ts_now.tv_sec + ARC4_RESEED_SECONDS;
 	arc4_numruns = 0;
 
 	if (lock)
 		mtx_unlock(&arc4_mtx);
+
+	explicit_bzero(key, sizeof(key));
 }
 
 /*
@@ -209,30 +212,19 @@ SYSINIT(arc4_init, SI_SUB_LOCK, SI_ORDER_ANY, arc4_init, NULL);
 void
 arc4rand(void *ptr, u_int len, int reseed)
 {
-	struct timeval tv;
-	u_char *p;
-	u_int32_t r;
-	int n;
+	struct timespec ts;
 
-	getmicrouptime(&tv);
+	nanotime(&ts);
 	if (atomic_cmpset_int(&arc4rand_iniseed_state, ARC4_ENTR_HAVE,
 		ARC4_ENTR_SEED) || reseed ||
 		(arc4_numruns > ARC4_RESEED_BYTES) ||
-		(tv.tv_sec > arc4_t_reseed))
+		(ts.tv_sec > arc4_t_reseed))
 		_rs_stir(0);
 
 	mtx_lock(&arc4_mtx);
 	arc4_numruns += len;
-	p = ptr;
-	n = 0;
 
-	while (len--) {
-		if (n == sizeof(r))
-			n = 0;
-		memset(&r, 0, sizeof(p));
-		_rs_random_u32(&r);
-		*p++ = (r >> n++) & 0xFF;
-	}
+	_rs_random_buf(ptr, len);
 	
 	mtx_unlock(&arc4_mtx);
 }
