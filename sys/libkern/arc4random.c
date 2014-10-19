@@ -242,7 +242,9 @@ arc4random(void)
 {
 	uint32_t ret;
 	
-	arc4rand(&ret, sizeof(ret), 0);
+	mtx_lock(&arc4_mtx);
+	_rs_random_u32(&ret);
+	mtx_unlock(&arc4_mtx);
 
 	return (ret);
 }
