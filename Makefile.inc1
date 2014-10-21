@@ -323,7 +323,8 @@ X${BINUTIL}?=	${CROSS_BINUTILS_PREFIX}${${BINUTIL}}
 X${BINUTIL}?=	${${BINUTIL}}
 .endif
 .endfor
-WMAKEENV+=	CC="${XCC} ${XFLAGS}" CXX="${XCXX} ${XFLAGS}" \
+WMAKEENV+=	CC="${XCC} ${XFLAGS}" CXX="${XCXX} ${XFLAGS} ${XXFLAGS}" \
+		DEPFLAGS="${DEPFLAGS}" \
 		CPP="${XCPP} ${XFLAGS}" \
 		AS="${XAS}" AR="${XAR}" LD="${XLD}" NM=${XNM} \
 		OBJDUMP=${XOBJDUMP} OBJCOPY="${XOBJCOPY}" \
@@ -351,6 +352,8 @@ TARGET_ABI=	gnueabi
 .endif
 .if defined(X_COMPILER_TYPE) && ${X_COMPILER_TYPE} == gcc
 XFLAGS+=	-isystem ${WORLDTMP}/usr/include -L${WORLDTMP}/usr/lib
+XXFLAGS+=	-I${WORLDTMP}/usr/include/c++/v1 -std=gnu++11 -L${WORLDTMP}/../lib/libc++
+DEPFLAGS+=	-I${WORLDTMP}/usr/include/c++/v1
 .else
 TARGET_ABI?=	unknown
 TARGET_TRIPLE?=	${TARGET_ARCH:C/amd64/x86_64/}-${TARGET_ABI}-freebsd11.0
@@ -1558,12 +1561,7 @@ gnu/lib/libsupc++__L: gnu/lib/libstdc++__L
 
 lib/libgeom__L: lib/libexpat__L
 
-.if defined(WITH_ATF) || ${MK_TESTS} != "no"
-.if !defined(WITH_ATF)
-# Ensure that the ATF libraries will be built during make libraries, even
-# though they will have WITHOUT_TESTS
-MAKE+=		-DWITH_ATF
-.endif
+.if ${MK_TESTS} != "no"
 _lib_atf=	lib/atf
 .endif
 
@@ -1888,7 +1886,8 @@ check-old: check-old-files check-old-libs check-old-dirs
 # showconfig - show build configuration.
 #
 showconfig:
-	@${MAKE} -n -f src.opts.mk -V dummy -dg1 2>&1 | grep ^MK_ | sort
+	@(${MAKE} -n -f ${.CURDIR}/sys/conf/kern.opts.mk -V dummy -dg1; \
+	  ${MAKE} -n -f ${.CURDIR}/share/mk/src.opts.mk -V dummy -dg1) 2>&1 | grep ^MK_ | sort -u
 
 .if !empty(KRNLOBJDIR) && !empty(KERNCONF)
 DTBOUTPUTPATH= ${KRNLOBJDIR}/${KERNCONF}/
