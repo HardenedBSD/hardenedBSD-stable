@@ -350,7 +350,7 @@ do_execve(td, args, mac_p)
 	struct vnode *tracevp = NULL;
 	struct ucred *tracecred = NULL;
 #endif
-	struct vnode *textvp = NULL, *binvp = NULL;
+	struct vnode *textvp = NULL, *binvp;
 	cap_rights_t rights;
 	int credential_changing;
 	int textset;
@@ -430,7 +430,7 @@ interpret:
 		if (error)
 			goto exec_fail;
 
-		binvp  = nd.ni_vp;
+		binvp = nd.ni_vp;
 		imgp->vp = binvp;
 	} else {
 		AUDIT_ARG_FD(args->fd);
@@ -863,7 +863,7 @@ done1:
 	 */
 	if (textvp != NULL)
 		vrele(textvp);
-	if (binvp && error != 0)
+	if (error != 0)
 		vrele(binvp);
 #ifdef KTRACE
 	if (tracevp != NULL)
