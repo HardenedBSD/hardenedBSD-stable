@@ -72,11 +72,11 @@ __FBSDID("$FreeBSD$");
 
 #ifdef PAX_HARDENING
 int pax_map32_enabled_global = PAX_FEATURE_SIMPLE_DISABLED;
-int pax_mprotect_exec_global = PAX_FEATURE_SIMPLE_DISABLED;
+int pax_mprotect_exec_harden_global = PAX_FEATURE_SIMPLE_ENABLED;
 int pax_procfs_harden_global = PAX_FEATURE_SIMPLE_ENABLED;
 #else
 int pax_map32_enabled_global = PAX_FEATURE_SIMPLE_ENABLED;
-int pax_mprotect_exec_global = PAX_FEATURE_SIMPLE_ENABLED;
+int pax_mprotect_exec_harden_global = PAX_FEATURE_SIMPLE_DISABLED;
 int pax_procfs_harden_global = PAX_FEATURE_SIMPLE_DISABLED;
 #endif
 
@@ -91,7 +91,7 @@ SYSCTL_PROC(_hardening, OID_AUTO, allow_map32bit,
     "mmap MAP_32BIT support. "
     "0 - disabled, "
     "1 - enabled.");
-SYSCTL_PROC(_hardening, OID_AUTO, allow_mprotect_exec,
+SYSCTL_PROC(_hardening, OID_AUTO, mprotect_exec_harden,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_SECURE,
     NULL, 0, sysctl_pax_mprotect_exec, "I",
     "Allow mprotect(PROT_EXEC) on a non-executable mapping. "
@@ -106,7 +106,7 @@ SYSCTL_PROC(_hardening, OID_AUTO, procfs_harden,
 #endif
 
 TUNABLE_INT("hardening.allow_map32bit", &pax_map32_enabled_global);
-TUNABLE_INT("hardening.allow_mprotect_exec", &pax_mprotect_exec_global);
+TUNABLE_INT("hardening.mprotect_exec_harden", &pax_mprotect_exec_harden_global);
 TUNABLE_INT("hardening.procfs_harden", &pax_procfs_harden_global);
 
 static void
@@ -118,23 +118,25 @@ pax_hardening_sysinit(void)
 		break;
 	default:
 		printf("[PAX HARDENING] WARNING, invalid settings in loader.conf!"
-		    " (pax_map32_enabled_global = %d)\n", pax_map32_enabled_global);
+		    " (hardening.allow_map32bit = %d)\n",
+		    pax_map32_enabled_global);
 		pax_map32_enabled_global = PAX_FEATURE_SIMPLE_DISABLED;
 	}
 	printf("[PAX HARDENING] mmap MAP32_bit support: %s\n",
 	    pax_status_simple_str[pax_map32_enabled_global]);
 
-	switch (pax_mprotect_exec_global) {
+	switch (pax_mprotect_exec_harden_global) {
 	case PAX_FEATURE_SIMPLE_DISABLED:
 	case PAX_FEATURE_SIMPLE_ENABLED:
 		break;
 	default:
 		printf("[PAX HARDENING] WARNING, invalid settings in loader.conf!"
-		    " (pax_mprotect_exec_global = %d)\n", pax_mprotect_exec_global);
-		pax_mprotect_exec_global = PAX_FEATURE_SIMPLE_DISABLED;
+		    " (hardening.mprotect_exec_harden = %d)\n",
+		    pax_mprotect_exec_harden_global);
+		pax_mprotect_exec_harden_global = PAX_FEATURE_SIMPLE_ENABLED;
 	}
 	printf("[PAX HARDENING] mprotect exec hardening: %s\n",
-	    pax_status_simple_str[pax_mprotect_exec_global]);
+	    pax_status_simple_str[pax_mprotect_exec_harden_global]);
 
 	switch (pax_procfs_harden_global) {
 	case PAX_FEATURE_SIMPLE_DISABLED:
@@ -142,7 +144,7 @@ pax_hardening_sysinit(void)
 		break;
 	default:
 		printf("[PAX HARDENING] WARNING, invalid settings in loader.conf!"
-		    " (pax_procfs_harden_global = %d)\n", pax_procfs_harden_global);
+		    " (hardening.procfs_harden = %d)\n", pax_procfs_harden_global);
 		pax_procfs_harden_global = PAX_FEATURE_SIMPLE_ENABLED;
 	}
 	printf("[PAX HARDENING] procfs hardening: %s\n",
@@ -187,7 +189,7 @@ sysctl_pax_mprotect_exec(SYSCTL_HANDLER_ARGS)
 
 	pr = pax_get_prison(req->td->td_proc);
 
-	val = (pr != NULL) ? pr->pr_pax_mprotect_exec : pax_mprotect_exec_global;
+	val = (pr != NULL) ? pr->pr_pax_mprotect_exec_harden : pax_mprotect_exec_harden_global;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
 	if (err || (req->newptr == NULL))
 		return (err);
@@ -196,11 +198,11 @@ sysctl_pax_mprotect_exec(SYSCTL_HANDLER_ARGS)
 		return (EINVAL);
 
 	if ((pr == NULL) || (pr == &prison0))
-		pax_mprotect_exec_global = val;
+		pax_mprotect_exec_harden_global = val;
 
 	if (pr != NULL) {
 		prison_lock(pr);
-		pr->pr_pax_mprotect_exec = val;
+		pr->pr_pax_mprotect_exec_harden = val;
 		prison_unlock(pr);
 	}
 
@@ -250,9 +252,9 @@ pax_map32_enabled(struct thread *td)
 }
 
 int
-pax_mprotect_exec_enabled(void)
+pax_mprotect_exec_harden(void)
 {
-	return (pax_mprotect_exec_global);
+	return (pax_mprotect_exec_harden_global);
 }
 
 int
