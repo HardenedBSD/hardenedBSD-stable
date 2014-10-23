@@ -225,7 +225,7 @@ extern int pax_segvguard_maxcrashes;
 
 #ifdef PAX_HARDENING
 extern int pax_map32_enabled_global;
-extern int pax_mprotect_exec_global;
+extern int pax_mprotect_exec_harden_global;
 extern int pax_procfs_harden_global;
 #endif /* PAX_HARDENING*/
 
@@ -298,7 +298,7 @@ int pax_segvguard_update_flags_if_setuid(struct image_params *imgp,
  * Hardening related functions
  */
 int pax_map32_enabled(struct thread *td);
-int pax_mprotect_exec_enabled(void);
+int pax_mprotect_exec_harden(void);
 int pax_procfs_harden(struct thread *td);
 
 #endif /* _KERNEL */
