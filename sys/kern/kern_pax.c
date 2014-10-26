@@ -203,34 +203,34 @@ pax_init_prison(struct prison *pr)
 	    __func__, pr->pr_name);
 
 #ifdef PAX_ASLR
-	pr->pr_pax_aslr_status = pax_aslr_status;
-	pr->pr_pax_aslr_debug = pax_aslr_debug;
-	pr->pr_pax_aslr_mmap_len = pax_aslr_mmap_len;
-	pr->pr_pax_aslr_stack_len = pax_aslr_stack_len;
-	pr->pr_pax_aslr_exec_len = pax_aslr_exec_len;
+	pr->pr_hardening.hr_pax_aslr_status = pax_aslr_status;
+	pr->pr_hardening.hr_pax_aslr_debug = pax_aslr_debug;
+	pr->pr_hardening.hr_pax_aslr_mmap_len = pax_aslr_mmap_len;
+	pr->pr_hardening.hr_pax_aslr_stack_len = pax_aslr_stack_len;
+	pr->pr_hardening.hr_pax_aslr_exec_len = pax_aslr_exec_len;
 
 #ifdef COMPAT_FREEBSD32
-	pr->pr_pax_aslr_compat_status = pax_aslr_compat_status;
-	pr->pr_pax_aslr_compat_mmap_len = pax_aslr_compat_mmap_len;
-	pr->pr_pax_aslr_compat_stack_len = pax_aslr_compat_stack_len;
-	pr->pr_pax_aslr_compat_exec_len = pax_aslr_compat_exec_len;
+	pr->pr_hardening.hr_pax_aslr_compat_status = pax_aslr_compat_status;
+	pr->pr_hardening.hr_pax_aslr_compat_mmap_len = pax_aslr_compat_mmap_len;
+	pr->pr_hardening.hr_pax_aslr_compat_stack_len = pax_aslr_compat_stack_len;
+	pr->pr_hardening.hr_pax_aslr_compat_exec_len = pax_aslr_compat_exec_len;
 #endif /* COMPAT_FREEBSD32 */
 #endif /* PAX_ASLR */
 
 #ifdef PAX_SEGVGUARD
-	pr->pr_pax_segvguard_status = pax_segvguard_status;
-	pr->pr_pax_segvguard_debug = pax_segvguard_debug;
-	pr->pr_pax_segvguard_expiry = pax_segvguard_expiry;
-	pr->pr_pax_segvguard_suspension = pax_segvguard_suspension;
-	pr->pr_pax_segvguard_maxcrashes = pax_segvguard_maxcrashes;
+	pr->pr_hardening.hr_pax_segvguard_status = pax_segvguard_status;
+	pr->pr_hardening.hr_pax_segvguard_debug = pax_segvguard_debug;
+	pr->pr_hardening.hr_pax_segvguard_expiry = pax_segvguard_expiry;
+	pr->pr_hardening.hr_pax_segvguard_suspension = pax_segvguard_suspension;
+	pr->pr_hardening.hr_pax_segvguard_maxcrashes = pax_segvguard_maxcrashes;
 #endif
 
 #ifdef PAX_HARDENING
 #ifdef MAP_32BIT
-	pr->pr_pax_map32_enabled = pax_map32_enabled_global;
+	pr->pr_hardening.hr_pax_map32_enabled = pax_map32_enabled_global;
 #endif
-	pr->pr_pax_procfs_harden = pax_procfs_harden_global;
-	pr->pr_pax_mprotect_exec_harden = pax_mprotect_exec_harden_global;
+	pr->pr_hardening.hr_pax_procfs_harden = pax_procfs_harden_global;
+	pr->pr_hardening.hr_pax_mprotect_exec = pax_mprotect_exec_harden_global;
 #endif
 
 	pr->pr_pax_set = 1;
