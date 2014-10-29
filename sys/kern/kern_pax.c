@@ -234,53 +234,53 @@ pax_init_prison(struct prison *pr)
 #endif
 	} else {
 #ifdef PAX_ASLR
-		struct prison *p;
+		struct prison *pr_p;
 
-		p = pr->pr_parent;
+		pr_p = pr->pr_parent;
 
 		pr->pr_hardening.hr_pax_aslr_status =
-		    p->pr_hardening.hr_pax_aslr_status;
+		    pr_p->pr_hardening.hr_pax_aslr_status;
 		pr->pr_hardening.hr_pax_aslr_mmap_len =
-		    p->pr_hardening.hr_pax_aslr_mmap_len;
+		    pr_p->pr_hardening.hr_pax_aslr_mmap_len;
 		pr->pr_hardening.hr_pax_aslr_stack_len =
-		    p->pr_hardening.hr_pax_aslr_stack_len;
+		    pr_p->pr_hardening.hr_pax_aslr_stack_len;
 		pr->pr_hardening.hr_pax_aslr_exec_len =
-		    p->pr_hardening.hr_pax_aslr_exec_len;
+		    pr_p->pr_hardening.hr_pax_aslr_exec_len;
 
 #ifdef COMPAT_FREEBSD32
 		pr->pr_hardening.hr_pax_aslr_compat_status =
-		    p->pr_hardening.hr_pax_aslr_compat_status;
+		    pr_p->pr_hardening.hr_pax_aslr_compat_status;
 		pr->pr_hardening.hr_pax_aslr_compat_mmap_len =
-		    p->pr_hardening.hr_pax_aslr_compat_mmap_len;
+		    pr_p->pr_hardening.hr_pax_aslr_compat_mmap_len;
 		pr->pr_hardening.hr_pax_aslr_compat_stack_len =
-		    p->pr_hardening.hr_pax_aslr_compat_stack_len;
+		    pr_p->pr_hardening.hr_pax_aslr_compat_stack_len;
 		pr->pr_hardening.hr_pax_aslr_compat_exec_len =
-		    p->pr_hardening.hr_pax_aslr_compat_exec_len;
+		    pr_p->pr_hardening.hr_pax_aslr_compat_exec_len;
 #endif /* COMPAT_FREEBSD32 */
 #endif /* PAX_ASLR */
 
 #ifdef PAX_SEGVGUARD
 		pr->pr_hardening.hr_pax_segvguard_status =
-		    p->pr_hardening.hr_pax_segvguard_status;
+		    pr_p->pr_hardening.hr_pax_segvguard_status;
 		pr->pr_hardening.hr_pax_segvguard_debug =
-		    p->pr_hardening.hr_pax_segvguard_debug;
+		    pr_p->pr_hardening.hr_pax_segvguard_debug;
 		pr->pr_hardening.hr_pax_segvguard_expiry =
-		    p->pr_hardening.hr_pax_segvguard_expiry;
+		    pr_p->pr_hardening.hr_pax_segvguard_expiry;
 		pr->pr_hardening.hr_pax_segvguard_suspension =
-		    p->pr_hardening.hr_pax_segvguard_suspension;
+		    pr_p->pr_hardening.hr_pax_segvguard_suspension;
 		pr->pr_hardening.hr_pax_segvguard_maxcrashes =
-		    p->pr_hardening.hr_pax_segvguard_maxcrashes;
+		    pr_p->pr_hardening.hr_pax_segvguard_maxcrashes;
 #endif
 
 #ifdef PAX_HARDENING
 #ifdef MAP_32BIT
 		pr->pr_hardening.hr_pax_map32_enabled =
-		    p->pr_hardening.hr_pax_map32_enabled;
+		    pr_p->pr_hardening.hr_pax_map32_enabled;
 #endif
 		pr->pr_hardening.hr_pax_procfs_harden =
-		    p->pr_hardening.hr_pax_procfs_harden;
+		    pr_p->pr_hardening.hr_pax_procfs_harden;
 		pr->pr_hardening.hr_pax_mprotect_exec =
-		    p->pr_hardening.hr_pax_mprotect_exec;
+		    pr_p->pr_hardening.hr_pax_mprotect_exec;
 #endif
 	}
 }
