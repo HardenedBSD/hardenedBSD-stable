@@ -2781,7 +2781,7 @@ freebsd32_copyout_strings(struct image_params *imgp)
 	destp =	(uintptr_t)arginfo;
 
 #ifdef PAX_ASLR
-	pax_aslr_stack(curthread, &destp);
+	pax_aslr_stack(imgp->proc, &destp);
 #endif
 
 	/*
