@@ -97,12 +97,11 @@ pax_get_prison(struct proc *p)
 	return (p->p_ucred->cr_prison);
 }
 
-int
+void
 pax_get_flags(struct proc *p, uint32_t *flags)
 {
-	*flags = p->p_pax;
 
-	return (0);
+	*flags = p->p_pax;
 }
 
 int

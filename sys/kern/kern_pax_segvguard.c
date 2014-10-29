@@ -411,17 +411,11 @@ static bool
 pax_segvguard_active(struct proc *proc)
 {
 	u_int flags;
-	bool ret;
 
 	if (proc == NULL)
 		return (true);
 
-	ret = pax_get_flags(proc, &flags);
-	if (ret != 0)
-		/*
-		 * invalid flags, we should force SEGVGUARD
-		 */
-		return (true);
+	pax_get_flags(proc, &flags);
 
 	CTR3(KTR_PAX, "%s: pid = %d p_pax = %x",
 	    __func__, proc->p_pid, flags);

@@ -428,14 +428,8 @@ bool
 pax_aslr_active(struct proc *p)
 {
 	u_int flags;
-	bool ret;
 
-	ret = pax_get_flags(p, &flags);
-	if (ret != 0)
-		/*
-		 * invalid flags, we should force ASLR
-		 */
-		return (true);
+	pax_get_flags(p, &flags);
 
 	CTR3(KTR_PAX, "%s: pid = %d p_pax = %x",
 	    __func__, p->p_pid, flags);
