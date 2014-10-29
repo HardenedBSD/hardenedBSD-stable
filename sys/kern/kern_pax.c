@@ -92,7 +92,7 @@ pax_get_prison(struct proc *p)
 {
 	/* p can be NULL with kernel threads, so use prison0 */
 	if (p == NULL || p->p_ucred == NULL)
-		return &prison0;
+		return (&prison0);
 
 	return (p->p_ucred->cr_prison);
 }
@@ -235,7 +235,9 @@ pax_init_prison(struct prison *pr)
 #endif
 	} else {
 #ifdef PAX_ASLR
-		struct prison *p = pr->pr_parent;
+		struct prison *p;
+
+		p = pr->pr_parent;
 
 		pr->pr_hardening.hr_pax_aslr_status =
 		    p->pr_hardening.hr_pax_aslr_status;
