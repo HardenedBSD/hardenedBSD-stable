@@ -285,7 +285,7 @@ extern int hardening_log_ulog;
  * generic pax functions
  */
 int pax_elf(struct image_params *, uint32_t);
-int pax_get_flags(struct proc *p, uint32_t *flags);
+void pax_get_flags(struct proc *p, uint32_t *flags);
 struct prison *pax_get_prison(struct proc *p);
 void pax_init_prison(struct prison *pr);
 
