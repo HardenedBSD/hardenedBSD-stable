@@ -101,9 +101,9 @@ TUNABLE_INT("hardening.pax.aslr.stack_len", &pax_aslr_stack_len);
 TUNABLE_INT("hardening.pax.aslr.exec_len", &pax_aslr_exec_len);
 #ifdef COMPAT_FREEBSD32
 TUNABLE_INT("hardening.pax.aslr.compat.status", &pax_aslr_compat_status);
-TUNABLE_INT("hardening.pax.aslr.compat.mmap", &pax_aslr_compat_mmap_len);
-TUNABLE_INT("hardening.pax.aslr.compat.stack", &pax_aslr_compat_stack_len);
-TUNABLE_INT("hardening.pax.aslr.compat.exec", &pax_aslr_compat_exec_len);
+TUNABLE_INT("hardening.pax.aslr.compat.mmap_len", &pax_aslr_compat_mmap_len);
+TUNABLE_INT("hardening.pax.aslr.compat.stack_len", &pax_aslr_compat_stack_len);
+TUNABLE_INT("hardening.pax.aslr.compat.exec_len", &pax_aslr_compat_exec_len);
 #endif
 
 #ifdef PAX_SYSCTLS
