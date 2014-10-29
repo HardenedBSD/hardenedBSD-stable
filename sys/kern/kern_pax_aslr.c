@@ -69,7 +69,6 @@ __FBSDID("$FreeBSD$");
 FEATURE(aslr, "Address Space Layout Randomization.");
 
 int pax_aslr_status = PAX_FEATURE_OPTOUT;
-int pax_aslr_debug = PAX_FEATURE_SIMPLE_DISABLED;
 
 #ifdef PAX_ASLR_MAX_SEC
 int pax_aslr_mmap_len = PAX_ASLR_DELTA_MMAP_MAX_LEN;
@@ -96,7 +95,6 @@ int pax_aslr_compat_exec_len = PAX_ASLR_COMPAT_DELTA_EXEC_MIN_LEN;
 
 TUNABLE_INT("hardening.pax.aslr.status", &pax_aslr_status);
 TUNABLE_INT("hardening.pax.aslr.mmap_len", &pax_aslr_mmap_len);
-TUNABLE_INT("hardening.pax.aslr.debug", &pax_aslr_debug);
 TUNABLE_INT("hardening.pax.aslr.stack_len", &pax_aslr_stack_len);
 TUNABLE_INT("hardening.pax.aslr.exec_len", &pax_aslr_exec_len);
 #ifdef COMPAT_FREEBSD32
@@ -113,7 +111,6 @@ SYSCTL_DECL(_hardening_pax);
 /*
  * sysctls and tunables
  */
-static int sysctl_pax_aslr_debug(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_status(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_mmap(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_stack(SYSCTL_HANDLER_ARGS);
@@ -131,11 +128,6 @@ SYSCTL_PROC(_hardening_pax_aslr, OID_AUTO, status,
     "1 - opt-in,  "
     "2 - opt-out, "
     "3 - force enabled");
-
-SYSCTL_PROC(_hardening_pax_aslr, OID_AUTO, debug,
-    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
-    NULL, 0, sysctl_pax_aslr_debug, "I",
-    "ASLR debug mode");
 
 SYSCTL_PROC(_hardening_pax_aslr, OID_AUTO, mmap_len,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
@@ -181,36 +173,6 @@ sysctl_pax_aslr_status(SYSCTL_HANDLER_ARGS)
 	default:
 		return (EINVAL);
 	}
-
-	return (0);
-}
-
-static int
-sysctl_pax_aslr_debug(SYSCTL_HANDLER_ARGS)
-{
-	struct prison *pr=NULL;
-	int err, val;
-
-	pr = pax_get_prison(req->td->td_proc);
-
-	val = pr->pr_hardening.hr_pax_aslr_debug;
-	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
-	if (err || !req->newptr)
-		return (err);
-
-	switch (val) {
-	case 0:
-	case 1:
-		break;
-	default:
-		return (EINVAL);
-
-	}
-
-	if (pr == &prison0)
-		pax_aslr_debug = val;
-
-	pr->pr_hardening.hr_pax_aslr_debug = val;
 
 	return (0);
 }

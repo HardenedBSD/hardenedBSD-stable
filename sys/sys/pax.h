@@ -35,7 +35,6 @@
 #if defined(_KERNEL) || defined(_WANT_PRISON)
 struct hardening_features {
 	int	 hr_pax_aslr_status;		/* (p) PaX ASLR enabled */
-	int	 hr_pax_aslr_debug;		/* (p) PaX ASLR debug */
 	int	 hr_pax_aslr_mmap_len;		/* (p) Number of bits randomized with mmap */
 	int	 hr_pax_aslr_stack_len;		/* (p) Number of bits randomized with stack */
 	int	 hr_pax_aslr_exec_len;		/* (p) Number of bits randomized with the execbase */
@@ -231,7 +230,6 @@ extern const char *pax_status_simple_str[];
 #endif /* PAX_ASLR_COMPAT_DELTA_EXEC_MAX_LEN */
 
 extern int pax_aslr_status;
-extern int pax_aslr_debug;
 
 extern int pax_aslr_mmap_len;
 extern int pax_aslr_stack_len;

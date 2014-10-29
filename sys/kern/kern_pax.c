@@ -191,7 +191,6 @@ pax_init_prison(struct prison *pr)
 		/* prison0 has no parent, use globals */
 #ifdef PAX_ASLR
 		pr->pr_hardening.hr_pax_aslr_status = pax_aslr_status;
-		pr->pr_hardening.hr_pax_aslr_debug = pax_aslr_debug;
 		pr->pr_hardening.hr_pax_aslr_mmap_len =
 		    pax_aslr_mmap_len;
 		pr->pr_hardening.hr_pax_aslr_stack_len =
@@ -240,8 +239,6 @@ pax_init_prison(struct prison *pr)
 
 		pr->pr_hardening.hr_pax_aslr_status =
 		    p->pr_hardening.hr_pax_aslr_status;
-		pr->pr_hardening.hr_pax_aslr_debug =
-		    p->pr_hardening.hr_pax_aslr_debug;
 		pr->pr_hardening.hr_pax_aslr_mmap_len =
 		    p->pr_hardening.hr_pax_aslr_mmap_len;
 		pr->pr_hardening.hr_pax_aslr_stack_len =
