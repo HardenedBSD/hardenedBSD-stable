@@ -172,7 +172,7 @@ sysctl_pax_segvguard_status(SYSCTL_HANDLER_ARGS)
 
 	pr = pax_get_prison(req->td->td_proc);
 
-	val = (pr != NULL) ? pr->pr_hardening.hr_pax_segvguard_status : pax_segvguard_status;
+	val = pr->pr_hardening.hr_pax_segvguard_status;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
 	if (err || (req->newptr == NULL))
 		return (err);
@@ -182,13 +182,9 @@ sysctl_pax_segvguard_status(SYSCTL_HANDLER_ARGS)
 	case    PAX_FEATURE_OPTIN:
 	case    PAX_FEATURE_OPTOUT:
 	case    PAX_FEATURE_FORCE_ENABLED:
-		if ((pr == NULL) || (pr == &prison0))
+		if (pr == &prison0)
 			pax_segvguard_status = val;
-		if (pr != NULL) {
-			prison_lock(pr);
-			pr->pr_hardening.hr_pax_segvguard_status = val;
-			prison_unlock(pr);
-		}
+		pr->pr_hardening.hr_pax_segvguard_status = val;
 		break;
 	default:
 		return (EINVAL);
@@ -206,18 +202,15 @@ sysctl_pax_segvguard_expiry(SYSCTL_HANDLER_ARGS)
 
 	pr = pax_get_prison(req->td->td_proc);
 
-	val = (pr != NULL) ? pr->pr_hardening.hr_pax_segvguard_expiry : pax_segvguard_expiry;
+	val = pr->pr_hardening.hr_pax_segvguard_expiry;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
 	if (err || (req->newptr == NULL))
 		return (err);
 
-	if ((pr == NULL) || (pr == &prison0))
+	if (pr == &prison0)
 		pax_segvguard_expiry = val;
-	if (pr != NULL) {
-		prison_lock(pr);
-		pr->pr_hardening.hr_pax_segvguard_expiry = val;
-		prison_unlock(pr);
-	}
+
+	pr->pr_hardening.hr_pax_segvguard_expiry = val;
 
 	return (0);
 }
@@ -231,18 +224,15 @@ sysctl_pax_segvguard_suspension(SYSCTL_HANDLER_ARGS)
 
 	pr = pax_get_prison(req->td->td_proc);
 
-	val = (pr != NULL) ? pr->pr_hardening.hr_pax_segvguard_suspension : pax_segvguard_suspension;
+	val = pr->pr_hardening.hr_pax_segvguard_suspension;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
 	if (err || (req->newptr == NULL))
 		return (err);
 
-	if ((pr == NULL) || (pr == &prison0))
+	if (pr == &prison0)
 		pax_segvguard_suspension = val;
-	if (pr != NULL) {
-		prison_lock(pr);
-		pr->pr_hardening.hr_pax_segvguard_suspension = val;
-		prison_unlock(pr);
-	}
+
+	pr->pr_hardening.hr_pax_segvguard_suspension = val;
 
 	return (0);
 }
@@ -256,18 +246,15 @@ sysctl_pax_segvguard_maxcrashes(SYSCTL_HANDLER_ARGS)
 
 	pr = pax_get_prison(req->td->td_proc);
 
-	val = (pr != NULL) ? pr->pr_hardening.hr_pax_segvguard_maxcrashes : pax_segvguard_maxcrashes;
+	val = pr->pr_hardening.hr_pax_segvguard_maxcrashes;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
 	if (err || (req->newptr == NULL))
 		return (err);
 
-	if ((pr == NULL) || (pr == &prison0))
+	if (pr == &prison0)
 		pax_segvguard_maxcrashes = val;
-	if (pr != NULL) {
-		prison_lock(pr);
-		pr->pr_hardening.hr_pax_segvguard_maxcrashes = val;
-		prison_unlock(pr);
-	}
+
+	pr->pr_hardening.hr_pax_segvguard_maxcrashes = val;
 
 	return (0);
 }
@@ -281,18 +268,15 @@ sysctl_pax_segvguard_debug(SYSCTL_HANDLER_ARGS)
 
 	pr = pax_get_prison(req->td->td_proc);
 
-	val = (pr != NULL) ? pr->pr_hardening.hr_pax_segvguard_debug : pax_segvguard_debug;
+	val = pr->pr_hardening.hr_pax_segvguard_debug;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
 	if (err || (req->newptr == NULL))
 		return (err);
 
-	if ((pr == NULL) || (pr == &prison0))
+	if (pr == &prison0)
 		pax_segvguard_debug = val;
-	if (pr != NULL) {
-		prison_lock(pr);
-		pr->pr_hardening.hr_pax_segvguard_debug = val;
-		prison_unlock(pr);
-	}
+
+	pr->pr_hardening.hr_pax_segvguard_debug = val;
 
 	return (0);
 }
@@ -308,10 +292,7 @@ pax_segvguard_setup_flags(struct image_params *imgp, u_int mode)
 	status = 0;
 
 	pr = pax_get_prison(imgp->proc);
-	if (pr != NULL)
-		status = pr->pr_hardening.hr_pax_segvguard_status;
-	else
-		status = pax_segvguard_status;
+	status = pr->pr_hardening.hr_pax_segvguard_status;
 
 	if (status == PAX_FEATURE_DISABLED) {
 		flags &= ~PAX_NOTE_SEGVGUARD;
@@ -382,10 +363,7 @@ pax_segvguard_update_flags_if_setuid(struct image_params *imgp, struct vnode *vn
 	ret = 0;
 
 	pr = pax_get_prison(imgp->proc);
-	if (pr != NULL)
-		status = pr->pr_hardening.hr_pax_segvguard_status;
-	else
-		status = pax_segvguard_status;
+	status = pr->pr_hardening.hr_pax_segvguard_status;
 
 	if (status == PAX_FEATURE_OPTIN) {
 		u_int flags;
@@ -482,7 +460,7 @@ pax_segvguard_add(struct thread *td, struct vnode *vn, sbintime_t sbt)
 
 	v->se_uid = td->td_ucred->cr_ruid;
 	v->se_ncrashes = 1;
-	v->se_expiry = sbt + ((pr != NULL) ? pr->pr_hardening.hr_pax_segvguard_expiry : pax_segvguard_expiry) * SBT_1S;
+	v->se_expiry = sbt + pr->pr_hardening.hr_pax_segvguard_expiry * SBT_1S;
 	v->se_suspended = 0;
 
 	key = PAX_SEGVGUARD_KEY(v);
@@ -577,7 +555,7 @@ pax_segvguard_segfault(struct thread *td, const char *name)
 			printf("PaX Segvguard: [%s (%d)] Suspension "
 					"expired.\n", name, td->td_proc->p_pid);
 			se->se_ncrashes = 1;
-			se->se_expiry = sbt + ((pr != NULL) ? pr->pr_hardening.hr_pax_segvguard_expiry : pax_segvguard_expiry) * SBT_1S;
+			se->se_expiry = sbt + pr->pr_hardening.hr_pax_segvguard_expiry * SBT_1S;
 			se->se_suspended = 0;
 
 			mtx_unlock(&segvguard_mtx);
@@ -591,7 +569,7 @@ pax_segvguard_segfault(struct thread *td, const char *name)
 					"execution for %d seconds after %zu crashes.\n",
 					name, td->td_proc->p_pid,
 					pax_segvguard_suspension, se->se_ncrashes);
-			se->se_suspended = sbt + ((pr != NULL) ? pr->pr_hardening.hr_pax_segvguard_suspension : pax_segvguard_suspension) * SBT_1S;
+			se->se_suspended = sbt + pr->pr_hardening.hr_pax_segvguard_suspension * SBT_1S;
 			se->se_ncrashes = 0;
 			se->se_expiry = 0;
 		}

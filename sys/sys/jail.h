@@ -190,7 +190,6 @@ struct prison {
 	char		 pr_domainname[MAXHOSTNAMELEN];	/* (p) jail domainname */
 	char		 pr_hostuuid[HOSTUUIDLEN];	/* (p) jail hostuuid */
     /* Lock only needed for pax_* if pr_pax_set == 0 */
-	int		 pr_pax_set;			/* (p) PaX settings initialized */
 	struct hardening_features pr_hardening;		/* (p) PaX-inspired hardening features */
 };
 

@@ -161,7 +161,7 @@ sysctl_pax_allow_map32(SYSCTL_HANDLER_ARGS)
 
 	pr = pax_get_prison(req->td->td_proc);
 
-	val = (pr != NULL) ? pr->pr_hardening.hr_pax_map32_enabled : pax_map32_enabled_global;
+	val = pr->pr_hardening.hr_pax_map32_enabled;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
 	if (err || (req->newptr == NULL))
 		return (err);
@@ -172,11 +172,7 @@ sysctl_pax_allow_map32(SYSCTL_HANDLER_ARGS)
 	if ((pr == NULL) || (pr == &prison0))
 		pax_map32_enabled_global = val;
 
-	if (pr != NULL) {
-		prison_lock(pr);
-		pr->pr_hardening.hr_pax_map32_enabled = val;
-		prison_unlock(pr);
-	}
+	pr->pr_hardening.hr_pax_map32_enabled = val;
 
 	return (0);
 }
@@ -189,7 +185,7 @@ sysctl_pax_mprotect_exec(SYSCTL_HANDLER_ARGS)
 
 	pr = pax_get_prison(req->td->td_proc);
 
-	val = (pr != NULL) ? pr->pr_hardening.hr_pax_mprotect_exec : pax_mprotect_exec_harden_global;
+	val = pr->pr_hardening.hr_pax_mprotect_exec;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
 	if (err || (req->newptr == NULL))
 		return (err);
@@ -197,14 +193,10 @@ sysctl_pax_mprotect_exec(SYSCTL_HANDLER_ARGS)
 	if (val > 1 || val < -1)
 		return (EINVAL);
 
-	if ((pr == NULL) || (pr == &prison0))
+	if (pr == &prison0)
 		pax_mprotect_exec_harden_global = val;
 
-	if (pr != NULL) {
-		prison_lock(pr);
-		pr->pr_hardening.hr_pax_mprotect_exec = val;
-		prison_unlock(pr);
-	}
+	pr->pr_hardening.hr_pax_mprotect_exec = val;
 
 	return (0);
 }
@@ -217,7 +209,7 @@ sysctl_pax_procfs(SYSCTL_HANDLER_ARGS)
 
 	pr = pax_get_prison(req->td->td_proc);
 
-	val = (pr != NULL) ? pr->pr_hardening.hr_pax_procfs_harden : pax_procfs_harden_global;
+	val = pr->pr_hardening.hr_pax_procfs_harden;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
 	if (err || (req->newptr == NULL))
 		return (err);
@@ -225,14 +217,10 @@ sysctl_pax_procfs(SYSCTL_HANDLER_ARGS)
 	if (val > 1 || val < -1)
 		return (EINVAL);
 
-	if ((pr == NULL) || (pr == &prison0))
+	if (pr == &prison0)
 		pax_procfs_harden_global = val;
 
-	if (pr != NULL) {
-		prison_lock(pr);
-		pr->pr_hardening.hr_pax_procfs_harden = val;
-		prison_unlock(pr);
-	}
+	pr->pr_hardening.hr_pax_procfs_harden = val;
 
 	return (0);
 }
@@ -245,10 +233,7 @@ pax_map32_enabled(struct thread *td)
 
 	pr = pax_get_prison(td->td_proc);
 
-	if (pr != NULL && pr != &prison0)
-		return (pr->pr_hardening.hr_pax_map32_enabled);
-
-	return (pax_map32_enabled_global);
+	return (pr->pr_hardening.hr_pax_map32_enabled);
 }
 
 int
@@ -264,8 +249,5 @@ pax_procfs_harden(struct thread *td)
 
 	pr = pax_get_prison(td->td_proc);
 
-	if (pr != NULL && pr != &prison0)
-		return (pr->pr_hardening.hr_pax_procfs_harden ? EPERM : 0);
-
-	return (pax_procfs_harden_global ? EPERM : 0);
+	return (pr->pr_hardening.hr_pax_procfs_harden ? EPERM : 0);
 }
