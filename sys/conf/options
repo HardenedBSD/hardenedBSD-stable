@@ -940,6 +940,3 @@ PTRACE_HARDENING_GRP	opt_ptrace_hardening.h
 RANDOM_YARROW	opt_random.h
 RANDOM_FORTUNA	opt_random.h
 RANDOM_DEBUG	opt_random.h
-RANDOM_RWFILE	opt_random.h
-
-
