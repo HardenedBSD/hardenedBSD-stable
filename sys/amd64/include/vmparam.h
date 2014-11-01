@@ -173,7 +173,7 @@
 #define	USRSTACK		(SHAREDPAGE - 4*PAGE_SIZE)
 
 #define	VM_MAX_ADDRESS		UPT_MAX_ADDRESS
-#define	VM_MIN_ADDRESS		(0)
+#define	VM_MIN_ADDRESS		(65536)
 
 #define	PHYS_TO_DMAP(x)	({						\
 	KASSERT((x) < dmaplimit,					\
