@@ -177,7 +177,7 @@ device		pass		# Passthrough device (direct ATA/SCSI access)
 # atkbdc0 controls both the keyboard and the PS/2 mouse
 device		atkbdc		# AT keyboard controller
 options		ATKBD_DFLT_KEYMAP
-makeoptions	ATKBD_DFLT_KEYMAP=us.ctrl
+makeoptions	ATKBD_DFLT_KEYMAP="/usr/share/vt/keymaps/us.ctrl.kbd"
 device		atkbd		# AT keyboard
 device		psm		# PS/2 mouse
 
@@ -333,7 +333,7 @@ device		ehci		# EHCI PCI->USB interface (USB 2.0)
 device		xhci		# XHCI PCI->USB interface (USB 3.0)
 device		usb		# USB Bus (required)
 options		UKBD_DFLT_KEYMAP
-makeoptions	UKBD_DFLT_KEYMAP=us.ctrl
+makeoptions	UKBD_DFLT_KEYMAP="/usr/share/vt/keymaps/us.ctrl.kbd"
 device		ukbd		# Keyboard
 device		ums		# Mouse
 #device		umass		# Disks/Mass storage - Requires scbus and da
