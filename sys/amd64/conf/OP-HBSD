@@ -182,6 +182,8 @@ makeoptions	ATKBD_DFLT_KEYMAP="/usr/share/vt/keymaps/us.ctrl.kbd"
 device		atkbd		# AT keyboard
 device		psm		# PS/2 mouse
 
+options		KBDMUX_DFLT_KEYMAP
+makeoptions	KBDMUX_DFLT_KEYMAP="/usr/share/vt/keymaps/us.ctrl.kbd"
 device		kbdmux		# keyboard multiplexer
 
 device		vga		# VGA video card driver
