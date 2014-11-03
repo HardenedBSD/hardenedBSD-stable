@@ -1910,9 +1910,7 @@ fdcopy(struct filedesc *fdp)
 	struct filedescent *nfde, *ofde;
 	int i;
 
-	/* Certain daemons might not have file descriptors. */
-	if (fdp == NULL)
-		return (NULL);
+	MPASS(fdp != NULL);
 
 	newfdp = fdinit(fdp);
 	/* copy all passable descriptors (i.e. not kqueue) */
@@ -2034,10 +2032,8 @@ fdescfree(struct thread *td)
 	struct vnode *cdir, *jdir, *rdir;
 	int i;
 
-	/* Certain daemons might not have file descriptors. */
 	fdp = td->td_proc->p_fd;
-	if (fdp == NULL)
-		return;
+	MPASS(fdp != NULL);
 
 #ifdef RACCT
 	PROC_LOCK(td->td_proc);
