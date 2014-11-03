@@ -244,7 +244,7 @@ sendsig(catcher, ksi, mask)
 
 	/* make room on the stack */
 	fp--;
-
+	
 	/* make the stack aligned */
 	fp = (struct sigframe *)STACKALIGN(fp);
 	/* Populate the siginfo frame. */
@@ -288,7 +288,6 @@ sendsig(catcher, ksi, mask)
 #ifdef PAX_ASLR
 	pax_aslr_stack(td->td_proc, &tf->tf_usr_lr);
 #endif
-
 
 	CTR3(KTR_SIG, "sendsig: return td=%p pc=%#x sp=%#x", td, tf->tf_usr_lr,
 	    tf->tf_usr_sp);
