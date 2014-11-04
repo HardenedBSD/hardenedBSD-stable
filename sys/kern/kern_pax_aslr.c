@@ -551,6 +551,7 @@ sysctl_pax_aslr_compat_exec(SYSCTL_HANDLER_ARGS)
 static void
 pax_aslr_sysinit(void)
 {
+
 	switch (pax_aslr_status) {
 	case PAX_FEATURE_DISABLED:
 	case PAX_FEATURE_OPTIN:
@@ -624,6 +625,7 @@ pax_aslr_init_vmspace(struct proc *p)
 static void
 pax_compat_aslr_sysinit(void)
 {
+
 	switch (pax_aslr_compat_status) {
 	case PAX_FEATURE_DISABLED:
 	case PAX_FEATURE_OPTIN:
