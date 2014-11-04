@@ -186,7 +186,7 @@ pax_init_prison(struct prison *pr)
 	CTR2(KTR_PAX, "%s: Setting prison %s PaX variables\n",
 	    __func__, pr->pr_name);
 
-	if (pr->pr_parent == NULL) {
+	if (pr == &prison0) {
 		/* prison0 has no parent, use globals */
 #ifdef PAX_ASLR
 		pr->pr_hardening.hr_pax_aslr_status = pax_aslr_status;
@@ -236,6 +236,8 @@ pax_init_prison(struct prison *pr)
 #ifdef PAX_ASLR
 		struct prison *pr_p;
 
+		KASSERT(pr->pr_parent != NULL,
+		   ("%s: pr->pr_parent == NULL", __func__));
 		pr_p = pr->pr_parent;
 
 		pr->pr_hardening.hr_pax_aslr_status =
