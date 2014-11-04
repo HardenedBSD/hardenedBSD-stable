@@ -742,7 +742,7 @@ void
 pax_aslr_execbase(struct proc *p, u_long *et_dyn_addr)
 {
 
-	if (pax_aslr_active(p)
+	if (pax_aslr_active(p))
 		*et_dyn_addr += p->p_vmspace->vm_aslr_delta_exec;
 }
 
