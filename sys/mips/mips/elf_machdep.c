@@ -146,7 +146,7 @@ struct sysentvec elf32_freebsd_sysvec = {
 	.sv_syscallnames = syscallnames,
 	.sv_schedtail	= NULL,
 #ifdef PAX_ASLR
-	.sv_pax_aslr_init = _pax_aslr_init32,
+	.sv_pax_aslr_init = pax_aslr_init_vmspace32,
 #endif
 };
 
