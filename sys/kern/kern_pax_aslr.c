@@ -736,6 +736,14 @@ pax_aslr_stack(struct proc *p, uintptr_t *addr)
 	    __func__, (void *)orig_addr, (void *)*addr);
 }
 
+void
+pax_aslr_execbase(struct proc *p, u_long *et_dyn_addr)
+{
+
+	if (pax_aslr_active(p)
+		*et_dyn_addr += p->p_vmspace->vm_aslr_delta_exec;
+}
+
 u_int
 pax_aslr_setup_flags(struct image_params *imgp, u_int mode)
 {

@@ -153,6 +153,7 @@ bool pax_aslr_active(struct proc *p);
 void pax_aslr_init_vmspace(struct proc *p);
 void pax_aslr_init_vmspace32(struct proc *p);
 void pax_aslr_init(struct image_params *imgp);
+void pax_aslr_execbase(struct proc *p, u_long *et_dyn_addr);
 void pax_aslr_mmap(struct proc *p, vm_offset_t *addr, 
     vm_offset_t orig_addr, int flags);
 u_int pax_aslr_setup_flags(struct image_params *imgp, u_int mode);
