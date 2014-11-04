@@ -149,7 +149,7 @@ void pax_init_prison(struct prison *pr);
 /*
  * ASLR related functions
  */
-bool pax_aslr_active(struct proc *p);
+int pax_aslr_active(struct proc *p);
 void pax_aslr_init_vmspace(struct proc *p);
 void pax_aslr_init_vmspace32(struct proc *p);
 void pax_aslr_init(struct image_params *imgp);

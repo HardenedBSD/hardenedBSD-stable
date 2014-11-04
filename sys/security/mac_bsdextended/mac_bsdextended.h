@@ -54,19 +54,6 @@
 #define	MBI_ALLPERM	(MBI_EXEC | MBI_WRITE | MBI_READ | MBI_ADMIN | \
 			    MBI_STAT | MBI_APPEND)
 
-#define MBI_ASLR_ENABLED	0x01
-#define MBI_ASLR_DISABLED	0x02
-#define MBI_SEGVGUARD_ENABLED	0x04
-#define MBI_SEGVGUARD_DISABLED	0x08
-#define MBI_ALLPAX		(MBI_ASLR_ENABLED | MBI_ASLR_DISABLED | \
-				    MBI_SEGVGUARD_ENABLED | \
-	       			    MBI_SEGVGUARD_DISABLED)
-
-#define MBI_FORCE_PTRACE_HARDENING_ENABLED	0x10
-#define MBI_FORCE_PTRACE_HARDENING_DISABLED	0x20
-#define MBI_ALLPTRACE_HARDENING (MBI_FORCE_PTRACE_HARDENING_ENABLED | \
-				MBI_FORCE_PTRACE_HARDENING_DISABLED)
-
 #define	MBS_UID_DEFINED	0x00000001	/* uid field should be matched */
 #define	MBS_GID_DEFINED	0x00000002	/* gid field should be matched */
 #define	MBS_PRISON_DEFINED 0x00000004	/* prison field should be matched */
@@ -91,7 +78,6 @@ struct mac_bsdextended_subject {
 #define	MBO_UID_SUBJECT	0x00000020	/* uid must match subject */
 #define	MBO_GID_SUBJECT	0x00000040	/* gid must match subject */
 #define	MBO_TYPE_DEFINED 0x00000080	/* object type should be matched */
-#define MBO_PAXPATH_DEFINED 0x00000100 /* TODO: paxpath should be matched */
 
 #define MBO_ALL_FLAGS (MBO_UID_DEFINED | MBO_GID_DEFINED | MBO_FSID_DEFINED | \
 	    MBO_SUID | MBO_SGID | MBO_UID_SUBJECT | MBO_GID_SUBJECT | \
@@ -117,16 +103,12 @@ struct mac_bsdextended_object {
 	gid_t	mbo_gid_max;
 	struct fsid mbo_fsid;
 	int	mbo_type;
-	ino_t	mbo_inode;
-	char	mbo_paxpath[MAXPATHLEN];
 };
 
 struct mac_bsdextended_rule {
 	struct mac_bsdextended_subject	mbr_subject;
 	struct mac_bsdextended_object	mbr_object;
 	mode_t				mbr_mode;	/* maximum access */
-	uint32_t			mbr_pax;
-	uint32_t			mbr_ptrace_hardening;
 };
 
 #endif /* _SYS_SECURITY_MAC_BSDEXTENDED_H */
