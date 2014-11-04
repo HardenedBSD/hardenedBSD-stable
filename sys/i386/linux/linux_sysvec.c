@@ -977,7 +977,7 @@ struct sysentvec linux_sysvec = {
 	.sv_shared_page_len = PAGE_SIZE,
 	.sv_schedtail	= linux_schedtail,
 #ifdef PAX_ASLR
-	.sv_pax_aslr_init = _pax_aslr_init,
+	.sv_pax_aslr_init = pax_aslr_init_vmspace,
 #endif
 };
 INIT_SYSENTVEC(aout_sysvec, &linux_sysvec);
