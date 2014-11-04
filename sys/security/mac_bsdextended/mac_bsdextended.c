@@ -47,9 +47,6 @@
  * firewall-like rules regarding users and file system objects.
  */
 
-#include "opt_pax.h"
-#include "opt_ptrace_hardening.h"
-
 #include <sys/param.h>
 #include <sys/acl.h>
 #include <sys/kernel.h>
@@ -59,16 +56,12 @@
 #include <sys/module.h>
 #include <sys/mount.h>
 #include <sys/mutex.h>
-#include <sys/param.h>
-#include <sys/pax.h>
-#include <sys/ptrace_hardening.h>
 #include <sys/priv.h>
 #include <sys/proc.h>
 #include <sys/systm.h>
 #include <sys/vnode.h>
 #include <sys/sysctl.h>
 #include <sys/syslog.h>
-#include <sys/syslimits.h>
 #include <sys/stat.h>
 
 #include <security/mac/mac_policy.h>
@@ -123,6 +116,7 @@ SYSCTL_INT(_security_mac_bsdextended, OID_AUTO, firstmatch_enabled,
 static int
 ugidfw_rule_valid(struct mac_bsdextended_rule *rule)
 {
+
 	if ((rule->mbr_subject.mbs_flags | MBS_ALL_FLAGS) != MBS_ALL_FLAGS)
 		return (EINVAL);
 	if ((rule->mbr_subject.mbs_neg | MBS_ALL_FLAGS) != MBS_ALL_FLAGS)
@@ -134,19 +128,8 @@ ugidfw_rule_valid(struct mac_bsdextended_rule *rule)
 	if ((rule->mbr_object.mbo_neg | MBO_TYPE_DEFINED) &&
 	    (rule->mbr_object.mbo_type | MBO_ALL_TYPE) != MBO_ALL_TYPE)
 		return (EINVAL);
-#ifdef PAX_ASLR
-	if ((rule->mbr_pax | MBI_ALLPAX) != MBI_ALLPAX)
-		return (EINVAL);
-#endif
-
-#ifdef PTRACE_HARDENING
-	if ((rule->mbr_ptrace_hardening | MBI_ALLPTRACE_HARDENING) !=
-		MBI_ALLPTRACE_HARDENING)
-		return (EINVAL);
-#endif
 	if ((rule->mbr_mode | MBI_ALLPERM) != MBI_ALLPERM)
 		return (EINVAL);
-
 	return (0);
 }
 
@@ -243,7 +226,7 @@ ugidfw_destroy(struct mac_policy_conf *mpc)
 
 static int
 ugidfw_rulecheck(struct mac_bsdextended_rule *rule,
-    struct ucred *cred, struct vnode *vp, struct vattr *vap, int acc_mode, struct image_params *imgp)
+    struct ucred *cred, struct vnode *vp, struct vattr *vap, int acc_mode)
 {
 	int mac_granted, match, priv_granted;
 	int i;
@@ -321,10 +304,6 @@ ugidfw_rulecheck(struct mac_bsdextended_rule *rule,
 		match = (bcmp(&(vp->v_mount->mnt_stat.f_fsid),
 		    &(rule->mbr_object.mbo_fsid),
 		    sizeof(rule->mbr_object.mbo_fsid)) == 0);
-#if defined(PAX_ASLR) || defined(PAX_SEGVGUARD)
-		if (match && rule->mbr_object.mbo_inode)
-			match = (vap->va_fileid == rule->mbr_object.mbo_inode);
-#endif
 		if (rule->mbr_object.mbo_neg & MBO_FSID_DEFINED)
 			match = !match;
 		if (!match)
@@ -433,17 +412,6 @@ ugidfw_rulecheck(struct mac_bsdextended_rule *rule,
 		return (EACCES);
 	}
 
-#if defined(PAX_ASLR) || defined(PAX_SEGVGUARD) || defined(PAX_MPROTECT)
-	if (imgp != NULL)
-		if (pax_elf(imgp, rule->mbr_pax) != 0)
-			return (EACCES);
-#endif
-
-#ifdef PTRACE_HARDENING
-	if (imgp != NULL)
-		ptrace_hardening_mode(imgp,	rule->mbr_ptrace_hardening);
-#endif
-
 	/*
 	 * If the rule matched, permits access, and first match is enabled,
 	 * return success.
@@ -456,7 +424,7 @@ ugidfw_rulecheck(struct mac_bsdextended_rule *rule,
 
 int
 ugidfw_check(struct ucred *cred, struct vnode *vp, struct vattr *vap,
-    int acc_mode, struct image_params *imgp)
+    int acc_mode)
 {
 	int error, i;
 
@@ -472,7 +440,7 @@ ugidfw_check(struct ucred *cred, struct vnode *vp, struct vattr *vap,
 		if (rules[i] == NULL)
 			continue;
 		error = ugidfw_rulecheck(rules[i], cred,
-		    vp, vap, acc_mode, imgp);
+		    vp, vap, acc_mode);
 		if (error == EJUSTRETURN)
 			break;
 		if (error) {
@@ -485,7 +453,7 @@ ugidfw_check(struct ucred *cred, struct vnode *vp, struct vattr *vap,
 }
 
 int
-ugidfw_check_vp(struct ucred *cred, struct vnode *vp, int acc_mode, struct image_params *imgp)
+ugidfw_check_vp(struct ucred *cred, struct vnode *vp, int acc_mode)
 {
 	int error;
 	struct vattr vap;
@@ -495,7 +463,7 @@ ugidfw_check_vp(struct ucred *cred, struct vnode *vp, int acc_mode, struct image
 	error = VOP_GETATTR(vp, &vap, cred);
 	if (error)
 		return (error);
-	return (ugidfw_check(cred, vp, &vap, acc_mode, imgp));
+	return (ugidfw_check(cred, vp, &vap, acc_mode));
 }
 
 int

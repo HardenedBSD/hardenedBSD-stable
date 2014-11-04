@@ -539,6 +539,7 @@ struct proc {
 	u_int		p_stops;	/* (c) Stop event bitmask. */
 	u_int		p_stype;	/* (c) Stop event type. */
 	char		p_step;		/* (c) Process is stopped. */
+	u_int		p_pax;		/* (b) PaX is enabled to this process */
 	u_char		p_pfsflags;	/* (c) Procfs flags. */
 	struct nlminfo	*p_nlminfo;	/* (?) Only used by/for lockd. */
 	struct kaioinfo	*p_aioinfo;	/* (y) ASYNC I/O info. */
@@ -565,7 +566,6 @@ struct proc {
 	rlim_t		p_cpulimit;	/* (c) Current CPU limit in seconds. */
 	signed char	p_nice;		/* (c) Process "nice" value. */
 	int		p_fibnum;	/* in this routing domain XXX MRT */
-	u_int		p_pax;		/* (b) PaX is enabled to this process */
 	u_int		p_ptrace_hardening;	/* ptrace hardening mode */
 /* End area that is copied on creation. */
 #define	p_endcopy	p_xstat

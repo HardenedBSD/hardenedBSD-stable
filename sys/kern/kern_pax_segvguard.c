@@ -309,7 +309,7 @@ pax_segvguard_setup_flags(struct image_params *imgp, u_int mode)
 	}
 
 	if (status == PAX_FEATURE_OPTIN) {
-		if (mode & MBI_SEGVGUARD_ENABLED) {
+		if (mode & PAX_NOTE_SEGVGUARD) {
 			flags |= PAX_NOTE_SEGVGUARD;
 			flags &= ~PAX_NOTE_NOSEGVGUARD;
 		} else {
@@ -327,7 +327,7 @@ pax_segvguard_setup_flags(struct image_params *imgp, u_int mode)
 	}
 
 	if (status == PAX_FEATURE_OPTOUT) {
-		if (mode & MBI_SEGVGUARD_DISABLED) {
+		if (mode & PAX_NOTE_NOSEGVGUARD) {
 			flags &= ~PAX_NOTE_SEGVGUARD;
 			flags |= PAX_NOTE_NOSEGVGUARD;
 			pax_log_segvguard(imgp->proc, __func__,
