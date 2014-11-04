@@ -66,6 +66,152 @@ __FBSDID("$FreeBSD$");
 
 #include <security/mac_bsdextended/mac_bsdextended.h>
 
+#ifndef PAX_ASLR_DELTA
+#define	PAX_ASLR_DELTA(delta, lsb, len)	\
+	(((delta) & ((1UL << (len)) - 1)) << (lsb))
+#endif /* PAX_ASLR_DELTA */
+
+/*
+ * generic ASLR values
+ *
+ *  	MMAP	| 32 bit | 64 bit |
+ * 	+-------+--------+--------+
+ * 	| MIN	|  8 bit | 16 bit |
+ * 	+-------+--------+--------+
+ * 	| DEF	| 14 bit | 21 bit |
+ * 	+-------+--------+--------+
+ * 	| MAX   | 20 bit | 32 bit |
+ * 	+-------+--------+--------+
+ *
+ *  	STACK	| 32 bit | 64 bit |
+ * 	+-------+--------+--------+
+ * 	| MIN	|  6 bit | 12 bit |
+ * 	+-------+--------+--------+
+ * 	| DEF	|  6 bit | 16 bit |
+ * 	+-------+--------+--------+
+ * 	| MAX   | 10 bit | 21 bit |
+ * 	+-------+--------+--------+
+ *
+ *  	EXEC	| 32 bit | 64 bit |
+ * 	+-------+--------+--------+
+ * 	| MIN	|  6 bit | 12 bit |
+ * 	+-------+--------+--------+
+ * 	| DEF	| 14 bit | 21 bit |
+ * 	+-------+--------+--------+
+ * 	| MAX   | 20 bit | 21 bit |
+ * 	+-------+--------+--------+
+ *
+ */
+#ifndef PAX_ASLR_DELTA_MMAP_LSB
+#define PAX_ASLR_DELTA_MMAP_LSB		PAGE_SHIFT
+#endif /* PAX_ASLR_DELTA_MMAP_LSB */
+
+#ifndef PAX_ASLR_DELTA_MMAP_MIN_LEN
+#define PAX_ASLR_DELTA_MMAP_MIN_LEN	((sizeof(void *) * NBBY) / 4)
+#endif /* PAX_ASLR_DELTA_MMAP_MAX_LEN */
+
+#ifndef PAX_ASLR_DELTA_MMAP_MAX_LEN
+#ifdef __LP64__
+#define PAX_ASLR_DELTA_MMAP_MAX_LEN	((sizeof(void *) * NBBY) / 2)
+#else
+#define PAX_ASLR_DELTA_MMAP_MAX_LEN	20
+#endif /* __LP64__ */
+#endif /* PAX_ASLR_DELTA_MMAP_MAX_LEN */
+
+#ifndef PAX_ASLR_DELTA_STACK_LSB
+#define PAX_ASLR_DELTA_STACK_LSB	3
+#endif /* PAX_ASLR_DELTA_STACK_LSB */
+
+#ifndef PAX_ASLR_DELTA_STACK_MIN_LEN
+#define PAX_ASLR_DELTA_STACK_MIN_LEN	((sizeof(void *) * NBBY) / 5)
+#endif /* PAX_ASLR_DELTA_STACK_MAX_LEN */
+
+#ifndef PAX_ASLR_DELTA_STACK_MAX_LEN
+#define PAX_ASLR_DELTA_STACK_MAX_LEN	((sizeof(void *) * NBBY) / 3)
+#endif /* PAX_ASLR_DELTA_STACK_MAX_LEN */
+
+#ifndef PAX_ASLR_DELTA_EXEC_LSB
+#define PAX_ASLR_DELTA_EXEC_LSB		PAGE_SHIFT
+#endif /* PAX_ASLR_DELTA_EXEC_LSB */
+
+#ifndef PAX_ASLR_DELTA_EXEC_MIN_LEN
+#define PAX_ASLR_DELTA_EXEC_MIN_LEN	((sizeof(void *) * NBBY) / 5)
+#endif /* PAX_ASLR_DELTA_EXEC_MIN_LEN */
+
+#ifndef PAX_ASLR_DELTA_EXEC_MAX_LEN
+#ifdef __LP64__
+#define PAX_ASLR_DELTA_EXEC_MAX_LEN	((sizeof(void *) * NBBY) / 3)
+#else
+#define PAX_ASLR_DELTA_EXEC_MAX_LEN	20
+#endif /* __LP64__ */
+#endif /* PAX_ASLR_DELTA_EXEC_MAX_LEN */
+
+/*
+ * ASLR default values for native host
+ */
+#ifdef __LP64__
+#ifndef PAX_ASLR_DELTA_MMAP_DEF_LEN
+#define PAX_ASLR_DELTA_MMAP_DEF_LEN	21
+#endif /* PAX_ASLR_DELTA_MMAP_DEF_LEN */
+#ifndef PAX_ASLR_DELTA_STACK_DEF_LEN
+#define PAX_ASLR_DELTA_STACK_DEF_LEN	16
+#endif /* PAX_ASLR_DELTA_STACK_DEF_LEN */
+#ifndef PAX_ASLR_DELTA_EXEC_DEF_LEN
+#define PAX_ASLR_DELTA_EXEC_DEF_LEN	21
+#endif /* PAX_ASLR_DELTA_EXEC_DEF_LEN */
+#else
+#ifndef PAX_ASLR_DELTA_MMAP_DEF_LEN
+#define PAX_ASLR_DELTA_MMAP_DEF_LEN	14
+#endif /* PAX_ASLR_DELTA_MMAP_DEF_LEN */
+#ifndef PAX_ASLR_DELTA_STACK_DEF_LEN
+#define PAX_ASLR_DELTA_STACK_DEF_LEN	PAX_ASLR_DELTA_STACK_MIN_LEN
+#endif /* PAX_ASLR_DELTA_STACK_DEF_LEN */
+#ifndef PAX_ASLR_DELTA_EXEC_DEF_LEN
+#define PAX_ASLR_DELTA_EXEC_DEF_LEN	14
+#endif /* PAX_ASLR_DELTA_EXEC_DEF_LEN */
+#endif /* __LP64__ */
+
+/*
+ * ASLR values for COMPAT_FREEBSD32, COMPAT_LINUX and MAP_32BIT
+ */
+#if defined(COMPAT_LINUX) || defined(COMPAT_FREEBSD32) || defined(MAP_32BIT)
+#ifndef PAX_ASLR_COMPAT_DELTA_MMAP_LSB
+#define PAX_ASLR_COMPAT_DELTA_MMAP_LSB		PAGE_SHIFT
+#endif /* PAX_ASLR_COMPAT_DELTA_MMAP_LSB */
+
+#ifndef PAX_ASLR_COMPAT_DELTA_MMAP_MIN_LEN
+#define PAX_ASLR_COMPAT_DELTA_MMAP_MIN_LEN	((sizeof(int) * NBBY) / 4)
+#endif /* PAX_ASLR_COMPAT_DELTA_MMAP_MAX_LEN */
+
+#ifndef PAX_ASLR_COMPAT_DELTA_MMAP_MAX_LEN
+#define PAX_ASLR_COMPAT_DELTA_MMAP_MAX_LEN	((sizeof(int) * NBBY) / 2)
+#endif /* PAX_ASLR_COMPAT_DELTA_MMAP_MAX_LEN */
+
+#ifndef PAX_ASLR_COMPAT_DELTA_STACK_LSB
+#define PAX_ASLR_COMPAT_DELTA_STACK_LSB		3
+#endif /* PAX_ASLR_COMPAT_DELTA_STACK_LSB */
+
+#ifndef PAX_ASLR_COMPAT_DELTA_STACK_MIN_LEN
+#define PAX_ASLR_COMPAT_DELTA_STACK_MIN_LEN	((sizeof(int) * NBBY) / 5)
+#endif /* PAX_ASLR_COMPAT_DELTA_STACK_MAX_LEN */
+
+#ifndef PAX_ASLR_COMPAT_DELTA_STACK_MAX_LEN
+#define PAX_ASLR_COMPAT_DELTA_STACK_MAX_LEN	((sizeof(int) * NBBY) / 3)
+#endif /* PAX_ASLR_COMPAT_DELTA_STACK_MAX_LEN */
+
+#ifndef PAX_ASLR_COMPAT_DELTA_EXEC_LSB
+#define PAX_ASLR_COMPAT_DELTA_EXEC_LSB		PAGE_SHIFT
+#endif /* PAX_ASLR_COMPAT_DELTA_EXEC_LSB */
+
+#ifndef PAX_ASLR_COMPAT_DELTA_EXEC_MIN_LEN
+#define PAX_ASLR_COMPAT_DELTA_EXEC_MIN_LEN	((sizeof(int) * NBBY) / 5)
+#endif /* PAX_ASLR_COMPAT_DELTA_EXEC_MAX_LEN */
+
+#ifndef PAX_ASLR_COMPAT_DELTA_EXEC_MAX_LEN
+#define PAX_ASLR_COMPAT_DELTA_EXEC_MAX_LEN	((sizeof(int) * NBBY) / 3)
+#endif /* PAX_ASLR_COMPAT_DELTA_EXEC_MAX_LEN */
+#endif
+
 FEATURE(aslr, "Address Space Layout Randomization.");
 
 int pax_aslr_status = PAX_FEATURE_OPTOUT;
