@@ -547,27 +547,27 @@ pax_aslr_init(struct image_params *imgp)
 void
 pax_aslr_mmap(struct proc *p, vm_offset_t *addr, vm_offset_t orig_addr, int flags)
 {
-	int len_32bit;
 
 	if (!pax_aslr_active(p))
 		return;
-
-#ifdef COMPAT_FREEBSD32
-	len_32bit = pax_aslr_compat_mmap_len;
-#else
-	len_32bit = PAX_ASLR_COMPAT_DELTA_MMAP_MIN_LEN;
-#endif
 
 	if (!(flags & MAP_FIXED) && ((orig_addr == 0) || !(flags & MAP_ANON))) {
 		CTR4(KTR_PAX, "%s: applying to %p orig_addr=%p flags=%x\n",
 		    __func__, (void *)*addr, (void *)orig_addr, flags);
 
 #ifdef MAP_32BIT
-		if (flags & MAP_32BIT)
+		if (flags & MAP_32BIT) {
+			int len_32bit;
+
+#ifdef COMPAT_FREEBSD32
+			len_32bit = pax_aslr_compat_mmap_len;
+#else
+			len_32bit = PAX_ASLR_COMPAT_DELTA_MMAP_MIN_LEN;
+#endif
 			*addr += PAX_ASLR_DELTA(arc4random(),
 			    PAX_ASLR_COMPAT_DELTA_MMAP_LSB,
 			    len_32bit);
-		else
+		 } else
 #endif /* MAP_32BIT */
 			*addr += p->p_vmspace->vm_aslr_delta_mmap;
 		CTR2(KTR_PAX, "%s: result %p\n", __func__, (void *)*addr);
