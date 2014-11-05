@@ -48,6 +48,7 @@ SUBDIR=	${SUBDIR_ORDERED} \
 	libexecinfo \
 	libexpat \
 	libfetch \
+	libfigpar \
 	libgeom \
 	${_libgpib} \
 	${_libgssapi} \
