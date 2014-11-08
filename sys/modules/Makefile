@@ -39,7 +39,6 @@ SUBDIR=	\
 	${_amdtemp} \
 	amr \
 	${_an} \
-	${_aout} \
 	${_apm} \
 	${_arcmsr} \
 	${_arcnet} \
@@ -469,7 +468,6 @@ _cxgb=		cxgb
 .if ${MACHINE_CPUARCH} == "i386" || ${MACHINE_CPUARCH} == "amd64"
 _agp=		agp
 _an=		an
-_aout=		aout
 _bktr=		bktr
 _bxe=		bxe
 _cardbus=	cardbus
