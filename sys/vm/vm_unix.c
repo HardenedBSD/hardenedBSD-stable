@@ -168,12 +168,6 @@ sys_obreak(td, uap)
 #ifdef PAX_NOEXEC
 		pax_noexec_nx(td->td_proc, &prot, &maxprot);
 #endif
-#ifdef COMPAT_FREEBSD32
-#if defined(__amd64__) || defined(__ia64__)
-		if (i386_read_exec && SV_PROC_FLAG(td->td_proc, SV_ILP32))
-			prot |= VM_PROT_EXECUTE;
-#endif
-#endif
 		rv = vm_map_insert(map, NULL, 0, old, new, prot, maxprot, 0);
 		if (rv != KERN_SUCCESS) {
 #ifdef RACCT
