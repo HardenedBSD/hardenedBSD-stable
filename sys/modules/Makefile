@@ -35,7 +35,6 @@ SUBDIR=	\
 	${_amdtemp} \
 	amr \
 	${_an} \
-	${_aout} \
 	${_apm} \
 	${_arcmsr} \
 	${_arcnet} \
@@ -481,7 +480,6 @@ _3dfx_linux=	3dfx_linux
 _agp=		agp
 _aic=		aic
 _an=		an
-_aout=		aout
 _apm=		apm
 _arcnet=	arcnet
 _bktr=		bktr
