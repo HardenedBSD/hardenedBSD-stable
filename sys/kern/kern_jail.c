@@ -100,28 +100,8 @@ static MALLOC_DEFINE(M_PRISON_RACCT, "prison_racct", "Prison racct structures");
 
 /* prison0 describes what is "real" about the system. */
 struct prison prison0 = {
-	.pr_id		= 0,
-	.pr_name	= "0",
-	.pr_ref		= 1,
-	.pr_uref	= 1,
-	.pr_path	= "/",
-	.pr_securelevel	= -1,
-	.pr_devfs_rsnum = 0,
-	.pr_childmax	= JAIL_MAX,
-	.pr_hostuuid	= DEFAULT_HOSTUUID,
-	.pr_children	= LIST_HEAD_INITIALIZER(prison0.pr_children),
-#ifdef VIMAGE
-	.pr_flags	= PR_HOST|PR_VNET|_PR_IP_SADDRSEL,
-#else
-	.pr_flags	= PR_HOST|_PR_IP_SADDRSEL,
-#endif
-	.pr_allow	= PR_ALLOW_ALL,
+	.pr_children = LIST_HEAD_INITIALIZER(prison0.pr_children)
 };
-MTX_SYSINIT(prison0, &prison0.pr_mtx, "jail mutex", MTX_DEF);
-
-#if defined(PAX_ASLR) || defined(PAX_HARDENING) || defined(PAX_SEGVGUARD)
-SYSINIT(pax, SI_SUB_PAX, SI_ORDER_MIDDLE, pax_init_prison, (void *) &prison0);
-#endif
 
 /* allprison, allprison_racct and lastprid are protected by allprison_lock. */
 struct	sx allprison_lock;
@@ -130,6 +110,7 @@ struct	prisonlist allprison = TAILQ_HEAD_INITIALIZER(allprison);
 LIST_HEAD(, prison_racct) allprison_racct;
 int	lastprid = 0;
 
+static void prison0_init(void *data);
 static int do_jail_attach(struct thread *td, struct prison *pr);
 static void prison_complete(void *context, int pending);
 static void prison_deref(struct prison *pr, int flags);
@@ -148,6 +129,8 @@ static int prison_restrict_ip4(struct prison *pr, struct in_addr *newip4);
 static int _prison_check_ip6(struct prison *pr, struct in6_addr *ia6);
 static int prison_restrict_ip6(struct prison *pr, struct in6_addr *newip6);
 #endif
+
+SYSINIT(prison0_sysinit, SI_SUB_PRISON, SI_ORDER_MIDDLE, prison0_init, NULL);
 
 /* Flags for prison_deref */
 #define	PD_DEREF	0x01
@@ -290,6 +273,32 @@ qcmp_v6(const void *ip1, const void *ip2)
 	return (rc);
 }
 #endif
+
+static void
+prison0_init(void *data)
+{
+
+	mtx_init(&prison0.pr_mtx, "jail mutex", NULL, MTX_DEF);
+	prison0.pr_id = 0;
+	prison0.pr_name[0] = '0';
+	prison0.pr_ref = 1;
+	prison0.pr_uref = 1;
+	prison0.pr_path[0] = '/';
+	prison0.pr_securelevel = -1;
+	prison0.pr_devfs_rsnum = 0;
+	prison0.pr_childmax = JAIL_MAX;
+	strcpy(prison0.pr_hostuuid, DEFAULT_HOSTUUID);
+#ifdef VIMAGE
+	prison0.pr_flags = PR_HOST|PR_VNET|_PR_IP_SADDRSEL;
+#else
+	prison0.pr_flags = PR_HOST|_PR_IP_SADDRSEL;
+#endif
+	prison0.pr_allow = PR_ALLOW_ALL;
+
+#if defined(PAX_ASLR) || defined(PAX_HARDENING) || defined(PAX_SEGVGUARD)
+	pax_init_prison(&prison0);
+#endif
+}
 
 /*
  * struct jail_args {
