@@ -91,6 +91,9 @@ it will no longer be shared in the parent
 after the parent forks and there is no way to get the previous
 shared-backing-store mapping without unmapping and remapping the address
 space in the parent.
+.It Dv INHERIT_ZERO
+This option guarantees that a fork has
+zero'd memory mapping.
 .El
 .Sh RETURN VALUES
 .Rv -std minherit

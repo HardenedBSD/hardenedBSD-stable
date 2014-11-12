@@ -2258,6 +2258,7 @@ vm_map_inherit(vm_map_t map, vm_offset_t start, vm_offset_t end,
 	case VM_INHERIT_NONE:
 	case VM_INHERIT_COPY:
 	case VM_INHERIT_SHARE:
+	case VM_INHERIT_ZERO:
 		break;
 	default:
 		return (KERN_INVALID_ARGUMENT);
@@ -3390,6 +3391,7 @@ vmspace_fork(struct vmspace *vm1, vm_ooffset_t *fork_charge)
 			break;
 
 		case VM_INHERIT_COPY:
+		case VM_INHERIT_ZERO:
 			/*
 			 * Clone the entry and link into the map.
 			 */
@@ -3407,8 +3409,9 @@ vmspace_fork(struct vmspace *vm1, vm_ooffset_t *fork_charge)
 			vm_map_entry_link(new_map, new_map->header.prev,
 			    new_entry);
 			vmspace_map_entry_forked(vm1, vm2, new_entry);
-			vm_map_copy_entry(old_map, new_map, old_entry,
-			    new_entry, fork_charge);
+			if (old_entry->inheritance == VM_INHERIT_COPY)
+				vm_map_copy_entry(old_map, new_map, old_entry,
+			    		new_entry, fork_charge);
 			break;
 		}
 		old_entry = old_entry->next;
