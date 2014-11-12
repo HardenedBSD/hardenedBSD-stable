@@ -32,6 +32,8 @@
 #ifndef	__SYS_PAX_H
 #define	__SYS_PAX_H
 
+#define	__HardenedBSD_version	1
+
 #if defined(_KERNEL) || defined(_WANT_PRISON)
 struct hardening_features {
 	int	 hr_pax_aslr_status;		/* (p) PaX ASLR enabled */
