@@ -72,7 +72,7 @@ __FBSDID("$FreeBSD$");
 SYSCTL_NODE(_hardening, OID_AUTO, pax, CTLFLAG_RD, 0,
     "PaX (exploit mitigation) features.");
 
-static const int HardenedBSD_version = __HardenedBSD_version;
+static int HardenedBSD_version = __HardenedBSD_version;
 SYSCTL_INT(_hardening, OID_AUTO, version, CTLFLAG_RD|CTLFLAG_CAPRD,
     &HardenedBSD_version, 0, "HardenedBSD version");
 
