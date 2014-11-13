@@ -335,7 +335,7 @@ fork_norfproc(struct thread *td, int flags)
 	 */
 	if (flags & RFCFDG) {
 		struct filedesc *fdtmp;
-		fdtmp = fdinit(td->td_proc->p_fd);
+		fdtmp = fdinit(td->td_proc->p_fd, false);
 		fdescfree(td);
 		p1->p_fd = fdtmp;
 	}
@@ -420,7 +420,7 @@ do_fork(struct thread *td, int flags, struct proc *p2, struct thread *td2,
 	 * Copy filedesc.
 	 */
 	if (flags & RFCFDG) {
-		fd = fdinit(p1->p_fd);
+		fd = fdinit(p1->p_fd, false);
 		fdtol = NULL;
 	} else if (flags & RFFDG) {
 		fd = fdcopy(p1->p_fd);
