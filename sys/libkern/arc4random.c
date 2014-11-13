@@ -46,8 +46,6 @@ static u_char rs_buf[RSBUFSZ];
 static size_t rs_have;		/* valid bytes at end of rs_buf */
 static size_t rs_count;		/* bytes till reseed */
 
-static u_int8_t arc4_randbyte(void);
-
 static __inline void _rs_rekey(u_char *dat, size_t datlen);
 static __inline void _rs_stir(int);
 
