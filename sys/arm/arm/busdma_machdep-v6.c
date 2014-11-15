@@ -64,8 +64,6 @@ __FBSDID("$FreeBSD$");
 #include <machine/cpufunc.h>
 #include <machine/md_var.h>
 
-#define	IS_POWER_OF_2(val)	(((val) & ((val) - 1)) == 0)
-
 #define MAX_BPAGES 64
 #define MAX_DMA_SEGMENTS	4096
 #define BUS_DMA_EXCL_BOUNCE	BUS_DMA_BUS2
@@ -469,11 +467,11 @@ bus_dma_tag_create(bus_dma_tag_t parent, bus_size_t alignment,
 #endif
 
 	/* Basic sanity checking. */
-	KASSERT(boundary == 0 || IS_POWER_OF_2(boundary),
+	KASSERT(boundary == 0 || powerof2(boundary),
 	    ("dma tag boundary %lu, must be a power of 2", boundary));
 	KASSERT(boundary == 0 || boundary >= maxsegsz,
 	    ("dma tag boundary %lu is < maxsegsz %lu\n", boundary, maxsegsz));
-	KASSERT(alignment != 0 && IS_POWER_OF_2(alignment),
+	KASSERT(alignment != 0 && powerof2(alignment),
 	    ("dma tag alignment %lu, must be non-zero power of 2", alignment));
 	KASSERT(maxsegsz != 0, ("dma tag maxsegsz must not be zero"));
 
@@ -1387,8 +1385,18 @@ _bus_dmamap_sync(bus_dma_tag_t dmat, bus_dmamap_t map, bus_dmasync_op_t op)
 			dmat->bounce_zone->total_bounced++;
 		}
 	}
-	if (map->flags & DMAMAP_COHERENT)
+
+	/*
+	 * For COHERENT memory no cache maintenance is necessary, but ensure all
+	 * writes have reached memory for the PREWRITE case.
+	 */
+	if (map->flags & DMAMAP_COHERENT) {
+		if (op & BUS_DMASYNC_PREWRITE) {
+		    dsb();
+		    cpu_l2cache_drain_writebuf();
+		}
 		return;
+	}
 
 	if (map->sync_count != 0) {
 		if (!pmap_dmap_iscurrent(map->pmap))
