@@ -1314,17 +1314,20 @@ _bus_dmamap_sync(bus_dma_tag_t dmat, bus_dmamap_t map, bus_dmasync_op_t op)
 	/*
 	 * If the buffer was from user space, it is possible that this is not
 	 * the same vm map, especially on a POST operation.  It's not clear that
-	 * dma on userland buffers can work at all right now, certainly not if a
-	 * partial cacheline flush has to be handled.  To be safe, until we're
-	 * able to test direct userland dma, panic on a map mismatch.
+	 * dma on userland buffers can work at all right now.  To be safe, until
+	 * we're able to test direct userland dma, panic on a map mismatch.
 	 */
 	if ((bpage = STAILQ_FIRST(&map->bpages)) != NULL) {
 		if (!pmap_dmap_iscurrent(map->pmap))
 			panic("_bus_dmamap_sync: wrong user map for bounce sync.");
-		/* Handle data bouncing. */
+
 		CTR4(KTR_BUSDMA, "%s: tag %p tag flags 0x%x op 0x%x "
 		    "performing bounce", __func__, dmat, dmat->flags, op);
 
+		/*
+		 * For PREWRITE do a writeback.  Clean the caches from the
+		 * innermost to the outermost levels.
+		 */
 		if (op & BUS_DMASYNC_PREWRITE) {
 			while (bpage != NULL) {
 				if (bpage->datavaddr != 0)
@@ -1336,7 +1339,7 @@ _bus_dmamap_sync(bus_dma_tag_t dmat, bus_dmamap_t map, bus_dmasync_op_t op)
 					    (void *)bpage->vaddr,
 					    bpage->datacount);
 				cpu_dcache_wb_range((vm_offset_t)bpage->vaddr,
-					bpage->datacount);
+				    bpage->datacount);
 				l2cache_wb_range((vm_offset_t)bpage->vaddr,
 				    (vm_offset_t)bpage->busaddr, 
 				    bpage->datacount);
@@ -1345,7 +1348,18 @@ _bus_dmamap_sync(bus_dma_tag_t dmat, bus_dmamap_t map, bus_dmasync_op_t op)
 			dmat->bounce_zone->total_bounced++;
 		}
 
-		if (op & BUS_DMASYNC_PREREAD) {
+		/*
+		 * Do an invalidate for PREREAD unless a writeback was already
+		 * done above due to PREWRITE also being set.  The reason for a
+		 * PREREAD invalidate is to prevent dirty lines currently in the
+		 * cache from being evicted during the DMA.  If a writeback was
+		 * done due to PREWRITE also being set there will be no dirty
+		 * lines and the POSTREAD invalidate handles the rest. The
+		 * invalidate is done from the innermost to outermost level. If
+		 * L2 were done first, a dirty cacheline could be automatically
+		 * evicted from L1 before we invalidated it, re-dirtying the L2.
+		 */
+		if ((op & BUS_DMASYNC_PREREAD) && !(op & BUS_DMASYNC_PREWRITE)) {
 			bpage = STAILQ_FIRST(&map->bpages);
 			while (bpage != NULL) {
 				cpu_dcache_inv_range((vm_offset_t)bpage->vaddr,
@@ -1356,6 +1370,16 @@ _bus_dmamap_sync(bus_dma_tag_t dmat, bus_dmamap_t map, bus_dmasync_op_t op)
 				bpage = STAILQ_NEXT(bpage, links);
 			}
 		}
+
+		/*
+		 * Re-invalidate the caches on a POSTREAD, even though they were
+		 * already invalidated at PREREAD time.  Aggressive prefetching
+		 * due to accesses to other data near the dma buffer could have
+		 * brought buffer data into the caches which is now stale.  The
+		 * caches are invalidated from the outermost to innermost; the
+		 * prefetches could be happening right now, and if L1 were
+		 * invalidated first, stale L2 data could be prefetched into L1.
+		 */
 		if (op & BUS_DMASYNC_POSTREAD) {
 			while (bpage != NULL) {
 				vm_offset_t startv;
@@ -1372,8 +1396,8 @@ _bus_dmamap_sync(bus_dma_tag_t dmat, bus_dmamap_t map, bus_dmasync_op_t op)
 					len = (len -
 					    (len & arm_dcache_align_mask)) +
 					    arm_dcache_align;
-				cpu_dcache_inv_range(startv, len);
 				l2cache_inv_range(startv, startp, len);
+				cpu_dcache_inv_range(startv, len);
 				if (bpage->datavaddr != 0)
 					bcopy((void *)bpage->vaddr,
 					    (void *)bpage->datavaddr,
@@ -1390,20 +1414,30 @@ _bus_dmamap_sync(bus_dma_tag_t dmat, bus_dmamap_t map, bus_dmasync_op_t op)
 
 	/*
 	 * For COHERENT memory no cache maintenance is necessary, but ensure all
-	 * writes have reached memory for the PREWRITE case.
+	 * writes have reached memory for the PREWRITE case.  No action is
+	 * needed for a PREREAD without PREWRITE also set, because that would
+	 * imply that the cpu had written to the COHERENT buffer and expected
+	 * the dma device to see that change, and by definition a PREWRITE sync
+	 * is required to make that happen.
 	 */
 	if (map->flags & DMAMAP_COHERENT) {
 		if (op & BUS_DMASYNC_PREWRITE) {
-		    dsb();
-		    cpu_l2cache_drain_writebuf();
+			dsb();
+			cpu_l2cache_drain_writebuf();
 		}
 		return;
 	}
 
+	/*
+	 * Cache maintenance for normal (non-COHERENT non-bounce) buffers.  All
+	 * the comments about the sequences for flushing cache levels in the
+	 * bounce buffer code above apply here as well.  In particular, the fact
+	 * that the sequence is inner-to-outer for PREREAD invalidation and
+	 * outer-to-inner for POSTREAD invalidation is not a mistake.
+	 */
 	if (map->sync_count != 0) {
 		if (!pmap_dmap_iscurrent(map->pmap))
 			panic("_bus_dmamap_sync: wrong user map for sync.");
-		/* ARM caches are not self-snooping for dma */
 
 		sl = &map->slist[0];
 		end = &map->slist[map->sync_count];
@@ -1412,6 +1446,7 @@ _bus_dmamap_sync(bus_dma_tag_t dmat, bus_dmamap_t map, bus_dmasync_op_t op)
 
 		switch (op) {
 		case BUS_DMASYNC_PREWRITE:
+		case BUS_DMASYNC_PREWRITE | BUS_DMASYNC_PREREAD:
 			while (sl != end) {
 				cpu_dcache_wb_range(sl->vaddr, sl->datacount);
 				l2cache_wb_range(sl->vaddr, sl->busaddr,
@@ -1429,19 +1464,19 @@ _bus_dmamap_sync(bus_dma_tag_t dmat, bus_dmamap_t map, bus_dmasync_op_t op)
 			}
 			break;
 
-		case BUS_DMASYNC_PREWRITE | BUS_DMASYNC_PREREAD:
+		case BUS_DMASYNC_POSTWRITE:
+			break;
+
+		case BUS_DMASYNC_POSTREAD:
+		case BUS_DMASYNC_POSTREAD | BUS_DMASYNC_POSTWRITE:
 			while (sl != end) {
-				cpu_dcache_wbinv_range(sl->vaddr, sl->datacount);
-				l2cache_wbinv_range(sl->vaddr,
-				    sl->busaddr, sl->datacount);
+				l2cache_inv_range(sl->vaddr, sl->busaddr, 
+				    sl->datacount);
+				cpu_dcache_inv_range(sl->vaddr, sl->datacount);
 				sl++;
 			}
 			break;
 
-		case BUS_DMASYNC_POSTREAD:
-		case BUS_DMASYNC_POSTWRITE:
-		case BUS_DMASYNC_POSTREAD | BUS_DMASYNC_POSTWRITE:
-			break;
 		default:
 			panic("unsupported combination of sync operations: 0x%08x\n", op);
 			break;
