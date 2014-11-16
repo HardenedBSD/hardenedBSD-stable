@@ -167,7 +167,6 @@ _rs_stir(int lock)
 	if (lock)
 		mtx_lock(&arc4_mtx);
 
-	_rs_random_buf(key, sizeof(key));
 	/* If r == 0 || -1, just use what was on the stack. */
 	if (r > 0) {
 		for (n = r; n < sizeof(key); n++)
