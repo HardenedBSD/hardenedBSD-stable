@@ -1,0 +1,5 @@
+include GENERIC
+
+options PAX_ASLR
+options PAX_HARDENING
+options PAX_SYSCTLS
