@@ -1,0 +1,5 @@
+include BEAGLEBONE
+
+options PAX_ASLR
+options PAX_SYSCTLS
+options PAX_HARDENING
