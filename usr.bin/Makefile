@@ -149,6 +149,7 @@ SUBDIR=	alias \
 	shar \
 	showmount \
 	sockstat \
+	soeliminate \
 	sort \
 	split \
 	stat \
