@@ -35,6 +35,7 @@ SUBDIR=	alias \
 	csplit \
 	ctlstat \
 	cut \
+	demandoc \
 	dirname \
 	dpv \
 	du \
@@ -129,6 +130,7 @@ SUBDIR=	alias \
 	pathchk \
 	perror \
 	pr \
+	preconv \
 	printenv \
 	printf \
 	procstat \
