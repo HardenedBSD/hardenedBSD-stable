@@ -2901,6 +2901,7 @@ gnu/fs/reiserfs/reiserfs_vfsops.c	optional reiserfs
 gnu/fs/reiserfs/reiserfs_vnops.c	optional reiserfs
 #
 hardenedbsd/hbsd_pax_common.c		optional pax_aslr | pax_segvguard | pax_hardening
+hardenedbsd/hbsd_pax_log.c		optional pax_aslr | pax_segvguard | pax_hardening | ptrace_hardening
 hardenedbsd/hbsd_pax_aslr.c		optional pax_aslr
 hardenedbsd/hbsd_pax_hardening.c	optional pax_hardening
 hardenedbsd/hbsd_pax_segvguard.c	optional pax_segvguard
@@ -2971,7 +2972,6 @@ kern/kern_mtxpool.c		standard
 kern/kern_mutex.c		standard
 kern/kern_ntptime.c		standard
 kern/kern_osd.c			standard
-kern/kern_hardening_log.c		optional pax_aslr | pax_segvguard | pax_hardening | ptrace_hardening
 kern/kern_ptrace_hardening.c	optional ptrace_hardening | ptrace_hardening_grp
 kern/kern_physio.c		standard
 kern/kern_pmc.c			standard
