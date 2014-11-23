@@ -53,7 +53,6 @@ __FBSDID("$FreeBSD$");
 #include <machine/stdarg.h>
 
 static void ptrace_hardening_sysinit(void);
-static void ptrace_hardening_log(const char *, const char *, ...);
 
 int ptrace_hardening_status = PTRACE_HARDENING_ENABLED;
 int ptrace_hardening_log_status = 0;
@@ -178,7 +177,7 @@ ptrace_hardening(struct thread *td, u_int ptrace_hardening_flag)
 	if (uid) {
 #endif
 
-		ptrace_hardening_log(__func__,
+		pax_log_ptrace_hardening(td->td_proc, __func__,
 		    "forbidden ptrace call attempt "
 		    "from %ld:%ld user", uid, gid);
 
@@ -220,32 +219,3 @@ ptrace_hardening_sysinit(void)
 }
 SYSINIT(ptrace, SI_SUB_PTRACE_HARDENING, SI_ORDER_FIRST, ptrace_hardening_sysinit, NULL);
 
-static void
-ptrace_hardening_log(const char *caller_name, const char *fmt, ...)
-{
-	struct sbuf *sb;
-	va_list args;
-
-	if (ptrace_hardening_log_status == 0)
-		return;
-
-	sb = sbuf_new_auto();
-	if (sb == NULL)
-		panic("%s: Could not allocate memory", __func__);
-
-	sbuf_printf(sb, "[PTRACE HARDENING] ");
-
-	if (caller_name != NULL)
-		sbuf_printf(sb, "%s: ", caller_name);
-
-	va_start(args, fmt);
-	sbuf_vprintf(sb, fmt, args);
-	va_end(args);
-
-	if (sbuf_finish(sb) != 0)
-		panic("%s: Could not generate message", __func__);
-
-	printf("%s", sbuf_data(sb));
-
-	sbuf_delete(sb);
-}

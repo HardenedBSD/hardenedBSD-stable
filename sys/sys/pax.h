@@ -163,6 +163,8 @@ void pax_log_aslr(struct proc *, const char *func, const char *fmt, ...);
 void pax_ulog_aslr(const char *func, const char *fmt, ...);
 void pax_log_segvguard(struct proc *, const char *func, const char *fmt, ...);
 void pax_ulog_segvguard(const char *func, const char *fmt, ...);
+void pax_log_ptrace_hardening(struct proc *, const char *func, const char *fmt, ...);
+void pax_ulog_hardening(const char *func, const char *fmt, ...);
 
 /*
  * SegvGuard related functions
