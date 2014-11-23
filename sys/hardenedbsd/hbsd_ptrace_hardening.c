@@ -37,24 +37,20 @@ __FBSDID("$FreeBSD$");
 #include <sys/systm.h>
 #include <sys/kernel.h>
 #include <sys/imgact.h>
+#include <sys/libkern.h>
+#include <sys/limits.h>
 #include <sys/lock.h>
 #include <sys/mutex.h>
-#include <sys/stat.h>
 #include <sys/proc.h>
-#include <sys/sysctl.h>
-#include <sys/sbuf.h>
-#include <sys/limits.h>
-#include <sys/queue.h>
-#include <sys/libkern.h>
-
-#include <sys/syslimits.h>
-#include <sys/param.h>
-
+#include <sys/pax.h>
 #include <sys/ptrace_hardening.h>
+#include <sys/queue.h>
+#include <sys/sbuf.h>
+#include <sys/stat.h>
+#include <sys/sysctl.h>
+#include <sys/syslimits.h>
 
 #include <machine/stdarg.h>
-
-#include <security/mac_bsdextended/mac_bsdextended.h>
 
 static void ptrace_hardening_sysinit(void);
 static void ptrace_hardening_log(const char *, const char *, ...);
