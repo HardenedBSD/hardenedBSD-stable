@@ -157,7 +157,8 @@ ptrace_hardening_sysinit(void)
 	    pax_status_simple_str[ptrace_hardening_status]);
 
 #ifdef PTRACE_HARDENING_GRP
-	if (val < 0 || val > GID_MAX) {
+	if (ptrace_hardening_allowed_gid < 0 ||
+	    ptrace_hardening_allowed_gid > GID_MAX) {
 		panic("[PAX HARDENING] ptrace hardening\n"
 		    "hardening.ptrace_hardening.allowed_gid not in range!\n");
 	}
