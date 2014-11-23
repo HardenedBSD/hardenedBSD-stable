@@ -43,8 +43,8 @@ extern gid_t phardening_allowed_gid;
 #define PTRACE_HARDENING_DISABLED	0
 #define PTRACE_HARDENING_ENABLED	1
 
-#define PTRACE_HARDENING_MODE_ROOTONLY	0x00
-#define PTRACE_HARDENING_MODE_PUBLIC	0x01
+#define PTRACE_HARDENING_MODE_ROOTONLY	0x01
+#define PTRACE_HARDENING_MODE_PUBLIC	0x02
 
 int ptrace_hardening(struct thread *, u_int);
 void ptrace_hardening_mode(struct image_params *, uint32_t);
