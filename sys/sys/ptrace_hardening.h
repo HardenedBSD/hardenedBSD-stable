@@ -34,12 +34,6 @@
 
 #ifdef _KERNEL
 
-extern int phardening_status;
-
-#ifdef PTRACE_HARDENING_GRP
-extern gid_t phardening_allowed_gid;
-#endif
-
 #define PTRACE_HARDENING_DISABLED	0
 #define PTRACE_HARDENING_ENABLED	1
 

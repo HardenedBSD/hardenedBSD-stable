@@ -55,7 +55,6 @@ __FBSDID("$FreeBSD$");
 static void ptrace_hardening_sysinit(void);
 
 int ptrace_hardening_status = PTRACE_HARDENING_ENABLED;
-int ptrace_hardening_log_status = 0;
 
 #ifdef PTRACE_HARDENING_GRP
 gid_t ptrace_hardening_allowed_gid = 0;
