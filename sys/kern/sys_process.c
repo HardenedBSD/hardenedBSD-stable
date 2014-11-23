@@ -33,7 +33,7 @@
 __FBSDID("$FreeBSD$");
 
 #include "opt_compat.h"
-#include "opt_ptrace_hardening.h"
+#include "opt_pax.h"
 
 #include <sys/param.h>
 #include <sys/systm.h>
