@@ -124,6 +124,7 @@ sysctl_ptrace_hardening_gid(SYSCTL_HANDLER_ARGS)
 {
 	int err;
 	long val = ptrace_hardening_allowed_gid;
+
 	err = sysctl_handle_long(oidp, &val, sizeof(long), req);
 	if (err || (req->newptr == NULL))
 		return (err);
@@ -142,6 +143,7 @@ sysctl_ptrace_hardening_log(SYSCTL_HANDLER_ARGS)
 {
 	int err, val = ptrace_hardening_log_status;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
+
 	if (err || (req->newptr == NULL))
 		return (err);
 
@@ -160,25 +162,26 @@ sysctl_ptrace_hardening_log(SYSCTL_HANDLER_ARGS)
 int
 ptrace_hardening(struct thread *td, u_int ptrace_hardening_flag)
 {
+
 	if (!ptrace_hardening_status)
 		return (0);
 
-	if (ptrace_hardening_flag & 
-		PTRACE_HARDENING_MODE_PUBLIC)
+	if (ptrace_hardening_flag & PTRACE_HARDENING_MODE_PUBLIC)
 		return (0);
 
 	uid_t uid = td->td_ucred->cr_ruid;
 	gid_t gid = td->td_ucred->cr_rgid;
 #ifdef PTRACE_HARDENING_GRP
 	if (uid && (ptrace_hardening_allowed_gid &&
-		gid != ptrace_hardening_allowed_gid)) {
+	    gid != ptrace_hardening_allowed_gid)) {
 #else
 	if (uid) {
 #endif
 
-		ptrace_hardening_log(__func__, 
-			"forbidden ptrace call attempt "
-			"from %ld:%ld user", uid, gid);
+		ptrace_hardening_log(__func__,
+		    "forbidden ptrace call attempt "
+		    "from %ld:%ld user", uid, gid);
+
 		return (EPERM);
 	}
 
@@ -221,7 +224,7 @@ static void
 ptrace_hardening_log(const char *caller_name, const char *fmt, ...)
 {
 	struct sbuf *sb;
-	va_list args;	
+	va_list args;
 
 	if (ptrace_hardening_log_status == 0)
 		return;
@@ -234,10 +237,9 @@ ptrace_hardening_log(const char *caller_name, const char *fmt, ...)
 
 	if (caller_name != NULL)
 		sbuf_printf(sb, "%s: ", caller_name);
-	va_start(args, fmt);
-	
-	sbuf_vprintf(sb, fmt, args);
 
+	va_start(args, fmt);
+	sbuf_vprintf(sb, fmt, args);
 	va_end(args);
 
 	if (sbuf_finish(sb) != 0)
