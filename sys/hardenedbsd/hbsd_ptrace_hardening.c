@@ -52,61 +52,57 @@ __FBSDID("$FreeBSD$");
 
 #include <machine/stdarg.h>
 
+static int sysctl_ptrace_hardening_status(SYSCTL_HANDLER_ARGS);
+#ifdef PTRACE_HARDENING_GRP
+static int sysctl_ptrace_hardening_gid(SYSCTL_HANDLER_ARGS);
+#endif
+
 static void ptrace_hardening_sysinit(void);
 
-int ptrace_hardening_status = PTRACE_HARDENING_ENABLED;
+int ptrace_hardening_status = PAX_FEATURE_SIMPLE_ENABLED;
 
 #ifdef PTRACE_HARDENING_GRP
-gid_t ptrace_hardening_allowed_gid = 0;
+gid_t ptrace_hardening_allowed_gid = 0; //XXXOP - make this compile time configurable
 #endif
 
 TUNABLE_INT("hardening.ptrace.status", &ptrace_hardening_status);
-TUNABLE_INT("hardening.ptrace.log", &ptrace_hardening_log_status);
-
 #ifdef PTRACE_HARDENING_GRP
 TUNABLE_INT("hardening.ptrace.allowed_gid", &ptrace_hardening_allowed_gid);
 #endif
 
-static int sysctl_ptrace_hardening_status(SYSCTL_HANDLER_ARGS);
-
-#ifdef PTRACE_HARDENING_GRP
-static int sysctl_ptrace_hardening_gid(SYSCTL_HANDLER_ARGS);
-#endif
-static int sysctl_ptrace_hardening_log(SYSCTL_HANDLER_ARGS);
-
+#ifdef PAX_SYSCTLS
 SYSCTL_NODE(_hardening, OID_AUTO, ptrace, CTLFLAG_RD, 0,
-	"PTrace settings.");
+    "PTrace settings.");
 
-SYSCTL_PROC(_hardening_ptrace, OID_AUTO, status, 
-	CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE, 
-	NULL, 0, sysctl_ptrace_hardening_status, "I",
-	"Restrictions status. "
-	"0 - disabled, "
-	"1 - enabled");
+SYSCTL_PROC(_hardening_ptrace, OID_AUTO, status,
+    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
+    NULL, 0, sysctl_ptrace_hardening_status, "I",
+    "Restrictions status. "
+    "0 - disabled, "
+    "1 - enabled");
 
 #ifdef PTRACE_HARDENING_GRP
 SYSCTL_PROC(_hardening_ptrace, OID_AUTO, allowed_gid,
-	CTLTYPE_ULONG|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
-	NULL, 0, sysctl_ptrace_hardening_gid, "LU",
-	"Allowed gid");
+    CTLTYPE_ULONG|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
+    NULL, 0, sysctl_ptrace_hardening_gid, "LU",
+    "Allowed gid");
+#endif
 #endif
 
-SYSCTL_PROC(_hardening_ptrace, OID_AUTO, log,
-	CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
-	NULL, 0, sysctl_ptrace_hardening_log, "I",
-	"Logging");
-
+#ifdef PAX_SYSCTLS
 int
 sysctl_ptrace_hardening_status(SYSCTL_HANDLER_ARGS)
 {
-	int err, val = ptrace_hardening_status;
+	int err, val;
+
+	val = ptrace_hardening_status;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
 	if (err || (req->newptr == NULL))
 		return (err);
 
 	switch(val) {
-	case    PTRACE_HARDENING_DISABLED:
-	case    PTRACE_HARDENING_ENABLED:
+	case    PAX_FEATURE_SIMPLE_DISABLED:
+	case    PAX_FEATURE_SIMPLE_ENABLED:
 		ptrace_hardening_status = val;
 		break;
 	default:
@@ -121,8 +117,9 @@ int
 sysctl_ptrace_hardening_gid(SYSCTL_HANDLER_ARGS)
 {
 	int err;
-	long val = ptrace_hardening_allowed_gid;
+	long val;
 
+	val = ptrace_hardening_allowed_gid;
 	err = sysctl_handle_long(oidp, &val, sizeof(long), req);
 	if (err || (req->newptr == NULL))
 		return (err);
@@ -135,27 +132,7 @@ sysctl_ptrace_hardening_gid(SYSCTL_HANDLER_ARGS)
 	return (0);
 }
 #endif
-
-int
-sysctl_ptrace_hardening_log(SYSCTL_HANDLER_ARGS)
-{
-	int err, val = ptrace_hardening_log_status;
-	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
-
-	if (err || (req->newptr == NULL))
-		return (err);
-
-	switch (val) {
-	case 0:
-	case 1:
-		ptrace_hardening_log_status = val;
-		break;
-	default:
-		return (EINVAL);
-	}
-
-	return (0);
-}
+#endif /* PAX_SYSCTLS */
 
 int
 ptrace_hardening(struct thread *td, u_int ptrace_hardening_flag)
@@ -189,10 +166,9 @@ ptrace_hardening_sysinit(void)
 	printf("[PTRACE HARDENING] status : %d\n", ptrace_hardening_status);
 
 #ifdef PTRACE_HARDENING_GRP
-	printf("[PTRACE HARDENING] allowed gid : %d\n", 
-			ptrace_hardening_allowed_gid);
+	printf("[PTRACE HARDENING] allowed gid : %d\n",
+	    ptrace_hardening_allowed_gid);
 #endif
-	printf("[PTRACE HARDENING] log : %d\n", ptrace_hardening_log_status);
 }
 SYSINIT(ptrace, SI_SUB_PTRACE_HARDENING, SI_ORDER_FIRST, ptrace_hardening_sysinit, NULL);
 
