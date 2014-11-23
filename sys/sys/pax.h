@@ -50,12 +50,6 @@ struct hardening_features {
 	int	 hr_pax_segvguard_suspension;   /* (p) Number of seconds to suspend an application */
 	int	 hr_pax_segvguard_maxcrashes;   /* (p) Maximum number of crashes before suspending application */
 	int	 hr_pax_map32_enabled;		/* (p) MAP_32BIT enabled (amd64 only) */
-	int	 hr_ptrace_hardening_set;		/* (p) Ptrace flags set */
-	int	 hr_ptrace_hardening_status;	/* (p) Ptrace hardening enabled */
-	int	 hr_ptrace_hardening_flag_status;	/* (p) Ptrace hardening flag enabled */
-	int	 hr_ptrace_request_flags_all;	/* (p) Ptrace hardening request set for all */
-	char	 hr_ptrace_request_flags[65];	/* (p) Ptrace requests types */
-	gid_t	 hr_ptrace_hardening_allowed_gid;	/* (p) Ptrace hardening per gid */
 	int	 hr_pax_procfs_harden;		/* (p) Harden procfs */
 	int	 hr_pax_mprotect_exec;		/* (p) Disallow setting exec bit on non-exec mappings */
 };
