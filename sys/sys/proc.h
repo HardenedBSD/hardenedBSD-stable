@@ -566,7 +566,6 @@ struct proc {
 	signed char	p_nice;		/* (c) Process "nice" value. */
 	int		p_fibnum;	/* in this routing domain XXX MRT */
 	u_int		p_pax;		/* (b) PaX is enabled to this process */
-	u_int		p_ptrace_hardening;	/* ptrace hardening mode */
 /* End area that is copied on creation. */
 #define	p_endcopy	p_xstat
 

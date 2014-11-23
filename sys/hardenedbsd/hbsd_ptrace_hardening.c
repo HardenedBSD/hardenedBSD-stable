@@ -165,7 +165,7 @@ sysctl_ptrace_hardening_gid(SYSCTL_HANDLER_ARGS)
 #endif /* PAX_SYSCTLS */
 
 int
-ptrace_hardening(struct thread *td, u_int ptrace_hardening_flag)
+ptrace_hardening(struct thread *td)
 {
 
 	if (ptrace_hardening_status == PAX_FEATURE_SIMPLE_DISABLED)

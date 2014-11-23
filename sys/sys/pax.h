@@ -186,7 +186,7 @@ int pax_procfs_harden(struct thread *td);
 /*
  * ptrace hardening related functions
  */
-int ptrace_hardening(struct thread *, u_int);
+int ptrace_hardening(struct thread *td);
 
 #endif /* _KERNEL */
 
