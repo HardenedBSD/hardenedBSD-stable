@@ -249,11 +249,10 @@ TUNABLE_INT("hardening.pax.aslr.compat.exec_len", &pax_aslr_compat_exec_len);
 #endif
 
 #ifdef PAX_SYSCTLS
-
 SYSCTL_DECL(_hardening_pax);
 
 /*
- * sysctls and tunables
+ * sysctls
  */
 static int sysctl_pax_aslr_status(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_mmap(SYSCTL_HANDLER_ARGS);

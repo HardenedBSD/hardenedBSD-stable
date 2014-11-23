@@ -33,7 +33,7 @@
 __FBSDID("$FreeBSD$");
 
 #include "opt_compat.h"
-#include "opt_ptrace_hardening.h"
+#include "opt_pax.h"
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -46,14 +46,12 @@ __FBSDID("$FreeBSD$");
 #include <sys/proc.h>
 #include <sys/procctl.h>
 #include <sys/vnode.h>
+#include <sys/pax.h>
 #include <sys/ptrace.h>
 #include <sys/rwlock.h>
 #include <sys/sx.h>
 #include <sys/malloc.h>
 #include <sys/signalvar.h>
-#ifdef PTRACE_HARDENING
-#include <sys/ptrace_hardening.h>
-#endif
 
 #include <machine/reg.h>
 
@@ -697,9 +695,7 @@ kern_ptrace(struct thread *td, int req, pid_t pid, void *addr, int data)
 	AUDIT_ARG_PROCESS(p);
 
 #ifdef PTRACE_HARDENING
-	u_int p_ptrace_hardening = p->p_ptrace_hardening;
-	error = ptrace_hardening(td, p_ptrace_hardening);
-
+	error = ptrace_hardening(td);
 	if (error)
 		goto fail;
 #endif

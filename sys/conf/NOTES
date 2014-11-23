@@ -3008,5 +3008,5 @@ options 	PAX_HARDENING	# Other hardening features
 options 	PAX_SEGVGUARD	# Track and ban failing process
 options 	PAX_SYSCTLS	# Run-time settings for PAX and Hardening
 options 	PTRACE_HARDENING
-options 	PTRACE_HARDENING_GRP
+options 	PTRACE_HARDENING_GRP=50000
 

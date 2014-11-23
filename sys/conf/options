@@ -933,8 +933,8 @@ PAX_SYSCTLS	opt_pax.h
 PAX_SEGVGUARD	opt_pax.h
 PAX_HARDENING	opt_pax.h
 
-PTRACE_HARDENING	opt_ptrace_hardening.h
-PTRACE_HARDENING_GRP	opt_ptrace_hardening.h
+PTRACE_HARDENING	opt_pax.h
+PTRACE_HARDENING_GRP	opt_pax.h
 
 # Random number generator(s)
 RANDOM_YARROW	opt_random.h
