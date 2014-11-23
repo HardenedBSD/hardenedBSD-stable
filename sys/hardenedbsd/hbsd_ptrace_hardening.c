@@ -164,26 +164,40 @@ sysctl_ptrace_hardening_gid(SYSCTL_HANDLER_ARGS)
 #endif
 #endif /* PAX_SYSCTLS */
 
+static inline int
+ptrace_allowed(uid_t uid, gid_t gid)
+{
+
+#ifdef PTRACE_HARDENING_GRP
+	if ((uid != 0) && (gid != ptrace_hardening_allowed_gid))
+		return (EPERM);
+#else
+	if (uid != 0)
+		return (EPERM);
+#endif
+	return (0);
+}
+
 int
 ptrace_hardening(struct thread *td)
 {
+	int err;
+	uid_t uid;
+	gid_t gid;
 
 	if (ptrace_hardening_status == PAX_FEATURE_SIMPLE_DISABLED)
 		return (0);
 
-	uid_t uid = td->td_ucred->cr_ruid;
-	gid_t gid = td->td_ucred->cr_rgid;
-	if ((uid != 0)
-#ifdef PTRACE_HARDENING_GRP
-	    && (gid != ptrace_hardening_allowed_gid)
-#endif
-	    ) {
+	uid = td->td_ucred->cr_ruid;
+	gid = td->td_ucred->cr_rgid;
 
+	err = ptrace_allowed(uid, gid);
+	if (err != 0) {
 		pax_log_ptrace_hardening(td->td_proc, __func__,
 		    "forbidden ptrace call attempt "
 		    "from %ld:%ld user", uid, gid);
 
-		return (EPERM);
+		return (err);
 	}
 
 	return (0);
