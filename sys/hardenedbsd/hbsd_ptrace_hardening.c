@@ -176,9 +176,7 @@ ptrace_hardening(struct thread *td, u_int ptrace_hardening_flag)
 	gid_t gid = td->td_ucred->cr_rgid;
 	if ((uid != 0)
 #ifdef PTRACE_HARDENING_GRP
-	    // XXXOP: wheel group can't specified ?!
-	    && ((ptrace_hardening_allowed_gid != 0) &&
-	    gid != ptrace_hardening_allowed_gid)
+	    && (gid != ptrace_hardening_allowed_gid)
 #endif
 	    ) {
 
