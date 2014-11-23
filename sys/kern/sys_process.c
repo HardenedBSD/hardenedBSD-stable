@@ -46,14 +46,12 @@ __FBSDID("$FreeBSD$");
 #include <sys/proc.h>
 #include <sys/procctl.h>
 #include <sys/vnode.h>
+#include <sys/pax.h>
 #include <sys/ptrace.h>
 #include <sys/rwlock.h>
 #include <sys/sx.h>
 #include <sys/malloc.h>
 #include <sys/signalvar.h>
-#ifdef PTRACE_HARDENING
-#include <sys/ptrace_hardening.h>
-#endif
 
 #include <machine/reg.h>
 

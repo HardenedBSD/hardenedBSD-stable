@@ -183,6 +183,11 @@ int pax_map32_enabled(struct thread *td);
 int pax_mprotect_exec_harden(void);
 int pax_procfs_harden(struct thread *td);
 
+/*
+ * ptrace hardening related functions
+ */
+int ptrace_hardening(struct thread *, u_int);
+
 #endif /* _KERNEL */
 
 #endif /* __SYS_PAX_H */
