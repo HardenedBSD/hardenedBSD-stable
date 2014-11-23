@@ -62,7 +62,7 @@ static void ptrace_hardening_sysinit(void);
 int ptrace_hardening_status = PAX_FEATURE_SIMPLE_ENABLED;
 
 #ifdef PTRACE_HARDENING_GRP
-gid_t ptrace_hardening_allowed_gid = 0; //XXXOP - make this compile time configurable
+gid_t ptrace_hardening_allowed_gid = PTRACE_HARDENING_GRP;
 #endif
 
 TUNABLE_INT("hardening.ptrace.status", &ptrace_hardening_status);
