@@ -72,6 +72,11 @@ TUNABLE_INT("hardening.ptrace_hardening.allowed_gid",
     &ptrace_hardening_allowed_gid);
 #endif
 
+
+/*
+ * sysctls
+ */
+
 #ifdef PAX_SYSCTLS
 SYSCTL_NODE(_hardening, OID_AUTO, ptrace_hardening, CTLFLAG_RD, 0,
     "PTrace settings.");
@@ -89,37 +94,7 @@ SYSCTL_PROC(_hardening_ptrace_hardening, OID_AUTO, allowed_gid,
     NULL, 0, sysctl_ptrace_hardening_gid, "LU",
     "Allowed gid");
 #endif
-#endif
 
-static void
-ptrace_hardening_sysinit(void)
-{
-
-	switch (ptrace_hardening_status) {
-	case PAX_FEATURE_SIMPLE_DISABLED:
-	case PAX_FEATURE_SIMPLE_ENABLED:
-		break;
-	default:
-		printf("[PAX HARDENING] WARNING, invalid settings in loader.conf!"
-		    " (hardening.ptrace_hardening.status= %d)\n",
-		    ptrace_hardening_status);
-		ptrace_hardening_status = PAX_FEATURE_SIMPLE_ENABLED;
-	}
-	printf("[PAX HARDENING] ptrace hardening status: %s\n",
-	    pax_status_simple_str[ptrace_hardening_status]);
-
-#ifdef PTRACE_HARDENING_GRP
-	if (val < 0 || val > GID_MAX) {
-		panic("[PAX HARDENING] ptrace hardening\n"
-		    "hardening.ptrace_hardening.allowed_gid not in range!\n");
-	}
-	printf("[PAX HARDENING] ptrace hardening allowed gid : %d\n",
-	    ptrace_hardening_allowed_gid);
-#endif
-}
-SYSINIT(ptrace_hardening, SI_SUB_PAX, SI_ORDER_THIRD, ptrace_hardening_sysinit, NULL);
-
-#ifdef PAX_SYSCTLS
 int
 sysctl_ptrace_hardening_status(SYSCTL_HANDLER_ARGS)
 {
@@ -163,6 +138,34 @@ sysctl_ptrace_hardening_gid(SYSCTL_HANDLER_ARGS)
 }
 #endif
 #endif /* PAX_SYSCTLS */
+
+static void
+ptrace_hardening_sysinit(void)
+{
+
+	switch (ptrace_hardening_status) {
+	case PAX_FEATURE_SIMPLE_DISABLED:
+	case PAX_FEATURE_SIMPLE_ENABLED:
+		break;
+	default:
+		printf("[PAX HARDENING] WARNING, invalid settings in loader.conf!"
+		    " (hardening.ptrace_hardening.status= %d)\n",
+		    ptrace_hardening_status);
+		ptrace_hardening_status = PAX_FEATURE_SIMPLE_ENABLED;
+	}
+	printf("[PAX HARDENING] ptrace hardening status: %s\n",
+	    pax_status_simple_str[ptrace_hardening_status]);
+
+#ifdef PTRACE_HARDENING_GRP
+	if (val < 0 || val > GID_MAX) {
+		panic("[PAX HARDENING] ptrace hardening\n"
+		    "hardening.ptrace_hardening.allowed_gid not in range!\n");
+	}
+	printf("[PAX HARDENING] ptrace hardening allowed gid : %d\n",
+	    ptrace_hardening_allowed_gid);
+#endif
+}
+SYSINIT(ptrace_hardening, SI_SUB_PAX, SI_ORDER_THIRD, ptrace_hardening_sysinit, NULL);
 
 static inline int
 ptrace_allowed(uid_t uid, gid_t gid)
