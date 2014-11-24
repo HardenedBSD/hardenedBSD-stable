@@ -287,7 +287,7 @@ prison0_init(void *data)
 	prison0.pr_securelevel = -1;
 	prison0.pr_devfs_rsnum = 0;
 	prison0.pr_childmax = JAIL_MAX;
-	strcpy(prison0.pr_hostuuid, DEFAULT_HOSTUUID);
+	strlcpy(prison0.pr_hostuuid, DEFAULT_HOSTUUID, HOSTUUIDLEN);
 #ifdef VIMAGE
 	prison0.pr_flags = PR_HOST|PR_VNET|_PR_IP_SADDRSEL;
 #else
