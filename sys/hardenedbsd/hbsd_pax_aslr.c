@@ -776,10 +776,6 @@ pax_aslr_setup_flags(struct image_params *imgp, u_int mode)
 		} else {
 			flags &= ~PAX_NOTE_ASLR;
 			flags |= PAX_NOTE_NOASLR;
-			pax_log_aslr(imgp->proc, __func__,
-	"ASLR is opt-in, and executable don't have enabled ASLR!\n");
-			pax_ulog_aslr(NULL,
-	"ASLR is opt-in, and executable don't have enabled ASLR!\n");
 		}
 
 		return (flags);
