@@ -199,7 +199,7 @@ ptrace_hardening(struct thread *td)
 	if (err != 0) {
 		pax_log_ptrace_hardening(td->td_proc, __func__,
 		    "forbidden ptrace call attempt "
-		    "from %ld user",
+		    "from %ld user\n",
 		    td->td_ucred->cr_ruid);
 
 		return (err);
