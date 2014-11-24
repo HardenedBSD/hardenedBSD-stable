@@ -42,8 +42,7 @@
 
 #define __HARDENING_LOG_TEMPLATE(MAIN, SUBJECT, prefix, name)			\
 void										\
-prefix##_log_##name(struct proc *p, const char *caller_name, 			\
-		const char* fmt, ...)						\
+prefix##_log_##name(struct proc *p, const char* fmt, ...)			\
 {										\
 	struct sbuf *sb;							\
 	va_list args;								\
@@ -55,8 +54,6 @@ prefix##_log_##name(struct proc *p, const char *caller_name, 			\
 	if (sb == NULL)								\
 		panic("%s: Could not allocate memory", __func__);		\
 	sbuf_printf(sb, "["#MAIN" "#SUBJECT"] ");				\
-	if (caller_name != NULL)						\
-		sbuf_printf(sb, "%s: ", caller_name);				\
 	va_start(args, fmt);							\
 	sbuf_vprintf(sb, fmt, args);						\
 	va_end(args);								\
@@ -68,7 +65,7 @@ prefix##_log_##name(struct proc *p, const char *caller_name, 			\
 }										\
 										\
 void										\
-prefix##_ulog_##name(const char *caller_name, const char* fmt, ...)		\
+prefix##_ulog_##name(const char* fmt, ...)		\
 {										\
 	struct sbuf *sb;							\
 	va_list args;								\
@@ -80,8 +77,6 @@ prefix##_ulog_##name(const char *caller_name, const char* fmt, ...)		\
 	if (sb == NULL)								\
 		panic("%s: Could not allocate memory", __func__);		\
 	sbuf_printf(sb, "["#MAIN" "#SUBJECT"] ");				\
-	if (caller_name != NULL)						\
-		sbuf_printf(sb, "%s: ", caller_name);				\
 	va_start(args, fmt);							\
 	sbuf_vprintf(sb, fmt, args);						\
 	va_end(args);								\
