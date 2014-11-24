@@ -130,11 +130,11 @@ hardening_log_sysinit(void)
 	case PAX_FEATURE_SIMPLE_ENABLED:
 		break;
 	default:
-		printf("[HARDENING LOG] WARNING, invalid settings in loader.conf!"
+		printf("[PAX LOG] WARNING, invalid settings in loader.conf!"
 		    " (hardening.log.log = %d)\n", hardening_log_log);
 		hardening_log_log = PAX_FEATURE_SIMPLE_ENABLED;
 	}
-	printf("[HARDENING LOG] logging to system: %s\n",
+	printf("[PAX LOG] logging to system: %s\n",
 	    pax_status_simple_str[hardening_log_log]);
 
 	switch (hardening_log_ulog) {
@@ -142,11 +142,11 @@ hardening_log_sysinit(void)
 	case PAX_FEATURE_SIMPLE_ENABLED:
 		break;
 	default:
-		printf("[HARDENING LOG] WARNING, invalid settings in loader.conf!"
+		printf("[PAX LOG] WARNING, invalid settings in loader.conf!"
 		    " (hardening.log.ulog = %d)\n", hardening_log_ulog);
 		hardening_log_ulog = PAX_FEATURE_SIMPLE_ENABLED;
 	}
-	printf("[HARDENING LOG] logging to user: %s\n",
+	printf("[PAX LOG] logging to user: %s\n",
 	    pax_status_simple_str[hardening_log_ulog]);
 }
 SYSINIT(hardening_log, SI_SUB_PAX, SI_ORDER_SECOND, hardening_log_sysinit, NULL);
