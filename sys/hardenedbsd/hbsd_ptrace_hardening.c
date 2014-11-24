@@ -170,7 +170,7 @@ ptrace_hardening_sysinit(void)
 SYSINIT(ptrace_hardening, SI_SUB_PAX, SI_ORDER_THIRD, ptrace_hardening_sysinit, NULL);
 
 static inline int
-ptrace_allowed(uid_t uid, struct ucred *cred)
+ptrace_allowed(struct ucred *cred)
 {
 	uid_t uid;
 
