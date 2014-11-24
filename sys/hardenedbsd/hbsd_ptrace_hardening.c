@@ -48,6 +48,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/stat.h>
 #include <sys/sysctl.h>
 #include <sys/syslimits.h>
+#include <sys/ucred.h>
 
 #include <machine/stdarg.h>
 
@@ -169,11 +170,14 @@ ptrace_hardening_sysinit(void)
 SYSINIT(ptrace_hardening, SI_SUB_PAX, SI_ORDER_THIRD, ptrace_hardening_sysinit, NULL);
 
 static inline int
-ptrace_allowed(uid_t uid, gid_t gid)
+ptrace_allowed(uid_t uid, struct ucred *cred)
 {
+	uid_t uid;
 
+	// XXXOP: convert the uid chech to priv_check(...)
+	uid = cred->cr_ruid;
 #ifdef PTRACE_HARDENING_GRP
-	if ((uid != 0) && (gid != ptrace_hardening_allowed_gid))
+	if ((uid != 0) && groupmember(ptrace_hardening_allowed_gid, cred))
 		return (EPERM);
 #else
 	if (uid != 0)
@@ -186,20 +190,16 @@ int
 ptrace_hardening(struct thread *td)
 {
 	int err;
-	uid_t uid;
-	gid_t gid;
 
 	if (ptrace_hardening_status == PAX_FEATURE_SIMPLE_DISABLED)
 		return (0);
 
-	uid = td->td_ucred->cr_ruid;
-	gid = td->td_ucred->cr_rgid;
-
-	err = ptrace_allowed(uid, gid);
+	err = ptrace_allowed(td->td_ucred);
 	if (err != 0) {
 		pax_log_ptrace_hardening(td->td_proc, __func__,
 		    "forbidden ptrace call attempt "
-		    "from %ld:%ld user", uid, gid);
+		    "from %ld user",
+		    td->td_ucred->cr_ruid);
 
 		return (err);
 	}
