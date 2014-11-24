@@ -177,7 +177,8 @@ ptrace_allowed(struct ucred *cred)
 	// XXXOP: convert the uid chech to priv_check(...)
 	uid = cred->cr_ruid;
 #ifdef PTRACE_HARDENING_GRP
-	if ((uid != 0) && groupmember(ptrace_hardening_allowed_gid, cred))
+	if ((uid != 0) &&
+	    (groupmember(ptrace_hardening_allowed_gid, cred) == 0))
 		return (EPERM);
 #else
 	if (uid != 0)
