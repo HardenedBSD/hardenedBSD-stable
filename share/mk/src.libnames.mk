@@ -23,6 +23,7 @@ _PRIVATELIBS=	\
 		unbound
 
 _INTERNALIBS=	\
+		event \
 		mandoc \
 		netbsd \
 		ohash \
@@ -40,7 +41,7 @@ _LIBRARIES=	\
 		cam \
 		capsicum \
 		casper \
-		cft \
+		ctf \
 		com_err \
 		crypt \
 		crypto \
@@ -52,7 +53,6 @@ _LIBRARIES=	\
 		dwarf \
 		edit \
 		elf \
-		event \
 		execinfo \
 		fetch \
 		figpar \
@@ -140,7 +140,7 @@ _DP_proc=	supcplusplus
 .endif
 .endif
 .if ${MK_CDDL} != "no"
-_DP_proc+=	cft
+_DP_proc+=	ctf
 .endif
 _DP_mp=	crypto
 _DP_memstat=	kvm
@@ -161,6 +161,8 @@ _DP_devstat=	kvm
 
 # Define spacial cases
 LDADD_supcplusplus=	-lsupc++
+LDADD_atf_c=	-L${LIBATF_CDIR} -latf-c
+LDADD_atf_cxx=	-L${LIBATF_CXXDIR} -latf-c++
 
 .for _l in ${_LIBRARIES}
 .if ${_PRIVATELIBS:M${_l}}
@@ -185,6 +187,9 @@ LDADD_ucl+=	${LDADD_m}
 
 DPADD_sqlite3+=	${DPADD_pthread}
 LDADD_sqlite3+=	${LDADD_pthread}
+
+DPADD_atf_cxx+=	${DPADD_atf_c}
+LDADD_atf_cxx+=	${LDADD_atf_c}
 
 .for _l in ${LIBADD}
 .if ${_PRIVATELIBS:M${_l}}
@@ -257,5 +262,5 @@ LIBSMDIR=	${ROOTOBJDIR}/lib/libsm
 LDSM?=		${LIBSMDIR}/libsm.a
 LIBSM?=		${LIBSMDIR}/libsm.a
 
-LIBNETBSDDIR=	${ROOTOBJDIR}/lib/libnetbsd
-LIBNETBSD=	${ROOTOBJDIR}/libnetbsd.a
+LIBNETBSDDIR?=	${ROOTOBJDIR}/lib/libnetbsd
+LIBNETBSD?=	${ROOTOBJDIR}/libnetbsd.a
