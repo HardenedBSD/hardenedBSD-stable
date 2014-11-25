@@ -16,6 +16,7 @@ _PRIVATELIBS=	\
 		atf_cxx \
 		bsdstat \
 		heimipcc \
+		heimipcs \
 		ldns \
 		sqlite3 \
 		ssh \
@@ -28,11 +29,14 @@ _INTERNALIBS=	\
 		netbsd \
 		ohash \
 		readline \
-		sm
+		sl \
+		sm \
+		vers
 
 _LIBRARIES=	\
 		${_PRIVATELIBS} \
 		${_INTERNALIBS} \
+		alias \
 		archive \
 		asn1 \
 		bsdxml \
@@ -58,11 +62,19 @@ _LIBRARIES=	\
 		figpar \
 		geom \
 		gssapi \
+		hdb \
 		heimbase \
+		heimntlm \
+		heimsqlite \
 		hx509 \
 		ipsec \
 		jail \
+		kadm5clnt \
+		kadm5srv \
+		kafs5 \
+		kdc \
 		kiconv \
+		krb5 \
 		kvm \
 		krb5 \
 		l \
@@ -191,6 +203,12 @@ LDADD_sqlite3+=	${LDADD_pthread}
 DPADD_atf_cxx+=	${DPADD_atf_c}
 LDADD_atf_cxx+=	${LDADD_atf_c}
 
+# The following depends on libraries which are using pthread
+DPADD_hdb+=	${DPADD_pthread}
+LDADD_hdb+=	${LDADD_pthread}
+DPADD_kadm5srv+=	${DPADD_pthread}
+LDADD_kadm5srv+=	${LDADD_pthread}
+
 .for _l in ${LIBADD}
 .if ${_PRIVATELIBS:M${_l}}
 USEPRIVATELIB+=	${_l}
@@ -263,4 +281,10 @@ LDSM?=		${LIBSMDIR}/libsm.a
 LIBSM?=		${LIBSMDIR}/libsm.a
 
 LIBNETBSDDIR?=	${ROOTOBJDIR}/lib/libnetbsd
-LIBNETBSD?=	${ROOTOBJDIR}/libnetbsd.a
+LIBNETBSD?=	${LIBNETBSDDIR}/libnetbsd.a
+
+LIBVERSDIR?=	${ROOTOBJDIR}/kerberos5/lib/libvers
+LIBVERS?=	${LIBVERSDIR}/libvers.a
+
+LIBSLDIR=	${ROOTOBJDIR}/kerberos5/lib/libsl
+LIBSL?=		${LIBSLDIR}/libsl.a
