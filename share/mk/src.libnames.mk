@@ -24,13 +24,25 @@ _PRIVATELIBS=	\
 		unbound
 
 _INTERNALIBS=	\
+		amu \
+		bsnmptools \
+		cron \
 		event \
+		fifolog \
+		ipf \
+		lpr \
 		mandoc \
 		netbsd \
+		ntp \
 		ohash \
+		opts \
+		parse \
 		readline \
 		sl \
 		sm \
+		smdb \
+		smutil \
+		telnet \
 		vers
 
 _LIBRARIES=	\
@@ -39,18 +51,25 @@ _LIBRARIES=	\
 		alias \
 		archive \
 		asn1 \
+		auditd \
+		begemot \
+		bluetooth \
 		bsdxml \
 		bsnmp \
+		bsm \
 		bz2 \
+		calendar \
 		cam \
 		capsicum \
 		casper \
-		ctf \
 		com_err \
+		compiler_rt \
 		crypt \
 		crypto \
+		ctf \
 		cuse \
 		cxxrt \
+		devinfo \
 		devstat \
 		dialog \
 		dpv \
@@ -61,6 +80,7 @@ _LIBRARIES=	\
 		fetch \
 		figpar \
 		geom \
+		gnuregex \
 		gssapi \
 		hdb \
 		heimbase \
@@ -86,12 +106,16 @@ _LIBRARIES=	\
 		memstat \
 		mp \
 		nandfs \
+		netgraph \
+		ngatm \
 		ncursesw \
 		nv \
 		opie \
 		pam \
 		pcap \
+		pcsclite \
 		pjdlog \
+		pmc \
 		proc \
 		procstat \
 		pthread \
@@ -99,22 +123,30 @@ _LIBRARIES=	\
 		readline \
 		roken \
 		rpcsec_gss \
+		rpcsvc \
 		rt \
 		sbuf \
+		sdp \
 		sm \
 		smb \
 		ssl \
 		stdthreads \
 		supcplusplus \
+		ssp_nonshared \
 		tacplus \
 		termcapw \
+		ugidfw \
 		ufs \
 		ulog \
 		usb \
+		usbhid \
 		util \
+		vmmapi \
 		wind \
 		wrap \
+		xo \
 		y \
+		ypclnt \
 		z
 
 _DP_archive=	z bz2 lzma bsdxml
@@ -125,7 +157,7 @@ _DP_archive+=	md
 .endif
 _DP_ssl=	crypto
 _DP_ssh=	crypto crypt
-_DP_edit=	edit
+_DP_edit=	ncursesw
 .if ${MK_OPENSSL} != "no"
 _DP_bsnmp=	crypto
 .endif
@@ -170,6 +202,17 @@ _DP_dialog=	ncursesw m
 _DP_cuse=	pthread
 _DP_atf_cxx=	atf_c
 _DP_devstat=	kvm
+_DP_pam=	radius tacplus opie md util
+.if ${MK_KERBEROS} != "no"
+_DP_pam+=	krb5
+.endif
+.if ${MK_OPENSSH} != "no"
+_DP_pam+=	ssh
+.endif
+.if ${MK_NIS} != "no"
+_DP_pam+=	ypclnt
+.endif
+_DP_krb5+=	asn1 com_err crypt crypto hx509 roken wind heimbase heimipcc
 
 # Define spacial cases
 LDADD_supcplusplus=	-lsupc++
@@ -202,6 +245,9 @@ LDADD_sqlite3+=	${LDADD_pthread}
 
 DPADD_atf_cxx+=	${DPADD_atf_c}
 LDADD_atf_cxx+=	${LDADD_atf_c}
+
+DPADD_ipf+=	${DPADD_kvm}
+LDADD_ipf+=	${LDADD_kvm}
 
 # The following depends on libraries which are using pthread
 DPADD_hdb+=	${DPADD_pthread}
@@ -280,6 +326,12 @@ LIBSMDIR=	${ROOTOBJDIR}/lib/libsm
 LDSM?=		${LIBSMDIR}/libsm.a
 LIBSM?=		${LIBSMDIR}/libsm.a
 
+LIBSMDBDIR=	${ROOTOBJDIR}/lib/libsmdb
+LIBSMDB?=	${LIBSMDBDIR}/libsmdb.a
+
+LIBSMUTILDIR=	${ROOTOBJDIR}/lib/libsmutil
+LIBSMUTIL?=	${LIBSMDBDIR}/libsmutil.a
+
 LIBNETBSDDIR?=	${ROOTOBJDIR}/lib/libnetbsd
 LIBNETBSD?=	${LIBNETBSDDIR}/libnetbsd.a
 
@@ -288,3 +340,33 @@ LIBVERS?=	${LIBVERSDIR}/libvers.a
 
 LIBSLDIR=	${ROOTOBJDIR}/kerberos5/lib/libsl
 LIBSL?=		${LIBSLDIR}/libsl.a
+
+LIBIPFDIR=	${ROOTOBJDIR}/sbin/ipf/libipf
+LIBIPF?=	${LIBIPFDIR}/libipf.a
+
+LIBTELNETDIR=	${ROOTOBJDIR}/lib/libtelnet
+LIBTELNET?=	${LIBIPFDIR}/libtelnet.a
+
+LIBCRONDIR=	${ROOTOBJDIR}/usr.sbin/cron/lib
+LIBCRON?=	${LIBCRONDIR}/libcron.a
+
+LIBNTPDIR=	${ROOTOBJDIR}/usr.sbin/ntp/libntp
+LIBNTP?=	${LIBNTPDIR}/libntp.a
+
+LIBOPTSDIR=	${ROOTOBJDIR}/usr.sbin/ntp/libopts
+LIBOTPS?=	${LIBOPTSDIR}/libopts.a
+
+LIBPARSEDIR=	${ROOTOBJDIR}/usr.sbin/ntp/libparse
+LIBPARSE?=	${LIBOPTSDIR}/libparse.a
+
+LIBLPRDIR=	${ROOTOBJDIR}/usr.sbin/lpr/common_source
+LIBLPR?=	${LIBOPTSDIR}/liblpr.a
+
+LIBFIFOLOGDIR=	${ROOTOBJDIR}/usr.sbin/fifolog/lib
+LIBFIFOLOG?=	${LIBOPTSDIR}/libfifolog.a
+
+LIBBSNMPTOOLSDIR=	${ROOTOBJDIR}/usr.sbin/bsnmpd/tools/libbsnmptools
+LIBBSNMPTOOLS?=	${LIBBSNMPTOOLSDIR}/libbsnmptools.a
+
+LIBAMUDIR=	${ROOTOBJDIR}/usr.sbin/amd/libamu
+LIBAMU?=	${LIBAMUDIR}/libamu/libamu.a
