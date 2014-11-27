@@ -13,6 +13,7 @@ FILES=	\
 	bsd.doc.mk \
 	bsd.endian.mk \
 	bsd.files.mk \
+	bsd.hardenedbsd.mk \
 	bsd.incs.mk \
 	bsd.info.mk \
 	bsd.init.mk \

@@ -370,3 +370,5 @@ SHELL=	${__MAKE_SHELL}
 .endif
 
 .include <bsd.cpu.mk>
+
+.include <bsd.hardenedbsd.mk>
