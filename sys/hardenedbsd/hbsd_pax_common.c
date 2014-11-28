@@ -175,7 +175,10 @@ pax_init_prison(struct prison *pr)
 	    __func__, pr->pr_name);
 
 	pax_aslr_init_prison(pr);
-	pax_aslr_init_prison32(pr);
 	pax_hardening_init_prison(pr);
 	pax_segvguard_init_prison(pr);
+
+#ifdef FREEBSD_COMPAT32
+	pax_aslr_init_prison32(pr);
+#endif
 }
