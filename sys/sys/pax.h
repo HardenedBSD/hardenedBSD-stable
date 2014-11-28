@@ -159,7 +159,7 @@ void pax_hardening_init_prison(struct prison *pr);
 static void pax_hardening_init_prison(struct prison *pr __unused) {}
 #endif
 int pax_map32_enabled(struct thread *td);
-int pax_mprotect_exec_harden(void);
+int pax_mprotect_exec_harden(struct thread *td);
 int pax_procfs_harden(struct thread *td);
 
 /*

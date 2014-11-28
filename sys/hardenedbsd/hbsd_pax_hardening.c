@@ -271,9 +271,13 @@ pax_map32_enabled(struct thread *td)
 }
 
 int
-pax_mprotect_exec_harden(void)
+pax_mprotect_exec_harden(struct thread *td)
 {
-	return (pax_mprotect_exec_harden_global);
+	struct prison *pr;
+
+	pr = pax_get_prison(td->td_proc);
+
+	return (pr->pr_hardening.hr_pax_mprotect_exec);
 }
 
 int
