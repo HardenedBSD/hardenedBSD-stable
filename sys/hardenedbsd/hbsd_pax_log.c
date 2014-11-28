@@ -90,7 +90,7 @@ prefix##_ulog_##name(const char* fmt, ...)				\
 static int sysctl_hardening_log_log(SYSCTL_HANDLER_ARGS);
 static int sysctl_hardening_log_ulog(SYSCTL_HANDLER_ARGS);
 
-static int hardening_log_log = PAX_FEATURE_SIMPLE_DISABLED;
+static int hardening_log_log = PAX_FEATURE_SIMPLE_ENABLED;
 static int hardening_log_ulog = PAX_FEATURE_SIMPLE_DISABLED;
 
 TUNABLE_INT("hardening.log.log", &hardening_log_log);
