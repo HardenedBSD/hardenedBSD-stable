@@ -67,9 +67,6 @@ __FBSDID("$FreeBSD$");
 
 #include <machine/elf.h>
 
-#include <security/mac_bsdextended/mac_bsdextended.h>
-
-
 FEATURE(segvguard, "Segmentation fault protection.");
 
 static int pax_segvguard_status = PAX_FEATURE_OPTIN;
