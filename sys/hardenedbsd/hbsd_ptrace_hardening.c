@@ -35,7 +35,9 @@ __FBSDID("$FreeBSD$");
 #include <sys/param.h>
 #include <sys/mount.h>
 #include <sys/systm.h>
+#include <sys/jail.h>
 #include <sys/kernel.h>
+#include <sys/ktr.h>
 #include <sys/imgact.h>
 #include <sys/libkern.h>
 #include <sys/limits.h>
