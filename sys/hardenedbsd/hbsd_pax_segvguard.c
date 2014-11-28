@@ -67,6 +67,11 @@ __FBSDID("$FreeBSD$");
 
 #include <machine/elf.h>
 
+#define PAX_SEGVGUARD_EXPIRY		(2 * 60)
+#define PAX_SEGVGUARD_SUSPENSION	(10 * 60)
+#define PAX_SEGVGUARD_MAXCRASHES	5
+
+
 FEATURE(segvguard, "Segmentation fault protection.");
 
 static int pax_segvguard_status = PAX_FEATURE_OPTIN;
@@ -480,7 +485,7 @@ pax_segvguard_add(struct thread *td, struct vnode *vn, sbintime_t sbt)
 	pr = pax_get_prison(td->td_proc);
 
 	v = malloc(sizeof(struct pax_segvguard_entry), M_PAX, M_NOWAIT);
-	if (!v)
+	if (v == NULL)
 		return (NULL);
 
 	v->se_inode = sb.st_ino;

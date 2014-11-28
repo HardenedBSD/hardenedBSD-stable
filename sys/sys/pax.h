@@ -97,10 +97,6 @@ extern const char *pax_status_simple_str[];
 			(PAX_NOTE_NOMPROTECT | PAX_NOTE_NOSEGVGUARD | PAX_NOTE_NOASLR)
 #define PAX_NOTE_ALL	(PAX_NOTE_ALL_ENABLED | PAX_NOTE_ALL_DISABLED)
 
-#define PAX_SEGVGUARD_EXPIRY		(2 * 60)
-#define PAX_SEGVGUARD_SUSPENSION	(10 * 60)
-#define PAX_SEGVGUARD_MAXCRASHES	5
-
 /*
  * generic pax functions
  */
