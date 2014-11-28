@@ -757,7 +757,7 @@ pax_aslr_init_prison32(struct prison *pr)
 		    pr_p->pr_hardening.hr_pax_aslr_compat_exec_len;
 	}
 }
-#endif /* COMPAT_FREEBSD32 */M
+#endif /* COMPAT_FREEBSD32 */
 
 void
 pax_aslr_mmap(struct proc *p, vm_offset_t *addr, vm_offset_t orig_addr, int flags)
