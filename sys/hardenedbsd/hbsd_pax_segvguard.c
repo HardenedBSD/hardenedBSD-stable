@@ -326,6 +326,7 @@ pax_segvguard_init_prison(struct prison *pr)
 		    pr_p->pr_hardening.hr_pax_segvguard_suspension;
 		pr->pr_hardening.hr_pax_segvguard_maxcrashes =
 		    pr_p->pr_hardening.hr_pax_segvguard_maxcrashes;
+	}
 }
 
 u_int
