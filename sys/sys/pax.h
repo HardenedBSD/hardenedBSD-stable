@@ -62,7 +62,6 @@ struct prison;
 struct thread;
 struct proc;
 struct vnode;
-struct vmspace;
 struct vm_offset_t;
 
 /*
