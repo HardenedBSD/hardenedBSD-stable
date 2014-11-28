@@ -695,7 +695,7 @@ kern_ptrace(struct thread *td, int req, pid_t pid, void *addr, int data)
 	AUDIT_ARG_PROCESS(p);
 
 #ifdef PAX_PTRACE_HARDENING
-	error = ptrace_hardening(td);
+	error = pax_ptrace_hardening(td);
 	if (error)
 		goto fail;
 #endif

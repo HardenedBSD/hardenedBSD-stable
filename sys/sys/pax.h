@@ -166,7 +166,7 @@ int pax_procfs_harden(struct thread *td);
 /*
  * ptrace hardening related functions
  */
-#ifdef PAX_PTRACE_HARDENING || PAX_PTRACE_HARDENING_GRP
+#if defined(PAX_PTRACE_HARDENING) || defined(PAX_PTRACE_HARDENING_GRP)
 void pax_ptrace_hardening_init_prison(struct prison *pr);
 #else
 static void pax_ptrace_hardening_init_prison(struct prison *pr __unused) {}
