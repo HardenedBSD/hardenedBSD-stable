@@ -169,6 +169,28 @@ ptrace_hardening_sysinit(void)
 }
 SYSINIT(ptrace_hardening, SI_SUB_PAX, SI_ORDER_THIRD, ptrace_hardening_sysinit, NULL);
 
+void
+ptrace_hardening_init_prison(struct prison *pr)
+{
+	struct prison *pr_p;
+
+	CTR2(KTR_PAX, "%s: Setting prison %s PaX variables\n",
+	    __func__, pr->pr_name);
+
+	if (pr == &prison0) {
+		/* prison0 has no parent, use globals */
+		pr->pr_hardening.hr_ptrace_hardening_status =
+		    ptrace_hardening_status;
+	} else {
+		KASSERT(pr->pr_parent != NULL,
+		   ("%s: pr->pr_parent == NULL", __func__));
+		pr_p = pr->pr_parent;
+
+		pr->pr_hardening.hr_ptrace_hardening_status =
+		    pr_p->pr_hardening.hr_ptrace_hardening_status;
+	}
+}
+
 static inline int
 ptrace_allowed(struct ucred *cred)
 {
@@ -190,9 +212,13 @@ ptrace_allowed(struct ucred *cred)
 int
 ptrace_hardening(struct thread *td)
 {
+	struct prison *pr;
 	int err;
 
-	if (ptrace_hardening_status == PAX_FEATURE_SIMPLE_DISABLED)
+	pr = pax_get_prison(td->td_proc);
+
+	if (pr->pr_hardening.hr_ptrace_hardening_status ==
+	    PAX_FEATURE_SIMPLE_DISABLED)
 		return (0);
 
 	err = ptrace_allowed(td->td_ucred);

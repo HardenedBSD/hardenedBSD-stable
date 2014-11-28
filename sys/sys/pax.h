@@ -52,6 +52,7 @@ struct hardening_features {
 	int	 hr_pax_map32_enabled;		/* (p) MAP_32BIT enabled (amd64 only) */
 	int	 hr_pax_procfs_harden;		/* (p) Harden procfs */
 	int	 hr_pax_mprotect_exec;		/* (p) Disallow setting exec bit on non-exec mappings */
+	int	 hr_pax_ptrace_harden_status;	/* (p) Disallow unprivileged ptrace */
 };
 #endif
 
@@ -165,6 +166,11 @@ int pax_procfs_harden(struct thread *td);
 /*
  * ptrace hardening related functions
  */
+#ifdef PTRACE_HARDENING || PTRACE_HARDENING_GRP
+void ptrace_hardening_init_prison(struct prison *pr);
+#else
+static void ptrace_hardening_init_prison(struct prison *pr __unused) {}
+#endif
 int ptrace_hardening(struct thread *td);
 
 #endif /* _KERNEL */
