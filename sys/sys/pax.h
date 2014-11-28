@@ -81,19 +81,6 @@ extern const char *pax_status_str[];
 
 extern const char *pax_status_simple_str[];
 
-
-extern int pax_aslr_status;
-
-extern int pax_aslr_mmap_len;
-extern int pax_aslr_stack_len;
-extern int pax_aslr_exec_len;
-#ifdef COMPAT_FREEBSD32
-extern int pax_aslr_compat_status;
-extern int pax_aslr_compat_mmap_len;
-extern int pax_aslr_compat_stack_len;
-extern int pax_aslr_compat_exec_len;
-#endif /* COMPAT_FREEBSD32 */
-
 #ifdef PAX_SEGVGUARD
 extern int pax_segvguard_status;
 extern int pax_segvguard_debug;
