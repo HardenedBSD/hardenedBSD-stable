@@ -81,9 +81,6 @@ extern const char *pax_status_str[];
 
 extern const char *pax_status_simple_str[];
 
-extern int hardening_log_log;
-extern int hardening_log_ulog;
-
 #define PAX_NOTE_MPROTECT	0x00000001
 #define PAX_NOTE_NOMPROTECT	0x00000002
 #define PAX_NOTE_SEGVGUARD	0x00000004

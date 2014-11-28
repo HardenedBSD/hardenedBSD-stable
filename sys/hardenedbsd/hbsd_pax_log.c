@@ -90,8 +90,8 @@ prefix##_ulog_##name(const char* fmt, ...)				\
 static int sysctl_hardening_log_log(SYSCTL_HANDLER_ARGS);
 static int sysctl_hardening_log_ulog(SYSCTL_HANDLER_ARGS);
 
-int hardening_log_log = HARDENING_LOG_LOG;
-int hardening_log_ulog = HARDENING_LOG_ULOG;
+static int hardening_log_log = HARDENING_LOG_LOG;
+static int hardening_log_ulog = HARDENING_LOG_ULOG;
 
 TUNABLE_INT("hardening.log.log", &hardening_log_log);
 TUNABLE_INT("hardening.log.ulog", &hardening_log_ulog);
