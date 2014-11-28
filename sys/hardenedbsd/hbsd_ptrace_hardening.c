@@ -53,7 +53,7 @@ __FBSDID("$FreeBSD$");
 #include <machine/stdarg.h>
 
 static int sysctl_ptrace_hardening_status(SYSCTL_HANDLER_ARGS);
-#ifdef PTRACE_HARDENING_GRP
+#ifdef PAX_PTRACE_HARDENING_GRP
 static int sysctl_ptrace_hardening_gid(SYSCTL_HANDLER_ARGS);
 #endif
 
@@ -62,13 +62,13 @@ int ptrace_hardening_status = PAX_FEATURE_SIMPLE_ENABLED;
 #else
 int ptrace_hardening_status = PAX_FEATURE_SIMPLE_DISABLED;
 #endif
-#ifdef PTRACE_HARDENING_GRP
-gid_t ptrace_hardening_allowed_gid = PTRACE_HARDENING_GRP;
+#ifdef PAX_PTRACE_HARDENING_GRP
+gid_t ptrace_hardening_allowed_gid = PAX_PTRACE_HARDENING_GRP;
 #endif
 
 TUNABLE_INT("hardening.ptrace_hardening.status",
     &ptrace_hardening_status);
-#ifdef PTRACE_HARDENING_GRP
+#ifdef PAX_PTRACE_HARDENING_GRP
 TUNABLE_INT("hardening.ptrace_hardening.allowed_gid",
     &ptrace_hardening_allowed_gid);
 #endif
@@ -89,7 +89,7 @@ SYSCTL_PROC(_hardening_ptrace_hardening, OID_AUTO, status,
     "0 - disabled, "
     "1 - enabled");
 
-#ifdef PTRACE_HARDENING_GRP
+#ifdef PAX_PTRACE_HARDENING_GRP
 SYSCTL_PROC(_hardening_ptrace_hardening, OID_AUTO, allowed_gid,
     CTLTYPE_ULONG|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
     NULL, 0, sysctl_ptrace_hardening_gid, "LU",
@@ -118,7 +118,7 @@ sysctl_ptrace_hardening_status(SYSCTL_HANDLER_ARGS)
 	return (0);
 }
 
-#ifdef PTRACE_HARDENING_GRP
+#ifdef PAX_PTRACE_HARDENING_GRP
 int
 sysctl_ptrace_hardening_gid(SYSCTL_HANDLER_ARGS)
 {
@@ -141,7 +141,7 @@ sysctl_ptrace_hardening_gid(SYSCTL_HANDLER_ARGS)
 #endif /* PAX_SYSCTLS */
 
 static void
-ptrace_hardening_sysinit(void)
+pax_ptrace_hardening_sysinit(void)
 {
 
 	switch (ptrace_hardening_status) {
@@ -157,7 +157,7 @@ ptrace_hardening_sysinit(void)
 	printf("[PAX HARDENING] ptrace hardening status: %s\n",
 	    pax_status_simple_str[ptrace_hardening_status]);
 
-#ifdef PTRACE_HARDENING_GRP
+#ifdef PAX_PTRACE_HARDENING_GRP
 	if (ptrace_hardening_allowed_gid < 0 ||
 	    ptrace_hardening_allowed_gid > GID_MAX) {
 		panic("[PAX HARDENING] ptrace hardening\n"
@@ -167,10 +167,10 @@ ptrace_hardening_sysinit(void)
 	    ptrace_hardening_allowed_gid);
 #endif
 }
-SYSINIT(ptrace_hardening, SI_SUB_PAX, SI_ORDER_THIRD, ptrace_hardening_sysinit, NULL);
+SYSINIT(ptrace_hardening, SI_SUB_PAX, SI_ORDER_THIRD, pax_ptrace_hardening_sysinit, NULL);
 
 void
-ptrace_hardening_init_prison(struct prison *pr)
+pax_ptrace_hardening_init_prison(struct prison *pr)
 {
 	struct prison *pr_p;
 
@@ -192,13 +192,13 @@ ptrace_hardening_init_prison(struct prison *pr)
 }
 
 static inline int
-ptrace_allowed(struct ucred *cred)
+pax_ptrace_allowed(struct ucred *cred)
 {
 	uid_t uid;
 
 	// XXXOP: convert the uid chech to priv_check(...)
 	uid = cred->cr_ruid;
-#ifdef PTRACE_HARDENING_GRP
+#ifdef PAX_PTRACE_HARDENING_GRP
 	if ((uid != 0) &&
 	    (groupmember(ptrace_hardening_allowed_gid, cred) == 0))
 		return (EPERM);
@@ -210,7 +210,7 @@ ptrace_allowed(struct ucred *cred)
 }
 
 int
-ptrace_hardening(struct thread *td)
+pax_ptrace_hardening(struct thread *td)
 {
 	struct prison *pr;
 	int err;
@@ -221,7 +221,7 @@ ptrace_hardening(struct thread *td)
 	    PAX_FEATURE_SIMPLE_DISABLED)
 		return (0);
 
-	err = ptrace_allowed(td->td_ucred);
+	err = pax_ptrace_allowed(td->td_ucred);
 	if (err != 0) {
 		pax_log_ptrace_hardening(td->td_proc,
 		    "forbidden ptrace call attempt from %ld user\n",
