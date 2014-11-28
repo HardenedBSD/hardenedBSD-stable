@@ -657,7 +657,7 @@ pax_segvguard_sysinit(void)
 		pax_segvguard_status = PAX_FEATURE_FORCE_ENABLED;
 		break;
 	}
-	printf("[PAX SEGVGUARD] status: %s\n", pax_status_str[pax_aslr_status]);
+	printf("[PAX SEGVGUARD] status: %s\n", pax_status_str[pax_segvguard_status]);
 	printf("[PAX SEGVGUARD] expiry: %d sec\n", pax_segvguard_expiry);
 	printf("[PAX SEGVGUARD] suspension: %d sec\n", pax_segvguard_suspension);
 	printf("[PAX SEGVGUARD] maxcrahes: %d\n", pax_segvguard_maxcrashes);
