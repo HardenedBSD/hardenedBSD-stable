@@ -71,13 +71,13 @@ __FBSDID("$FreeBSD$");
 #include <security/mac_bsdextended/mac_bsdextended.h>
 
 #ifdef PAX_HARDENING
-int pax_map32_enabled_global = PAX_FEATURE_SIMPLE_DISABLED;
-int pax_mprotect_exec_harden_global = PAX_FEATURE_SIMPLE_ENABLED;
-int pax_procfs_harden_global = PAX_FEATURE_SIMPLE_ENABLED;
+static int pax_map32_enabled_global = PAX_FEATURE_SIMPLE_DISABLED;
+static int pax_mprotect_exec_harden_global = PAX_FEATURE_SIMPLE_ENABLED;
+static int pax_procfs_harden_global = PAX_FEATURE_SIMPLE_ENABLED;
 #else
-int pax_map32_enabled_global = PAX_FEATURE_SIMPLE_ENABLED;
-int pax_mprotect_exec_harden_global = PAX_FEATURE_SIMPLE_DISABLED;
-int pax_procfs_harden_global = PAX_FEATURE_SIMPLE_DISABLED;
+static int pax_map32_enabled_global = PAX_FEATURE_SIMPLE_ENABLED;
+static int pax_mprotect_exec_harden_global = PAX_FEATURE_SIMPLE_DISABLED;
+static int pax_procfs_harden_global = PAX_FEATURE_SIMPLE_DISABLED;
 #endif
 
 static int sysctl_pax_allow_map32(SYSCTL_HANDLER_ARGS);

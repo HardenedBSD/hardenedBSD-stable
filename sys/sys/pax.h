@@ -81,12 +81,6 @@ extern const char *pax_status_str[];
 
 extern const char *pax_status_simple_str[];
 
-#ifdef PAX_HARDENING
-extern int pax_map32_enabled_global;
-extern int pax_mprotect_exec_harden_global;
-extern int pax_procfs_harden_global;
-#endif /* PAX_HARDENING*/
-
 extern int hardening_log_log;
 extern int hardening_log_ulog;
 
