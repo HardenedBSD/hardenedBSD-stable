@@ -60,26 +60,25 @@ static int sysctl_ptrace_hardening_gid(SYSCTL_HANDLER_ARGS);
 #endif
 
 #ifdef PAX_HARDENING
-int ptrace_hardening_status = PAX_FEATURE_SIMPLE_ENABLED;
+int pax_ptrace_hardening_status = PAX_FEATURE_SIMPLE_ENABLED;
 #else
-int ptrace_hardening_status = PAX_FEATURE_SIMPLE_DISABLED;
+int pax_ptrace_hardening_status = PAX_FEATURE_SIMPLE_DISABLED;
 #endif
 #ifdef PAX_PTRACE_HARDENING_GRP
-gid_t ptrace_hardening_allowed_gid = PAX_PTRACE_HARDENING_GRP;
+gid_t pax_ptrace_hardening_allowed_gid = PAX_PTRACE_HARDENING_GRP;
 #endif
 
 TUNABLE_INT("hardening.ptrace_hardening.status",
-    &ptrace_hardening_status);
+    &pax_ptrace_hardening_status);
 #ifdef PAX_PTRACE_HARDENING_GRP
 TUNABLE_INT("hardening.ptrace_hardening.allowed_gid",
-    &ptrace_hardening_allowed_gid);
+    &pax_ptrace_hardening_allowed_gid);
 #endif
 
 
 /*
  * sysctls
  */
-
 #ifdef PAX_SYSCTLS
 SYSCTL_NODE(_hardening, OID_AUTO, ptrace_hardening, CTLFLAG_RD, 0,
     "PTrace settings.");
@@ -101,9 +100,12 @@ SYSCTL_PROC(_hardening_ptrace_hardening, OID_AUTO, allowed_gid,
 int
 sysctl_ptrace_hardening_status(SYSCTL_HANDLER_ARGS)
 {
+	struct prison *pr;
 	int err, val;
 
-	val = ptrace_hardening_status;
+	pr = pax_get_prison(req->td->td_proc);
+
+	val = pr->pr_hardening.hr_pax_ptrace_hardening_status;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
 	if (err || (req->newptr == NULL))
 		return (err);
@@ -111,7 +113,10 @@ sysctl_ptrace_hardening_status(SYSCTL_HANDLER_ARGS)
 	switch(val) {
 	case    PAX_FEATURE_SIMPLE_DISABLED:
 	case    PAX_FEATURE_SIMPLE_ENABLED:
-		ptrace_hardening_status = val;
+		if (pr == &prison0)
+			pax_ptrace_hardening_status = val;
+
+		pr->pr_hardening.hr_pax_ptrace_hardening_status = val;
 		break;
 	default:
 		return (EINVAL);
@@ -124,10 +129,13 @@ sysctl_ptrace_hardening_status(SYSCTL_HANDLER_ARGS)
 int
 sysctl_ptrace_hardening_gid(SYSCTL_HANDLER_ARGS)
 {
+	struct prison *pr;
 	int err;
 	long val;
 
-	val = ptrace_hardening_allowed_gid;
+	pr = pax_get_prison(req->td->td_proc);
+
+	val = pr->pr_hardening.hr_pax_ptrace_hardening_gid;
 	err = sysctl_handle_long(oidp, &val, sizeof(long), req);
 	if (err || (req->newptr == NULL))
 		return (err);
@@ -135,7 +143,10 @@ sysctl_ptrace_hardening_gid(SYSCTL_HANDLER_ARGS)
 	if (val < 0 || val > GID_MAX)
 		return (EINVAL);
 
-	ptrace_hardening_allowed_gid = val;
+	if (pr == &prison0)
+		pax_ptrace_hardening_allowed_gid = val;
+
+	 pr->pr_hardening.hr_pax_ptrace_hardening_gid = val;
 
 	return (0);
 }
@@ -146,30 +157,30 @@ static void
 pax_ptrace_hardening_sysinit(void)
 {
 
-	switch (ptrace_hardening_status) {
+	switch (pax_ptrace_hardening_status) {
 	case PAX_FEATURE_SIMPLE_DISABLED:
 	case PAX_FEATURE_SIMPLE_ENABLED:
 		break;
 	default:
 		printf("[PAX HARDENING] WARNING, invalid settings in loader.conf!"
 		    " (hardening.ptrace_hardening.status= %d)\n",
-		    ptrace_hardening_status);
-		ptrace_hardening_status = PAX_FEATURE_SIMPLE_ENABLED;
+		    pax_ptrace_hardening_status);
+		pax_ptrace_hardening_status = PAX_FEATURE_SIMPLE_ENABLED;
 	}
 	printf("[PAX HARDENING] ptrace hardening status: %s\n",
-	    pax_status_simple_str[ptrace_hardening_status]);
+	    pax_status_simple_str[pax_ptrace_hardening_status]);
 
 #ifdef PAX_PTRACE_HARDENING_GRP
-	if (ptrace_hardening_allowed_gid < 0 ||
-	    ptrace_hardening_allowed_gid > GID_MAX) {
+	if (pax_ptrace_hardening_allowed_gid < 0 ||
+	    pax_ptrace_hardening_allowed_gid > GID_MAX) {
 		panic("[PAX HARDENING] ptrace hardening\n"
 		    "hardening.ptrace_hardening.allowed_gid not in range!\n");
 	}
 	printf("[PAX HARDENING] ptrace hardening allowed gid : %d\n",
-	    ptrace_hardening_allowed_gid);
+	    pax_ptrace_hardening_allowed_gid);
 #endif
 }
-SYSINIT(ptrace_hardening, SI_SUB_PAX, SI_ORDER_THIRD, pax_ptrace_hardening_sysinit, NULL);
+SYSINIT(pax_ptrace_hardening, SI_SUB_PAX, SI_ORDER_THIRD, pax_ptrace_hardening_sysinit, NULL);
 
 void
 pax_ptrace_hardening_init_prison(struct prison *pr)
@@ -181,15 +192,15 @@ pax_ptrace_hardening_init_prison(struct prison *pr)
 
 	if (pr == &prison0) {
 		/* prison0 has no parent, use globals */
-		pr->pr_hardening.hr_ptrace_hardening_status =
-		    ptrace_hardening_status;
+		pr->pr_hardening.hr_pax_ptrace_hardening_status =
+		    pax_ptrace_hardening_status;
 	} else {
 		KASSERT(pr->pr_parent != NULL,
 		   ("%s: pr->pr_parent == NULL", __func__));
 		pr_p = pr->pr_parent;
 
-		pr->pr_hardening.hr_ptrace_hardening_status =
-		    pr_p->pr_hardening.hr_ptrace_hardening_status;
+		pr->pr_hardening.hr_pax_ptrace_hardening_status =
+		    pr_p->pr_hardening.hr_pax_ptrace_hardening_status;
 	}
 }
 
@@ -202,7 +213,7 @@ pax_ptrace_allowed(struct ucred *cred)
 	uid = cred->cr_ruid;
 #ifdef PAX_PTRACE_HARDENING_GRP
 	if ((uid != 0) &&
-	    (groupmember(ptrace_hardening_allowed_gid, cred) == 0))
+	    (groupmember(pax_ptrace_hardening_allowed_gid, cred) == 0))
 		return (EPERM);
 #else
 	if (uid != 0)
@@ -219,7 +230,7 @@ pax_ptrace_hardening(struct thread *td)
 
 	pr = pax_get_prison(td->td_proc);
 
-	if (pr->pr_hardening.hr_ptrace_hardening_status ==
+	if (pr->pr_hardening.hr_pax_ptrace_hardening_status ==
 	    PAX_FEATURE_SIMPLE_DISABLED)
 		return (0);
 
