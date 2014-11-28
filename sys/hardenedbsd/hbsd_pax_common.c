@@ -177,47 +177,5 @@ pax_init_prison(struct prison *pr)
 	pax_aslr_init_prison(pr);
 	pax_aslr_init_prison32(pr);
 	pax_hardening_init_prison(pr);
-
-	if (pr == &prison0) {
-#ifdef PAX_SEGVGUARD
-		pr->pr_hardening.hr_pax_segvguard_status =
-		    pax_segvguard_status;
-		pr->pr_hardening.hr_pax_segvguard_debug =
-		    pax_segvguard_debug;
-		pr->pr_hardening.hr_pax_segvguard_expiry =
-		    pax_segvguard_expiry;
-		pr->pr_hardening.hr_pax_segvguard_suspension =
-		    pax_segvguard_suspension;
-		pr->pr_hardening.hr_pax_segvguard_maxcrashes =
-		    pax_segvguard_maxcrashes;
-#endif
-	} else {
-		KASSERT(pr->pr_parent != NULL,
-		   ("%s: pr->pr_parent == NULL", __func__));
-		pr_p = pr->pr_parent;
-
-#ifdef PAX_SEGVGUARD
-		pr->pr_hardening.hr_pax_segvguard_status =
-		    pr_p->pr_hardening.hr_pax_segvguard_status;
-		pr->pr_hardening.hr_pax_segvguard_debug =
-		    pr_p->pr_hardening.hr_pax_segvguard_debug;
-		pr->pr_hardening.hr_pax_segvguard_expiry =
-		    pr_p->pr_hardening.hr_pax_segvguard_expiry;
-		pr->pr_hardening.hr_pax_segvguard_suspension =
-		    pr_p->pr_hardening.hr_pax_segvguard_suspension;
-		pr->pr_hardening.hr_pax_segvguard_maxcrashes =
-		    pr_p->pr_hardening.hr_pax_segvguard_maxcrashes;
-#endif
-
-#ifdef PAX_HARDENING
-#ifdef MAP_32BIT
-		pr->pr_hardening.hr_pax_map32_enabled =
-		    pr_p->pr_hardening.hr_pax_map32_enabled;
-#endif
-		pr->pr_hardening.hr_pax_procfs_harden =
-		    pr_p->pr_hardening.hr_pax_procfs_harden;
-		pr->pr_hardening.hr_pax_mprotect_exec =
-		    pr_p->pr_hardening.hr_pax_mprotect_exec;
-#endif
-	}
+	pax_segvguard_init_prison(pr);
 }

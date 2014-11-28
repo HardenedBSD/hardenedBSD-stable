@@ -176,6 +176,11 @@ void pax_ulog_ptrace_hardening(const char *fmt, ...);
 /*
  * SegvGuard related functions
  */
+#ifdef PAX_SEGVGUARD
+void pax_segvguard_init_prison(struct prison *pr);
+#else
+static void pax_segvguard_init_prison(struct prison *pr __unused) {}
+#endif
 int pax_segvguard_check(struct thread *, struct vnode *, const char *);
 int pax_segvguard_segfault(struct thread *, const char *);
 void pax_segvguard_remove(struct thread *td, struct vnode *vn);

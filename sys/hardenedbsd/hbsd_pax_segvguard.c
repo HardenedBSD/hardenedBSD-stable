@@ -282,6 +282,40 @@ sysctl_pax_segvguard_debug(SYSCTL_HANDLER_ARGS)
 }
 #endif
 
+void
+pax_segvguard_init_prison(struct prison *pr)
+{
+	struct prison *pr_p;
+
+	if (pr == &prison0) {
+		/* prison0 has no parent, use globals */
+		pr->pr_hardening.hr_pax_segvguard_status =
+		    pax_segvguard_status;
+		pr->pr_hardening.hr_pax_segvguard_debug =
+		    pax_segvguard_debug;
+		pr->pr_hardening.hr_pax_segvguard_expiry =
+		    pax_segvguard_expiry;
+		pr->pr_hardening.hr_pax_segvguard_suspension =
+		    pax_segvguard_suspension;
+		pr->pr_hardening.hr_pax_segvguard_maxcrashes =
+		    pax_segvguard_maxcrashes;
+	} else {
+		KASSERT(pr->pr_parent != NULL,
+		   ("%s: pr->pr_parent == NULL", __func__));
+		pr_p = pr->pr_parent;
+
+		pr->pr_hardening.hr_pax_segvguard_status =
+		    pr_p->pr_hardening.hr_pax_segvguard_status;
+		pr->pr_hardening.hr_pax_segvguard_debug =
+		    pr_p->pr_hardening.hr_pax_segvguard_debug;
+		pr->pr_hardening.hr_pax_segvguard_expiry =
+		    pr_p->pr_hardening.hr_pax_segvguard_expiry;
+		pr->pr_hardening.hr_pax_segvguard_suspension =
+		    pr_p->pr_hardening.hr_pax_segvguard_suspension;
+		pr->pr_hardening.hr_pax_segvguard_maxcrashes =
+		    pr_p->pr_hardening.hr_pax_segvguard_maxcrashes;
+}
+
 u_int
 pax_segvguard_setup_flags(struct image_params *imgp, u_int mode)
 {
