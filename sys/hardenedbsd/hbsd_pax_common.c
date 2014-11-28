@@ -171,32 +171,10 @@ void
 pax_init_prison(struct prison *pr)
 {
 
-	CTR2(KTR_PAX, "%s: Setting prison %s PaX variables\n",
-	    __func__, pr->pr_name);
+	pax_aslr_init_prison(pr);
+	pax_aslr_init_prison32(pr);
 
 	if (pr == &prison0) {
-		/* prison0 has no parent, use globals */
-#ifdef PAX_ASLR
-		pr->pr_hardening.hr_pax_aslr_status = pax_aslr_status;
-		pr->pr_hardening.hr_pax_aslr_mmap_len =
-		    pax_aslr_mmap_len;
-		pr->pr_hardening.hr_pax_aslr_stack_len =
-		    pax_aslr_stack_len;
-		pr->pr_hardening.hr_pax_aslr_exec_len =
-		    pax_aslr_exec_len;
-
-#ifdef COMPAT_FREEBSD32
-		pr->pr_hardening.hr_pax_aslr_compat_status =
-		    pax_aslr_compat_status;
-		pr->pr_hardening.hr_pax_aslr_compat_mmap_len =
-		    pax_aslr_compat_mmap_len;
-		pr->pr_hardening.hr_pax_aslr_compat_stack_len =
-		    pax_aslr_compat_stack_len;
-		pr->pr_hardening.hr_pax_aslr_compat_exec_len =
-		    pax_aslr_compat_exec_len;
-#endif /* COMPAT_FREEBSD32 */
-#endif /* PAX_ASLR */
-
 #ifdef PAX_SEGVGUARD
 		pr->pr_hardening.hr_pax_segvguard_status =
 		    pax_segvguard_status;
@@ -221,33 +199,6 @@ pax_init_prison(struct prison *pr)
 		    pax_mprotect_exec_harden_global;
 #endif
 	} else {
-#ifdef PAX_ASLR
-		struct prison *pr_p;
-
-		KASSERT(pr->pr_parent != NULL,
-		   ("%s: pr->pr_parent == NULL", __func__));
-		pr_p = pr->pr_parent;
-
-		pr->pr_hardening.hr_pax_aslr_status =
-		    pr_p->pr_hardening.hr_pax_aslr_status;
-		pr->pr_hardening.hr_pax_aslr_mmap_len =
-		    pr_p->pr_hardening.hr_pax_aslr_mmap_len;
-		pr->pr_hardening.hr_pax_aslr_stack_len =
-		    pr_p->pr_hardening.hr_pax_aslr_stack_len;
-		pr->pr_hardening.hr_pax_aslr_exec_len =
-		    pr_p->pr_hardening.hr_pax_aslr_exec_len;
-
-#ifdef COMPAT_FREEBSD32
-		pr->pr_hardening.hr_pax_aslr_compat_status =
-		    pr_p->pr_hardening.hr_pax_aslr_compat_status;
-		pr->pr_hardening.hr_pax_aslr_compat_mmap_len =
-		    pr_p->pr_hardening.hr_pax_aslr_compat_mmap_len;
-		pr->pr_hardening.hr_pax_aslr_compat_stack_len =
-		    pr_p->pr_hardening.hr_pax_aslr_compat_stack_len;
-		pr->pr_hardening.hr_pax_aslr_compat_exec_len =
-		    pr_p->pr_hardening.hr_pax_aslr_compat_exec_len;
-#endif /* COMPAT_FREEBSD32 */
-#endif /* PAX_ASLR */
 
 #ifdef PAX_SEGVGUARD
 		pr->pr_hardening.hr_pax_segvguard_status =

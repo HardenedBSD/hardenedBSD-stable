@@ -690,6 +690,76 @@ pax_aslr_init(struct image_params *imgp)
 }
 
 void
+pax_aslr_init_prison(struct prison *pr)
+{
+	struct prison *pr_p;
+
+	CTR2(KTR_PAX, "%s: Setting prison %s PaX variables\n",
+	    __func__, pr->pr_name);
+
+	if (pr == &prison0) {
+		/* prison0 has no parent, use globals */
+		pr->pr_hardening.hr_pax_aslr_status = pax_aslr_status;
+		pr->pr_hardening.hr_pax_aslr_mmap_len =
+		    pax_aslr_mmap_len;
+		pr->pr_hardening.hr_pax_aslr_stack_len =
+		    pax_aslr_stack_len;
+		pr->pr_hardening.hr_pax_aslr_exec_len =
+		    pax_aslr_exec_len;
+	} else {
+		KASSERT(pr->pr_parent != NULL,
+		   ("%s: pr->pr_parent == NULL", __func__));
+		pr_p = pr->pr_parent;
+
+		pr->pr_hardening.hr_pax_aslr_status =
+		    pr_p->pr_hardening.hr_pax_aslr_status;
+		pr->pr_hardening.hr_pax_aslr_mmap_len =
+		    pr_p->pr_hardening.hr_pax_aslr_mmap_len;
+		pr->pr_hardening.hr_pax_aslr_stack_len =
+		    pr_p->pr_hardening.hr_pax_aslr_stack_len;
+		pr->pr_hardening.hr_pax_aslr_exec_len =
+		    pr_p->pr_hardening.hr_pax_aslr_exec_len;
+	}
+}
+
+#ifdef COMPAT_FREEBSD32
+void
+pax_aslr_init_prison32(struct prison *pr)
+{
+	struct prison *pr_p;
+
+	CTR2(KTR_PAX, "%s: Setting prison %s PaX variables\n",
+	    __func__, pr->pr_name);
+
+	if (pr == &prison0) {
+		/* prison0 has no parent, use globals */
+
+		pr->pr_hardening.hr_pax_aslr_compat_status =
+		    pax_aslr_compat_status;
+		pr->pr_hardening.hr_pax_aslr_compat_mmap_len =
+		    pax_aslr_compat_mmap_len;
+		pr->pr_hardening.hr_pax_aslr_compat_stack_len =
+		    pax_aslr_compat_stack_len;
+		pr->pr_hardening.hr_pax_aslr_compat_exec_len =
+		    pax_aslr_compat_exec_len;
+	} else {
+		KASSERT(pr->pr_parent != NULL,
+		   ("%s: pr->pr_parent == NULL", __func__));
+		pr_p = pr->pr_parent;
+
+		pr->pr_hardening.hr_pax_aslr_compat_status =
+		    pr_p->pr_hardening.hr_pax_aslr_compat_status;
+		pr->pr_hardening.hr_pax_aslr_compat_mmap_len =
+		    pr_p->pr_hardening.hr_pax_aslr_compat_mmap_len;
+		pr->pr_hardening.hr_pax_aslr_compat_stack_len =
+		    pr_p->pr_hardening.hr_pax_aslr_compat_stack_len;
+		pr->pr_hardening.hr_pax_aslr_compat_exec_len =
+		    pr_p->pr_hardening.hr_pax_aslr_compat_exec_len;
+	}
+}
+#endif /* COMPAT_FREEBSD32 */M
+
+void
 pax_aslr_mmap(struct proc *p, vm_offset_t *addr, vm_offset_t orig_addr, int flags)
 {
 

@@ -148,6 +148,13 @@ void pax_init_prison(struct prison *pr);
 int pax_aslr_active(struct proc *p);
 void pax_aslr_init_vmspace(struct proc *p);
 void pax_aslr_init_vmspace32(struct proc *p);
+#ifdef PAX_ASLR
+void pax_aslr_init_prison(struct prison *pr);
+void pax_aslr_init_prison32(struct prison *pr);
+#else
+static void pax_aslr_init_prison(struct prison *pr __unused) {}
+static void pax_aslr_init_prison32(struct prison *pr __unused) {}
+#endif
 void pax_aslr_init(struct image_params *imgp);
 void pax_aslr_execbase(struct proc *p, u_long *et_dyn_addr);
 void pax_aslr_mmap(struct proc *p, vm_offset_t *addr, 
