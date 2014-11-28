@@ -81,14 +81,6 @@ extern const char *pax_status_str[];
 
 extern const char *pax_status_simple_str[];
 
-#ifdef PAX_SEGVGUARD
-extern int pax_segvguard_status;
-extern int pax_segvguard_debug;
-extern int pax_segvguard_expiry;
-extern int pax_segvguard_suspension;
-extern int pax_segvguard_maxcrashes;
-#endif /* PAX_SEGVGUARD */
-
 #ifdef PAX_HARDENING
 extern int pax_map32_enabled_global;
 extern int pax_mprotect_exec_harden_global;

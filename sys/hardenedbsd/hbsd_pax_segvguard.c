@@ -72,11 +72,11 @@ __FBSDID("$FreeBSD$");
 
 FEATURE(segvguard, "Segmentation fault protection.");
 
-int pax_segvguard_status = PAX_FEATURE_OPTIN;
-int pax_segvguard_debug = PAX_FEATURE_SIMPLE_DISABLED;
-int pax_segvguard_expiry = PAX_SEGVGUARD_EXPIRY;
-int pax_segvguard_suspension = PAX_SEGVGUARD_SUSPENSION;
-int pax_segvguard_maxcrashes = PAX_SEGVGUARD_MAXCRASHES;
+static int pax_segvguard_status = PAX_FEATURE_OPTIN;
+static int pax_segvguard_debug = PAX_FEATURE_SIMPLE_DISABLED;
+static int pax_segvguard_expiry = PAX_SEGVGUARD_EXPIRY;
+static int pax_segvguard_suspension = PAX_SEGVGUARD_SUSPENSION;
+static int pax_segvguard_maxcrashes = PAX_SEGVGUARD_MAXCRASHES;
 
 
 struct pax_segvguard_entry {
