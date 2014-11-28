@@ -226,6 +226,40 @@ sysctl_pax_procfs(SYSCTL_HANDLER_ARGS)
 }
 #endif
 
+void
+pax_hardening_init_prison(struct prison *pr)
+{
+	struct prison *pr_p;
+
+	CTR2(KTR_PAX, "%s: Setting prison %s PaX variables\n",
+	    __func__, pr->pr_name);
+
+	if (pr == &prison0) {
+		/* prison0 has no parent, use globals */
+#ifdef MAP_32BIT
+		pr->pr_hardening.hr_pax_map32_enabled =
+		    pax_map32_enabled_global;
+#endif
+		pr->pr_hardening.hr_pax_procfs_harden =
+		    pax_procfs_harden_global;
+		pr->pr_hardening.hr_pax_mprotect_exec =
+		    pax_mprotect_exec_harden_global;
+	} else {
+		KASSERT(pr->pr_parent != NULL,
+		   ("%s: pr->pr_parent == NULL", __func__));
+		pr_p = pr->pr_parent;
+
+#ifdef MAP_32BIT
+		pr->pr_hardening.hr_pax_map32_enabled =
+		    pr_p->pr_hardening.hr_pax_map32_enabled;
+#endif
+		pr->pr_hardening.hr_pax_procfs_harden =
+		    pr_p->pr_hardening.hr_pax_procfs_harden;
+		pr->pr_hardening.hr_pax_mprotect_exec =
+		    pr_p->pr_hardening.hr_pax_mprotect_exec;
+	}
+}
+
 int
 pax_map32_enabled(struct thread *td)
 {

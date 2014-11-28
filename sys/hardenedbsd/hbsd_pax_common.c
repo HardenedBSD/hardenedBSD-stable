@@ -171,8 +171,12 @@ void
 pax_init_prison(struct prison *pr)
 {
 
+	CTR2(KTR_PAX, "%s: Setting prison %s PaX variables\n",
+	    __func__, pr->pr_name);
+
 	pax_aslr_init_prison(pr);
 	pax_aslr_init_prison32(pr);
+	pax_hardening_init_prison(pr);
 
 	if (pr == &prison0) {
 #ifdef PAX_SEGVGUARD
@@ -187,18 +191,10 @@ pax_init_prison(struct prison *pr)
 		pr->pr_hardening.hr_pax_segvguard_maxcrashes =
 		    pax_segvguard_maxcrashes;
 #endif
-
-#ifdef PAX_HARDENING
-#ifdef MAP_32BIT
-		pr->pr_hardening.hr_pax_map32_enabled =
-		    pax_map32_enabled_global;
-#endif
-		pr->pr_hardening.hr_pax_procfs_harden =
-		    pax_procfs_harden_global;
-		pr->pr_hardening.hr_pax_mprotect_exec =
-		    pax_mprotect_exec_harden_global;
-#endif
 	} else {
+		KASSERT(pr->pr_parent != NULL,
+		   ("%s: pr->pr_parent == NULL", __func__));
+		pr_p = pr->pr_parent;
 
 #ifdef PAX_SEGVGUARD
 		pr->pr_hardening.hr_pax_segvguard_status =
