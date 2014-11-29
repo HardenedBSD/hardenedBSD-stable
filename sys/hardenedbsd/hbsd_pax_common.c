@@ -216,7 +216,7 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 #endif
 
 #ifdef PAX_PAGEEXEC
-	flags_mprotect = pax_pageexec_setup_flags(imgp, mode);
+	flags_pageexec = pax_pageexec_setup_flags(imgp, mode);
 #endif
 
 #ifdef PAX_MPROTECT

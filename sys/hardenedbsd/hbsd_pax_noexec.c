@@ -469,7 +469,7 @@ pax_mprotect(struct proc *p, int *prot, vm_prot_t *maxprot)
 	CTR3(KTR_PAX, "%s: pid = %d maxprot = %x",
 	    __func__, p->p_pid, *maxprot);
 
-	if ((*prot & (VM_PROT_WRITE|VM_PROT_EXECUTE)) != VM_PROT_EXECUTE) {
+	if ((*maxprot & (VM_PROT_WRITE|VM_PROT_EXECUTE)) != VM_PROT_EXECUTE) {
 		*maxprot &= ~VM_PROT_EXECUTE;
 	} else {
 		*maxprot &= ~VM_PROT_WRITE;
