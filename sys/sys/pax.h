@@ -116,8 +116,8 @@ void pax_aslr_init_vmspace32(struct proc *p);
 void pax_aslr_init_prison(struct prison *pr);
 void pax_aslr_init_prison32(struct prison *pr);
 #else
-static void pax_aslr_init_prison(struct prison *pr __unused) {}
-static void pax_aslr_init_prison32(struct prison *pr __unused) {}
+#define	pax_aslr_init_prison(pr)	do {} while (0)
+#define	pax_aslr_init_prison32(pr)	do {} while (0)
 #endif
 void pax_aslr_init(struct image_params *imgp);
 void pax_aslr_execbase(struct proc *p, u_long *et_dyn_addr);
@@ -143,7 +143,7 @@ void pax_ulog_ptrace_hardening(const char *fmt, ...);
 #ifdef PAX_SEGVGUARD
 void pax_segvguard_init_prison(struct prison *pr);
 #else
-static void pax_segvguard_init_prison(struct prison *pr __unused) {}
+#define	pax_segvguard_init_prison(pr)	do {} while (0)
 #endif
 int pax_segvguard_check(struct thread *, struct vnode *, const char *);
 int pax_segvguard_segfault(struct thread *, const char *);
@@ -158,7 +158,7 @@ int pax_segvguard_update_flags_if_setuid(struct image_params *imgp,
 #ifdef PAX_HARDENING
 void pax_hardening_init_prison(struct prison *pr);
 #else
-static void pax_hardening_init_prison(struct prison *pr __unused) {}
+#define	pax_hardening_init_prison(pr)	do {} while (0)
 #endif
 int pax_map32_enabled(struct thread *td);
 int pax_mprotect_exec_harden(struct thread *td);
@@ -170,7 +170,7 @@ int pax_procfs_harden(struct thread *td);
 #if defined(PAX_PTRACE_HARDENING) || defined(PAX_PTRACE_HARDENING_GRP)
 void pax_ptrace_hardening_init_prison(struct prison *pr);
 #else
-static void pax_ptrace_hardening_init_prison(struct prison *pr __unused) {}
+#define	pax_ptrace_hardening_init_prison(pr)	do {} while (0)
 #endif
 int pax_ptrace_hardening(struct thread *td);
 
