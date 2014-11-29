@@ -53,7 +53,6 @@ struct hardening_features {
 	int	 hr_pax_mprotect_status;	/* (p) Enforce W^X mappings */
 	int	 hr_pax_map32_enabled;		/* (p) MAP_32BIT enabled (amd64 only) */
 	int	 hr_pax_procfs_harden;		/* (p) Harden procfs */
-	int	 hr_pax_mprotect_exec;		/* (p) Disallow setting exec bit on non-exec mappings */
 	int	 hr_pax_ptrace_hardening_status;	/* (p) Disallow unprivileged ptrace */
 	gid_t	 hr_pax_ptrace_hardening_gid;	/* (p) Allowed ptrace users group */
 };
