@@ -318,6 +318,21 @@ pax_pageexec_setup_flags(struct image_params *imgp, u_int mode)
 	return (flags);
 }
 
+void
+pax_pageexec(struct proc *p, vm_prot_t *prot, vm_prot_t *maxport)
+{
+
+	if (!pax_pageexec_active(p)) {
+		return;
+	}
+
+	if ((*prot & (VM_PROT_WRITE|VM_PROT_EXECUTE)) != VM_PROT_EXECUTE) {
+		*prot &= ~VM_PROT_EXECUTE;
+	} else {
+		*prot &= ~VM_PROT_WRITE;
+	}
+}
+
 
 /*
  * PaX MPROTECT functions
@@ -445,4 +460,20 @@ pax_mprotect_setup_flags(struct image_params *imgp, u_int mode)
 
 	return (flags);
 }
+
+void
+pax_mprotect(struct proc *p, vm_prot_t *prot, vm_prot_t *maxport)
+{
+
+	if (!pax_mprotect_active(p)) {
+		return;
+	}
+
+	if ((*prot & (VM_PROT_WRITE|VM_PROT_EXECUTE)) != VM_PROT_EXECUTE) {
+		*maxprot &= ~VM_PROT_EXECUTE;
+	} else {
+		*maxprot &= ~VM_PROT_WRITE;
+	}
+}
+
 #endif /* PAX_MPROTECT */
