@@ -1922,7 +1922,9 @@ vm_map_protect(vm_map_t map, vm_offset_t start, vm_offset_t end,
 	vm_object_t obj;
 	struct ucred *cred;
 	vm_prot_t old_prot;
+#ifdef PAX_MPROTECT
 	int ret;
+#endif
 
 	if (start == end)
 		return (KERN_SUCCESS);
