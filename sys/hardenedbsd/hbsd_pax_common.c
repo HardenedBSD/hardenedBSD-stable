@@ -177,6 +177,7 @@ pax_init_prison(struct prison *pr)
 	pax_aslr_init_prison(pr);
 	pax_hardening_init_prison(pr);
 	pax_segvguard_init_prison(pr);
+	pax_ptrace_hardening_init_prison(pr);
 
 #ifdef FREEBSD_COMPAT32
 	pax_aslr_init_prison32(pr);
