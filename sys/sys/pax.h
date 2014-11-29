@@ -49,7 +49,8 @@ struct hardening_features {
 	int	 hr_pax_segvguard_expiry;       /* (p) Number of seconds to expire an entry */
 	int	 hr_pax_segvguard_suspension;   /* (p) Number of seconds to suspend an application */
 	int	 hr_pax_segvguard_maxcrashes;   /* (p) Maximum number of crashes before suspending application */
-	int	 hr_pax_mprotect_status;	/* (p) Enforce W^X */
+	int	 hr_pax_pageexec_status;	/* (p) Remove WX pages from user-space */
+	int	 hr_pax_mprotect_status;	/* (p) Enforce W^X mappings */
 	int	 hr_pax_map32_enabled;		/* (p) MAP_32BIT enabled (amd64 only) */
 	int	 hr_pax_procfs_harden;		/* (p) Harden procfs */
 	int	 hr_pax_mprotect_exec;		/* (p) Disallow setting exec bit on non-exec mappings */
@@ -130,6 +131,8 @@ void pax_log_internal(struct proc *, uint64_t flags, const char *fmt, ...) __pri
 void pax_ulog_internal(const char *fmt, ...) __printflike(1, 2);
 void pax_log_aslr(struct proc *, uint64_t flags, const char *fmt, ...) __printflike(3, 4);
 void pax_ulog_aslr(const char *fmt, ...) __printflike(1, 2);
+void pax_log_pageexec(struct proc *, uint64_t flags, const char *fmt, ...) __printflike(3, 4);
+void pax_ulog_pageexec(const char *fmt, ...) __printflike(1, 2);
 void pax_log_mprotect(struct proc *, uint64_t flags, const char *fmt, ...) __printflike(3, 4);
 void pax_ulog_mprotect(const char *fmt, ...) __printflike(1, 2);
 void pax_log_segvguard(struct proc *, uint64_t flags, const char *fmt, ...) __printflike(3, 4);
@@ -153,10 +156,18 @@ int pax_segvguard_update_flags_if_setuid(struct image_params *imgp,
     struct vnode *vn);
 
 /*
- * PaX MPROTECT hardening
+ * PAX PAGEEXEC and MPROTECT hardening
  */
+int pax_pageexec_active(struct proc *p);
+#ifdef PAX_PAGEEXEC
+void pax_pageexec_init_prison(struct prison *pr);
+#else
+#define	pax_pageexec_init_prison(pr)	do {} while (0)
+#endif
+u_int pax_pageexec_setup_flags(struct image_params *imgp, u_int mode);
+int pax_pageexec(struct proc *p, vm_prot_t *prot, vm_prot_t *maxport);
 int pax_mprotect_active(struct proc *p);
-#ifdef PAX_SEGVGUARD
+#ifdef PAX_MPROTECT
 void pax_mprotect_init_prison(struct prison *pr);
 #else
 #define	pax_mprotect_init_prison(pr)	do {} while (0)

@@ -244,6 +244,7 @@ pax_log_ulog(const char *prefix, const char *fmt, va_list ap)
 
 __HARDENING_LOG_TEMPLATE(PAX, INTERNAL, pax, internal);
 __HARDENING_LOG_TEMPLATE(PAX, ASLR, pax, aslr);
+__HARDENING_LOG_TEMPLATE(PAX, PAGEEXEC, pax, pageexec);
 __HARDENING_LOG_TEMPLATE(PAX, MPROTECT, pax, mprotect);
 __HARDENING_LOG_TEMPLATE(PAX, SEGVGUARD, pax, segvguard);
 __HARDENING_LOG_TEMPLATE(PAX, PTRACE_HARDENING, pax, ptrace_hardening);
