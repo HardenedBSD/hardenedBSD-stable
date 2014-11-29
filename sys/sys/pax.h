@@ -165,7 +165,7 @@ void pax_pageexec_init_prison(struct prison *pr);
 #define	pax_pageexec_init_prison(pr)	do {} while (0)
 #endif
 u_int pax_pageexec_setup_flags(struct image_params *imgp, u_int mode);
-void pax_pageexec(struct proc *p, vm_prot_t *prot, vm_prot_t *maxport);
+void pax_pageexec(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot);
 int pax_mprotect_active(struct proc *p);
 #ifdef PAX_MPROTECT
 void pax_mprotect_init_prison(struct prison *pr);
@@ -173,7 +173,8 @@ void pax_mprotect_init_prison(struct prison *pr);
 #define	pax_mprotect_init_prison(pr)	do {} while (0)
 #endif
 u_int pax_mprotect_setup_flags(struct image_params *imgp, u_int mode);
-void pax_mprotect(struct proc *p, vm_prot_t *prot, vm_prot_t *maxport);
+void pax_mprotect(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot);
+int pax_mprotect_enforce(struct proc *p, vm_prot_t old_prot, vm_prot_t new_prot);
 
 /*
  * Hardening related functions

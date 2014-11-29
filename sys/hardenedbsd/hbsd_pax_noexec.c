@@ -39,15 +39,10 @@ __FBSDID("$FreeBSD$");
 #include <sys/kernel.h>
 #include <sys/ktr.h>
 #include <sys/imgact.h>
-#include <sys/imgact_elf.h>
-#include <sys/sysent.h>
 #include <sys/stat.h>
 #include <sys/proc.h>
-#include <sys/elf_common.h>
-#include <sys/mount.h>
 #include <sys/pax.h>
 #include <sys/sysctl.h>
-#include <sys/vnode.h>
 #include <sys/queue.h>
 #include <sys/libkern.h>
 #include <sys/jail.h>
@@ -59,9 +54,8 @@ __FBSDID("$FreeBSD$");
 
 #include <vm/pmap.h>
 #include <vm/vm_map.h>
+#include <vm/vm_param.h>
 #include <vm/vm_extern.h>
-
-#include <machine/elf.h>
 
 FEATURE(pax_pageexec, "PAX PAGEEXEC hardening");
 #ifdef PAX_MPROTECT
@@ -319,7 +313,7 @@ pax_pageexec_setup_flags(struct image_params *imgp, u_int mode)
 }
 
 void
-pax_pageexec(struct proc *p, vm_prot_t *prot, vm_prot_t *maxport)
+pax_pageexec(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot)
 {
 
 	if (!pax_pageexec_active(p)) {
@@ -462,7 +456,7 @@ pax_mprotect_setup_flags(struct image_params *imgp, u_int mode)
 }
 
 void
-pax_mprotect(struct proc *p, vm_prot_t *prot, vm_prot_t *maxport)
+pax_mprotect(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot)
 {
 
 	if (!pax_mprotect_active(p)) {
@@ -474,6 +468,21 @@ pax_mprotect(struct proc *p, vm_prot_t *prot, vm_prot_t *maxport)
 	} else {
 		*maxprot &= ~VM_PROT_WRITE;
 	}
+}
+
+int
+pax_mprotect_enforce(struct proc *p, vm_prot_t old_prot, vm_prot_t new_prot)
+{
+	if (!pax_mprotect_active(p))
+		return (0);
+
+	if ((new_prot & VM_PROT_EXECUTE) == VM_PROT_EXECUTE &&
+	    ((old_prot & VM_PROT_EXECUTE) != VM_PROT_EXECUTE)) {
+
+		return (KERN_PROTECTION_FAILURE);
+	}
+
+	return (0);
 }
 
 #endif /* PAX_MPROTECT */
