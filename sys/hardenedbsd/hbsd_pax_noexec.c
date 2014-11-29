@@ -68,10 +68,17 @@ FEATURE(pax_pageexec, "PAX PAGEEXEC hardening");
 FEATURE(pax_mprotect, "PAX MPROTECT hardening");
 #endif
 
+#ifdef PAX_HARDENING
 static int pax_pageexec_status = PAX_FEATURE_OPTOUT;
 #ifdef PAX_MPROTECT
 static int pax_mprotect_status = PAX_FEATURE_OPTOUT;
 #endif
+#else /* !PAX_HARDENING */
+static int pax_pageexec_status = PAX_FEATURE_OPTIN;
+#ifdef PAX_MPROTECT
+static int pax_mprotect_status = PAX_FEATURE_OPTIN;
+#endif
+#endif /* PAX_HARDENING */
 
 TUNABLE_INT("hardening.pax.pageexec.status", &pax_pageexec_status);
 #ifdef PAX_MPROTECT
