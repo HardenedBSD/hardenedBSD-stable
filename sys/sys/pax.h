@@ -49,6 +49,7 @@ struct hardening_features {
 	int	 hr_pax_segvguard_expiry;       /* (p) Number of seconds to expire an entry */
 	int	 hr_pax_segvguard_suspension;   /* (p) Number of seconds to suspend an application */
 	int	 hr_pax_segvguard_maxcrashes;   /* (p) Maximum number of crashes before suspending application */
+	int	 hr_pax_mprotect_status;	/* (p) Enforce W^X */
 	int	 hr_pax_map32_enabled;		/* (p) MAP_32BIT enabled (amd64 only) */
 	int	 hr_pax_procfs_harden;		/* (p) Harden procfs */
 	int	 hr_pax_mprotect_exec;		/* (p) Disallow setting exec bit on non-exec mappings */
@@ -58,6 +59,8 @@ struct hardening_features {
 #endif
 
 #ifdef _KERNEL
+
+#include <vm/vm.h>
 
 struct image_params;
 struct prison;
@@ -127,6 +130,8 @@ void pax_log_internal(struct proc *, uint64_t flags, const char *fmt, ...) __pri
 void pax_ulog_internal(const char *fmt, ...) __printflike(1, 2);
 void pax_log_aslr(struct proc *, uint64_t flags, const char *fmt, ...) __printflike(3, 4);
 void pax_ulog_aslr(const char *fmt, ...) __printflike(1, 2);
+void pax_log_mprotect(struct proc *, uint64_t flags, const char *fmt, ...) __printflike(3, 4);
+void pax_ulog_mprotect(const char *fmt, ...) __printflike(1, 2);
 void pax_log_segvguard(struct proc *, uint64_t flags, const char *fmt, ...) __printflike(3, 4);
 void pax_ulog_segvguard(const char *fmt, ...) __printflike(1, 2);
 void pax_log_ptrace_hardening(struct proc *, uint64_t flags, const char *fmt, ...) __printflike(3, 4);
@@ -146,6 +151,18 @@ void pax_segvguard_remove(struct thread *td, struct vnode *vn);
 uint32_t pax_segvguard_setup_flags(struct image_params *imgp, uint32_t mode);
 int pax_segvguard_update_flags_if_setuid(struct image_params *imgp,
     struct vnode *vn);
+
+/*
+ * PaX MPROTECT hardening
+ */
+int pax_mprotect_active(struct proc *p);
+#ifdef PAX_SEGVGUARD
+void pax_mprotect_init_prison(struct prison *pr);
+#else
+#define	pax_mprotect_init_prison(pr)	do {} while (0)
+#endif
+u_int pax_mprotect_setup_flags(struct image_params *imgp, u_int mode);
+int pax_mprotect(struct proc *p, vm_prot_t *prot, vm_prot_t *maxport);
 
 /*
  * Hardening related functions
