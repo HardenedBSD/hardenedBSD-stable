@@ -320,6 +320,9 @@ pax_pageexec(struct proc *p, int *prot, vm_prot_t *maxprot)
 		return;
 	}
 
+	CTR3(KTR_PAX, "%s: pid = %d prot = %x",
+	    __func__, p->p_pid, *prot);
+
 	if ((*prot & (VM_PROT_WRITE|VM_PROT_EXECUTE)) != VM_PROT_EXECUTE) {
 		*prot &= ~VM_PROT_EXECUTE;
 	} else {
@@ -462,6 +465,9 @@ pax_mprotect(struct proc *p, int *prot, vm_prot_t *maxprot)
 	if (!pax_mprotect_active(p)) {
 		return;
 	}
+
+	CTR3(KTR_PAX, "%s: pid = %d maxprot = %x",
+	    __func__, p->p_pid, *maxprot);
 
 	if ((*prot & (VM_PROT_WRITE|VM_PROT_EXECUTE)) != VM_PROT_EXECUTE) {
 		*maxprot &= ~VM_PROT_EXECUTE;
