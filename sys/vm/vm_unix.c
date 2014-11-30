@@ -37,6 +37,7 @@
  */
 
 #include "opt_compat.h"
+#include "opt_pax.h"
 
 /*
  * Traditional sbrk/grow interface to VM
@@ -48,6 +49,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/param.h>
 #include <sys/lock.h>
 #include <sys/mutex.h>
+#include <sys/pax.h>
 #include <sys/proc.h>
 #include <sys/racct.h>
 #include <sys/resourcevar.h>
@@ -163,6 +165,12 @@ sys_obreak(td, uap)
 #endif
 		prot = VM_PROT_RW;
 		maxprot = VM_PROT_ALL;
+#ifdef PAX_PAGEEXEC
+		pax_pageexec(td->td_proc, &prot, &maxprot);
+#endif
+#ifdef PAX_MPROTECT
+		pax_mprotect(td->td_proc, &prot, &maxprot);
+#endif
 		rv = vm_map_insert(map, NULL, 0, old, new, prot, maxprot, 0);
 		if (rv != KERN_SUCCESS) {
 #ifdef RACCT
