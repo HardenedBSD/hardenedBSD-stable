@@ -78,6 +78,7 @@ sys_obreak(td, uap)
 	struct vmspace *vm = td->td_proc->p_vmspace;
 	vm_map_t map = &vm->vm_map;
 	vm_offset_t new, old, base;
+	vm_prot_t maxprot;
 	rlim_t datalim, lmemlim, vmemlim;
 	int prot, rv;
 	int error = 0;
@@ -161,7 +162,8 @@ sys_obreak(td, uap)
 		PROC_UNLOCK(td->td_proc);
 #endif
 		prot = VM_PROT_RW;
-		rv = vm_map_insert(map, NULL, 0, old, new, prot, VM_PROT_ALL, 0);
+		maxprot = VM_PROT_ALL;
+		rv = vm_map_insert(map, NULL, 0, old, new, prot, maxprot, 0);
 		if (rv != KERN_SUCCESS) {
 #ifdef RACCT
 			PROC_LOCK(td->td_proc);
