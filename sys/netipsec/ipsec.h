@@ -47,6 +47,10 @@
 
 #ifdef _KERNEL
 
+#include <sys/_lock.h>
+#include <sys/_mutex.h>
+#include <sys/_rwlock.h>
+
 #define	IPSEC_ASSERT(_c,_m) KASSERT(_c, _m)
 
 #define	IPSEC_IS_PRIVILEGED_SO(_so) \
@@ -262,17 +266,6 @@ struct ipsecstat {
 
 #ifdef _KERNEL
 #include <sys/counter.h>
-
-struct ipsec_output_state {
-	struct mbuf *m;
-	struct route *ro;
-	struct sockaddr *dst;
-};
-
-struct ipsec_history {
-	int ih_proto;
-	u_int32_t ih_spi;
-};
 
 VNET_DECLARE(int, ipsec_debug);
 #define	V_ipsec_debug		VNET(ipsec_debug)
