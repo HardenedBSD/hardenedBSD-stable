@@ -80,9 +80,9 @@ sys_obreak(td, uap)
 	struct vmspace *vm = td->td_proc->p_vmspace;
 	vm_map_t map = &vm->vm_map;
 	vm_offset_t new, old, base;
-	vm_prot_t maxprot;
+	vm_prot_t prot, maxprot;
 	rlim_t datalim, lmemlim, vmemlim;
-	int prot, rv;
+	int rv;
 	int error = 0;
 	boolean_t do_map_wirefuture;
 
