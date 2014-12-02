@@ -355,7 +355,7 @@ __elfN(check_header)(const Elf_Ehdr *hdr)
 
 static int
 __elfN(map_partial)(vm_map_t map, vm_object_t object, vm_ooffset_t offset,
-    vm_offset_t start, vm_offset_t end, vm_prot_t prot)
+    vm_offset_t start, vm_offset_t end, vm_prot_t prot, vm_prot_t maxprot)
 {
 	struct sf_buf *sf;
 	int error;
@@ -390,7 +390,8 @@ __elfN(map_partial)(vm_map_t map, vm_object_t object, vm_ooffset_t offset,
 
 static int
 __elfN(map_insert)(vm_map_t map, vm_object_t object, vm_ooffset_t offset,
-    vm_offset_t start, vm_offset_t end, vm_prot_t prot, int cow)
+    vm_offset_t start, vm_offset_t end, vm_prot_t prot, vm_prot_t maxprot,
+    int cow)
 {
 	struct sf_buf *sf;
 	vm_offset_t off;
@@ -399,7 +400,7 @@ __elfN(map_insert)(vm_map_t map, vm_object_t object, vm_ooffset_t offset,
 
 	if (start != trunc_page(start)) {
 		rv = __elfN(map_partial)(map, object, offset, start,
-		    round_page(start), prot);
+		    round_page(start), prot, maxprot);
 		if (rv)
 			return (rv);
 		offset += round_page(start) - start;
@@ -407,7 +408,8 @@ __elfN(map_insert)(vm_map_t map, vm_object_t object, vm_ooffset_t offset,
 	}
 	if (end != round_page(end)) {
 		rv = __elfN(map_partial)(map, object, offset +
-		    trunc_page(end) - start, trunc_page(end), end, prot);
+		    trunc_page(end) - start, trunc_page(end), end, prot,
+		    maxprot);
 		if (rv)
 			return (rv);
 		end = trunc_page(end);
@@ -419,8 +421,7 @@ __elfN(map_insert)(vm_map_t map, vm_object_t object, vm_ooffset_t offset,
 			 * to copy the data. Sigh.
 			 */
 			rv = vm_map_find(map, NULL, 0, &start, end - start, 0,
-			    VMFS_NO_SPACE, prot | VM_PROT_WRITE, VM_PROT_ALL,
-			    0);
+			    VMFS_NO_SPACE, prot | VM_PROT_WRITE, maxprot, 0);
 			if (rv)
 				return (rv);
 			if (object == NULL)
@@ -446,7 +447,7 @@ __elfN(map_insert)(vm_map_t map, vm_object_t object, vm_ooffset_t offset,
 			vm_object_reference(object);
 			vm_map_lock(map);
 			rv = vm_map_insert(map, object, offset, start, end,
-			    prot, VM_PROT_ALL, cow);
+			    prot, maxprot, cow);
 			vm_map_unlock(map);
 			if (rv != KERN_SUCCESS)
 				vm_object_deallocate(object);
@@ -512,6 +513,7 @@ __elfN(load_section)(struct image_params *imgp, vm_offset_t offset,
 				      map_addr,		/* virtual start */
 				      map_addr + map_len,/* virtual end */
 				      prot,
+				      VM_PROT_ALL,
 				      cow);
 		if (rv != KERN_SUCCESS)
 			return (EINVAL);
@@ -537,7 +539,7 @@ __elfN(load_section)(struct image_params *imgp, vm_offset_t offset,
 	/* This had damn well better be true! */
 	if (map_len != 0) {
 		rv = __elfN(map_insert)(map, NULL, 0, map_addr, map_addr +
-		    map_len, VM_PROT_ALL, 0);
+		    map_len, VM_PROT_ALL, VM_PROT_ALL, 0);
 		if (rv != KERN_SUCCESS) {
 			return (EINVAL);
 		}
