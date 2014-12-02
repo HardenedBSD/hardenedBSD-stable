@@ -313,7 +313,7 @@ pax_pageexec_setup_flags(struct image_params *imgp, u_int mode)
 }
 
 void
-pax_pageexec(struct proc *p, int *prot, vm_prot_t *maxprot)
+pax_pageexec(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot)
 {
 
 	if (!pax_pageexec_active(p)) {
@@ -459,7 +459,7 @@ pax_mprotect_setup_flags(struct image_params *imgp, u_int mode)
 }
 
 void
-pax_mprotect(struct proc *p, int *prot, vm_prot_t *maxprot)
+pax_mprotect(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot)
 {
 
 	if (!pax_mprotect_active(p)) {
