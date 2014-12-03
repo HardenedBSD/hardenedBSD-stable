@@ -93,6 +93,15 @@ const char *pax_status_simple_str[] = {
 	[PAX_FEATURE_SIMPLE_ENABLED] = "enabled"
 };
 
+/*
+ * @brief Get the current process prison.
+ *
+ * @param p		The current process pointer.
+ *
+ * @return		prion0's address if failed or kernel process
+ * 			the actual process' prison's address else
+ *
+ */
 struct prison *
 pax_get_prison(struct proc *p)
 {
@@ -114,6 +123,14 @@ pax_get_prison_td(struct thread *td)
 	return (td->td_ucred->cr_prison);
 }
 
+/*
+ * @brief Get the current PAX status from process.
+ *
+ * @param p		The controlled process pointer.
+ * @param flags		Where to write the current state.
+ *
+ * @return		none
+ */
 void
 pax_get_flags(struct proc *p, uint32_t *flags)
 {
@@ -172,6 +189,15 @@ pax_check_conflicting_modes(uint32_t mode)
 	return (0);
 }
 
+/*
+ * @bried Initialize the new process PAX state
+ *
+ * @param imgp		Executable image's structure.
+ * @param mode		Requested mode.
+ *
+ * @return		ENOEXEC on fail
+ * 			0 on success
+ */
 int
 pax_elf(struct image_params *imgp, uint32_t mode)
 {
@@ -230,7 +256,9 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 
 
 /*
- * print out PaX settings on boot time, and validate some of them
+ * @brief Print out PaX settings on boot time, and validate some of them.
+ *
+ * @return		none
  */
 static void
 pax_sysinit(void)
@@ -240,6 +268,16 @@ pax_sysinit(void)
 }
 SYSINIT(pax, SI_SUB_PAX, SI_ORDER_FIRST, pax_sysinit, NULL);
 
+/*
+ * @brief Initialize prison's state.
+ *
+ * The prison0 state initialized with global state.
+ * The child prisons state initialized with it's parent's state.
+ *
+ * @param pr		Initializable prison's pointer.
+ *
+ * @return		none
+ */
 void
 pax_init_prison(struct prison *pr)
 {
