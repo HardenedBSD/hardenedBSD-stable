@@ -511,7 +511,6 @@ pax_noexec_nw(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot)
 		if (!pax_mprotect_active(p)) {
 			*maxprot &= ~VM_PROT_WRITE;
 		}
-#endif
 	}
 
 	CTR4(KTR_PAX, "%s: after - pid = %d prot = %x maxprot = %x",
