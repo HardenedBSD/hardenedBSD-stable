@@ -320,8 +320,6 @@ SUBDIR=	\
 	ste \
 	${_stg} \
 	stge \
-	${_streams} \
-	${_svr4} \
 	${_sym} \
 	${_syscons} \
 	sysvipc \
@@ -811,9 +809,7 @@ _nsp=		nsp
 _pcfclock=	pcfclock
 _pst=		pst
 _sbni=		sbni
-_streams=	streams
 _stg=		stg
-_svr4=		svr4
 _wds=		wds
 _xe=		xe
 .if ${MACHINE} == "i386"
