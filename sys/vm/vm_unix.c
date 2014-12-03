@@ -165,11 +165,8 @@ sys_obreak(td, uap)
 #endif
 		prot = VM_PROT_RW;
 		maxprot = VM_PROT_ALL;
-#ifdef PAX_PAGEEXEC
-		pax_pageexec(td->td_proc, &prot, &maxprot);
-#endif
-#ifdef PAX_MPROTECT
-		pax_mprotect(td->td_proc, &prot, &maxprot);
+#if defined(PAX_PAGEEXEC) || defined(PAX_MPROTECT)
+		pax_noexec_nx(td->td_proc, &prot, &maxprot);
 #endif
 		rv = vm_map_insert(map, NULL, 0, old, new, prot, maxprot, 0);
 		if (rv != KERN_SUCCESS) {
