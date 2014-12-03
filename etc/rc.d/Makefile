@@ -14,7 +14,6 @@ FILES=	DAEMON \
 	amd \
 	apm \
 	apmd \
-	archdep \
 	atm1 \
 	atm2 \
 	atm3 \
