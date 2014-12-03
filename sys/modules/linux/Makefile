@@ -27,7 +27,7 @@ SRCS+=	opt_apic.h
 OBJS=	linux${SFX}_locore.o linux${SFX}_support.o
 
 .if ${MACHINE_CPUARCH} == "i386"
-SRCS+=	linux_ptrace.c imgact_linux.c opt_cpu.h
+SRCS+=	linux_ptrace.c opt_cpu.h
 .endif
 
 EXPORT_SYMS=
