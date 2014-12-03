@@ -25,7 +25,7 @@ linux_start()
 	local _tmpdir
 
 	echo -n ' linux'
-	load_kld -e 'linux(aout|elf)' linux
+	load_kld -e 'linuxelf' linux
 	if [ -x /compat/linux/sbin/ldconfigDisabled ]; then
 		_tmpdir=`mktemp -d -t linux-ldconfig`
 		/compat/linux/sbin/ldconfig -C ${_tmpdir}/ld.so.cache
