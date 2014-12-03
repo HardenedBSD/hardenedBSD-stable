@@ -287,7 +287,6 @@ device		nvram		# Access to rtc cmos via /dev/nvram
 device		speaker		#Play IBM BASIC-style noises out your speaker
 hint.speaker.0.at="isa"
 hint.speaker.0.port="0x61"
-device		gzip		#Exec gzipped a.out's.  REQUIRES COMPAT_AOUT!
 device		apm_saver	# Requires APM
 
 
@@ -980,9 +979,6 @@ options 	SPX_HACK
 
 # Enable Linux ABI emulation
 options 	COMPAT_LINUX
-
-# Enable i386 a.out binary support
-options 	COMPAT_AOUT
 
 # Enable the linux-like proc filesystem support (requires COMPAT_LINUX
 # and PSEUDOFS)
