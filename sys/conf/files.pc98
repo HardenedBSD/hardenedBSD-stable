@@ -21,18 +21,6 @@ linux_assym.h			optional	compat_linux		\
 	no-obj no-implicit-rule before-depend				\
 	clean		"linux_assym.h"
 #
-svr4_genassym.o			optional	compat_svr4		\
-	dependency 	"$S/i386/svr4/svr4_genassym.c"			\
-	compile-with	"${CC} ${CFLAGS:N-fno-common} -c ${.IMPSRC}"	\
-	no-obj no-implicit-rule						\
-	clean		"svr4_genassym.o"
-#
-svr4_assym.h			optional	compat_svr4		\
-	dependency 	"$S/kern/genassym.sh svr4_genassym.o"	   	\
-	compile-with	"sh $S/kern/genassym.sh svr4_genassym.o > ${.TARGET}" \
-	no-obj no-implicit-rule before-depend				\
-	clean		"svr4_assym.h"
-#
 ukbdmap.h			optional	ukbd_dflt_keymap	\
 	compile-with	"/usr/sbin/kbdcontrol -L ${UKBD_DFLT_KEYMAP} | sed -e 's/^static keymap_t.* = /static keymap_t key_map = /' -e 's/^static accentmap_t.* = /static accentmap_t accent_map = /' > ukbdmap.h"			\
 	no-obj no-implicit-rule before-depend				\
@@ -58,22 +46,6 @@ compat/linux/linux_time.c	optional compat_linux
 compat/linux/linux_timer.c	optional compat_linux
 compat/linux/linux_uid16.c	optional compat_linux
 compat/linux/linux_util.c	optional compat_linux
-compat/svr4/imgact_svr4.c	optional compat_svr4
-compat/svr4/svr4_fcntl.c	optional compat_svr4
-compat/svr4/svr4_filio.c	optional compat_svr4
-compat/svr4/svr4_ioctl.c	optional compat_svr4
-compat/svr4/svr4_ipc.c		optional compat_svr4
-compat/svr4/svr4_misc.c		optional compat_svr4
-compat/svr4/svr4_resource.c	optional compat_svr4
-compat/svr4/svr4_signal.c	optional compat_svr4
-compat/svr4/svr4_socket.c	optional compat_svr4
-compat/svr4/svr4_sockio.c	optional compat_svr4
-compat/svr4/svr4_stat.c		optional compat_svr4
-compat/svr4/svr4_stream.c	optional compat_svr4
-compat/svr4/svr4_syscallnames.c	optional compat_svr4
-compat/svr4/svr4_sysent.c	optional compat_svr4
-compat/svr4/svr4_sysvec.c	optional compat_svr4
-compat/svr4/svr4_termios.c	optional compat_svr4
 bf_enc.o			optional crypto | ipsec	\
 	dependency	"$S/crypto/blowfish/arch/i386/bf_enc.S $S/crypto/blowfish/arch/i386/bf_enc_586.S $S/crypto/blowfish/arch/i386/bf_enc_686.S" \
 	compile-with	"${CC} -c -I$S/crypto/blowfish/arch/i386 ${ASM_CFLAGS} ${WERROR} ${.IMPSRC}" \
@@ -183,10 +155,6 @@ i386/linux/linux_sysent.c	optional compat_linux
 i386/linux/linux_sysvec.c	optional compat_linux
 i386/pci/pci_cfgreg.c		optional pci
 i386/pci/pci_pir.c		optional pci
-i386/svr4/svr4_locore.s		optional compat_svr4	\
-	dependency	"svr4_assym.h"	\
-	warning "COMPAT_SVR4 is broken and should be avoided"
-i386/svr4/svr4_machdep.c	optional compat_svr4
 kern/kern_clocksource.c		standard
 kern/subr_sfbuf.c		standard
 libkern/divdi3.c		standard
