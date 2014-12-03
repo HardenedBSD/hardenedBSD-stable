@@ -76,9 +76,8 @@ options 	INCLUDE_CONFIG_FILE	# Include this file in kernel
 
 # HardenedBSD hardening options
 options 	PAX
-options 	PAX_PAGEEXEC		# Remove WX pages from user-space
-options 	PAX_MPROTECT		# Enfore W^X in user-space
 options 	PAX_ASLR		# Address Space Layout Randomization
+options 	PAX_NOEXEC		# Remove WX pages from user-space and enforce W^X
 options 	PAX_HARDENING		# Various hardening options
 options 	PAX_SYSCTLS		# sysctls for run-time options
 #options 	PAX_SEGVGUARD		# prevent brute-force attacks

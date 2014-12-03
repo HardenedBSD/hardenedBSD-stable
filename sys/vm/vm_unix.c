@@ -165,7 +165,7 @@ sys_obreak(td, uap)
 #endif
 		prot = VM_PROT_RW;
 		maxprot = VM_PROT_ALL;
-#if defined(PAX_PAGEEXEC) || defined(PAX_MPROTECT)
+#ifdef PAX_NOEXEC
 		pax_noexec_nx(td->td_proc, &prot, &maxprot);
 #endif
 		rv = vm_map_insert(map, NULL, 0, old, new, prot, maxprot, 0);

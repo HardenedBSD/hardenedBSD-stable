@@ -442,10 +442,8 @@ map:
 	td->td_fpop = fp;
 	maxprot &= cap_maxprot;
 
-#ifdef PAX_PAGEEXEC
+#ifdef PAX_NOEXEC
 	pax_pageexec(td->td_proc, &prot, &maxprot);
-#endif
-#ifdef PAX_MPROTECT
 	pax_mprotect(td->td_proc, &prot, &maxprot);
 #endif
 #ifdef PAX_ASLR

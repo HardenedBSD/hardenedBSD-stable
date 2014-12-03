@@ -57,33 +57,19 @@ __FBSDID("$FreeBSD$");
 #include <vm/vm_param.h>
 #include <vm/vm_extern.h>
 
-#ifndef PAX_PAGEEXEC
-#ifdef PAX_MPROTECT
-#error "PAX_MPROTECT requires enabled PAX_PAGEEXEC in kernel config..."
-#endif
-#endif
-
 FEATURE(pax_pageexec, "PAX PAGEEXEC hardening");
-#ifdef PAX_MPROTECT
 FEATURE(pax_mprotect, "PAX MPROTECT hardening");
-#endif
 
 #ifdef PAX_HARDENING
 static int pax_pageexec_status = PAX_FEATURE_OPTOUT;
-#ifdef PAX_MPROTECT
 static int pax_mprotect_status = PAX_FEATURE_OPTOUT;
-#endif
 #else /* !PAX_HARDENING */
 static int pax_pageexec_status = PAX_FEATURE_OPTIN;
-#ifdef PAX_MPROTECT
 static int pax_mprotect_status = PAX_FEATURE_OPTIN;
-#endif
 #endif /* PAX_HARDENING */
 
 TUNABLE_INT("hardening.pax.pageexec.status", &pax_pageexec_status);
-#ifdef PAX_MPROTECT
 TUNABLE_INT("hardening.pax.mprotect.status", &pax_mprotect_status);
-#endif
 
 #ifdef PAX_SYSCTLS
 SYSCTL_DECL(_hardening_pax);
@@ -92,9 +78,7 @@ SYSCTL_DECL(_hardening_pax);
  * sysctls
  */
 static int sysctl_pax_pageexec_status(SYSCTL_HANDLER_ARGS);
-#ifdef PAX_MPROTECT
 static int sysctl_pax_mprotect_status(SYSCTL_HANDLER_ARGS);
-#endif
 
 SYSCTL_NODE(_hardening_pax, OID_AUTO, pageexec, CTLFLAG_RD, 0,
     "Remove WX pages from user-space.");
@@ -123,13 +107,11 @@ sysctl_pax_pageexec_status(SYSCTL_HANDLER_ARGS)
 
 	switch (val) {
 	case PAX_FEATURE_DISABLED:
-#ifdef PAX_MPROTECT
 		printf("PAX MPROTECT depend on PAGEEXEC!\n");
 		if (pr == &prison0)
 			pax_mprotect_status = val;
 
 		pr->pr_hardening.hr_pax_mprotect_status = val;
-#endif
 	case PAX_FEATURE_OPTIN:
 	case PAX_FEATURE_OPTOUT:
 	case PAX_FEATURE_FORCE_ENABLED:
@@ -145,7 +127,6 @@ sysctl_pax_pageexec_status(SYSCTL_HANDLER_ARGS)
 	return (0);
 }
 
-#ifdef PAX_MPROTECT
 SYSCTL_NODE(_hardening_pax, OID_AUTO, mprotect, CTLFLAG_RD, 0,
     "MPROTECT hardening - enforce W^X.");
 
@@ -187,7 +168,6 @@ sysctl_pax_mprotect_status(SYSCTL_HANDLER_ARGS)
 
 	return (0);
 }
-#endif /* PAX_MPROTECT */
 #endif /* PAX_SYSCTLS */
 
 
@@ -340,7 +320,6 @@ pax_pageexec(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot)
 /*
  * PaX MPROTECT functions
  */
-#ifdef PAX_MPROTECT
 static void
 pax_mprotect_sysinit(void)
 {
@@ -519,17 +498,14 @@ pax_noexec_nx(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot)
 	if (!pax_pageexec_active(p)) {
 		*prot &= ~VM_PROT_EXECUTE;
 
-#ifdef PAX_MPROTECT
 		if (!pax_mprotect_active(p)) {
 			*maxprot &= ~VM_PROT_EXECUTE;
 		}
-#endif
 	}
 
 	CTR4(KTR_PAX, "%s: after - pid = %d prot = %x maxprot = %x",
 	    __func__, p->p_pid, *prot, *maxprot);
 }
-#endif /* PAX_MPROTECT */
 
 /*
  * @brief Removes VM_PROT_WRITE from prot and maxprot.
@@ -552,7 +528,6 @@ pax_noexec_nw(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot)
 	if (!pax_pageexec_active(p)) {
 		*prot &= ~VM_PROT_WRITE;
 
-#ifdef PAX_MPROTECT
 		if (!pax_mprotect_active(p)) {
 			*maxprot &= ~VM_PROT_WRITE;
 		}
