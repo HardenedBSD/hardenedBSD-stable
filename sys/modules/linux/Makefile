@@ -26,7 +26,7 @@ SRCS+=	opt_apic.h
 .endif
 
 .if ${MACHINE_CPUARCH} == "i386"
-SRCS+=	linux_ptrace.c imgact_linux.c opt_cpu.h
+SRCS+=	linux_ptrace.c opt_cpu.h
 .endif
 
 EXPORT_SYMS=

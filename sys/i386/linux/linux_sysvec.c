@@ -36,7 +36,6 @@ __FBSDID("$FreeBSD$");
 #include <sys/exec.h>
 #include <sys/fcntl.h>
 #include <sys/imgact.h>
-#include <sys/imgact_aout.h>
 #include <sys/imgact_elf.h>
 #include <sys/kernel.h>
 #include <sys/lock.h>
@@ -940,47 +939,6 @@ linux_get_machine(const char **dst)
 		*dst = "i386";
 	}
 }
-
-struct sysentvec linux_sysvec = {
-	.sv_size	= LINUX_SYS_MAXSYSCALL,
-	.sv_table	= linux_sysent,
-	.sv_mask	= 0,
-	.sv_sigsize	= LINUX_SIGTBLSZ,
-	.sv_sigtbl	= bsd_to_linux_signal,
-	.sv_errsize	= ELAST + 1,
-	.sv_errtbl	= bsd_to_linux_errno,
-	.sv_transtrap	= translate_traps,
-	.sv_fixup	= linux_fixup,
-	.sv_sendsig	= linux_sendsig,
-	.sv_sigcode	= linux_sigcode,
-	.sv_szsigcode	= &linux_szsigcode,
-	.sv_prepsyscall	= NULL,
-	.sv_name	= "Linux a.out",
-	.sv_coredump	= NULL,
-	.sv_imgact_try	= exec_linux_imgact_try,
-	.sv_minsigstksz	= LINUX_MINSIGSTKSZ,
-	.sv_pagesize	= PAGE_SIZE,
-	.sv_minuser	= VM_MIN_ADDRESS,
-	.sv_maxuser	= VM_MAXUSER_ADDRESS,
-	.sv_usrstack	= LINUX_USRSTACK,
-	.sv_psstrings	= PS_STRINGS,
-	.sv_stackprot	= VM_PROT_ALL,
-	.sv_copyout_strings = exec_copyout_strings,
-	.sv_setregs	= exec_linux_setregs,
-	.sv_fixlimit	= NULL,
-	.sv_maxssiz	= NULL,
-	.sv_flags	= SV_ABI_LINUX | SV_AOUT | SV_IA32 | SV_ILP32,
-	.sv_set_syscall_retval = cpu_set_syscall_retval,
-	.sv_fetch_syscall_args = linux_fetch_syscall_args,
-	.sv_syscallnames = NULL,
-	.sv_shared_page_base = LINUX_SHAREDPAGE,
-	.sv_shared_page_len = PAGE_SIZE,
-	.sv_schedtail	= linux_schedtail,
-#ifdef PAX_ASLR
-	.sv_pax_aslr_init = pax_aslr_init_vmspace,
-#endif
-};
-INIT_SYSENTVEC(aout_sysvec, &linux_sysvec);
 
 struct sysentvec elf_linux_sysvec = {
 	.sv_size	= LINUX_SYS_MAXSYSCALL,
