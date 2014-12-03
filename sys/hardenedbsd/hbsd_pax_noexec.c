@@ -57,6 +57,12 @@ __FBSDID("$FreeBSD$");
 #include <vm/vm_param.h>
 #include <vm/vm_extern.h>
 
+#ifndef PAX_PAGEEXEC
+#ifdef PAX_MPROTECT
+#error "PAX_MPROTECT requires enabled PAX_PAGEEXEC in kernel config..."
+#endif
+#endif
+
 FEATURE(pax_pageexec, "PAX PAGEEXEC hardening");
 #ifdef PAX_MPROTECT
 FEATURE(pax_mprotect, "PAX MPROTECT hardening");
@@ -491,4 +497,68 @@ pax_mprotect_enforce(struct proc *p, vm_prot_t old_prot, vm_prot_t new_prot)
 	return (0);
 }
 
+
+/*
+ * @brief Removes VM_PROT_EXECUTE from prot and maxprot.
+ *
+ * Mainly used to remove exec protection from data, stack, and other sections.
+ *
+ * @param p		The controlled vmspace's process proc pointer.
+ * @param prot
+ * @param maxprot
+ *
+ * @return		none
+ */
+void
+pax_noexec_nx(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot)
+{
+
+	CTR4(KTR_PAX, "%s: before - pid = %d prot = %x maxprot = %x",
+	    __func__, p->p_pid, *prot, *maxprot);
+
+	if (!pax_pageexec_active(p)) {
+		*prot &= ~VM_PROT_EXECUTE;
+
+#ifdef PAX_MPROTECT
+		if (!pax_mprotect_active(p)) {
+			*maxprot &= ~VM_PROT_EXECUTE;
+		}
+#endif
+	}
+
+	CTR4(KTR_PAX, "%s: after - pid = %d prot = %x maxprot = %x",
+	    __func__, p->p_pid, *prot, *maxprot);
+}
 #endif /* PAX_MPROTECT */
+
+/*
+ * @brief Removes VM_PROT_WRITE from prot and maxprot.
+ *
+ * Mainly used to remove write protection from TEXT sections.
+ *
+ * @param p		The controlled vmspace's process proc pointer.
+ * @param prot
+ * @param maxprot
+ *
+ * @return		none
+ */
+void
+pax_noexec_nw(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot)
+{
+
+	CTR4(KTR_PAX, "%s: before - pid = %d prot = %x maxprot = %x",
+	    __func__, p->p_pid, *prot, *maxprot);
+
+	if (!pax_pageexec_active(p)) {
+		*prot &= ~VM_PROT_WRITE;
+
+#ifdef PAX_MPROTECT
+		if (!pax_mprotect_active(p)) {
+			*maxprot &= ~VM_PROT_WRITE;
+		}
+#endif
+	}
+
+	CTR4(KTR_PAX, "%s: after - pid = %d prot = %x maxprot = %x",
+	    __func__, p->p_pid, *prot, *maxprot);
+}
