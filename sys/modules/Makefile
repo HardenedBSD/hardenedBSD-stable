@@ -74,7 +74,6 @@ SUBDIR=	\
 	${_ciss} \
 	${_cm} \
 	${_cmx} \
-	${_coff} \
 	${_coretemp} \
 	${_cp} \
 	${_cpsw} \
@@ -136,7 +135,6 @@ SUBDIR=	\
 	${_hyperv} \
 	${_i2c} \
         ${_ibcore} \
-	${_ibcs2} \
 	${_ichwd} \
 	${_ida} \
 	${_ie} \
@@ -624,7 +622,6 @@ _arcnet=	arcnet
 .if ${MK_SOURCELESS_UCODE} != "no"
 _ce=		ce
 .endif
-_coff=		coff
 .if ${MK_SOURCELESS_UCODE} != "no"
 _cp=		cp
 .endif
@@ -634,7 +631,6 @@ _ep=		ep
 _fe=		fe
 _glxiic=	glxiic
 _glxsb=		glxsb
-_ibcs2=		ibcs2
 _ie=		ie
 _mse=		mse
 _ncr=		ncr
