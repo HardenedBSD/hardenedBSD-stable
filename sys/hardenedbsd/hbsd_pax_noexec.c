@@ -176,7 +176,7 @@ sysctl_pax_mprotect_status(SYSCTL_HANDLER_ARGS)
  */
 
 static void
-pax_pageexec_sysinit(void)
+pax_noexec_sysinit(void)
 {
 
 	switch (pax_pageexec_status) {
@@ -192,30 +192,25 @@ pax_pageexec_sysinit(void)
 		break;
 	}
 	printf("[PAX PAGEEXEC] status: %s\n", pax_status_str[pax_pageexec_status]);
+
+	switch (pax_mprotect_status) {
+	case PAX_FEATURE_DISABLED:
+	case PAX_FEATURE_OPTIN:
+	case PAX_FEATURE_OPTOUT:
+	case PAX_FEATURE_FORCE_ENABLED:
+		break;
+	default:
+		printf("[PAX MPROTECT] WARNING, invalid PAX settings in loader.conf!"
+		    " (hardening.pax.mprotect.status = %d)\n", pax_mprotect_status);
+		pax_mprotect_status = PAX_FEATURE_FORCE_ENABLED;
+		break;
+	}
+	printf("[PAX MPROTECT] status: %s\n", pax_status_str[pax_mprotect_status]);
 }
-SYSINIT(pax_pageexec, SI_SUB_PAX, SI_ORDER_SECOND, pax_pageexec_sysinit, NULL);
-
-int
-pax_pageexec_active(struct proc *p)
-{
-	u_int flags;
-
-	pax_get_flags(p, &flags);
-
-	CTR3(KTR_PAX, "%s: pid = %d p_pax = %x",
-	    __func__, p->p_pid, flags);
-
-	if ((flags & PAX_NOTE_PAGEEXEC) == PAX_NOTE_PAGEEXEC)
-		return (true);
-
-	if ((flags & PAX_NOTE_NOPAGEEXEC) == PAX_NOTE_NOPAGEEXEC)
-		return (false);
-
-	return (true);
-}
+SYSINIT(pax_noexec, SI_SUB_PAX, SI_ORDER_SECOND, pax_noexec_sysinit, NULL);
 
 void
-pax_pageexec_init_prison(struct prison *pr)
+pax_noexec_init_prison(struct prison *pr)
 {
 	struct prison *pr_p;
 
@@ -225,6 +220,7 @@ pax_pageexec_init_prison(struct prison *pr)
 	if (pr == &prison0) {
 		/* prison0 has no parent, use globals */
 		pr->pr_hardening.hr_pax_pageexec_status = pax_pageexec_status;
+		pr->pr_hardening.hr_pax_mprotect_status = pax_mprotect_status;
 	} else {
 		KASSERT(pr->pr_parent != NULL,
 		   ("%s: pr->pr_parent == NULL", __func__));
@@ -232,6 +228,8 @@ pax_pageexec_init_prison(struct prison *pr)
 
 		pr->pr_hardening.hr_pax_pageexec_status =
 		    pr_p->pr_hardening.hr_pax_pageexec_status;
+		pr->pr_hardening.hr_pax_mprotect_status =
+		    pr_p->pr_hardening.hr_pax_mprotect_status;
 	}
 }
 
@@ -298,6 +296,29 @@ pax_pageexec_setup_flags(struct image_params *imgp, u_int mode)
 	return (flags);
 }
 
+/*
+ * PAGEEXEC
+ */
+
+int
+pax_pageexec_active(struct proc *p)
+{
+	u_int flags;
+
+	pax_get_flags(p, &flags);
+
+	CTR3(KTR_PAX, "%s: pid = %d p_pax = %x",
+	    __func__, p->p_pid, flags);
+
+	if ((flags & PAX_NOTE_PAGEEXEC) == PAX_NOTE_PAGEEXEC)
+		return (true);
+
+	if ((flags & PAX_NOTE_NOPAGEEXEC) == PAX_NOTE_NOPAGEEXEC)
+		return (false);
+
+	return (true);
+}
+
 void
 pax_pageexec(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot)
 {
@@ -316,29 +337,9 @@ pax_pageexec(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot)
 	}
 }
 
-
 /*
- * PaX MPROTECT functions
+ * MPROTECT
  */
-static void
-pax_mprotect_sysinit(void)
-{
-
-	switch (pax_mprotect_status) {
-	case PAX_FEATURE_DISABLED:
-	case PAX_FEATURE_OPTIN:
-	case PAX_FEATURE_OPTOUT:
-	case PAX_FEATURE_FORCE_ENABLED:
-		break;
-	default:
-		printf("[PAX MPROTECT] WARNING, invalid PAX settings in loader.conf!"
-		    " (hardening.pax.mprotect.status = %d)\n", pax_mprotect_status);
-		pax_mprotect_status = PAX_FEATURE_FORCE_ENABLED;
-		break;
-	}
-	printf("[PAX MPROTECT] status: %s\n", pax_status_str[pax_mprotect_status]);
-}
-SYSINIT(pax_mprotect, SI_SUB_PAX, SI_ORDER_SECOND, pax_mprotect_sysinit, NULL);
 
 int
 pax_mprotect_active(struct proc *p)
@@ -357,27 +358,6 @@ pax_mprotect_active(struct proc *p)
 		return (false);
 
 	return (true);
-}
-
-void
-pax_mprotect_init_prison(struct prison *pr)
-{
-	struct prison *pr_p;
-
-	CTR2(KTR_PAX, "%s: Setting prison %s PaX variables\n",
-	    __func__, pr->pr_name);
-
-	if (pr == &prison0) {
-		/* prison0 has no parent, use globals */
-		pr->pr_hardening.hr_pax_mprotect_status = pax_mprotect_status;
-	} else {
-		KASSERT(pr->pr_parent != NULL,
-		   ("%s: pr->pr_parent == NULL", __func__));
-		pr_p = pr->pr_parent;
-
-		pr->pr_hardening.hr_pax_mprotect_status =
-		    pr_p->pr_hardening.hr_pax_mprotect_status;
-	}
 }
 
 u_int
@@ -537,3 +517,4 @@ pax_noexec_nw(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot)
 	CTR4(KTR_PAX, "%s: after - pid = %d prot = %x maxprot = %x",
 	    __func__, p->p_pid, *prot, *maxprot);
 }
+
