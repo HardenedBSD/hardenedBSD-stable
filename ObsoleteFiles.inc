@@ -42,6 +42,10 @@
 OLD_FILES+=usr/tests/sbin/mdconfig/legacy_test
 OLD_FILES+=usr/tests/sbin/mdconfig/mdconfig.test
 OLD_FILES+=usr/tests/sbin/mdconfig/run.pl
+# 20141204 ibcs support removal
+OLD_FILES+=etc/rc.d/archdep
+OLD_FILES+=shate/examples/ibcs2/README
+OLD_FILES+=shate/examples/ibcs2/hello.uu
 # 20141028: debug files accidentally installed as directory name
 OLD_FILES+=usr/lib/debug/usr/lib/i18n
 OLD_FILES+=usr/lib/debug/usr/lib/private
