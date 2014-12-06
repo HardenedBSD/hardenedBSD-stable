@@ -15,7 +15,6 @@ LDIRS=	BSD_daemon \
 	etc \
 	find_interface \
 	hast \
-	ibcs2 \
 	indent \
 	ipfw \
 	jails \
@@ -69,8 +68,6 @@ XFILES=	BSD_daemon/FreeBSD.pfa \
 	hast/ucarp_up.sh \
 	hast/vip-down.sh \
 	hast/vip-up.sh \
-	ibcs2/README \
-	ibcs2/hello.uu \
 	indent/indent.pro \
 	ipfw/change_rules.sh \
 	jails/README \

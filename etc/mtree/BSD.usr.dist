@@ -319,8 +319,6 @@
             ..
             hostapd
             ..
-            ibcs2
-            ..
             indent
             ..
             ipfilter
