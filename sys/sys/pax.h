@@ -32,7 +32,7 @@
 #ifndef	__SYS_PAX_H
 #define	__SYS_PAX_H
 
-#define	__HardenedBSD_version	6
+#define	__HardenedBSD_version	7
 
 #if defined(_KERNEL) || defined(_WANT_PRISON)
 struct hardening_features {
