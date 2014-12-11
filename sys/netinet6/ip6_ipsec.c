@@ -118,29 +118,18 @@ ip6_ipsec_filtertunnel(struct mbuf *m)
 /*
  * Check if this packet has an active SA and needs to be dropped instead
  * of forwarded.
- * Called from ip6_input().
+ * Called from ip6_forward().
  * 1 = drop packet, 0 = forward packet.
  */
 int
 ip6_ipsec_fwd(struct mbuf *m)
 {
-#ifdef IPSEC
-	struct secpolicy *sp;
-	int error;
 
-	sp = ipsec_getpolicybyaddr(m, IPSEC_DIR_INBOUND,
-	    IP_FORWARDING, &error);
-	if (sp != NULL) {
-		/*
-		 * Check security policy against packet attributes.
-		 */
-		error = ipsec_in_reject(sp, m);
-		KEY_FREESP(&sp);
-	}
-	if (error != 0)
-		return (1);
-#endif /* IPSEC */
+#ifdef IPSEC
+	return (ipsec6_in_reject(m, NULL));
+#else
 	return (0);
+#endif /* !IPSEC */
 }
 
 /*
@@ -153,32 +142,15 @@ ip6_ipsec_fwd(struct mbuf *m)
 int
 ip6_ipsec_input(struct mbuf *m, int nxt)
 {
+
 #ifdef IPSEC
-	struct secpolicy *sp;
-	int error;
 	/*
 	 * enforce IPsec policy checking if we are seeing last header.
 	 * note that we do not visit this with protocols with pcb layer
 	 * code - like udp/tcp/raw ip.
 	 */
-	if ((inet6sw[ip6_protox[nxt]].pr_flags & PR_LASTHDR) != 0 &&
-	    ipsec6_in_reject(m, NULL)) {
-		sp = ipsec_getpolicybyaddr(m, IPSEC_DIR_INBOUND,
-		    IP_FORWARDING, &error);
-		if (sp != NULL) {
-			/*
-			 * Check security policy against packet attributes.
-			 */
-			error = ipsec_in_reject(sp, m);
-			KEY_FREESP(&sp);
-		} else {
-			/* XXX error stat??? */
-			error = EINVAL;
-			DPRINTF(("%s: no SP, packet discarded\n", __func__));/*XXX*/
-		}
-		if (error != 0)
-			return (1);
-	}
+	if ((inet6sw[ip6_protox[nxt]].pr_flags & PR_LASTHDR) != 0)
+		return (ipsec6_in_reject(m, NULL));
 #endif /* IPSEC */
 	return (0);
 }
@@ -190,8 +162,7 @@ ip6_ipsec_input(struct mbuf *m, int nxt)
  */
 
 int
-ip6_ipsec_output(struct mbuf **m, struct inpcb *inp, int *flags, int *error,
-    struct ifnet **ifp)
+ip6_ipsec_output(struct mbuf **m, struct inpcb *inp, int *error)
 {
 #ifdef IPSEC
 	struct secpolicy *sp;
@@ -209,7 +180,7 @@ ip6_ipsec_output(struct mbuf **m, struct inpcb *inp, int *flags, int *error,
 		*error = 0;
 		return (0);
 	}
-	sp = ipsec4_checkpolicy(*m, IPSEC_DIR_OUTBOUND, *flags, error, inp);
+	sp = ipsec4_checkpolicy(*m, IPSEC_DIR_OUTBOUND, error, inp);
 	/*
 	 * There are four return cases:
 	 *    sp != NULL		    apply IPsec policy
