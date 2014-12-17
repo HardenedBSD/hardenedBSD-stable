@@ -2264,6 +2264,7 @@ sys_jail_remove(struct thread *td, struct jail_remove_args *uap)
 		}
 		mtx_lock(&pr->pr_mtx);
 	}
+
 	prison_remove_one(pr);
 	return (0);
 }
@@ -2273,6 +2274,10 @@ prison_remove_one(struct prison *pr)
 {
 	struct proc *p;
 	int deuref;
+
+#ifdef MAC
+	mac_prison_destroy(pr);
+#endif
 
 	/* If the prison was persistent, it is not anymore. */
 	deuref = 0;
