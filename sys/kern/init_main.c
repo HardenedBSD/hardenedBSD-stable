@@ -695,7 +695,10 @@ start_init(void *dummy)
 	vm_offset_t addr;
 	struct execve_args args;
 	int options, error;
-	char *var, *path, *next, *s;
+#ifndef PAX_HARDENING
+	char *var;
+#endif
+	char *path, *next, *s;
 	char *ucp, **uap, *arg0, *arg1;
 	struct thread *td;
 	struct proc *p;
