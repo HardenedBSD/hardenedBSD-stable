@@ -2013,7 +2013,12 @@ vm_map_protect(vm_map_t map, vm_offset_t start, vm_offset_t end,
 	while ((current != &map->header) && (current->start < end)) {
 		old_prot = current->protection;
 #ifdef PAX_HARDENING
-		if ((new_prot & VM_PROT_EXECUTE) == VM_PROT_EXECUTE &&
+		/*
+		 * XXXOP: in early stages of NOEXEC implemenations we should only
+		 * restrict the userspace protection upgrades.
+		 */
+		if ((start < VM_MAXUSER_ADDRESS && end < VM_MAXUSER_ADDRESS) &&
+		    ((new_prot & VM_PROT_EXECUTE) == VM_PROT_EXECUTE) &&
 		    ((old_prot & VM_PROT_EXECUTE) != VM_PROT_EXECUTE)) {
 			if (pax_mprotect_exec_harden(curthread)) {
 				vm_map_unlock(map);
