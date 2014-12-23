@@ -245,14 +245,11 @@ SUBDIR=	\
 	netfpga10g \
 	${_netgraph} \
 	${_nfe} \
-	nfs_common \
 	nfscl \
-	nfsclient \
 	nfscommon \
 	nfsd \
 	nfslock \
 	nfslockd \
-	nfsserver \
 	nfssvc \
 	nge \
 	nmdm \
