@@ -42,7 +42,9 @@ __FBSDID("$FreeBSD$");
 #include <sys/lock.h>
 #include <sys/mutex.h>
 #include <sys/sysent.h>
+#include <sys/syslimits.h>
 #include <sys/stat.h>
+#include <sys/pax.h>
 #include <sys/proc.h>
 #include <sys/elf_common.h>
 #include <sys/mount.h>
@@ -51,14 +53,10 @@ __FBSDID("$FreeBSD$");
 #include <sys/queue.h>
 #include <sys/libkern.h>
 #include <sys/jail.h>
-
 #include <sys/mman.h>
 #include <sys/libkern.h>
 #include <sys/exec.h>
 #include <sys/kthread.h>
-
-#include <sys/syslimits.h>
-#include <sys/param.h>
 
 #include <vm/pmap.h>
 #include <vm/vm_map.h>
@@ -66,18 +64,16 @@ __FBSDID("$FreeBSD$");
 
 #include <machine/elf.h>
 
-#include <sys/pax.h>
-
-#include <security/mac_bsdextended/mac_bsdextended.h>
-
 #ifdef PAX_HARDENING
 static int pax_map32_enabled_global = PAX_FEATURE_SIMPLE_DISABLED;
 static int pax_mprotect_exec_harden_global = PAX_FEATURE_SIMPLE_ENABLED;
 static int pax_procfs_harden_global = PAX_FEATURE_SIMPLE_ENABLED;
+static int pax_randomize_pids_global = PAX_FEATURE_SIMPLE_ENABLED;
 #else
 static int pax_map32_enabled_global = PAX_FEATURE_SIMPLE_ENABLED;
 static int pax_mprotect_exec_harden_global = PAX_FEATURE_SIMPLE_DISABLED;
 static int pax_procfs_harden_global = PAX_FEATURE_SIMPLE_DISABLED;
+static int pax_randomize_pids_global = PAX_FEATURE_SIMPLE_ENABLED;
 #endif
 
 static int sysctl_pax_allow_map32(SYSCTL_HANDLER_ARGS);
@@ -108,6 +104,7 @@ SYSCTL_PROC(_hardening, OID_AUTO, procfs_harden,
 TUNABLE_INT("hardening.allow_map32bit", &pax_map32_enabled_global);
 TUNABLE_INT("hardening.mprotect_exec_harden", &pax_mprotect_exec_harden_global);
 TUNABLE_INT("hardening.procfs_harden", &pax_procfs_harden_global);
+TUNABLE_INT("hardening.randomize_pids", &pax_randomize_pids_global);
 
 static void
 pax_hardening_sysinit(void)
@@ -149,6 +146,18 @@ pax_hardening_sysinit(void)
 	}
 	printf("[PAX HARDENING] procfs hardening: %s\n",
 	    pax_status_simple_str[pax_procfs_harden_global]);
+
+	switch (pax_randomize_pids_global) {
+	case PAX_FEATURE_SIMPLE_DISABLED:
+	case PAX_FEATURE_SIMPLE_ENABLED:
+		break;
+	default:
+		printf("[PAX HARDENING] WARNING, invalid settings in loader.conf!"
+		    " (hardening.randomize_pids = %d)\n", pax_randomize_pids_global);
+		pax_randomize_pids_global = PAX_FEATURE_SIMPLE_ENABLED;
+	}
+	printf("[PAX HARDENING] randomize pids: %s\n",
+	    pax_status_simple_str[pax_randomize_pids_global]);
 }
 SYSINIT(pax_hardening, SI_SUB_PAX, SI_ORDER_SECOND, pax_hardening_sysinit, NULL);
 
@@ -289,3 +298,23 @@ pax_procfs_harden(struct thread *td)
 
 	return (pr->pr_hardening.hr_pax_procfs_harden ? EPERM : 0);
 }
+
+extern int randompid;
+
+static void
+pax_randomize_pids(void *dummy __unused)
+{
+	int modulus;
+
+	if (pax_randomize_pids_global == PAX_FEATURE_SIMPLE_DISABLED)
+		return;
+
+	modulus = pid_max - 200;
+
+	sx_xlock(&allproc_lock);
+	randompid = arc4random() % modulus + 100;
+	sx_xunlock(&allproc_lock);
+}
+
+SYSINIT(pax_randomize_pids, SI_SUB_KTHREAD_INIT, SI_ORDER_MIDDLE+1,
+    pax_randomize_pids, NULL);
