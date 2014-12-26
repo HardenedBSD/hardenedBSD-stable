@@ -69,11 +69,13 @@ static int pax_map32_enabled_global = PAX_FEATURE_SIMPLE_DISABLED;
 static int pax_mprotect_exec_harden_global = PAX_FEATURE_SIMPLE_ENABLED;
 static int pax_procfs_harden_global = PAX_FEATURE_SIMPLE_ENABLED;
 static int pax_randomize_pids_global = PAX_FEATURE_SIMPLE_ENABLED;
+static int pax_init_hardening_global = PAX_FEATURE_SIMPLE_ENABLED;
 #else
 static int pax_map32_enabled_global = PAX_FEATURE_SIMPLE_ENABLED;
 static int pax_mprotect_exec_harden_global = PAX_FEATURE_SIMPLE_DISABLED;
 static int pax_procfs_harden_global = PAX_FEATURE_SIMPLE_DISABLED;
 static int pax_randomize_pids_global = PAX_FEATURE_SIMPLE_ENABLED;
+static int pax_init_hardening_global = PAX_FEATURE_SIMPLE_DISABLED;
 #endif
 
 static int sysctl_pax_allow_map32(SYSCTL_HANDLER_ARGS);
@@ -158,6 +160,16 @@ pax_hardening_sysinit(void)
 	}
 	printf("[PAX HARDENING] randomize pids: %s\n",
 	    pax_status_simple_str[pax_randomize_pids_global]);
+
+	switch (pax_init_hardening_global) {
+	case PAX_FEATURE_SIMPLE_DISABLED:
+	case PAX_FEATURE_SIMPLE_ENABLED:
+		break;
+	default:
+		pax_init_hardening_global = PAX_FEATURE_SIMPLE_ENABLED;
+	}
+	printf("[PAX HARDENING] unset unsecure init variables: %s\n",
+	    pax_status_simple_str[pax_init_hardening_global]);
 }
 SYSINIT(pax_hardening, SI_SUB_PAX, SI_ORDER_SECOND, pax_hardening_sysinit, NULL);
 
@@ -315,6 +327,23 @@ pax_randomize_pids(void *dummy __unused)
 	randompid = arc4random() % modulus + 100;
 	sx_xunlock(&allproc_lock);
 }
-
 SYSINIT(pax_randomize_pids, SI_SUB_KTHREAD_INIT, SI_ORDER_MIDDLE+1,
     pax_randomize_pids, NULL);
+
+static void
+pax_init_hardening(void *dummy __unused)
+{
+	/*
+	 * Never should be made available from the loader / outside
+	 * the pax_init_hardening_global variable.
+	 */
+	if (pax_init_hardening_global == PAX_FEATURE_SIMPLE_DISABLED)
+		return;
+
+	kern_unsetenv("init_chroot");
+	kern_unsetenv("init_path");
+	kern_unsetenv("init_script");
+	kern_unsetenv("init_shell");
+}
+SYSINIT(pax_init_hardening, SI_SUB_PAX, SI_ORDER_ANY,
+    pax_init_hardening, NULL);
