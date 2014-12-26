@@ -74,7 +74,7 @@ static int pax_init_hardening_global = PAX_FEATURE_SIMPLE_ENABLED;
 static int pax_map32_enabled_global = PAX_FEATURE_SIMPLE_ENABLED;
 static int pax_mprotect_exec_harden_global = PAX_FEATURE_SIMPLE_DISABLED;
 static int pax_procfs_harden_global = PAX_FEATURE_SIMPLE_DISABLED;
-static int pax_randomize_pids_global = PAX_FEATURE_SIMPLE_ENABLED;
+static int pax_randomize_pids_global = PAX_FEATURE_SIMPLE_DISABLED;
 static int pax_init_hardening_global = PAX_FEATURE_SIMPLE_DISABLED;
 #endif
 
