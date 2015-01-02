@@ -37,7 +37,6 @@ options 	FFS			# Berkeley Fast Filesystem
 options 	SOFTUPDATES		# Enable FFS soft updates support
 options 	UFS_ACL			# Support for access control lists
 options 	UFS_DIRHASH		# Improve performance on big directories
-options		UFS_EXTATTR
 #options 	UFS_GJOURNAL		# Enable gjournal-based UFS journaling
 options 	QUOTA			# Enable disk quotas for UFS
 #options 	MD_ROOT			# MD is a potential root device
@@ -86,7 +85,8 @@ options 	PAX_SYSCTLS		# sysctls for run-time options
 options 	PAX_SEGVGUARD		# prevent brute-force attacks
 options 	PAX_PTRACE_HARDENING
 options 	PAX_PTRACE_HARDENING_GRP=50000
-options 	MAC_BSDEXTENDED
+
+options		UFS_EXTATTR
 
 # Debugging support.  Always need this:
 options 	KDB			# Enable kernel debugger support.
@@ -151,8 +151,6 @@ device		pass		# Passthrough device (direct ATA/SCSI access)
 # RAID controllers interfaced to the SCSI subsystem
 #device		amr		# AMI MegaRAID
 #device		arcmsr		# Areca SATA II RAID
-#XXX it is not 64-bit clean, -scottl
-#device		asr		# DPT SmartRAID V, VI and Adaptec SCSI RAID
 #device		ciss		# Compaq Smart RAID 5*
 #device		dpt		# DPT Smartcache III, IV - See NOTES for options
 #device		hptmv		# Highpoint RocketRAID 182x
