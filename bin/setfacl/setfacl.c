@@ -309,7 +309,7 @@ static void
 usage(void)
 {
 
-	fprintf(stderr, "usage: setfacl [-bdhkn] [-a position entries] "
+	fprintf(stderr, "usage: setfacl [-bdhknR] [-a position entries] "
 	    "[-m entries] [-M file] [-x entries] [-X file] [file ...]\n");
 	exit(1);
 }
