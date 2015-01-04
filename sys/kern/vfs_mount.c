@@ -1643,7 +1643,7 @@ vfs_setopt_part(struct vfsoptlist *opts, const char *name, void *value, int len)
 		if (opt->value == NULL)
 			opt->len = len;
 		else {
-			if (opt->len < len)
+			if (len < 0 || opt->len < len)
 				return (EINVAL);
 			opt->len = len;
 			bcopy(value, opt->value, len);
