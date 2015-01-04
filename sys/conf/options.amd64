@@ -46,8 +46,6 @@ AGP_DEBUG		opt_agp.h
 
 ATKBD_DFLT_KEYMAP	opt_atkbd.h
 
-KBDMUX_DFLT_KEYMAP	opt_kbdmux.h
-
 # -------------------------------
 # EOF
 # -------------------------------
