@@ -2047,13 +2047,13 @@ kern_jail_get(struct thread *td, struct uio *optuio, int flags)
 		goto done_deref;
 #ifdef INET
 	error = vfs_setopt_part(opts, "ip4.addr", pr->pr_ip4,
-	    pr->pr_ip4s * sizeof(*pr->pr_ip4));
+	    pr->pr_ip4s == -1 ? 0 : pr->pr_ip4s * sizeof(*pr->pr_ip4));
 	if (error != 0 && error != ENOENT)
 		goto done_deref;
 #endif
 #ifdef INET6
 	error = vfs_setopt_part(opts, "ip6.addr", pr->pr_ip6,
-	    pr->pr_ip6s * sizeof(*pr->pr_ip6));
+	    pr->pr_ip6s == -1 ? 0 : pr->pr_ip6s * sizeof(*pr->pr_ip6));
 	if (error != 0 && error != ENOENT)
 		goto done_deref;
 #endif
