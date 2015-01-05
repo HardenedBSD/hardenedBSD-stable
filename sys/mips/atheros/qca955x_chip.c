@@ -144,16 +144,6 @@ qca955x_chip_detect_sys_frequency(void)
 	else
 		ahb_rate = cpu_pll / (postdiv + 1);
 
-#if 0
-	ath79_add_sys_clkdev("ref", ref_rate);
-	ath79_add_sys_clkdev("cpu", cpu_rate);
-	ath79_add_sys_clkdev("ddr", ddr_rate);
-	ath79_add_sys_clkdev("ahb", ahb_rate);
-
-	clk_add_alias("wdt", NULL, "ref", NULL);
-	clk_add_alias("uart", NULL, "ref", NULL);
-#endif
-
 	u_ar71xx_ddr_freq = ddr_rate;
 	u_ar71xx_cpu_freq = cpu_rate;
 	u_ar71xx_ahb_freq = ahb_rate;
@@ -161,8 +151,7 @@ qca955x_chip_detect_sys_frequency(void)
 	u_ar71xx_wdt_freq = ref_rate;
 	u_ar71xx_uart_freq = ref_rate;
 	u_ar71xx_mdio_freq = ref_rate;
-
-
+	u_ar71xx_refclk = ref_rate;
 }
 
 static void
