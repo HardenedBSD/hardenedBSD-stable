@@ -14,7 +14,9 @@
   <info>
     <title>&os; &release.current; Release Notes</title>
 
-    <author><orgname>The &os; Project</orgname></author>
+    <author>
+      <orgname>The &os; Project</orgname>
+    </author>
 
     <pubdate>$FreeBSD$</pubdate>
 
@@ -685,6 +687,10 @@
 	updated to use the new &man.dpv.3; library to display progress
 	when extracting the &os; distributions.</para>
 
+      <para revision="276881">The <literal>libedit</literal> library
+	has been updated to support <acronym>UTF</acronym>-8, which
+	additionally provides unicode support to &man.sh.1;.</para>
+
       <sect3 xml:id="abi-compat">
 	<title><acronym>ABI</acronym> Compatibility</title>
 
@@ -771,12 +777,26 @@
 	patches that add new relocations for &arch.powerpc;
 	support.</para>
 
+      <para revision="276398" contrib="sponsor" sponsor="&ff;">The
+	<application>ELF Tool Chain</application> has been updated to
+	upstream revision r3136.</para>
+
       <para revision="276551">The <application>texinfo</application>
 	utility and <literal>info</literal> pages were removed from
 	the base system.  The <filename
 	  role="package">print/texinfo</filename> port should be
 	installed on systems where <literal>info</literal> pages are
 	needed.</para>
+
+      <para revision="276796" contrib="sponsor" sponsor="&ff;">The ELF
+	object manipulation tools
+	<application>addr2line</application>,
+	<application>elfcopy (strip)</application>,
+	<application>nm</application>,
+	<application>size</application>, and
+	<application>strings</application> were switched to the
+	versions from the ELF Tool Chain project.</para>
+
     </sect2>
 
     <sect2 xml:id="ports">
