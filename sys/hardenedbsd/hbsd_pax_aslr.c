@@ -83,11 +83,11 @@ __FBSDID("$FreeBSD$");
  *
  *  	STACK	| 32 bit | 64 bit |
  * 	+-------+--------+--------+
- * 	| MIN	|  6 bit | 12 bit |
+ * 	| MIN	|  6 bit | 16 bit |
  * 	+-------+--------+--------+
- * 	| DEF	|  6 bit | 16 bit |
+ * 	| DEF	|  6 bit | 21 bit |
  * 	+-------+--------+--------+
- * 	| MAX   | 10 bit | 21 bit |
+ * 	| MAX   | 10 bit | 32 bit |
  * 	+-------+--------+--------+
  *
  *  	EXEC	| 32 bit | 64 bit |
@@ -152,12 +152,12 @@ __FBSDID("$FreeBSD$");
 #define PAX_ASLR_DELTA_MMAP_DEF_LEN	21
 #endif /* PAX_ASLR_DELTA_MMAP_DEF_LEN */
 #ifndef PAX_ASLR_DELTA_STACK_DEF_LEN
-#define PAX_ASLR_DELTA_STACK_DEF_LEN	16
+#define PAX_ASLR_DELTA_STACK_DEF_LEN	21
 #endif /* PAX_ASLR_DELTA_STACK_DEF_LEN */
 #ifndef PAX_ASLR_DELTA_EXEC_DEF_LEN
 #define PAX_ASLR_DELTA_EXEC_DEF_LEN	21
 #endif /* PAX_ASLR_DELTA_EXEC_DEF_LEN */
-#else
+#else /* ! __LP64__ */
 #ifndef PAX_ASLR_DELTA_MMAP_DEF_LEN
 #define PAX_ASLR_DELTA_MMAP_DEF_LEN	14
 #endif /* PAX_ASLR_DELTA_MMAP_DEF_LEN */
