@@ -806,6 +806,13 @@ pax_aslr_stack(struct proc *p, uintptr_t *addr)
 }
 
 void
+pax_aslr_stack_adjust(struct proc *p, u_long *ssiz)
+{
+	
+	*ssiz += p->p_vmspace->vm_aslr_delta_stack;
+}
+
+void
 pax_aslr_execbase(struct proc *p, u_long *et_dyn_addr)
 {
 
