@@ -72,32 +72,32 @@ __FBSDID("$FreeBSD$");
 /*
  * generic ASLR values
  *
- *  	MMAP	| 32 bit | 64 bit |
- * 	+-------+--------+--------+
- * 	| MIN	|  8 bit | 16 bit |
- * 	+-------+--------+--------+
- * 	| DEF	| 14 bit | 21 bit |
- * 	+-------+--------+--------+
- * 	| MAX   | 20 bit | 32 bit |
- * 	+-------+--------+--------+
- *
- *  	STACK	| 32 bit | 64 bit |
- * 	+-------+--------+--------+
- * 	| MIN	|  6 bit | 16 bit |
- * 	+-------+--------+--------+
- * 	| DEF	|  6 bit | 21 bit |
- * 	+-------+--------+--------+
- * 	| MAX   | 10 bit | 32 bit |
- * 	+-------+--------+--------+
- *
- *  	EXEC	| 32 bit | 64 bit |
- * 	+-------+--------+--------+
- * 	| MIN	|  6 bit | 12 bit |
- * 	+-------+--------+--------+
- * 	| DEF	| 14 bit | 21 bit |
- * 	+-------+--------+--------+
- * 	| MAX   | 20 bit | 21 bit |
- * 	+-------+--------+--------+
+ *  	MMAP	| 32 bit | 64 bit | compat |
+ * 	+-------+--------+--------+--------+
+ * 	| MIN	|  8 bit | 16 bit |  8 bit |
+ * 	+-------+--------+--------+--------+
+ * 	| DEF	| 14 bit | 30 bit | 14 bit |
+ * 	+-------+--------+--------+--------+
+ * 	| MAX   | 21 bit | 42 bit | 21 bit |
+ * 	+-------+--------+--------+--------+
+ *                                          
+ *  	STACK	| 32 bit | 64 bit | 32 bit |
+ * 	+-------+--------+--------+--------+
+ * 	| MIN	|  8 bit | 16 bit |  8 bit |
+ * 	+-------+--------+--------+--------+
+ * 	| DEF	|  8 bit | 21 bit |  8 bit |
+ * 	+-------+--------+--------+--------+
+ * 	| MAX   | 21 bit | 42 bit | 21 bit |
+ * 	+-------+--------+--------+--------+
+ *                                          
+ *  	EXEC	| 32 bit | 64 bit | 32 bit |
+ * 	+-------+--------+--------+--------+
+ * 	| MIN	|  8 bit | 16 bit |  8 bit |
+ * 	+-------+--------+--------+--------+
+ * 	| DEF	| 14 bit | 21 bit | 14 bit |
+ * 	+-------+--------+--------+--------+
+ * 	| MAX   | 21 bit | 42 bit | 21 bit |
+ * 	+-------+--------+--------+--------+
  *
  */
 #ifndef PAX_ASLR_DELTA_MMAP_LSB
@@ -109,11 +109,7 @@ __FBSDID("$FreeBSD$");
 #endif /* PAX_ASLR_DELTA_MMAP_MAX_LEN */
 
 #ifndef PAX_ASLR_DELTA_MMAP_MAX_LEN
-#ifdef __LP64__
-#define PAX_ASLR_DELTA_MMAP_MAX_LEN	((sizeof(void *) * NBBY) / 2)
-#else
-#define PAX_ASLR_DELTA_MMAP_MAX_LEN	20
-#endif /* __LP64__ */
+#define PAX_ASLR_DELTA_MMAP_MAX_LEN	(((sizeof(void *) * NBBY) * 2) / 3)
 #endif /* PAX_ASLR_DELTA_MMAP_MAX_LEN */
 
 #ifndef PAX_ASLR_DELTA_STACK_LSB
@@ -121,11 +117,11 @@ __FBSDID("$FreeBSD$");
 #endif /* PAX_ASLR_DELTA_STACK_LSB */
 
 #ifndef PAX_ASLR_DELTA_STACK_MIN_LEN
-#define PAX_ASLR_DELTA_STACK_MIN_LEN	((sizeof(void *) * NBBY) / 5)
+#define PAX_ASLR_DELTA_STACK_MIN_LEN	((sizeof(void *) * NBBY) / 4)
 #endif /* PAX_ASLR_DELTA_STACK_MAX_LEN */
 
 #ifndef PAX_ASLR_DELTA_STACK_MAX_LEN
-#define PAX_ASLR_DELTA_STACK_MAX_LEN	((sizeof(void *) * NBBY) / 3)
+#define PAX_ASLR_DELTA_STACK_MAX_LEN	(((sizeof(void *) * NBBY) * 2) / 3)
 #endif /* PAX_ASLR_DELTA_STACK_MAX_LEN */
 
 #ifndef PAX_ASLR_DELTA_EXEC_LSB
@@ -133,15 +129,11 @@ __FBSDID("$FreeBSD$");
 #endif /* PAX_ASLR_DELTA_EXEC_LSB */
 
 #ifndef PAX_ASLR_DELTA_EXEC_MIN_LEN
-#define PAX_ASLR_DELTA_EXEC_MIN_LEN	((sizeof(void *) * NBBY) / 5)
+#define PAX_ASLR_DELTA_EXEC_MIN_LEN	((sizeof(void *) * NBBY) / 4)
 #endif /* PAX_ASLR_DELTA_EXEC_MIN_LEN */
 
 #ifndef PAX_ASLR_DELTA_EXEC_MAX_LEN
-#ifdef __LP64__
-#define PAX_ASLR_DELTA_EXEC_MAX_LEN	((sizeof(void *) * NBBY) / 3)
-#else
-#define PAX_ASLR_DELTA_EXEC_MAX_LEN	20
-#endif /* __LP64__ */
+#define PAX_ASLR_DELTA_EXEC_MAX_LEN	(((sizeof(void *) * NBBY) * 2) / 3)
 #endif /* PAX_ASLR_DELTA_EXEC_MAX_LEN */
 
 /*
@@ -149,7 +141,7 @@ __FBSDID("$FreeBSD$");
  */
 #ifdef __LP64__
 #ifndef PAX_ASLR_DELTA_MMAP_DEF_LEN
-#define PAX_ASLR_DELTA_MMAP_DEF_LEN	21
+#define PAX_ASLR_DELTA_MMAP_DEF_LEN	30
 #endif /* PAX_ASLR_DELTA_MMAP_DEF_LEN */
 #ifndef PAX_ASLR_DELTA_STACK_DEF_LEN
 #define PAX_ASLR_DELTA_STACK_DEF_LEN	21
@@ -182,7 +174,7 @@ __FBSDID("$FreeBSD$");
 #endif /* PAX_ASLR_COMPAT_DELTA_MMAP_MAX_LEN */
 
 #ifndef PAX_ASLR_COMPAT_DELTA_MMAP_MAX_LEN
-#define PAX_ASLR_COMPAT_DELTA_MMAP_MAX_LEN	((sizeof(int) * NBBY) / 2)
+#define PAX_ASLR_COMPAT_DELTA_MMAP_MAX_LEN	(((sizeof(int) * NBBY) * 2) / 3)
 #endif /* PAX_ASLR_COMPAT_DELTA_MMAP_MAX_LEN */
 
 #ifndef PAX_ASLR_COMPAT_DELTA_STACK_LSB
@@ -190,11 +182,11 @@ __FBSDID("$FreeBSD$");
 #endif /* PAX_ASLR_COMPAT_DELTA_STACK_LSB */
 
 #ifndef PAX_ASLR_COMPAT_DELTA_STACK_MIN_LEN
-#define PAX_ASLR_COMPAT_DELTA_STACK_MIN_LEN	((sizeof(int) * NBBY) / 5)
+#define PAX_ASLR_COMPAT_DELTA_STACK_MIN_LEN	((sizeof(int) * NBBY) / 4)
 #endif /* PAX_ASLR_COMPAT_DELTA_STACK_MAX_LEN */
 
 #ifndef PAX_ASLR_COMPAT_DELTA_STACK_MAX_LEN
-#define PAX_ASLR_COMPAT_DELTA_STACK_MAX_LEN	((sizeof(int) * NBBY) / 3)
+#define PAX_ASLR_COMPAT_DELTA_STACK_MAX_LEN	(((sizeof(int) * NBBY) * 2) / 3)
 #endif /* PAX_ASLR_COMPAT_DELTA_STACK_MAX_LEN */
 
 #ifndef PAX_ASLR_COMPAT_DELTA_EXEC_LSB
@@ -202,11 +194,11 @@ __FBSDID("$FreeBSD$");
 #endif /* PAX_ASLR_COMPAT_DELTA_EXEC_LSB */
 
 #ifndef PAX_ASLR_COMPAT_DELTA_EXEC_MIN_LEN
-#define PAX_ASLR_COMPAT_DELTA_EXEC_MIN_LEN	((sizeof(int) * NBBY) / 5)
+#define PAX_ASLR_COMPAT_DELTA_EXEC_MIN_LEN	((sizeof(int) * NBBY) / 4)
 #endif /* PAX_ASLR_COMPAT_DELTA_EXEC_MAX_LEN */
 
 #ifndef PAX_ASLR_COMPAT_DELTA_EXEC_MAX_LEN
-#define PAX_ASLR_COMPAT_DELTA_EXEC_MAX_LEN	((sizeof(int) * NBBY) / 3)
+#define PAX_ASLR_COMPAT_DELTA_EXEC_MAX_LEN	(((sizeof(int) * NBBY) * 2) / 3)
 #endif /* PAX_ASLR_COMPAT_DELTA_EXEC_MAX_LEN */
 #endif
 
