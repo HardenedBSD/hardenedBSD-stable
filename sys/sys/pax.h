@@ -89,6 +89,7 @@ int pax_elf(struct image_params *, uint32_t);
 void pax_get_flags(struct proc *p, uint32_t *flags);
 struct prison *pax_get_prison(struct proc *p);
 void pax_init_prison(struct prison *pr);
+int pax_proc_is_init(struct proc *p);
 
 /*
  * ASLR related functions
@@ -110,12 +111,13 @@ void pax_aslr_mmap(struct proc *p, vm_offset_t *addr,
 u_int pax_aslr_setup_flags(struct image_params *imgp, u_int mode);
 void pax_aslr_stack(struct proc *p, uintptr_t *addr);
 void pax_aslr_stack_adjust(struct proc *p, u_long *ssiz);
-void pax_init_aslr_workaround(void);
 
 /*
  * Log related functions
  */
 int hbsd_uprintf(const char *fmt, ...);
+void pax_log_internal(struct proc *, const char *fmt, ...);
+void pax_ulog_internal(const char *fmt, ...);
 void pax_log_aslr(struct proc *, const char *fmt, ...);
 void pax_ulog_aslr(const char *fmt, ...);
 void pax_log_segvguard(struct proc *, const char *fmt, ...);
