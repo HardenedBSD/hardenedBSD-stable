@@ -110,6 +110,7 @@ void pax_aslr_mmap(struct proc *p, vm_offset_t *addr,
 u_int pax_aslr_setup_flags(struct image_params *imgp, u_int mode);
 void pax_aslr_stack(struct proc *p, uintptr_t *addr);
 void pax_aslr_stack_adjust(struct proc *p, u_long *ssiz);
+void pax_init_aslr_workaround(void);
 
 /*
  * Log related functions

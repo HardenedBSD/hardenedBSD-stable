@@ -803,6 +803,9 @@ start_init(void *dummy)
 		 * to user mode as init!
 		 */
 		if ((error = sys_execve(td, &args)) == 0) {
+#ifdef PAX_ASLR
+			pax_init_aslr_workaround();
+#endif
 			mtx_unlock(&Giant);
 			return;
 		}

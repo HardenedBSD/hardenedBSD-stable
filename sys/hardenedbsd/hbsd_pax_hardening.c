@@ -347,3 +347,4 @@ pax_init_hardening(void *dummy __unused)
 }
 SYSINIT(pax_init_hardening, SI_SUB_PAX, SI_ORDER_ANY,
     pax_init_hardening, NULL);
+

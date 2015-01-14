@@ -212,7 +212,8 @@ static int pax_aslr_stack_len = PAX_ASLR_DELTA_STACK_MAX_LEN;
 static int pax_aslr_exec_len = PAX_ASLR_DELTA_EXEC_MAX_LEN;
 #else
 static int pax_aslr_mmap_len = PAX_ASLR_DELTA_MMAP_DEF_LEN;
-static int pax_aslr_stack_len = PAX_ASLR_DELTA_STACK_DEF_LEN;
+/* static int pax_aslr_stack_len = PAX_ASLR_DELTA_STACK_DEF_LEN; */
+static int pax_aslr_stack_len = 15; /* XXXOP github-issue: #104 */
 static int pax_aslr_exec_len = PAX_ASLR_DELTA_EXEC_DEF_LEN;
 #endif /* PAX_ASLR_MAX_SEC */
 
@@ -878,4 +879,29 @@ pax_aslr_setup_flags(struct image_params *imgp, u_int mode)
 	flags &= ~PAX_NOTE_NOASLR;
 
 	return (flags);
+}
+
+
+void
+pax_init_aslr_workaround(void)
+{
+	/*
+	 * XXXOP
+	 *
+	 * workaround init related problems...
+	 * by default use pax_aslr_stack, which is out of the range
+	 * and after init started up properly, bump it to default
+	 */
+
+	if (pax_aslr_stack_len != 15)
+		return;
+
+	printf("[PAX ASLR] init creation workaround applied. "
+	    "See github-issue: #104\n");
+	printf("[PAX ASLR] increase stack randomiztion from %d to %d\n",
+	    pax_aslr_stack_len, PAX_ASLR_DELTA_STACK_DEF_LEN);
+
+	pax_aslr_stack_len = PAX_ASLR_DELTA_STACK_DEF_LEN;
+	prison0.pr_hardening.hr_pax_aslr_stack_len =
+	    pax_aslr_stack_len;
 }
