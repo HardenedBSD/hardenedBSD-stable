@@ -329,11 +329,11 @@ pax_segvguard_init_prison(struct prison *pr)
 	}
 }
 
-u_int
-pax_segvguard_setup_flags(struct image_params *imgp, u_int mode)
+uint32_t
+pax_segvguard_setup_flags(struct image_params *imgp, uint32_t mode)
 {
 	struct prison *pr;
-	u_int flags, status;
+	uint32_t flags, status;
 
 	flags = 0;
 	status = 0;
@@ -405,7 +405,7 @@ pax_segvguard_update_flags_if_setuid(struct image_params *imgp, struct vnode *vn
 	status = pr->pr_hardening.hr_pax_segvguard_status;
 
 	if (status == PAX_FEATURE_OPTIN) {
-		u_int flags;
+		uint32_t flags;
 		struct vattr vap;
 
 		flags = imgp->proc->p_pax;
@@ -449,7 +449,7 @@ pax_segvguard_update_flags_if_setuid(struct image_params *imgp, struct vnode *vn
 static bool
 pax_segvguard_active(struct proc *proc)
 {
-	u_int flags;
+	uint32_t flags;
 
 	if (proc == NULL)
 		return (true);

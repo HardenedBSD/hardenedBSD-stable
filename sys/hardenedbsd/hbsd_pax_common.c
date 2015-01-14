@@ -70,6 +70,9 @@ __FBSDID("$FreeBSD$");
 
 #include <sys/pax.h>
 
+static int pax_validate_flags(uint32_t flags);
+static int pax_check_conflicting_modes(uint32_t mode);
+
 SYSCTL_NODE(_hardening, OID_AUTO, pax, CTLFLAG_RD, 0,
     "PaX (exploit mitigation) features.");
 
@@ -128,10 +131,30 @@ pax_proc_is_init(struct proc *p)
 	return (0);
 }
 
+static int
+pax_validate_flags(uint32_t flags)
+{
+
+	if ((flags & ~PAX_NOTE_ALL) != 0)
+		return (1);
+
+	return (0);
+}
+
+static int
+pax_check_conflicting_modes(uint32_t mode)
+{
+
+	if (((mode & PAX_NOTE_ALL_ENABLED) & ((mode & PAX_NOTE_ALL_DISABLED) >> 1)) != 0)
+		return (1);
+
+	return (0);
+}
+
 int
 pax_elf(struct image_params *imgp, uint32_t mode)
 {
-	u_int flags, flags_aslr, flags_segvuard, flags_hardening;
+	uint32_t flags, flags_aslr, flags_segvuard, flags_hardening;
 
 	flags = mode;
 	flags_aslr = flags_segvuard = flags_hardening = 0;
@@ -143,7 +166,7 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 		return (0);
 	}
 
-	if ((flags & ~PAX_NOTE_ALL) != 0) {
+	if (pax_validate_flags(flags) != 0) {
 		pax_log_internal(imgp->proc, __func__,
 		    "unknown paxflags: %x\n", flags);
 		pax_ulog_internal(NULL, "unknown paxflags: %x\n", flags);
@@ -151,7 +174,7 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 		return (ENOEXEC);
 	}
 
-	if (((mode & PAX_NOTE_ALL_ENABLED) & ((mode & PAX_NOTE_ALL_DISABLED) >> 1)) != 0) {
+	if (pax_check_conflicting_modes(mode) != 0) {
 		/*
 		 * indicate flags inconsistencies in dmesg and in user terminal
 		 */

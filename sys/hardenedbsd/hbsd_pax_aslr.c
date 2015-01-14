@@ -563,7 +563,7 @@ SYSINIT(pax_aslr, SI_SUB_PAX, SI_ORDER_SECOND, pax_aslr_sysinit, NULL);
 int
 pax_aslr_active(struct proc *p)
 {
-	u_int flags;
+	uint32_t flags;
 
 	pax_get_flags(p, &flags);
 
@@ -817,11 +817,11 @@ pax_aslr_execbase(struct proc *p, u_long *et_dyn_addr)
 	*et_dyn_addr += p->p_vmspace->vm_aslr_delta_exec;
 }
 
-u_int
-pax_aslr_setup_flags(struct image_params *imgp, u_int mode)
+uint32_t
+pax_aslr_setup_flags(struct image_params *imgp, uint32_t mode)
 {
 	struct prison *pr;
-	u_int flags, status;
+	uint32_t flags, status;
 
 	flags = 0;
 	status = 0;

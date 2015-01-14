@@ -575,7 +575,7 @@ struct proc {
 	rlim_t		p_cpulimit;	/* (c) Current CPU limit in seconds. */
 	signed char	p_nice;		/* (c) Process "nice" value. */
 	int		p_fibnum;	/* in this routing domain XXX MRT */
-	u_int		p_pax;		/* (b) PaX is enabled to this process */
+	uint32_t	p_pax;		/* (b) PaX is enabled to this process */
 	pid_t		p_reapsubtree;	/* (e) Pid of the direct child of the
 					       reaper which spawned
 					       our subtree. */
