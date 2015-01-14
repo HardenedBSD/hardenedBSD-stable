@@ -46,6 +46,7 @@ __FBSDID("$FreeBSD$");
 
 #include "opt_ddb.h"
 #include "opt_init_path.h"
+#include "opt_pax.h"
 
 #include <sys/param.h>
 #include <sys/kernel.h>
@@ -60,6 +61,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/mutex.h>
 #include <sys/syscallsubr.h>
 #include <sys/sysctl.h>
+#include <sys/pax.h>
 #include <sys/proc.h>
 #include <sys/racct.h>
 #include <sys/resourcevar.h>
@@ -502,6 +504,10 @@ proc0_init(void *dummy __unused)
 
 	strncpy(p->p_comm, "kernel", sizeof (p->p_comm));
 	strncpy(td->td_name, "swapper", sizeof (td->td_name));
+
+#if defined(PAX_ASLR) || defined(PAX_MPROTECT) || defined(PAX_HARDENING) || defined(PAX_SEGVGUARD)
+	p->p_pax = PAX_NOTE_ALL_DISABLED;
+#endif
 
 	callout_init_mtx(&p->p_itcallout, &p->p_mtx, 0);
 	callout_init_mtx(&p->p_limco, &p->p_mtx, 0);
