@@ -149,7 +149,6 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 	CTR3(KTR_PAX, "%s : flags = %x mode = %x",
 	    __func__, flags, mode);
 
-	imgp->pax_flags = flags;
 	imgp->proc->p_pax = flags;
 
 	return (0);
