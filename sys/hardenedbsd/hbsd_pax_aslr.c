@@ -800,7 +800,10 @@ pax_aslr_stack(struct proc *p, uintptr_t *addr)
 void
 pax_aslr_stack_adjust(struct proc *p, u_long *ssiz)
 {
-	
+
+	if (!pax_aslr_active(p))
+		return;
+
 	*ssiz += p->p_vmspace->vm_aslr_delta_stack;
 }
 
@@ -808,8 +811,10 @@ void
 pax_aslr_execbase(struct proc *p, u_long *et_dyn_addr)
 {
 
-	if (pax_aslr_active(p))
-		*et_dyn_addr += p->p_vmspace->vm_aslr_delta_exec;
+	if (!pax_aslr_active(p))
+		return;
+
+	*et_dyn_addr += p->p_vmspace->vm_aslr_delta_exec;
 }
 
 u_int
