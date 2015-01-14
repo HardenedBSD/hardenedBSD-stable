@@ -715,6 +715,10 @@ start_init(void *dummy)
 
 	vfs_mountroot();
 
+#if defined(PAX_ASLR) || defined(PAX_MPROTECT) || defined(PAX_HARDENING) || defined(PAX_SEGVGUARD)
+	p->p_pax = PAX_NOTE_ALL_DISABLED;
+#endif
+
 	/*
 	 * Need just enough stack to hold the faked-up "execve()" arguments.
 	 */
