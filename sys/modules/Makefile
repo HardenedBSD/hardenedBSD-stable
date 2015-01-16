@@ -438,7 +438,8 @@ _ti=		ti
 _txp=		txp
 .endif
 
-.if ${MK_SOURCELESS_UCODE} != "no" && ${MACHINE_CPUARCH} == "amd64"
+.if ${MK_SOURCELESS_UCODE} != "no" && ${MACHINE_CPUARCH} != "arm" && \
+	${MACHINE_ARCH} != "powerpc"
 _cxgbe=		cxgbe
 .endif
 
