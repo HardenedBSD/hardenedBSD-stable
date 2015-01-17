@@ -195,6 +195,7 @@ SUBDIR=	\
 	${_linprocfs} \
 	${_linsysfs} \
 	${_linux} \
+	${_linuxapi} \
 	lmc \
 	lpt \
 	mac_biba \
@@ -495,6 +496,7 @@ _ipoib=         ipoib
 _linprocfs=	linprocfs
 _linsysfs=	linsysfs
 _linux=		linux
+_linuxapi=	linuxapi
 _ndis=		ndis
 .if ${MK_CDDL} != "no" || defined(ALL_MODULES)
 _opensolaris=	opensolaris
