@@ -45,7 +45,7 @@ bs_protos(generic);
  * The bus space tag.  This is constant for all instances, so
  * we never have to explicitly "create" it.
  */
-static struct bus_space arm_base_bus_space = {
+static struct bus_space arm_base_bus_space __aligned(CACHE_LINE_SIZE) = {
 	/* privdata is whatever the implementer wants; unused in base tag */
 	.bs_privdata	= NULL,
 
