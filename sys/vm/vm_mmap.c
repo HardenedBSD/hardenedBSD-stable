@@ -443,7 +443,7 @@ map:
 	maxprot &= cap_maxprot;
 
 #ifdef PAX_ASLR
-	pax_aslr_mmap(td->td_proc, &addr, uap->addr, flags);
+	pax_aslr_mmap(td->td_proc, &addr, (vm_offset_t)uap->addr, flags);
 #endif
 	/* This relies on VM_PROT_* matching PROT_*. */
 	error = vm_mmap(&vms->vm_map, &addr, size, prot, maxprot,
