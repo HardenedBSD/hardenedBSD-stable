@@ -87,6 +87,7 @@ extern const char *pax_status_simple_str[];
  */
 int pax_elf(struct image_params *, uint32_t);
 void pax_get_flags(struct proc *p, uint32_t *flags);
+void pax_get_flags_td(struct thread *td, uint32_t *flags);
 struct prison *pax_get_prison(struct proc *p);
 struct prison *pax_get_prison_td(struct thread *td);
 void pax_init_prison(struct prison *pr);
