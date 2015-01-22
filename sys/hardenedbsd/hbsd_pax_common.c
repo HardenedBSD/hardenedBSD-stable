@@ -121,6 +121,13 @@ pax_get_flags(struct proc *p, uint32_t *flags)
 	*flags = p->p_pax;
 }
 
+void
+pax_get_flags_td(struct thread *td, uint32_t *flags)
+{
+
+	*flags = td->td_pax;
+}
+
 /*
  * Kernel process and init needs special handling
  * The init is the only one user-space process,
