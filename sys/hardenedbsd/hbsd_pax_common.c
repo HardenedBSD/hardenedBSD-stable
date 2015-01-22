@@ -122,14 +122,18 @@ pax_get_flags(struct proc *p, uint32_t *flags)
 }
 
 /*
- * Init needs special handling with higher entropy
- * stack randomization
+ * Kernel process and init needs special handling
+ * The init is the only one user-space process,
+ * which's parent is the kernel.
+ * Other processes with proc0 parent are kernel
+ * processes.
+ * The kernel itself (pid0) has NULL in the p_pptr.
  */
 int
-pax_proc_is_init(struct proc *p)
+pax_proc_is_special(struct proc *p)
 {
 	sx_slock(&proctree_lock);
-	if (p->p_pptr == &proc0 && p->p_pid == 1) {
+	if (p->p_pptr == &proc0 || p->p_pptr == NULL) {
 		CTR2(KTR_PAX, "%s : pid = %d",
 		    __func__, p->p_pid);
 		sx_sunlock(&proctree_lock);
@@ -169,7 +173,7 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 	flags = mode;
 	flags_aslr = flags_segvuard = flags_hardening = 0;
 
-	if (pax_proc_is_init(imgp->proc)) {
+	if (pax_proc_is_special(imgp->proc)) {
 		flags = PAX_NOTE_ALL_DISABLED;
 		imgp->proc->p_pax = flags;
 
