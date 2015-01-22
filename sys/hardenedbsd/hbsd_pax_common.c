@@ -104,6 +104,16 @@ pax_get_prison(struct proc *p)
 	return (p->p_ucred->cr_prison);
 }
 
+struct prison *
+pax_get_prison_td(struct thread *td)
+{
+
+	if (td == NULL || td->td_ucred == NULL)
+		return (&prison0);
+
+	return (td->td_ucred->cr_prison);
+}
+
 void
 pax_get_flags(struct proc *p, uint32_t *flags)
 {
