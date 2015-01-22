@@ -182,7 +182,7 @@ sysctl_pax_segvguard_status(SYSCTL_HANDLER_ARGS)
 	int val;
 	struct prison *pr;
 
-	pr = pax_get_prison(req->td->td_proc);
+	pr = pax_get_prison_td(req->td);
 
 	val = pr->pr_hardening.hr_pax_segvguard_status;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -212,7 +212,7 @@ sysctl_pax_segvguard_expiry(SYSCTL_HANDLER_ARGS)
 	int val;
 	struct prison *pr;
 
-	pr = pax_get_prison(req->td->td_proc);
+	pr = pax_get_prison_td(req->td);
 
 	val = pr->pr_hardening.hr_pax_segvguard_expiry;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -234,7 +234,7 @@ sysctl_pax_segvguard_suspension(SYSCTL_HANDLER_ARGS)
 	int val;
 	struct prison *pr;
 
-	pr = pax_get_prison(req->td->td_proc);
+	pr = pax_get_prison_td(req->td);
 
 	val = pr->pr_hardening.hr_pax_segvguard_suspension;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -256,7 +256,7 @@ sysctl_pax_segvguard_maxcrashes(SYSCTL_HANDLER_ARGS)
 	int val;
 	struct prison *pr;
 
-	pr = pax_get_prison(req->td->td_proc);
+	pr = pax_get_prison_td(req->td);
 
 	val = pr->pr_hardening.hr_pax_segvguard_maxcrashes;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -278,7 +278,7 @@ sysctl_pax_segvguard_debug(SYSCTL_HANDLER_ARGS)
 	int val;
 	struct prison *pr;
 
-	pr = pax_get_prison(req->td->td_proc);
+	pr = pax_get_prison_td(req->td);
 
 	val = pr->pr_hardening.hr_pax_segvguard_debug;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -485,7 +485,7 @@ pax_segvguard_add(struct thread *td, struct vnode *vn, sbintime_t sbt)
 		return (NULL);
 	}
 
-	pr = pax_get_prison(td->td_proc);
+	pr = pax_get_prison_td(td);
 
 	v = malloc(sizeof(struct pax_segvguard_entry), M_PAX, M_NOWAIT);
 	if (v == NULL)
@@ -572,7 +572,7 @@ pax_segvguard_segfault(struct thread *td, const char *name)
 	if (v == NULL)
 		return (EFAULT);
 
-	pr = pax_get_prison(td->td_proc);
+	pr = pax_get_prison_td(td);
 
 	if (pax_segvguard_active(td->td_proc) == false)
 		return (0);
