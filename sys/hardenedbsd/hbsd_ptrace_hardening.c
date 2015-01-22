@@ -104,7 +104,7 @@ sysctl_ptrace_hardening_status(SYSCTL_HANDLER_ARGS)
 	struct prison *pr;
 	int err, val;
 
-	pr = pax_get_prison(req->td->td_proc);
+	pr = pax_get_prison_td(req->td);
 
 	val = pr->pr_hardening.hr_pax_ptrace_hardening_status;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -134,7 +134,7 @@ sysctl_ptrace_hardening_gid(SYSCTL_HANDLER_ARGS)
 	int err;
 	long val;
 
-	pr = pax_get_prison(req->td->td_proc);
+	pr = pax_get_prison_td(req->td);
 
 	val = pr->pr_hardening.hr_pax_ptrace_hardening_gid;
 	err = sysctl_handle_long(oidp, &val, sizeof(long), req);
@@ -235,7 +235,7 @@ pax_ptrace_hardening(struct thread *td)
 	struct prison *pr;
 	int err;
 
-	pr = pax_get_prison(td->td_proc);
+	pr = pax_get_prison_td(td);
 
 	if (pr->pr_hardening.hr_pax_ptrace_hardening_status ==
 	    PAX_FEATURE_SIMPLE_DISABLED)
