@@ -288,7 +288,7 @@ sysctl_pax_aslr_status(SYSCTL_HANDLER_ARGS)
 	struct prison *pr;
 	int err, val;
 
-	pr = pax_get_prison(req->td->td_proc);
+	pr = pax_get_prison_td(req->td);
 
 	val = pr->pr_hardening.hr_pax_aslr_status;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -318,7 +318,7 @@ sysctl_pax_aslr_mmap(SYSCTL_HANDLER_ARGS)
 	struct prison *pr;
 	int err, val;
 
-	pr = pax_get_prison(req->td->td_proc);
+	pr = pax_get_prison_td(req->td);
 
 	val = pr->pr_hardening.hr_pax_aslr_mmap_len;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -343,7 +343,7 @@ sysctl_pax_aslr_stack(SYSCTL_HANDLER_ARGS)
 	struct prison *pr;
 	int err, val;
 
-	pr = pax_get_prison(req->td->td_proc);
+	pr = pax_get_prison_td(req->td);
 
 	val = pr->pr_hardening.hr_pax_aslr_stack_len;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -368,7 +368,7 @@ sysctl_pax_aslr_exec(SYSCTL_HANDLER_ARGS)
 	struct prison *pr;
 	int err, val;
 
-	pr = pax_get_prison(req->td->td_proc);
+	pr = pax_get_prison_td(req->td);
 
 	val = pr->pr_hardening.hr_pax_aslr_exec_len;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -430,7 +430,7 @@ sysctl_pax_aslr_compat_status(SYSCTL_HANDLER_ARGS)
 	struct prison *pr;
 	int err, val;
 
-	pr = pax_get_prison(req->td->td_proc);
+	pr = pax_get_prison_td(req->td);
 
 	val = pr->pr_hardening.hr_pax_aslr_compat_status;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -460,7 +460,7 @@ sysctl_pax_aslr_compat_mmap(SYSCTL_HANDLER_ARGS)
 	struct prison *pr;
 	int err, val;
 
-	pr = pax_get_prison(req->td->td_proc);
+	pr = pax_get_prison_td(req->td);
 
 	val = pr->pr_hardening.hr_pax_aslr_compat_mmap_len;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -485,7 +485,7 @@ sysctl_pax_aslr_compat_stack(SYSCTL_HANDLER_ARGS)
 	struct prison *pr;
 	int err, val;
 
-	pr = pax_get_prison(req->td->td_proc);
+	pr = pax_get_prison_td(req->td);
 
 	val = pr->pr_hardening.hr_pax_aslr_compat_stack_len;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -510,7 +510,7 @@ sysctl_pax_aslr_compat_exec(SYSCTL_HANDLER_ARGS)
 	struct prison *pr;
 	int err, val;
 
-	pr = pax_get_prison(req->td->td_proc);
+	pr = pax_get_prison_td(req->td);
 
 	val = pr->pr_hardening.hr_pax_aslr_compat_exec_len;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
