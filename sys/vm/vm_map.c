@@ -3281,6 +3281,11 @@ vmspace_fork(struct vmspace *vm1, vm_ooffset_t *fork_charge)
 	vm2->vm_taddr = vm1->vm_taddr;
 	vm2->vm_daddr = vm1->vm_daddr;
 	vm2->vm_maxsaddr = vm1->vm_maxsaddr;
+#ifdef PAX_ASLR
+	vm2->vm_aslr_delta_exec = vm1->vm_aslr_delta_exec;
+	vm2->vm_aslr_delta_mmap = vm1->vm_aslr_delta_mmap;
+	vm2->vm_aslr_delta_stack = vm1->vm_aslr_delta_stack;
+#endif
 	vm_map_lock(old_map);
 	if (old_map->busy)
 		vm_map_wait_busy(old_map);
