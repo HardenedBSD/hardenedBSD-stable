@@ -29,7 +29,6 @@ FILES=	DAEMON \
 	bsnmpd \
 	${_bthidd} \
 	${_casperd} \
-	ccd \
 	cleanvar \
 	cleartmp \
 	cron \
@@ -65,8 +64,6 @@ FILES=	DAEMON \
 	ipropd_master \
 	ipropd_slave \
 	ipsec \
-	iscsictl \
-	iscsid \
 	jail \
 	${_kadmind} \
 	${_kdc} \
@@ -171,6 +168,15 @@ _ubthidhci=	ubthidhci
 
 .if ${MK_CASPER} != "no"
 _casperd=	casperd
+.endif
+
+.if ${MK_CCD} != "no"
+FILES+=		ccd
+.endif
+
+.if ${MK_ISCSI} != "no"
+FILES+=		iscsictl
+FILES+=		iscsid
 .endif
 
 .if ${MK_NS_CACHING} != "no"
