@@ -46,7 +46,7 @@ SUBDIR=	\
 	ata \
 	ath \
 	ath_pci \
-	autofs \
+	${_autofs} \
 	${_auxio} \
 	${_bce} \
 	bfe \
@@ -377,6 +377,10 @@ SUBDIR=	\
 	${_zfs} \
 	zlib
 
+.if ${MK_AUTOFS} != "no" || defined(ALL_MODULES)
+_autofs=	autofs
+.endif
+
 .if ${MK_CRYPT} != "no" || defined(ALL_MODULES)
 .if exists(${.CURDIR}/../opencrypto)
 _crypto=	crypto
@@ -614,7 +618,10 @@ _qlxge=		qlxge
 _qlxgb=		qlxgb
 _qlxgbe=	qlxgbe
 _sfxge=		sfxge
+
+.if ${MK_BHYVE} != "no" || defined(ALL_MODULES)
 _vmm=		vmm
+.endif
 .endif
 
 .if ${MACHINE_CPUARCH} == "i386"

@@ -7,7 +7,6 @@
 LDIRS=	BSD_daemon \
 	FreeBSD_version \
 	IPv6 \
-	bhyve \
 	bootforth \
 	csh \
 	diskless \
@@ -41,7 +40,6 @@ XFILES=	BSD_daemon/FreeBSD.pfa \
 	FreeBSD_version/Makefile \
 	FreeBSD_version/README \
 	IPv6/USAGE \
-	bhyve/vmrun.sh \
 	bootforth/README \
 	bootforth/boot.4th \
 	bootforth/frames.4th \
@@ -198,6 +196,22 @@ XFILES=	BSD_daemon/FreeBSD.pfa \
 BINDIR= ${SHAREDIR}/examples
 
 NO_OBJ=
+
+.if ${MK_HAST} != "no"
+LDIRS+=		hast
+XFILES+=	hast/ucarp.sh \
+		hast/ucarp_down.sh \
+		hast/ucarp_up.sh \
+		hast/vip-down.sh \
+		hast/vip-up.sh
+.endif
+
+.if ${MACHINE_CPUARCH} == "amd64"
+.if ${MK_BHYVE} != "no"
+LDIRS+=		bhyve
+XFILES+=	bhyve/vmrun.sh
+.endif
+.endif
 
 # Define SHARED to indicate whether you want symbolic links to the system
 # source (``symlinks''), or a separate copy (``copies''); (latter useful
