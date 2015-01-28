@@ -571,7 +571,7 @@ pax_aslr_init_vmspace(struct proc *p)
 {
 	struct prison *pr;
 	struct vmspace *vm;
-	long rand_buf;
+	unsigned long rand_buf;
 
 	vm = p->p_vmspace;
 	KASSERT(vm != NULL, ("%s: vm is null", __func__));
