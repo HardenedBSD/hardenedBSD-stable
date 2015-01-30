@@ -876,7 +876,7 @@ digest_dynamic1(Obj_Entry *obj, int early, const Elf_Dyn **dyn_rpath,
     const Elf_Hashelt *hashtab;
     const Elf32_Word *hashval;
     Elf32_Word bkt, nmaskwords;
-    int bloom_size32;
+    unsigned int bloom_size32;
     int plttype = DT_REL;
 
     *dyn_rpath = NULL;
