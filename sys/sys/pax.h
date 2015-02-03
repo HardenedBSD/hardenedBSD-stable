@@ -1,7 +1,7 @@
 /*-
  * Copyright (c) 2006 Elad Efrat <elad@NetBSD.org>
  * Copyright (c) 2013-2015, by Oliver Pinter <oliver.pinter@hardenedbsd.org>
- * Copyright (c) 2014, by Shawn Webb <lattera at gmail.com>
+ * Copyright (c) 2014-2015 by Shawn Webb <shawn.webb@hardenedbsd.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,7 +32,7 @@
 #ifndef	__SYS_PAX_H
 #define	__SYS_PAX_H
 
-#define	__HardenedBSD_version	14
+#define	__HardenedBSD_version	15
 
 #if defined(_KERNEL) || defined(_WANT_PRISON)
 struct hardening_features {
@@ -166,15 +166,17 @@ int pax_ptrace_hardening(struct thread *td);
 
 #endif /* _KERNEL */
 
-#define PAX_NOTE_MPROTECT	0x00000001
-#define PAX_NOTE_NOMPROTECT	0x00000002
-#define PAX_NOTE_SEGVGUARD	0x00000004
-#define PAX_NOTE_NOSEGVGUARD	0x00000008
-#define PAX_NOTE_ASLR		0x00000010
-#define PAX_NOTE_NOASLR		0x00000020
+#define	PAX_NOTE_PAGEEXEC	0x00000001
+#define	PAX_NOTE_NOPAGEEXEC	0x00000002
+#define	PAX_NOTE_MPROTECT	0x00000004
+#define	PAX_NOTE_NOMPROTECT	0x00000008
+#define	PAX_NOTE_SEGVGUARD	0x00000010
+#define	PAX_NOTE_NOSEGVGUARD	0x00000020
+#define	PAX_NOTE_ASLR		0x00000040
+#define	PAX_NOTE_NOASLR		0x00000080
 
-#define PAX_NOTE_RESERVED0	0x40000000
-#define PAX_NOTE_FINALIZED	0x80000000
+#define	PAX_NOTE_RESERVED0	0x40000000
+#define	PAX_NOTE_FINALIZED	0x80000000
 
 #define PAX_NOTE_ALL_ENABLED	\
 			(PAX_NOTE_MPROTECT | PAX_NOTE_SEGVGUARD | PAX_NOTE_ASLR)
