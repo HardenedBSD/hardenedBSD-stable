@@ -381,11 +381,12 @@ pipe_dtor(struct pipe *dpipe)
 
 	ino = dpipe->pipe_ino;
 	funsetown(&dpipe->pipe_sigio);
-	if (dpipe->pipe_state & PIPE_NAMED) {
-		funsetown(&dpipe->pipe_peer->pipe_sigio);
-		pipeclose(dpipe->pipe_peer);
-	}
 	pipeclose(dpipe);
+	if (dpipe->pipe_state & PIPE_NAMED) {
+		dpipe = dpipe->pipe_peer;
+		funsetown(&dpipe->pipe_sigio);
+		pipeclose(dpipe);
+	}
 	if (ino != 0 && ino != (ino_t)-1)
 		free_unr(pipeino_unr, ino);
 }
