@@ -30,6 +30,8 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
+#include "opt_pax.h"
+
 #include <sys/param.h>
 #include <sys/cons.h>
 #include <sys/jail.h>
@@ -316,6 +318,9 @@ DB_SHOW_COMMAND(thread, db_show_thread)
 	    (void *)(td->td_kstack + td->td_kstack_pages * PAGE_SIZE - 1));
 	db_printf(" flags: %#x ", td->td_flags);
 	db_printf(" pflags: %#x\n", td->td_pflags);
+#ifdef PAX
+	db_printf(" pax_flags: %#x\n", td->td_pax);
+#endif
 	db_printf(" state: ");
 	switch (td->td_state) {
 	case TDS_INACTIVE:
@@ -423,6 +428,9 @@ DB_SHOW_COMMAND(proc, db_show_proc)
 	if (p->p_args != NULL)
 		db_printf(" arguments: %.*s\n", (int)p->p_args->ar_length,
 		    p->p_args->ar_args);
+#ifdef PAX
+	db_printf(" pax_flags: %#x\n", p->p_pax);
+#endif
 	db_printf(" threads: %d\n", p->p_numthreads);
 	FOREACH_THREAD_IN_PROC(p, td) {
 		dumpthread(p, td, 1);
