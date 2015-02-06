@@ -4649,6 +4649,44 @@ db_show_prison(struct prison *pr)
 		    ii == 0 ? "ip6.addr        =" : "                 ",
 		    ip6_sprintf(ip6buf, &pr->pr_ip6[ii]));
 #endif
+#ifdef PAX
+	db_printf(" pr_hardening = {\n");
+	db_printf(" .hr_pax_aslr_status             = %d\n",
+	    pr->pr_hardening.hr_pax_aslr_status);
+	db_printf(" .hr_pax_aslr_mmap_len           = %d\n",
+	    pr->pr_hardening.hr_pax_aslr_mmap_len);
+	db_printf(" .hr_pax_aslr_stack_len          = %d\n",
+	    pr->pr_hardening.hr_pax_aslr_stack_len);
+	db_printf(" .hr_pax_aslr_exec_len           = %d\n",
+	    pr->pr_hardening.hr_pax_aslr_exec_len);
+	db_printf(" .hr_pax_aslr_compat_status      = %d\n",
+	    pr->pr_hardening.hr_pax_aslr_compat_status);
+	db_printf(" .hr_pax_aslr_compat_mmap_len    = %d\n",
+	    pr->pr_hardening.hr_pax_aslr_compat_mmap_len);
+	db_printf(" .hr_pax_aslr_compat_stack_len   = %d\n",
+	    pr->pr_hardening.hr_pax_aslr_compat_stack_len);
+	db_printf(" .hr_pax_aslr_compat_exec_len    = %d\n",
+	    pr->pr_hardening.hr_pax_aslr_compat_exec_len);
+	db_printf(" .hr_pax_segvguard_status        = %d\n",
+	   pr->pr_hardening.hr_pax_segvguard_status);
+	db_printf(" .hr_pax_segvguard_debug         = %d\n",
+	   pr->pr_hardening.hr_pax_segvguard_debug);
+	db_printf(" .hr_pax_segvguard_expiry        = %d\n",
+	   pr->pr_hardening.hr_pax_segvguard_expiry);
+	db_printf(" .hr_pax_segvguard_suspension    = %d\n",
+	   pr->pr_hardening.hr_pax_segvguard_suspension);
+	db_printf(" .hr_pax_segvguard_maxcrashes    = %d\n",
+	   pr->pr_hardening.hr_pax_segvguard_maxcrashes);
+	db_printf(" .hr_pax_map32_enabled           = %d\n",
+	   pr->pr_hardening.hr_pax_map32_enabled);
+	db_printf(" .hr_pax_procfs_harden           = %d\n",
+	   pr->pr_hardening.hr_pax_procfs_harden);
+	db_printf(" .hr_pax_mprotect_exec           = %d\n",
+	   pr->pr_hardening.hr_pax_mprotect_exec);
+	db_printf(" .hr_pax_ptrace_hardening_status = %d\n",
+	   pr->pr_hardening.hr_pax_ptrace_hardening_status);
+	db_printf(" }\n");
+#endif
 }
 
 DB_SHOW_COMMAND(prison, db_show_prison_command)
