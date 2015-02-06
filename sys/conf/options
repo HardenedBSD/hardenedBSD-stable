@@ -930,6 +930,7 @@ RACCT		opt_global.h
 RCTL		opt_global.h
 
 # PaX-inspired hardening features
+PAX		opt_pax.h
 PAX_ASLR	opt_pax.h
 PAX_SYSCTLS	opt_pax.h
 PAX_SEGVGUARD	opt_pax.h

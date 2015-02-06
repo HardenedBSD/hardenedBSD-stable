@@ -382,7 +382,7 @@ do_execve(td, args, mac_p)
 	imgp->attr = &attr;
 	imgp->args = args;
 
-#if defined(PAX_ASLR) || defined(PAX_SEGVGUARD) || defined(PAX_MPROTECT)
+#ifdef PAX
 	error = pax_elf(imgp, 0);
 	if (error)
 		goto exec_fail;

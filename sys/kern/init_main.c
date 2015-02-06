@@ -480,7 +480,7 @@ proc0_init(void *dummy __unused)
 	p->p_flag = P_SYSTEM | P_INMEM;
 	p->p_flag2 = 0;
 	p->p_state = PRS_NORMAL;
-#if defined(PAX_ASLR) || defined(PAX_SEGVGUARD) || defined(PAX_NOEXEC)
+#ifdef PAX
 	p->p_pax = PAX_NOTE_ALL_DISABLED;
 #endif
 	knlist_init_mtx(&p->p_klist, &p->p_mtx);
@@ -500,7 +500,7 @@ proc0_init(void *dummy __unused)
 	td->td_flags = TDF_INMEM;
 	td->td_pflags = TDP_KTHREAD;
 	td->td_cpuset = cpuset_thread0();
-#if defined(PAX_ASLR) || defined(PAX_SEGVGUARD) || defined(PAX_NOEXEC)
+#ifdef PAX
 	td->td_pax = PAX_NOTE_ALL_DISABLED;
 #endif
 	prison0.pr_cpuset = cpuset_ref(td->td_cpuset);

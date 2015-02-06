@@ -297,7 +297,7 @@ prison0_init(void *data)
 #endif
 	prison0.pr_allow = PR_ALLOW_ALL;
 
-#if defined(PAX_ASLR) || defined(PAX_HARDENING) || defined(PAX_SEGVGUARD)
+#ifdef PAX
 	pax_init_prison(&prison0);
 #endif
 }
@@ -1318,7 +1318,7 @@ kern_jail_set(struct thread *td, struct uio *optuio, int flags)
 			goto done_releroot;
 		}
 
-#if defined(PAX_ASLR) || defined(PAX_HARDENING)
+#ifdef PAX
 		pax_init_prison(pr);
 #endif
 
