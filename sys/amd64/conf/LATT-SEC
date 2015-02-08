@@ -1,11 +1,6 @@
-include GENERIC
+include HARDENEDBSD
 
-# It makes sense to include ASLR in the LATT-ASLR kernel
-options PAX_ASLR
-options PAX_HARDENING
-options PAX_SYSCTLS
 options PAX_SEGVGUARD
-options KTR
 
 # For building bootable sparc64 media
 options GEOM_PART_VTOC8
@@ -15,8 +10,6 @@ options GEOM_PART_VTOC8
 nooptions WITNESS
 nooptions WITNESS_SKIPSPIN
 nooptions MALLOC_DEBUG_MAXZONES
-nooptions INVARIANTS
-nooptions INVARIANT_SUPPORT
 
 # Virtual networking for jails
 #options VIMAGE
