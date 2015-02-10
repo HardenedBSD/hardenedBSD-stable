@@ -62,6 +62,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/mutex.h>
 #include <sys/refcount.h>
 #include <sys/namei.h>
+#include <sys/pax.h>
 #include <sys/proc.h>
 #include <sys/procdesc.h>
 #include <sys/posix4.h>
@@ -85,10 +86,6 @@ __FBSDID("$FreeBSD$");
 #include <vm/vm.h>
 #include <vm/vm_extern.h>
 #include <vm/uma.h>
-
-#ifdef PAX_SEGVGUARD
-#include <sys/pax.h>
-#endif
 
 #include <sys/jail.h>
 
