@@ -1,0 +1,24 @@
+[201502011] Changed kernel knobs
+
+Added ``options PAX`` to enable the HardenedBSD framework.
+All other PAX_* knob depends on PAX knob.
+
+
+[20150131] Upgrading from systems before "HBSD: Revert the chacha20 import in full."
+
+After the "HBSD: Revert the chacha20 import in full." commit we lost the compatibility with
+the previous version, this means ABI break, and the system is unable to properly boot.
+In the background is the removed VM_INHERIT_ZERO flag, which was previously used in libc.
+
+The solution is to install the new world, before you booting to the new kernel.
+
+1. make buildworld kernel
+2. IMPORTANT: install world before you reboot
+2.1. mergemaster -p && make installworld && mergemaster
+3. reboot
+4. start in single user mode
+5. cd /usr/src
+6. make delete-old delete-old-libs
+
+And probably a full ports rebuild required too...
+
