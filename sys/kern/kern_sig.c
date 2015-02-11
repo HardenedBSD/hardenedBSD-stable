@@ -182,6 +182,7 @@ static int	set_core_nodump_flag = 0;
 SYSCTL_INT(_kern, OID_AUTO, nodump_coredump, CTLFLAG_RW, &set_core_nodump_flag,
 	0, "Enable setting the NODUMP flag on coredump files");
 
+#ifdef PAX_INSECURE_MODE
 #ifdef PAX_HARDENING
 static int	coredump_devctl = 0;
 #else
@@ -189,6 +190,7 @@ static int	coredump_devctl = 1;
 #endif
 SYSCTL_INT(_kern, OID_AUTO, coredump_devctl, CTLFLAG_RW, &coredump_devctl,
 	0, "Generate a devctl notification when processes coredump");
+#endif /* PAX_INSECURE_MODE */
 
 /*
  * Signal properties and actions.
@@ -3233,6 +3235,7 @@ out:
 	return (0);
 }
 
+#ifdef PAX_INSECURE_MODE
 static int
 coredump_sanitise_path(const char *path)
 {
@@ -3250,6 +3253,7 @@ coredump_sanitise_path(const char *path)
 
 	return (1);
 }
+#endif /* PAX_INSECURE_MODE */
 
 /*
  * Dump a process' core.  The main routine does some
@@ -3272,11 +3276,13 @@ coredump(struct thread *td)
 	void *rl_cookie;
 	off_t limit;
 	int compress;
+#ifdef PAX_INSECURE_MODE
 	char *data = NULL;
 	char *fullpath, *freepath = NULL;
 	size_t len;
 	static const char comm_name[] = "comm=";
 	static const char core_name[] = "core=";
+#endif
 
 #ifdef COMPRESS_USER_CORES
 	compress = compress_user_cores;
@@ -3362,6 +3368,7 @@ close:
 	error1 = vn_close(vp, FWRITE, cred, td);
 	if (error == 0)
 		error = error1;
+#ifdef PAX_INSECURE_MODE
 	else
 		goto out;
 	/*
@@ -3390,11 +3397,14 @@ close:
 	strlcat(data, fullpath, len);
 	devctl_notify("kernel", "signal", "coredump", data);
 out:
+#endif /* PAX_INSECURE_MODE */
 #ifdef AUDIT
 	audit_proc_coredump(td, name, error);
 #endif
+#ifdef PAX_INSECURE_MODE
 	free(freepath, M_TEMP);
 	free(data, M_TEMP);
+#endif
 	free(name, M_TEMP);
 	return (error);
 }
