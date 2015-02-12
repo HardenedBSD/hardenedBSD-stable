@@ -91,7 +91,6 @@ void pax_get_flags_td(struct thread *td, uint32_t *flags);
 struct prison *pax_get_prison(struct proc *p);
 struct prison *pax_get_prison_td(struct thread *td);
 void pax_init_prison(struct prison *pr);
-int pax_proc_is_special(struct proc *p);
 
 /*
  * ASLR related functions
