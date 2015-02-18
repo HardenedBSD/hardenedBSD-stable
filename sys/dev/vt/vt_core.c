@@ -763,7 +763,7 @@ vt_processkey(keyboard_t *kbd, struct vt_device *vd, int c)
 			return (0);
 		case PREV:
 			/* Switch to previous VT. */
-			c = (vw->vw_number - 1) % VT_MAXWINDOWS;
+			c = (vw->vw_number - 1 + VT_MAXWINDOWS) % VT_MAXWINDOWS;
 			vw = vd->vd_windows[c];
 			if (vw != NULL)
 				vt_proc_window_switch(vw);
