@@ -40,13 +40,14 @@
 #include <sys/jail.h>
 #include <machine/stdarg.h>
 
-static void pax_log_log(struct proc *p, struct thread *td,
+static void pax_log_log(struct proc *p, struct thread *td, uint64_t flags,
     const char *prefix, const char *fmt, va_list ap);
 static void pax_log_ulog(const char *prefix, const char *fmt, va_list ap);
 
 #define __HARDENING_LOG_TEMPLATE(MAIN, SUBJECT, prefix, name)		\
 void									\
-prefix##_log_##name(struct proc *p, const char* fmt, ...)		\
+prefix##_log_##name(struct proc *p, uint64_t flags,			\
+    const char* fmt, ...)						\
 {									\
 	const char *prefix = "["#MAIN" "#SUBJECT"]";			\
 	va_list args;							\
@@ -55,7 +56,7 @@ prefix##_log_##name(struct proc *p, const char* fmt, ...)		\
 		return;							\
 									\
 	va_start(args, fmt);						\
-	pax_log_log(p, NULL, prefix, fmt, args);			\
+	pax_log_log(p, NULL, flags, prefix, fmt, args);			\
 	va_end(args);							\
 }									\
 									\
@@ -184,7 +185,7 @@ sysctl_hardening_log_ulog(SYSCTL_HANDLER_ARGS)
 #endif
 
 static void
-pax_log_log(struct proc *p, struct thread *td,
+pax_log_log(struct proc *p, struct thread *td, uint64_t flags,
     const char *prefix, const char *fmt, va_list ap)
 {
 	struct sbuf *sb;
@@ -195,17 +196,26 @@ pax_log_log(struct proc *p, struct thread *td,
 
 	sbuf_printf(sb, "%s ", prefix);
 	sbuf_vprintf(sb, fmt, ap);
+	/* add new line, if required */
+	if ((flags & PAX_LOG_NO_NEWLINE) == 0)
+		sbuf_printf(sb, "\n");
+
+	if ((flags & PAX_LOG_SKIP_DETAILS) == PAX_LOG_SKIP_DETAILS)
+		goto _done;
 
 	/* additional informations */
-	/* start new line, indent the message ... */
-	sbuf_printf(sb, "\n -> ");
+	sbuf_printf(sb, " -> ");
 	if (p != NULL) {
+		if ((flags & PAX_LOG_P_COMM) == PAX_LOG_P_COMM)
+			sbuf_printf(sb, "p_comm: %s ", p->p_comm);
 		sbuf_printf(sb, "pid: %d ppid: %d ",
 		    p->p_pid, p->p_pptr->p_pid);
 	}
 	if (td != NULL) {
 		sbuf_printf(sb, "tid: %d ", td->td_tid);
 	}
+
+_done:
 	if (sbuf_finish(sb) != 0)
 		panic("%s: Could not generate message", __func__);
 

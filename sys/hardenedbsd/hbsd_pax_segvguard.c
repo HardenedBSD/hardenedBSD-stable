@@ -371,10 +371,10 @@ pax_segvguard_setup_flags(struct image_params *imgp, uint32_t mode)
 		if (mode & PAX_NOTE_NOSEGVGUARD) {
 			flags &= ~PAX_NOTE_SEGVGUARD;
 			flags |= PAX_NOTE_NOSEGVGUARD;
-			pax_log_segvguard(imgp->proc, "SEGVGUARD is opt-out, "
-			    "and executable explicitly disabled SEGVGUARD!\n");
-			pax_ulog_segvguard("SEGVGUARD is opt-out, and "
-			    "executable explicitly disabled SEGVGUARD!\n");
+			pax_log_segvguard(imgp->proc, PAX_LOG_DEFAULT,
+"SEGVGUARD is opt-out, and executable has explicitly disabled SEGVGUARD!");
+			pax_ulog_segvguard(
+"SEGVGUARD is opt-out, and executable has explicitly disabled SEGVGUARD!\n");
 		} else {
 			flags |= PAX_NOTE_SEGVGUARD;
 			flags &= ~PAX_NOTE_NOSEGVGUARD;
@@ -479,8 +479,8 @@ pax_segvguard_add(struct thread *td, struct vnode *vn, sbintime_t sbt)
 
 	error = vn_stat(vn, &sb, td->td_ucred, NOCRED, curthread);
 	if (error != 0) {
-		pax_log_segvguard(td->td_proc,
-		    "%s:%d stat error. Bailing.\n", __func__, __LINE__);
+		pax_log_segvguard(td->td_proc, PAX_LOG_DEFAULT,
+		    "%s:%d stat error. Bailing.", __func__, __LINE__);
 
 		return (NULL);
 	}
@@ -517,8 +517,8 @@ pax_segvguard_lookup(struct thread *td, struct vnode *vn)
 
 	error = vn_stat(vn, &sb, td->td_ucred, NOCRED, curthread);
 	if (error != 0) {
-		pax_log_segvguard(td->td_proc,
-		    "%s:%d stat error. Bailing.\n", __func__, __LINE__);
+		pax_log_segvguard(td->td_proc, PAX_LOG_DEFAULT,
+		    "%s:%d stat error. Bailing.", __func__, __LINE__);
 
 		return (NULL);
 	}
@@ -588,8 +588,8 @@ pax_segvguard_segfault(struct thread *td, const char *name)
 		pax_segvguard_add(td, v, sbt);
 	} else {
 		if (se->se_expiry < sbt && se->se_suspended <= sbt) {
-			pax_log_segvguard(td->td_proc,
-			    "[%s (%d)] Suspension expired.\n", name, td->td_proc->p_pid);
+			pax_log_segvguard(td->td_proc, PAX_LOG_DEFAULT,
+			    "[%s (%d)] Suspension expired.", name, td->td_proc->p_pid);
 			se->se_ncrashes = 1;
 			se->se_expiry = sbt + pr->pr_hardening.hr_pax_segvguard_expiry * SBT_1S;
 			se->se_suspended = 0;
@@ -600,8 +600,8 @@ pax_segvguard_segfault(struct thread *td, const char *name)
 		se->se_ncrashes++;
 
 		if (se->se_ncrashes >= pax_segvguard_maxcrashes) {
-			pax_log_segvguard(td->td_proc,
-			    "[%s (%d)] Suspending execution for %d seconds after %zu crashes.\n",
+			pax_log_segvguard(td->td_proc, PAX_LOG_DEFAULT,
+			    "[%s (%d)] Suspending execution for %d seconds after %zu crashes.",
 			    name, td->td_proc->p_pid,
 			    pax_segvguard_suspension, se->se_ncrashes);
 			se->se_suspended = sbt + pr->pr_hardening.hr_pax_segvguard_suspension * SBT_1S;
@@ -631,8 +631,8 @@ pax_segvguard_check(struct thread *td, struct vnode *v, const char *name)
 
 	if (se != NULL) {
 		if (se->se_expiry < sbt && se->se_suspended <= sbt) {
-			pax_log_segvguard(td->td_proc,
-			    "[%s (%d)] Suspension expired.\n",
+			pax_log_segvguard(td->td_proc, PAX_LOG_DEFAULT,
+			    "[%s (%d)] Suspension expired.",
 			    name, td->td_proc->p_pid);
 			pax_segvguard_remove(td, v);
 
@@ -640,8 +640,8 @@ pax_segvguard_check(struct thread *td, struct vnode *v, const char *name)
 		}
 
 		if (se->se_suspended > sbt) {
-			pax_log_segvguard(td->td_proc,
-			    "[%s (%d)] Preventing execution due to repeated segfaults.\n",
+			pax_log_segvguard(td->td_proc, PAX_LOG_DEFAULT,
+			    "[%s (%d)] Preventing execution due to repeated segfaults.",
 			    name, td->td_proc->p_pid);
 
 			return (EPERM);

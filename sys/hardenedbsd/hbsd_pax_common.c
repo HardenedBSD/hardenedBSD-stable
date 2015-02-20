@@ -193,8 +193,8 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 	flags_aslr = flags_segvuard = flags_hardening = 0;
 
 	if (pax_validate_flags(flags) != 0) {
-		pax_log_internal(imgp->proc, __func__,
-		    "unknown paxflags: %x\n", flags);
+		pax_log_internal(imgp->proc, PAX_LOG_DEFAULT,
+		    "unknown paxflags: %x", flags);
 		pax_ulog_internal(NULL, "unknown paxflags: %x\n", flags);
 
 		return (ENOEXEC);
@@ -204,8 +204,8 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 		/*
 		 * indicate flags inconsistencies in dmesg and in user terminal
 		 */
-		pax_log_internal(imgp->proc, __func__,
-		    "inconsistent paxflags: %x\n", flags);
+		pax_log_internal(imgp->proc, PAX_LOG_DEFAULT,
+		    "inconsistent paxflags: %x", flags);
 		pax_ulog_internal(NULL, "inconsistent paxflags: %x\n", flags);
 
 		return (ENOEXEC);
