@@ -244,7 +244,7 @@ pax_ptrace_hardening(struct thread *td)
 	err = pax_ptrace_allowed(pr, td->td_ucred);
 	if (err != 0) {
 		pax_log_ptrace_hardening(td->td_proc, PAX_LOG_DEFAULT,
-		    "forbidden ptrace call attempt from %ld user",
+		    "forbidden ptrace call attempt from %d user",
 		    td->td_ucred->cr_ruid);
 
 		return (err);
