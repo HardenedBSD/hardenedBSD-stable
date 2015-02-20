@@ -78,7 +78,7 @@ static void quoted_print(char *str);
 int
 main(int argc, char **argv)
 {
-	char *dot, *ep, *jname;
+	char *dot, *ep, *jname, *pname;
 	int c, i, jflags, jid, lastjid, pflags, spc;
 
 	jname = NULL;
@@ -166,20 +166,23 @@ main(int argc, char **argv)
 			    JP_USER);
 			add_param("path", NULL, (size_t)0, NULL, JP_USER);
 		}
-	} else
+	} else {
+		pflags &= ~PRINT_VERBOSE;
 		while (optind < argc)
 			add_param(argv[optind++], NULL, (size_t)0, NULL,
 			    JP_USER);
+	}
 
 	if (pflags & PRINT_SKIP) {
 		/* Check for parameters with jailsys parents. */
 		for (i = 0; i < nparams; i++) {
 			if ((params[i].jp_flags & JP_USER) &&
 			    (dot = strchr(params[i].jp_name, '.'))) {
-				*dot = 0;
-				param_parent[i] = add_param(params[i].jp_name,
+				pname = alloca((dot - params[i].jp_name) + 1);
+				strlcpy(pname, params[i].jp_name,
+				    (dot - params[i].jp_name) + 1);
+				param_parent[i] = add_param(pname,
 				    NULL, (size_t)0, NULL, JP_OPT);
-				*dot = '.';
 			}
 		}
 	}
