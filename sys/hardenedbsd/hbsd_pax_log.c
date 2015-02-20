@@ -40,51 +40,37 @@
 #include <sys/jail.h>
 #include <machine/stdarg.h>
 
+static void pax_log_log(struct proc *p, struct thread *td,
+    const char *prefix, const char *fmt, va_list ap);
+static void pax_log_ulog(const char *prefix, const char *fmt, va_list ap);
+
 #define __HARDENING_LOG_TEMPLATE(MAIN, SUBJECT, prefix, name)		\
 void									\
 prefix##_log_##name(struct proc *p, const char* fmt, ...)		\
 {									\
-	struct sbuf *sb;						\
+	const char *prefix = "["#MAIN" "#SUBJECT"]";			\
 	va_list args;							\
 									\
 	if (hardening_log_log == 0)					\
 		return;							\
 									\
-	sb = sbuf_new_auto();						\
-	if (sb == NULL)							\
-		panic("%s: Could not allocate memory", __func__);	\
-	sbuf_printf(sb, "["#MAIN" "#SUBJECT"] ");			\
 	va_start(args, fmt);						\
-	sbuf_vprintf(sb, fmt, args);					\
+	pax_log_log(p, NULL, prefix, fmt, args);			\
 	va_end(args);							\
-	if (sbuf_finish(sb) != 0)					\
-		panic("%s: Could not generate message", __func__);	\
-									\
-	printf("%s", sbuf_data(sb));					\
-	sbuf_delete(sb);						\
 }									\
 									\
 void									\
 prefix##_ulog_##name(const char* fmt, ...)				\
 {									\
-	struct sbuf *sb;						\
+	const char *prefix = "["#MAIN" "#SUBJECT"]";			\
 	va_list args;							\
 									\
 	if (hardening_log_ulog == 0)					\
 		return;							\
 									\
-	sb = sbuf_new_auto();						\
-	if (sb == NULL)							\
-		panic("%s: Could not allocate memory", __func__);	\
-	sbuf_printf(sb, "["#MAIN" "#SUBJECT"] ");			\
 	va_start(args, fmt);						\
-	sbuf_vprintf(sb, fmt, args);					\
+	pax_log_ulog(prefix, fmt, args);				\
 	va_end(args);							\
-	if (sbuf_finish(sb) != 0)					\
-		panic("%s: Could not generate message", __func__);	\
-									\
-	hbsd_uprintf("%s", sbuf_data(sb));				\
-	sbuf_delete(sb);						\
 }
 
 static int sysctl_hardening_log_log(SYSCTL_HANDLER_ARGS);
@@ -196,6 +182,54 @@ sysctl_hardening_log_ulog(SYSCTL_HANDLER_ARGS)
 	return (0);
 }
 #endif
+
+static void
+pax_log_log(struct proc *p, struct thread *td,
+    const char *prefix, const char *fmt, va_list ap)
+{
+	struct sbuf *sb;
+
+	sb = sbuf_new_auto();
+	if (sb == NULL)
+		panic("%s: Could not allocate memory", __func__);
+
+	sbuf_printf(sb, "%s ", prefix);
+	sbuf_vprintf(sb, fmt, ap);
+
+	/* additional informations */
+	/* start new line, indent the message ... */
+	sbuf_printf(sb, "\n -> ");
+	if (p != NULL) {
+		sbuf_printf(sb, "pid: %d ppid: %d ",
+		    p->p_pid, p->p_pptr->p_pid);
+	}
+	if (td != NULL) {
+		sbuf_printf(sb, "tid: %d ", td->td_tid);
+	}
+	if (sbuf_finish(sb) != 0)
+		panic("%s: Could not generate message", __func__);
+
+	printf("%s", sbuf_data(sb));
+	sbuf_delete(sb);
+}
+
+static void
+pax_log_ulog(const char *prefix, const char *fmt, va_list ap)
+{
+	struct sbuf *sb;
+
+	sb = sbuf_new_auto();
+	if (sb == NULL)
+		panic("%s: Could not allocate memory", __func__);
+
+	sbuf_printf(sb, "%s ", prefix);
+	sbuf_vprintf(sb, fmt, ap);
+	if (sbuf_finish(sb) != 0)
+		panic("%s: Could not generate message", __func__);
+
+	hbsd_uprintf("%s", sbuf_data(sb));				\
+	sbuf_delete(sb);
+}
 
 __HARDENING_LOG_TEMPLATE(PAX, INTERNAL, pax, internal);
 __HARDENING_LOG_TEMPLATE(PAX, ASLR, pax, aslr);
