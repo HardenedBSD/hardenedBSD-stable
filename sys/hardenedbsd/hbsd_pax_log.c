@@ -215,6 +215,7 @@ pax_log_log(struct proc *p, struct thread *td, uint64_t flags,
 		sbuf_printf(sb, "tid: %d ", td->td_tid);
 	}
 
+	sbuf_printf(sb, "\n");
 _done:
 	if (sbuf_finish(sb) != 0)
 		panic("%s: Could not generate message", __func__);
