@@ -503,7 +503,7 @@ proc0_init(void *dummy __unused)
 #ifdef PAX
 	td->td_pax = PAX_NOTE_ALL_DISABLED;
 #endif
-	prison0.pr_cpuset = cpuset_ref(td->td_cpuset);
+	prison0_init();
 	p->p_peers = 0;
 	p->p_leader = p;
 	p->p_reaper = p;
