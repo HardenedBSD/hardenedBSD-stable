@@ -52,6 +52,9 @@ __FBSDID("$FreeBSD$");
 #include <dev/uart/uart_bus.h>
 #include <dev/uart/uart_cpu.h>
 
+#include <dev/ofw/ofw_bus.h>
+#include <dev/ofw/ofw_bus_subr.h>
+
 #include <machine/bus.h>
 #include <machine/md_var.h>
 #include <machine/intr_machdep.h>
@@ -281,7 +284,6 @@ DEFINE_CLASS_1(pci, xlp_pci_driver, xlp_pci_methods, sizeof(struct pci_softc),
     pci_driver);
 DRIVER_MODULE(xlp_pci, pcib, xlp_pci_driver, pci_devclass, 0, 0);
 
-static devclass_t pcib_devclass;
 static struct rman irq_rman, port_rman, mem_rman, emul_rman;
 
 static void
@@ -328,8 +330,11 @@ static int
 xlp_pcib_probe(device_t dev)
 {
 
-	device_set_desc(dev, "XLP PCI bus");
-	return (BUS_PROBE_NOWILDCARD);
+	if (ofw_bus_is_compatible(dev, "netlogic,xlp-pci")) {
+		device_set_desc(dev, "XLP PCI bus");
+		return (BUS_PROBE_DEFAULT);
+	}
+	return (ENXIO);
 }
 
 static int
@@ -481,13 +486,6 @@ xlp_pcib_attach(device_t dev)
 	return (0);
 }
 
-static void
-xlp_pcib_identify(driver_t * driver, device_t parent)
-{
-
-	BUS_ADD_CHILD(parent, 0, "pcib", 0);
-}
-
 /*
  * XLS PCIe can have upto 4 links, and each link has its on IRQ
  * Find the link on which the device is on 
@@ -561,7 +559,7 @@ xlp_map_msi(device_t pcib, device_t dev, int irq, uint64_t *addr,
 }
 
 static void
-bridge_pcie_ack(int irq)
+bridge_pcie_ack(int irq, void *arg)
 {
 	uint32_t node,reg;
 	uint64_t base;
@@ -597,7 +595,6 @@ mips_platform_pcib_setup_intr(device_t dev, device_t child,
 {
 	int error = 0;
 	int xlpirq;
-	void *extra_ack;
 
 	error = rman_activate_resource(irq);
 	if (error)
@@ -656,12 +653,11 @@ mips_platform_pcib_setup_intr(device_t dev, device_t child,
 		xlpirq = PIC_PCIE_IRQ(link);
 	}
 
-	if (xlpirq >= PIC_PCIE_0_IRQ && xlpirq <= PIC_PCIE_3_IRQ)
-		extra_ack = bridge_pcie_ack;
-	else
-		extra_ack = NULL;
-	xlp_establish_intr(device_get_name(child), filt,
-	    intr, arg, xlpirq, flags, cookiep, extra_ack);
+	/* if it is for real PCIe, we need to ack at bridge too */
+	if (xlpirq >= PIC_PCIE_IRQ(0) && xlpirq <= PIC_PCIE_IRQ(3))
+		xlp_set_bus_ack(xlpirq, bridge_pcie_ack, NULL);
+	cpu_establish_hardintr(device_get_name(child), filt, intr, arg,
+	    xlpirq, flags, cookiep);
 
 	return (0);
 }
@@ -782,7 +778,6 @@ mips_pcib_route_interrupt(device_t bus, device_t dev, int pin)
 
 static device_method_t xlp_pcib_methods[] = {
 	/* Device interface */
-	DEVMETHOD(device_identify, xlp_pcib_identify),
 	DEVMETHOD(device_probe, xlp_pcib_probe),
 	DEVMETHOD(device_attach, xlp_pcib_attach),
 
@@ -815,4 +810,5 @@ static driver_t xlp_pcib_driver = {
 	1, /* no softc */
 };
 
-DRIVER_MODULE(pcib, nexus, xlp_pcib_driver, pcib_devclass, 0, 0);
+static devclass_t pcib_devclass;
+DRIVER_MODULE(xlp_pcib, simplebus, xlp_pcib_driver, pcib_devclass, 0, 0);
