@@ -371,10 +371,6 @@ pax_segvguard_setup_flags(struct image_params *imgp, uint32_t mode)
 		if (mode & PAX_NOTE_NOSEGVGUARD) {
 			flags &= ~PAX_NOTE_SEGVGUARD;
 			flags |= PAX_NOTE_NOSEGVGUARD;
-			pax_log_segvguard(imgp->proc, PAX_LOG_NO_PAX_FLAGS,
-			    "executable has explicitly disabled SEGVGUARD by policy!");
-			pax_ulog_segvguard(
-			    "executable has explicitly disabled SEGVGUARD by policy!\n");
 		} else {
 			flags |= PAX_NOTE_SEGVGUARD;
 			flags &= ~PAX_NOTE_NOSEGVGUARD;

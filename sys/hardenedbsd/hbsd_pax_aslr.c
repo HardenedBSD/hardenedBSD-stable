@@ -854,10 +854,6 @@ pax_aslr_setup_flags(struct image_params *imgp, uint32_t mode)
 		if (mode & PAX_NOTE_NOASLR) {
 			flags &= ~PAX_NOTE_ASLR;
 			flags |= PAX_NOTE_NOASLR;
-			pax_log_aslr(imgp->proc, PAX_LOG_NO_PAX_FLAGS,
-			    "executable has explicitly disabled ASLR by policy!");
-			pax_ulog_aslr(
-			    "executable has explicitly disabled ASLR by policy!\n");
 		} else {
 			flags |= PAX_NOTE_ASLR;
 			flags &= ~PAX_NOTE_NOASLR;
