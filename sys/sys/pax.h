@@ -125,6 +125,10 @@ void pax_aslr_stack_adjust(struct proc *p, u_long *ssiz);
 #define	PAX_LOG_NO_NEWLINE	0x2
 #define	PAX_LOG_P_COMM		0x4
 
+void pax_printf_flags(struct proc *p, uint64_t flags);
+void pax_printf_flags_td(struct thread *td, uint64_t flags);
+void pax_db_printf_flags(struct proc *p, uint64_t flags);
+void pax_db_printf_flags_td(struct thread *td, uint64_t flags);
 int hbsd_uprintf(const char *fmt, ...) __printflike(1, 2);
 void pax_log_internal(struct proc *, uint64_t flags, const char *fmt, ...) __printflike(3, 4);
 void pax_ulog_internal(const char *fmt, ...) __printflike(1, 2);
@@ -138,6 +142,7 @@ void pax_log_segvguard(struct proc *, uint64_t flags, const char *fmt, ...) __pr
 void pax_ulog_segvguard(const char *fmt, ...) __printflike(1, 2);
 void pax_log_ptrace_hardening(struct proc *, uint64_t flags, const char *fmt, ...) __printflike(3, 4);
 void pax_ulog_ptrace_hardening(const char *fmt, ...) __printflike(1, 2);
+
 
 /*
  * SegvGuard related functions

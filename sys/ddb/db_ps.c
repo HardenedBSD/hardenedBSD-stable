@@ -36,6 +36,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/cons.h>
 #include <sys/jail.h>
 #include <sys/kdb.h>
+#include <sys/pax.h>
 #include <sys/proc.h>
 #include <sys/sysent.h>
 #include <sys/systm.h>
@@ -319,7 +320,7 @@ DB_SHOW_COMMAND(thread, db_show_thread)
 	db_printf(" flags: %#x ", td->td_flags);
 	db_printf(" pflags: %#x\n", td->td_pflags);
 #ifdef PAX
-	db_printf(" pax_flags: %#x\n", td->td_pax);
+	pax_db_printf_flags_td(td, PAX_LOG_DEFAULT);
 #endif
 	db_printf(" state: ");
 	switch (td->td_state) {
@@ -429,7 +430,7 @@ DB_SHOW_COMMAND(proc, db_show_proc)
 		db_printf(" arguments: %.*s\n", (int)p->p_args->ar_length,
 		    p->p_args->ar_args);
 #ifdef PAX
-	db_printf(" pax_flags: %#x\n", p->p_pax);
+	pax_db_printf_flags(p, PAX_LOG_DEFAULT);
 #endif
 	db_printf(" threads: %d\n", p->p_numthreads);
 	FOREACH_THREAD_IN_PROC(p, td) {

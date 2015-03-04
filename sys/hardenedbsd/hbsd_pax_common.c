@@ -279,3 +279,4 @@ pax_init_prison(struct prison *pr)
 	pax_aslr_init_prison32(pr);
 #endif
 }
+

@@ -27,6 +27,7 @@
  */
 
 #include "opt_pax.h"
+#include "opt_ddb.h"
 
 #include <sys/cdefs.h>
 
@@ -40,9 +41,48 @@
 #include <sys/jail.h>
 #include <machine/stdarg.h>
 
+#ifdef DDB
+#include <ddb/ddb.h>
+#endif
+
 static void pax_log_log(struct proc *p, struct thread *td, uint64_t flags,
     const char *prefix, const char *fmt, va_list ap);
 static void pax_log_ulog(const char *prefix, const char *fmt, va_list ap);
+
+#define PAX_LOG_FEATURES_STRING		\
+		    "\020"		\
+		    "\001PAGEEXEC"	\
+		    "\002NOPAGEEXEC"	\
+		    "\003MPROTECT"	\
+		    "\004NOMPROTECT"	\
+		    "\005SEGVGUARD"	\
+		    "\006NOSEGVGUARD"	\
+		    "\007ASLR"		\
+		    "\010NOASLR"	\
+		    "\011<f8>"		\
+		    "\012<f9>"		\
+		    "\013<f10>"		\
+		    "\014<f11>"		\
+		    "\015<f12>"		\
+		    "\016<f13>"		\
+		    "\017<f14>"		\
+		    "\020<f15>"		\
+		    "\021<f16>"		\
+		    "\022<f17>"		\
+		    "\023<f18>"		\
+		    "\024<f19>"		\
+		    "\025<f20>"		\
+		    "\026<f21>"		\
+		    "\027<f22>"		\
+		    "\030<f23>"		\
+		    "\031<f24>"		\
+		    "\032<f25>"		\
+		    "\033<f26>"		\
+		    "\034<f27>"		\
+		    "\035<f28>"		\
+		    "\036<f29>"		\
+		    "\037<f30>"		\
+		    "\040<f31>"
 
 #define __HARDENING_LOG_TEMPLATE(MAIN, SUBJECT, prefix, name)		\
 void									\
@@ -210,6 +250,7 @@ pax_log_log(struct proc *p, struct thread *td, uint64_t flags,
 			sbuf_printf(sb, "p_comm: %s ", p->p_comm);
 		sbuf_printf(sb, "pid: %d ppid: %d ",
 		    p->p_pid, p->p_pptr->p_pid);
+		sbuf_printf(sb, "pax flags: %b ", p->p_pax, PAX_LOG_FEATURES_STRING);
 	}
 	if (td != NULL) {
 		sbuf_printf(sb, "tid: %d ", td->td_tid);
@@ -241,6 +282,47 @@ pax_log_ulog(const char *prefix, const char *fmt, va_list ap)
 	hbsd_uprintf("%s", sbuf_data(sb));				\
 	sbuf_delete(sb);
 }
+
+void
+pax_printf_flags(struct proc *p, uint64_t flags)
+{
+
+	if (p != NULL) {
+		printf("pax flags: %b%c", p->p_pax, PAX_LOG_FEATURES_STRING,
+		((flags & PAX_LOG_NO_NEWLINE) == PAX_LOG_NO_NEWLINE) ? '\n' : ' ');
+	}
+}
+
+void
+pax_printf_flags_td(struct thread *td, uint64_t flags)
+{
+
+	if (td != NULL) {
+		printf("pax flags: %b%c", td->td_pax, PAX_LOG_FEATURES_STRING,
+		((flags & PAX_LOG_NO_NEWLINE) == PAX_LOG_NO_NEWLINE) ? '\n' : ' ');
+	}
+}
+
+void
+pax_db_printf_flags(struct proc *p, uint64_t flags)
+{
+
+	if (p != NULL) {
+		db_printf("pax flags: %b%c", p->p_pax, PAX_LOG_FEATURES_STRING,
+		((flags & PAX_LOG_NO_NEWLINE) == PAX_LOG_NO_NEWLINE) ? '\n' : ' ');
+	}
+}
+
+void
+pax_db_printf_flags_td(struct thread *td, uint64_t flags)
+{
+
+	if (td != NULL) {
+		db_printf("pax flags: %b%c", td->td_pax, PAX_LOG_FEATURES_STRING,
+		((flags & PAX_LOG_NO_NEWLINE) == PAX_LOG_NO_NEWLINE) ? '\n' : ' ');
+	}
+}
+
 
 __HARDENING_LOG_TEMPLATE(PAX, INTERNAL, pax, internal);
 __HARDENING_LOG_TEMPLATE(PAX, ASLR, pax, aslr);
