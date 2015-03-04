@@ -250,7 +250,8 @@ pax_log_log(struct proc *p, struct thread *td, uint64_t flags,
 			sbuf_printf(sb, "p_comm: %s ", p->p_comm);
 		sbuf_printf(sb, "pid: %d ppid: %d ",
 		    p->p_pid, p->p_pptr->p_pid);
-		sbuf_printf(sb, "pax flags: %b ", p->p_pax, PAX_LOG_FEATURES_STRING);
+		if ((flags & PAX_LOG_NO_PAX_FLAGS) != PAX_LOG_NO_PAX_FLAGS)
+			sbuf_printf(sb, "pax flags: %b ", p->p_pax, PAX_LOG_FEATURES_STRING);
 	}
 	if (td != NULL) {
 		sbuf_printf(sb, "tid: %d ", td->td_tid);
