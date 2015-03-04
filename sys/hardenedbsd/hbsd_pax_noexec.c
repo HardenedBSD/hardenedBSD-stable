@@ -275,10 +275,10 @@ pax_pageexec_setup_flags(struct image_params *imgp, u_int mode)
 		if (mode & PAX_NOTE_NOPAGEEXEC) {
 			flags &= ~PAX_NOTE_PAGEEXEC;
 			flags |= PAX_NOTE_NOPAGEEXEC;
-			pax_log_pageexec(imgp->proc, "PAGEEXEC is opt-out, and "
-			    "executable explicitly disabled PAGEEXEC!\n");
-			pax_ulog_pageexec("PAGEEXEC is opt-out, and executable "
-			    "explicitly disabled PAGEEXEC!\n");
+			pax_log_pageexec(imgp->proc, PAX_LOG_P_COMM,
+"PAGEEXEC is opt-out, and executable explicitly disabled PAGEEXEC!");
+			pax_ulog_pageexec(
+"PAGEEXEC is opt-out, and executable explicitly disabled PAGEEXEC!\n");
 		} else {
 			flags |= PAX_NOTE_PAGEEXEC;
 			flags &= ~PAX_NOTE_NOPAGEEXEC;
