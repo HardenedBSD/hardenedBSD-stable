@@ -219,8 +219,8 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 	flags_segvuard = pax_segvguard_setup_flags(imgp, mode);
 #endif
 
-#ifdef PAX_HARDENING_noyet
-	flags_segvuard = pax_hardening_setup_flags(imgp, mode);
+#ifdef PAX_HARDENING_notyet
+	flags_hardening = pax_hardening_setup_flags(imgp, mode);
 #endif
 
 	flags = flags_aslr | flags_segvuard | flags_hardening;
