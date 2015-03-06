@@ -290,7 +290,8 @@ pax_printf_flags(struct proc *p, uint64_t flags)
 
 	if (p != NULL) {
 		printf("pax flags: %b%c", p->p_pax, PAX_LOG_FEATURES_STRING,
-		((flags & PAX_LOG_NO_NEWLINE) == PAX_LOG_NO_NEWLINE) ? '\n' : ' ');
+		    ((flags & PAX_LOG_NO_NEWLINE) == PAX_LOG_NO_NEWLINE) ?
+		    ' ' : '\n');
 	}
 }
 
@@ -300,7 +301,8 @@ pax_printf_flags_td(struct thread *td, uint64_t flags)
 
 	if (td != NULL) {
 		printf("pax flags: %b%c", td->td_pax, PAX_LOG_FEATURES_STRING,
-		((flags & PAX_LOG_NO_NEWLINE) == PAX_LOG_NO_NEWLINE) ? '\n' : ' ');
+		    ((flags & PAX_LOG_NO_NEWLINE) == PAX_LOG_NO_NEWLINE) ?
+		    ' ' : '\n');
 	}
 }
 
@@ -310,7 +312,8 @@ pax_db_printf_flags(struct proc *p, uint64_t flags)
 
 	if (p != NULL) {
 		db_printf("pax flags: %b%c", p->p_pax, PAX_LOG_FEATURES_STRING,
-		((flags & PAX_LOG_NO_NEWLINE) == PAX_LOG_NO_NEWLINE) ? '\n' : ' ');
+		    ((flags & PAX_LOG_NO_NEWLINE) == PAX_LOG_NO_NEWLINE) ?
+		    ' ' : '\n');
 	}
 }
 
@@ -320,7 +323,8 @@ pax_db_printf_flags_td(struct thread *td, uint64_t flags)
 
 	if (td != NULL) {
 		db_printf("pax flags: %b%c", td->td_pax, PAX_LOG_FEATURES_STRING,
-		((flags & PAX_LOG_NO_NEWLINE) == PAX_LOG_NO_NEWLINE) ? '\n' : ' ');
+		    ((flags & PAX_LOG_NO_NEWLINE) == PAX_LOG_NO_NEWLINE) ?
+		    ' ' : '\n');
 	}
 }
 
