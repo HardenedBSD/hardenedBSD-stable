@@ -35,6 +35,7 @@
 #include <sys/systm.h>
 #include <sys/types.h>
 #include <sys/kernel.h>
+#include <sys/imgact.h>
 #include <sys/pax.h>
 #include <sys/proc.h>
 #include <sys/sbuf.h>
@@ -225,6 +226,64 @@ sysctl_hardening_log_ulog(SYSCTL_HANDLER_ARGS)
 #endif
 
 static void
+_pax_log_prefix(struct sbuf *sb, uint64_t flags, const char *prefix)
+{
+
+	sbuf_printf(sb, "%s ", prefix);
+}
+
+static void
+_pax_log_indent(struct sbuf *sb, uint64_t flags)
+{
+
+	if ((flags & PAX_LOG_NO_INDENT) != PAX_LOG_NO_INDENT)
+		sbuf_printf(sb, "\n -> ");
+}
+
+static void
+_pax_log_proc_details(struct sbuf *sb, uint64_t flags, struct proc *p)
+{
+
+	if (p != NULL) {
+		if ((flags & PAX_LOG_P_COMM) == PAX_LOG_P_COMM)
+			sbuf_printf(sb, "p_comm: %s ", p->p_comm);
+
+		sbuf_printf(sb, "pid: %d ", p->p_pid);
+		sbuf_printf(sb, "ppid: %d ", p->p_pptr->p_pid);
+
+		if ((flags & PAX_LOG_NO_P_PAX) != PAX_LOG_NO_P_PAX)
+			sbuf_printf(sb, "p_pax: 0x%b ", p->p_pax, PAX_LOG_FEATURES_STRING);
+	}
+}
+
+static void
+_pax_log_thread_details(struct sbuf *sb, uint64_t flags, struct thread *td)
+{
+
+	if (td != NULL) {
+		sbuf_printf(sb, "tid: %d ", td->td_tid);
+	}
+}
+
+static void
+_pax_log_details_end(struct sbuf *sb)
+{
+
+	sbuf_printf(sb, "\n");
+}
+
+static void
+_pax_log_imgp_details(struct sbuf *sb, uint64_t flags, struct image_params *imgp)
+{
+
+	if (imgp != NULL && imgp->args != NULL)
+		if (imgp->args->fname)
+			sbuf_printf(sb, "fname: %s ",
+			    imgp->args->fname);
+}
+
+
+static void
 pax_log_log(struct proc *p, struct thread *td, uint64_t flags,
     const char *prefix, const char *fmt, va_list ap)
 {
@@ -234,31 +293,16 @@ pax_log_log(struct proc *p, struct thread *td, uint64_t flags,
 	if (sb == NULL)
 		panic("%s: Could not allocate memory", __func__);
 
-	sbuf_printf(sb, "%s ", prefix);
+	_pax_log_prefix(sb, flags, prefix);
+
 	sbuf_vprintf(sb, fmt, ap);
-	/* add new line, if required */
-	if ((flags & PAX_LOG_NO_NEWLINE) == 0)
-		sbuf_printf(sb, "\n");
-
-	if ((flags & PAX_LOG_SKIP_DETAILS) == PAX_LOG_SKIP_DETAILS)
-		goto _done;
-
-	/* additional informations */
-	sbuf_printf(sb, " -> ");
-	if (p != NULL) {
-		if ((flags & PAX_LOG_P_COMM) == PAX_LOG_P_COMM)
-			sbuf_printf(sb, "p_comm: %s ", p->p_comm);
-		sbuf_printf(sb, "pid: %d ppid: %d ",
-		    p->p_pid, p->p_pptr->p_pid);
-		if ((flags & PAX_LOG_NO_PAX_FLAGS) != PAX_LOG_NO_PAX_FLAGS)
-			sbuf_printf(sb, "pax flags: 0x%b ", p->p_pax, PAX_LOG_FEATURES_STRING);
-	}
-	if (td != NULL) {
-		sbuf_printf(sb, "tid: %d ", td->td_tid);
+	if ((flags & PAX_LOG_SKIP_DETAILS) != PAX_LOG_SKIP_DETAILS) {
+		_pax_log_indent(sb, flags);
+		_pax_log_proc_details(sb, flags, p);
+		_pax_log_thread_details(sb, flags, td);
+		_pax_log_details_end(sb);
 	}
 
-	sbuf_printf(sb, "\n");
-_done:
 	if (sbuf_finish(sb) != 0)
 		panic("%s: Could not generate message", __func__);
 
@@ -335,3 +379,40 @@ __HARDENING_LOG_TEMPLATE(PAX, PAGEEXEC, pax, pageexec);
 __HARDENING_LOG_TEMPLATE(PAX, MPROTECT, pax, mprotect);
 __HARDENING_LOG_TEMPLATE(PAX, SEGVGUARD, pax, segvguard);
 __HARDENING_LOG_TEMPLATE(PAX, PTRACE_HARDENING, pax, ptrace_hardening);
+
+
+void
+pax_log_internal_imgp(struct image_params *imgp, uint64_t flags, const char* fmt, ...)
+{
+	const char *prefix = "[PAX INTERNAL]";
+	struct sbuf *sb;
+	va_list args;
+
+	KASSERT(imgp != NULL, ("%s: imgp == NULL", __func__));
+
+	if (hardening_log_log == 0)
+		return;
+
+	sb = sbuf_new_auto();
+	if (sb == NULL)
+		panic("%s: Could not allocate memory", __func__);
+
+	_pax_log_prefix(sb, flags, prefix);
+
+	va_start(args, fmt);
+	sbuf_vprintf(sb, fmt, args);
+	va_end(args);
+
+	if ((flags & PAX_LOG_SKIP_DETAILS) != PAX_LOG_SKIP_DETAILS) {
+		_pax_log_indent(sb, flags);
+		_pax_log_imgp_details(sb, flags, imgp);
+		_pax_log_proc_details(sb, flags, imgp->proc);
+		_pax_log_details_end(sb);
+	}
+
+	if (sbuf_finish(sb) != 0)
+		panic("%s: Could not generate message", __func__);
+
+	printf("%s", sbuf_data(sb));
+	sbuf_delete(sb);
+}

@@ -120,11 +120,12 @@ void pax_aslr_stack_adjust(struct proc *p, u_long *ssiz);
  * Log related functions
  */
 
-#define	PAX_LOG_DEFAULT		0x0
-#define	PAX_LOG_SKIP_DETAILS	0x1
-#define	PAX_LOG_NO_NEWLINE	0x2
-#define	PAX_LOG_P_COMM		0x4
-#define	PAX_LOG_NO_PAX_FLAGS	0x5
+#define	PAX_LOG_DEFAULT		0x00000000
+#define	PAX_LOG_SKIP_DETAILS	0x00000001
+#define	PAX_LOG_NO_NEWLINE	0x00000002
+#define	PAX_LOG_P_COMM		0x00000004
+#define	PAX_LOG_NO_P_PAX	0x00000008
+#define	PAX_LOG_NO_INDENT	0x00000010
 
 void pax_printf_flags(struct proc *p, uint64_t flags);
 void pax_printf_flags_td(struct thread *td, uint64_t flags);
@@ -132,6 +133,7 @@ void pax_db_printf_flags(struct proc *p, uint64_t flags);
 void pax_db_printf_flags_td(struct thread *td, uint64_t flags);
 int hbsd_uprintf(const char *fmt, ...) __printflike(1, 2);
 void pax_log_internal(struct proc *, uint64_t flags, const char *fmt, ...) __printflike(3, 4);
+void pax_log_internal_imgp(struct image_params *imgp, uint64_t flags, const char* fmt, ...) __printflike(3, 4);
 void pax_ulog_internal(const char *fmt, ...) __printflike(1, 2);
 void pax_log_aslr(struct proc *, uint64_t flags, const char *fmt, ...) __printflike(3, 4);
 void pax_ulog_aslr(const char *fmt, ...) __printflike(1, 2);
