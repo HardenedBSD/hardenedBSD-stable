@@ -193,7 +193,7 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 	flags_aslr = flags_segvuard = flags_hardening = flags_mprotect = flags_pageexec = 0;
 
 	if (pax_validate_flags(flags) != 0) {
-		pax_log_internal(imgp->proc, PAX_LOG_DEFAULT,
+		pax_log_internal_imgp(imgp, PAX_LOG_DEFAULT,
 		    "unknown paxflags: %x", flags);
 		pax_ulog_internal(NULL, "unknown paxflags: %x\n", flags);
 
@@ -204,7 +204,7 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 		/*
 		 * indicate flags inconsistencies in dmesg and in user terminal
 		 */
-		pax_log_internal(imgp->proc, PAX_LOG_DEFAULT,
+		pax_log_internal_imgp(imgp, PAX_LOG_DEFAULT,
 		    "inconsistent paxflags: %x", flags);
 		pax_ulog_internal(NULL, "inconsistent paxflags: %x\n", flags);
 
@@ -239,7 +239,7 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 	 * if we disable features with secadm, print out a warning
 	 */
 	if (mode != 0) {
-		pax_log_internal(imgp->proc, PAX_LOG_DEFAULT,
+		pax_log_internal_imgp(imgp, PAX_LOG_DEFAULT,
 		   "the process has explicitly disabled features");
 	}
 
