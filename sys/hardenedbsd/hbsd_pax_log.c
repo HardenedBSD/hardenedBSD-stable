@@ -277,7 +277,7 @@ _pax_log_imgp_details(struct sbuf *sb, uint64_t flags, struct image_params *imgp
 {
 
 	if (imgp != NULL && imgp->args != NULL)
-		if (imgp->args->fname)
+		if (imgp->args->fname != NULL)
 			sbuf_printf(sb, "fname: %s ",
 			    imgp->args->fname);
 }
@@ -406,6 +406,7 @@ pax_log_internal_imgp(struct image_params *imgp, uint64_t flags, const char* fmt
 	if ((flags & PAX_LOG_SKIP_DETAILS) != PAX_LOG_SKIP_DETAILS) {
 		_pax_log_indent(sb, flags);
 		_pax_log_imgp_details(sb, flags, imgp);
+		_pax_log_indent(sb, flags);
 		_pax_log_proc_details(sb, flags, imgp->proc);
 		_pax_log_details_end(sb);
 	}
