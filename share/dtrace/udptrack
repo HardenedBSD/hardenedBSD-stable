@@ -26,21 +26,28 @@
  *
  * $FreeBSD$
  *
- * The tcpstate D script shows TCP sockets transitioning between states.
+ * The udptrack D script shows various information about UDP
+ * data that are sent and received on the host.
  *
- * Usage: tcpstate
+ * Usage: udptrack
  */
 
 #pragma D option quiet
-BEGIN
+udp:kernel::receive
 {
-	printf("Old State\t\tNew State\n");
+	printf("Received %d bytes of data from %s:%d\n",
+	       args[4]->udp_length,
+	       args[2]->ip_saddr,
+	       args[4]->udp_sport);
+	tracemem(args[4]->udp_hdr, 64);
 }
 
-tcp:kernel::state-change
+udp:kernel::send
 {
-	newstate = args[3]->tcps_state;
-	oldstate = args[5]->tcps_state;
-	printf("%s\t\t%s\n", tcp_state_string[oldstate],
-			     tcp_state_string[newstate]);
+	printf("Sent %d bytes of data to %s:%d\n", 
+	       args[4]->udp_length,
+	       args[2]->ip_daddr,
+	       args[4]->udp_dport);
+	tracemem(args[4]->udp_hdr, 64);
 }
+
