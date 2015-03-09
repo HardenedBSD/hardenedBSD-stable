@@ -86,49 +86,10 @@ checked_strdup(const char *s)
 }
 
 /*
- * Take two pointers to strings, concatenate the contents with "/" in the
- * middle, make the first pointer point to the result, the second pointer
- * to NULL, and free the old strings.
- *
- * Concatenate pathnames, basically.
- */
-static void
-concat(char **p1, char **p2)
-{
-	int ret;
-	char *path;
-
-	assert(p1 != NULL);
-	assert(p2 != NULL);
-
-	if (*p1 == NULL)
-		*p1 = checked_strdup("");
-
-	if (*p2 == NULL)
-		*p2 = checked_strdup("");
-
-	ret = asprintf(&path, "%s/%s", *p1, *p2);
-	if (ret < 0)
-		log_err(1, "asprintf");
-
-	/*
-	 * XXX
-	 */
-	//free(*p1);
-	//free(*p2);
-
-	*p1 = path;
-	*p2 = NULL;
-}
-
-/*
  * Concatenate two strings, inserting separator between them, unless not needed.
- *
- * This function is very convenient to use when you do not care about freeing
- * memory - which is okay here, because we are a short running process.
  */
 char *
-separated_concat(const char *s1, const char *s2, char separator)
+concat(const char *s1, char separator, const char *s2)
 {
 	char *result;
 	int ret;
@@ -136,8 +97,14 @@ separated_concat(const char *s1, const char *s2, char separator)
 	assert(s1 != NULL);
 	assert(s2 != NULL);
 
-	if (s1[0] == '\0' || s2[0] == '\0' ||
-	    s1[strlen(s1) - 1] == separator || s2[0] == separator) {
+	/*
+	 * If s2 starts with separator - skip it; otherwise concatenating
+	 * "/" and "/foo" would end up returning "//foo".
+	 */
+	if (s2[0] == separator)
+		s2++;
+
+	if (s1[0] == '\0' || s2[0] == '\0' || s1[strlen(s1) - 1] == separator) {
 		ret = asprintf(&result, "%s%s", s1, s2);
 	} else {
 		ret = asprintf(&result, "%s%c%s", s1, separator, s2);
@@ -145,7 +112,7 @@ separated_concat(const char *s1, const char *s2, char separator)
 	if (ret < 0)
 		log_err(1, "asprintf");
 
-	//log_debugx("separated_concat: got %s and %s, returning %s", s1, s2, result);
+	//log_debugx("%s: got %s and %s, returning %s", __func__, s1, s2, result);
 
 	return (result);
 }
@@ -153,7 +120,7 @@ separated_concat(const char *s1, const char *s2, char separator)
 void
 create_directory(const char *path)
 {
-	char *component, *copy, *tofree, *partial;
+	char *component, *copy, *tofree, *partial, *tmp;
 	int error;
 
 	assert(path[0] == '/');
@@ -163,12 +130,14 @@ create_directory(const char *path)
 	 */
 	copy = tofree = checked_strdup(path + 1);
 
-	partial = NULL;
+	partial = checked_strdup("");
 	for (;;) {
 		component = strsep(&copy, "/");
 		if (component == NULL)
 			break;
-		concat(&partial, &component);
+		tmp = concat(partial, '/', component);
+		free(partial);
+		partial = tmp;
 		//log_debugx("creating \"%s\"", partial);
 		error = mkdir(partial, 0755);
 		if (error != 0 && errno != EEXIST) {
@@ -561,7 +530,6 @@ static char *
 node_path_x(const struct node *n, char *x)
 {
 	char *path;
-	size_t len;
 
 	if (n->n_parent == NULL)
 		return (x);
@@ -577,16 +545,8 @@ node_path_x(const struct node *n, char *x)
 	}
 
 	assert(n->n_key[0] != '\0');
-	path = separated_concat(n->n_key, x, '/');
+	path = concat(n->n_key, '/', x);
 	free(x);
-
-	/*
-	 * Strip trailing slash.
-	 */
-	len = strlen(path);
-	assert(len > 0);
-	if (path[len - 1] == '/')
-		path[len - 1] = '\0';
 
 	return (node_path_x(n->n_parent, path));
 }
@@ -598,8 +558,19 @@ node_path_x(const struct node *n, char *x)
 char *
 node_path(const struct node *n)
 {
+	char *path;
+	size_t len;
 
-	return (node_path_x(n, checked_strdup("")));
+	path = node_path_x(n, checked_strdup(""));
+
+	/*
+	 * Strip trailing slash, unless the whole path is "/".
+	 */
+	len = strlen(path);
+	if (len > 1 && path[len - 1] == '/')
+		path[len - 1] = '\0';
+
+	return (path);
 }
 
 static char *
@@ -607,9 +578,11 @@ node_options_x(const struct node *n, char *x)
 {
 	char *options;
 
-	options = separated_concat(x, n->n_options, ',');
-	if (n->n_parent == NULL)
-		return (options);
+	if (n == NULL)
+		return (x);
+
+	options = concat(x, ',', n->n_options);
+	free(x);
 
 	return (node_options_x(n->n_parent, options));
 }
