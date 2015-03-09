@@ -33,12 +33,8 @@ __FBSDID("$FreeBSD$");
 
 #include "opt_capsicum.h"
 #include "opt_compat.h"
-<<<<<<< HEAD
-#include "opt_core.h"
 #include "opt_pax.h"
-=======
 #include "opt_gzio.h"
->>>>>>> origin/master
 
 #include <sys/param.h>
 #include <sys/capsicum.h>

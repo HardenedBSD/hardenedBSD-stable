@@ -40,11 +40,7 @@ __FBSDID("$FreeBSD$");
 #include "opt_compat.h"
 #include "opt_gzio.h"
 #include "opt_ktrace.h"
-<<<<<<< HEAD
-#include "opt_core.h"
 #include "opt_pax.h"
-=======
->>>>>>> origin/master
 
 #include <sys/param.h>
 #include <sys/ctype.h>
@@ -3278,11 +3274,7 @@ coredump(struct thread *td)
 	char *name;			/* name of corefile */
 	void *rl_cookie;
 	off_t limit;
-<<<<<<< HEAD
-	int compress;
 #ifdef PAX_INSECURE_MODE
-=======
->>>>>>> origin/master
 	char *data = NULL;
 	char *fullpath, *freepath = NULL;
 	size_t len;

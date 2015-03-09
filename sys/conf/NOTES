@@ -2979,7 +2979,10 @@ options 	RANDOM_DEBUG	# Debugging messages
 # Module to enable execution of application via emulators like QEMU
 options         IMAGACT_BINMISC
 
-<<<<<<< HEAD
+# zlib I/O stream support
+# This enables support for compressed core dumps.
+options 	GZIO
+
 # PAX and HardenedBSD related knobs
 options 	PAX		# Enable the PAX framework
 options 	PAX_ASLR	# Address Space Layout Randomization
@@ -2990,8 +2993,3 @@ options 	PAX_PTRACE_HARDENING
 options 	PAX_PTRACE_HARDENING_GRP=50000
 options 	PAX_INSECURE_MODE	# Allow to override INVARIANTS enforcements
 
-=======
-# zlib I/O stream support
-# This enables support for compressed core dumps.
-options 	GZIO
->>>>>>> origin/master
