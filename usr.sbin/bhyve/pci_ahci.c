@@ -134,6 +134,7 @@ struct ahci_port {
 	int reset;
 	int mult_sectors;
 	uint8_t xfermode;
+	uint8_t err_cfis[20];
 	uint8_t sense_key;
 	uint8_t asc;
 	uint32_t pending;
@@ -299,18 +300,27 @@ ahci_write_fis_piosetup(struct ahci_port *p)
 }
 
 static void
-ahci_write_fis_sdb(struct ahci_port *p, int slot, uint32_t tfd)
+ahci_write_fis_sdb(struct ahci_port *p, int slot, uint8_t *cfis, uint32_t tfd)
 {
 	uint8_t fis[8];
 	uint8_t error;
 
 	error = (tfd >> 8) & 0xff;
 	memset(fis, 0, sizeof(fis));
-	fis[0] = error;
+	fis[0] = FIS_TYPE_SETDEVBITS;
+	fis[1] = (1 << 6);
 	fis[2] = tfd & 0x77;
-	*(uint32_t *)(fis + 4) = (1 << slot);
-	if (fis[2] & ATA_S_ERROR)
+	fis[3] = error;
+	if (fis[2] & ATA_S_ERROR) {
 		p->is |= AHCI_P_IX_TFE;
+		p->err_cfis[0] = slot;
+		p->err_cfis[2] = tfd & 0x77;
+		p->err_cfis[3] = error;
+		memcpy(&p->err_cfis[4], cfis + 4, 16);
+	} else {
+		*(uint32_t *)(fis + 4) = (1 << slot);
+		p->sact &= ~(1 << slot);
+	}
 	p->tfd = tfd;
 	ahci_write_fis(p, FIS_TYPE_SETDEVBITS, fis);
 }
@@ -337,9 +347,13 @@ ahci_write_fis_d2h(struct ahci_port *p, int slot, uint8_t *cfis, uint32_t tfd)
 	fis[11] = cfis[11];
 	fis[12] = cfis[12];
 	fis[13] = cfis[13];
-	if (fis[2] & ATA_S_ERROR)
+	if (fis[2] & ATA_S_ERROR) {
 		p->is |= AHCI_P_IX_TFE;
-	else
+		p->err_cfis[0] = 0x80;
+		p->err_cfis[2] = tfd & 0xff;
+		p->err_cfis[3] = error;
+		memcpy(&p->err_cfis[4], cfis + 4, 16);
+	} else
 		p->ci &= ~(1 << slot);
 	p->tfd = tfd;
 	ahci_write_fis(p, FIS_TYPE_REGD2H, fis);
@@ -689,8 +703,13 @@ ahci_handle_dsm_trim(struct ahci_port *p, int slot, uint8_t *cfis, uint32_t done
 	int err;
 	uint8_t buf[512];
 
-	len = (uint16_t)cfis[13] << 8 | cfis[12];
-	len *= 512;
+	if (cfis[2] == ATA_DATA_SET_MANAGEMENT) {
+		len = (uint16_t)cfis[13] << 8 | cfis[12];
+		len *= 512;
+	} else { /* ATA_SEND_FPDMA_QUEUED */
+		len = (uint16_t)cfis[11] << 8 | cfis[3];
+		len *= 512;
+	}
 	read_prdt(p, slot, cfis, buf, sizeof(buf));
 
 next:
@@ -774,6 +793,29 @@ write_prdt(struct ahci_port *p, int slot, uint8_t *cfis,
 }
 
 static void
+ahci_handle_read_log(struct ahci_port *p, int slot, uint8_t *cfis)
+{
+	struct ahci_cmd_hdr *hdr;
+	uint8_t buf[512];
+
+	hdr = (struct ahci_cmd_hdr *)(p->cmd_lst + slot * AHCI_CL_SIZE);
+	if (p->atapi || hdr->prdtl == 0 || cfis[4] != 0x10 ||
+	    cfis[5] != 0 || cfis[9] != 0 || cfis[12] != 1 || cfis[13] != 0) {
+		ahci_write_fis_d2h(p, slot, cfis,
+		    (ATA_E_ABORT << 8) | ATA_S_READY | ATA_S_ERROR);
+		return;
+	}
+
+	memset(buf, 0, sizeof(buf));
+	memcpy(buf, p->err_cfis, sizeof(p->err_cfis));
+
+	if (cfis[2] == ATA_READ_LOG_EXT)
+		ahci_write_fis_piosetup(p);
+	write_prdt(p, slot, cfis, (void *)buf, sizeof(buf));
+	ahci_write_fis_d2h(p, slot, cfis, ATA_S_DSC | ATA_S_READY);
+}
+
+static void
 handle_identify(struct ahci_port *p, int slot, uint8_t *cfis)
 {
 	struct ahci_cmd_hdr *hdr;
@@ -829,6 +871,8 @@ handle_identify(struct ahci_port *p, int slot, uint8_t *cfis)
 		buf[75] = 31;
 		buf[76] = (ATA_SATA_GEN1 | ATA_SATA_GEN2 | ATA_SATA_GEN3 |
 			   ATA_SUPPORT_NCQ);
+		buf[77] = (ATA_SUPPORT_RCVSND_FPDMA_QUEUED |
+			   (p->ssts & ATA_SS_SPD_MASK) >> 3);
 		buf[80] = 0x1f0;
 		buf[81] = 0x28;
 		buf[82] = (ATA_SUPPORT_POWERMGT | ATA_SUPPORT_WRITECACHE|
@@ -839,7 +883,7 @@ handle_identify(struct ahci_port *p, int slot, uint8_t *cfis)
 		buf[85] = (ATA_SUPPORT_POWERMGT | ATA_SUPPORT_WRITECACHE|
 			   ATA_SUPPORT_LOOKAHEAD | ATA_SUPPORT_NOP);
 		buf[86] = (ATA_SUPPORT_ADDRESS48 | ATA_SUPPORT_FLUSHCACHE |
-			   ATA_SUPPORT_FLUSHCACHE48);
+			   ATA_SUPPORT_FLUSHCACHE48 | 1 << 15);
 		buf[87] = (1 << 14);
 		buf[88] = 0x7f;
 		if (p->xfermode & ATA_UDMA0)
@@ -866,6 +910,8 @@ handle_identify(struct ahci_port *p, int slot, uint8_t *cfis)
 			buf[117] = sectsz / 2;
 			buf[118] = ((sectsz / 2) >> 16);
 		}
+		buf[119] = (ATA_SUPPORT_RWLOGDMAEXT | 1 << 14);
+		buf[120] = (ATA_SUPPORT_RWLOGDMAEXT | 1 << 14);
 		buf[222] = 0x1020;
 		ahci_write_fis_piosetup(p);
 		write_prdt(p, slot, cfis, (void *)buf, sizeof(buf));
@@ -1522,10 +1568,27 @@ ahci_handle_cmd(struct ahci_port *p, int slot, uint8_t *cfis)
 		ahci_write_fis_d2h(p, slot, cfis,
 		    (ATA_E_ABORT << 8) | ATA_S_READY | ATA_S_ERROR);
 		break;
-	case ATA_STANDBY_CMD:
+	case ATA_SEND_FPDMA_QUEUED:
+		if ((cfis[13] & 0x1f) == ATA_SFPDMA_DSM &&
+		    cfis[17] == 0 && cfis[16] == ATA_DSM_TRIM &&
+		    cfis[11] == 0 && cfis[13] == 1) {
+			ahci_handle_dsm_trim(p, slot, cfis, 0);
+			break;
+		}
+		ahci_write_fis_d2h(p, slot, cfis,
+		    (ATA_E_ABORT << 8) | ATA_S_READY | ATA_S_ERROR);
+		break;
+	case ATA_READ_LOG_EXT:
+	case ATA_READ_LOG_DMA_EXT:
+		ahci_handle_read_log(p, slot, cfis);
 		break;
 	case ATA_NOP:
+		ahci_write_fis_d2h(p, slot, cfis,
+		    (ATA_E_ABORT << 8) | ATA_S_READY | ATA_S_ERROR);
+		break;
+	case ATA_STANDBY_CMD:
 	case ATA_STANDBY_IMMEDIATE:
+	case ATA_IDLE_CMD:
 	case ATA_IDLE_IMMEDIATE:
 	case ATA_SLEEP:
 		ahci_write_fis_d2h(p, slot, cfis, ATA_S_READY | ATA_S_DSC);
@@ -1645,9 +1708,12 @@ ata_ioreq_cb(struct blockif_req *br, int err)
 	hdr = (struct ahci_cmd_hdr *)(p->cmd_lst + slot * AHCI_CL_SIZE);
 
 	if (cfis[2] == ATA_WRITE_FPDMA_QUEUED ||
-			cfis[2] == ATA_READ_FPDMA_QUEUED)
+	    cfis[2] == ATA_READ_FPDMA_QUEUED ||
+	    cfis[2] == ATA_SEND_FPDMA_QUEUED)
 		ncq = 1;
-	if (cfis[2] == ATA_DATA_SET_MANAGEMENT)
+	if (cfis[2] == ATA_DATA_SET_MANAGEMENT ||
+	    (cfis[2] == ATA_SEND_FPDMA_QUEUED &&
+	     (cfis[13] & 0x1f) == ATA_SFPDMA_DSM))
 		dsm = 1;
 
 	pthread_mutex_lock(&sc->mtx);
@@ -1684,10 +1750,9 @@ ata_ioreq_cb(struct blockif_req *br, int err)
 		tfd = (ATA_E_ABORT << 8) | ATA_S_READY | ATA_S_ERROR;
 	}
 
-	if (ncq) {
-		p->sact &= ~(1 << slot);
-		ahci_write_fis_sdb(p, slot, tfd);
-	} else
+	if (ncq)
+		ahci_write_fis_sdb(p, slot, cfis, tfd);
+	else
 		ahci_write_fis_d2h(p, slot, cfis, tfd);
 
 	/*
