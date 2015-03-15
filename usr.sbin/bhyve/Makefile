@@ -44,6 +44,7 @@ SRCS=	\
 SRCS+=	vmm_instruction_emul.c
 
 LIBADD=	vmmapi md util pthread
+WANTS_PIE=	yes
 
 WARNS?=	2
 
