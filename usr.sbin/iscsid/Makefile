@@ -10,6 +10,7 @@ MAN=		iscsid.8
 
 DPADD=		${LIBCRYPTO} ${LIBSSL} ${LIBUTIL}
 LDADD=		-lcrypto -lssl -lutil
+WANTS_PIE=	yes
 
 WARNS=		6
 
