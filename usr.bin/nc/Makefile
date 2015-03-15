@@ -8,6 +8,7 @@ SRCS=	netcat.c atomicio.c socks.c
 CFLAGS+=-DIPSEC
 LDADD=	-lipsec
 DPADD=	${LIBIPSEC}
+WANTS_PIE=	yes
 
 WARNS?=	2
 
