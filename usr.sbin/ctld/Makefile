@@ -11,6 +11,7 @@ CFLAGS+=	-I${.CURDIR}/../../sys/dev/iscsi
 MAN=		ctld.8 ctl.conf.5
 
 LIBADD=		bsdxml crypto l sbuf util
+WANTS_PIE=	yes
 
 YFLAGS+=	-v
 CLEANFILES=	y.tab.c y.tab.h y.output
