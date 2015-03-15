@@ -9,6 +9,7 @@ CFLAGS+=	-I${.CURDIR}/../../sys/dev/iscsi
 MAN=		iscsid.8
 
 LIBADD=		crypto util
+WANTS_PIE=	yes
 
 WARNS=		6
 
