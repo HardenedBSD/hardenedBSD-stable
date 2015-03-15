@@ -21,6 +21,7 @@ SRCS=	rtadvd.c rrenum.c advcap.c if.c config.c timer.c timer_subr.c	\
 
 DPADD=	${LIBUTIL}
 LDADD=	-lutil
+WANTS_PIE=	yes
 
 CFLAGS+= -DHAVE_ARC4RANDOM
 
