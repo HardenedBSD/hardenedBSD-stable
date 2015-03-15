@@ -26,4 +26,6 @@ DPADD+=	${LIBIPSEC}
 LDADD+=	-lipsec
 .endif
 
+WANTS_PIE=	yes
+
 .include <bsd.prog.mk>
