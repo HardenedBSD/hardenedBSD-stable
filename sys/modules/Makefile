@@ -172,7 +172,6 @@ SUBDIR=	\
 	${_iwn} \
 	${_iwnfw} \
 	${_ixgb} \
-	${_ixgbe} \
 	${_ixl} \
 	${_ixlv} \
 	jme \
@@ -577,7 +576,6 @@ _iwn=		iwn
 _iwnfw=		iwnfw
 .endif
 _ixgb=		ixgb
-_ixgbe=		ixgbe
 .if ${MK_OFED} != "no" || defined(ALL_MODULES)
 _mlx4=		mlx4
 _mlx4ib=	mlx4ib
@@ -703,6 +701,8 @@ _wi=		wi
 .endif
 
 .if ${MACHINE_ARCH} == "powerpc64"
+_drm2=		drm2
+_i2c=		i2c
 .if ${MK_ZFS} != "no" || defined(ALL_MODULES)
 _zfs=		zfs
 .endif
