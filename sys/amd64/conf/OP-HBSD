@@ -24,7 +24,7 @@ ident		OP-HARDENEDBSD
 options		HZ=100
 
 makeoptions	DEBUG=-gdwarf-2		# Build kernel with gdb(1) debug symbols
-makeoptions	MODULES_OVERRIDE="geom/geom_sched linux usb/umodem usb/u3g usb/umass usb/ucom usb/uplcom drm2 i2c"
+makeoptions	MODULES_OVERRIDE="usb/umodem usb/u3g usb/umass usb/ucom usb/uplcom drm2 i2c"
 #makeoptions	WITH_CTF=1		# Run ctfconvert(1) for DTrace support
 
 options 	SCHED_ULE		# ULE scheduler
@@ -227,7 +227,8 @@ device		uart		# Generic UART driver
 #device		de		# DEC/Intel DC21x4x (``Tulip'')
 device		em		# Intel PRO/1000 Gigabit Ethernet Family
 #device		igb		# Intel PRO/1000 PCIE Server Gigabit Family
-#device		ixgbe		# Intel PRO/10GbE PCIE Ethernet Family
+#device		ix			# Intel PRO/10GbE PCIE PF Ethernet
+#device		ixv			# Intel PRO/10GbE PCIE VF Ethernet
 #device		ixl			# Intel XL710 40Gbe PCIE Ethernet
 #device		ixlv			# Intel XL710 40Gbe VF PCIE Ethernet
 #device		le		# AMD Am7900 LANCE and Am79C9xx PCnet
