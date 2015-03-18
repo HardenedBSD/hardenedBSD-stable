@@ -1922,6 +1922,9 @@ vm_map_protect(vm_map_t map, vm_offset_t start, vm_offset_t end,
 	vm_object_t obj;
 	struct ucred *cred;
 	vm_prot_t old_prot;
+#ifdef PAX_NOEXEC
+	int ret;
+#endif
 
 	if (start == end)
 		return (KERN_SUCCESS);
@@ -2015,21 +2018,15 @@ vm_map_protect(vm_map_t map, vm_offset_t start, vm_offset_t end,
 	current = entry;
 	while ((current != &map->header) && (current->start < end)) {
 		old_prot = current->protection;
-#ifdef PAX_HARDENING
-		/*
-		 * XXXOP: in early stages of NOEXEC implemenations we should only
-		 * restrict the userspace protection upgrades.
-		 */
-		if ((start < VM_MAXUSER_ADDRESS && end < VM_MAXUSER_ADDRESS) &&
-		    ((new_prot & VM_PROT_EXECUTE) == VM_PROT_EXECUTE) &&
-		    ((old_prot & VM_PROT_EXECUTE) != VM_PROT_EXECUTE)) {
-			if (pax_mprotect_exec_harden(curthread)) {
-				vm_map_unlock(map);
-				return (KERN_PROTECTION_FAILURE);
-			}
+#ifdef PAX_NOEXEC
+		ret = pax_mprotect_enforce(curthread->td_proc, old_prot, new_prot);
+		if (ret != 0) {
+			pax_log_mprotect(curthread->td_proc, PAX_LOG_P_COMM,
+			    "prevented to introduce new RWX page...");
+			vm_map_unlock(map);
+			return (ret);
 		}
 #endif
-
 		if (set_max)
 			current->protection =
 			    (current->max_protection = new_prot) &

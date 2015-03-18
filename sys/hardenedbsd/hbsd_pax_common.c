@@ -187,13 +187,13 @@ pax_check_conflicting_modes(uint32_t mode)
 int
 pax_elf(struct image_params *imgp, uint32_t mode)
 {
-	uint32_t flags, flags_aslr, flags_segvuard, flags_hardening;
+	uint32_t flags, flags_aslr, flags_mprotect, flags_pageexec, flags_segvuard, flags_hardening;
 
 	flags = mode;
-	flags_aslr = flags_segvuard = flags_hardening = 0;
+	flags_aslr = flags_segvuard = flags_hardening = flags_mprotect = flags_pageexec = 0;
 
 	if (pax_validate_flags(flags) != 0) {
-		pax_log_internal(imgp->proc, PAX_LOG_DEFAULT,
+		pax_log_internal_imgp(imgp, PAX_LOG_DEFAULT,
 		    "unknown paxflags: %x", flags);
 		pax_ulog_internal(NULL, "unknown paxflags: %x\n", flags);
 
@@ -204,7 +204,7 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 		/*
 		 * indicate flags inconsistencies in dmesg and in user terminal
 		 */
-		pax_log_internal(imgp->proc, PAX_LOG_DEFAULT,
+		pax_log_internal_imgp(imgp, PAX_LOG_DEFAULT,
 		    "inconsistent paxflags: %x", flags);
 		pax_ulog_internal(NULL, "inconsistent paxflags: %x\n", flags);
 
@@ -215,6 +215,11 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 	flags_aslr = pax_aslr_setup_flags(imgp, mode);
 #endif
 
+#ifdef PAX_NOEXEC
+	flags_pageexec = pax_pageexec_setup_flags(imgp, mode);
+	flags_mprotect = pax_mprotect_setup_flags(imgp, mode);
+#endif
+
 #ifdef PAX_SEGVGUARD
 	flags_segvuard = pax_segvguard_setup_flags(imgp, mode);
 #endif
@@ -223,12 +228,20 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 	flags_hardening = pax_hardening_setup_flags(imgp, mode);
 #endif
 
-	flags = flags_aslr | flags_segvuard | flags_hardening;
+	flags = flags_aslr | flags_mprotect | flags_pageexec | flags_segvuard | flags_hardening;
 
 	CTR3(KTR_PAX, "%s : flags = %x mode = %x",
 	    __func__, flags, mode);
 
 	imgp->proc->p_pax = flags;
+
+	/*
+	 * if we disable features with secadm, print out a warning
+	 */
+	if (mode != 0) {
+		pax_log_internal_imgp(imgp, PAX_LOG_DEFAULT,
+		   "the process has explicitly disabled features");
+	}
 
 	return (0);
 }
@@ -266,6 +279,7 @@ pax_init_prison(struct prison *pr)
 
 	pax_aslr_init_prison(pr);
 	pax_hardening_init_prison(pr);
+	pax_noexec_init_prison(pr);
 	pax_segvguard_init_prison(pr);
 	pax_ptrace_hardening_init_prison(pr);
 
@@ -273,3 +287,4 @@ pax_init_prison(struct prison *pr)
 	pax_aslr_init_prison32(pr);
 #endif
 }
+

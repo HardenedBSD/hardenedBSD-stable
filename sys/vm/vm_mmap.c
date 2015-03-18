@@ -205,10 +205,10 @@ sys_mmap(td, uap)
 	struct vnode *vp;
 	vm_offset_t addr;
 	vm_size_t size, pageoff;
-	vm_prot_t cap_maxprot, maxprot;
+	vm_prot_t cap_maxprot, prot, maxprot;
 	void *handle;
 	objtype_t handle_type;
-	int align, error, flags, prot;
+	int align, error, flags;
 	off_t pos;
 	struct vmspace *vms = td->td_proc->p_vmspace;
 	cap_rights_t rights;
@@ -442,6 +442,10 @@ map:
 	td->td_fpop = fp;
 	maxprot &= cap_maxprot;
 
+#ifdef PAX_NOEXEC
+	pax_pageexec(td->td_proc, &prot, &maxprot);
+	pax_mprotect(td->td_proc, &prot, &maxprot);
+#endif
 #ifdef PAX_ASLR
 	pax_aslr_mmap(td->td_proc, &addr, (vm_offset_t)uap->addr, flags);
 #endif
