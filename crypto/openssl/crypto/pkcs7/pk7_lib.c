@@ -441,6 +441,8 @@ err:
 
 int PKCS7_set_digest(PKCS7 *p7, const EVP_MD *md)
 	{
+	if (p7 == NULL || p7->d.ptr == NULL)
+		return NULL;
 	if (PKCS7_type_is_digest(p7))
 		{
 		if(!(p7->d.digest->md->parameter = ASN1_TYPE_new()))
