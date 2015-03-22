@@ -45,6 +45,7 @@ __FBSDID("$FreeBSD$");
 
 #include "opt_compat.h"
 #include "opt_hwpmc_hooks.h"
+#include "opt_pax.h"
 #include "opt_vm.h"
 
 #include <sys/param.h>
