@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2009 Alan L. Cox <alc@cs.rice.edu>
+ * Copyright (c) 1993 The Regents of the University of California.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -10,11 +10,14 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
+ * 3. Neither the name of the University nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
  * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
@@ -23,28 +26,22 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
+ *	from: FreeBSD: src/sys/i386/include/sysarch.h,v 1.14 2000/09/21
  * $FreeBSD$
  */
 
-#ifndef _MACHINE_VM_H_
-#define	_MACHINE_VM_H_
+/*
+ * Architecture specific syscalls (arm64)
+ */
+#ifndef _MACHINE_SYSARCH_H_
+#define	_MACHINE_SYSARCH_H_
 
-#ifdef ARM_NEW_PMAP
-#include <machine/pte-v6.h>
+#ifndef _KERNEL
 
-#define VM_MEMATTR_WB_WA	((vm_memattr_t)PTE2_ATTR_WB_WA)
-#define VM_MEMATTR_NOCACHE	((vm_memattr_t)PTE2_ATTR_NOCACHE)
-#define VM_MEMATTR_DEVICE	((vm_memattr_t)PTE2_ATTR_DEVICE)
-#define VM_MEMATTR_SO		((vm_memattr_t)PTE2_ATTR_SO)
+__BEGIN_DECLS
+int	sysarch(int _number, void *_args);
+__END_DECLS
 
-#define VM_MEMATTR_DEFAULT	VM_MEMATTR_WB_WA
-#define VM_MEMATTR_UNCACHEABLE	VM_MEMATTR_SO /*name is misused by DMA */
-
-
-#else
-/* Memory attribute configuration. */
-#define	VM_MEMATTR_DEFAULT	0
-#define	VM_MEMATTR_UNCACHEABLE	1
 #endif
 
-#endif /* !_MACHINE_VM_H_ */
+#endif /* !_MACHINE_SYSARCH_H_ */

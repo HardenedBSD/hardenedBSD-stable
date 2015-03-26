@@ -1,6 +1,10 @@
 /*-
- * Copyright (c) 2009 Alan L. Cox <alc@cs.rice.edu>
+ * Copyright (c) 2014 Andrew Turner
+ * Copyright (c) 2014 The FreeBSD Foundation
  * All rights reserved.
+ *
+ * This software was developed by Andrew Turner under
+ * sponsorship from the FreeBSD Foundation.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,25 +30,40 @@
  * $FreeBSD$
  */
 
-#ifndef _MACHINE_VM_H_
-#define	_MACHINE_VM_H_
+#ifndef _MACHINE_FRAME_H_
+#define	_MACHINE_FRAME_H_
 
-#ifdef ARM_NEW_PMAP
-#include <machine/pte-v6.h>
+#ifndef LOCORE
 
-#define VM_MEMATTR_WB_WA	((vm_memattr_t)PTE2_ATTR_WB_WA)
-#define VM_MEMATTR_NOCACHE	((vm_memattr_t)PTE2_ATTR_NOCACHE)
-#define VM_MEMATTR_DEVICE	((vm_memattr_t)PTE2_ATTR_DEVICE)
-#define VM_MEMATTR_SO		((vm_memattr_t)PTE2_ATTR_SO)
+#include <sys/signal.h>
+#include <sys/ucontext.h>
 
-#define VM_MEMATTR_DEFAULT	VM_MEMATTR_WB_WA
-#define VM_MEMATTR_UNCACHEABLE	VM_MEMATTR_SO /*name is misused by DMA */
+/*
+ * NOTE: keep this structure in sync with struct reg and struct mcontext.
+ */
+struct trapframe {
+	uint64_t tf_sp;
+	uint64_t tf_lr;
+	uint64_t tf_elr;
+	uint64_t tf_spsr;
+	uint64_t tf_x[30];
+};
 
+/*
+ * Signal frame, pushedonto the user stack
+ */
+struct sigframe {
+	siginfo_t       sf_si;          /* actual saved siginfo */
+	ucontext_t      sf_uc;          /* actual saved ucontext */
+};
 
-#else
-/* Memory attribute configuration. */
-#define	VM_MEMATTR_DEFAULT	0
-#define	VM_MEMATTR_UNCACHEABLE	1
-#endif
+/*
+ * There is no fixed frame layout, other than to be 16-byte aligned
+ */
+struct frame {
+	int dummy;
+};
 
-#endif /* !_MACHINE_VM_H_ */
+#endif /* !LOCORE */
+
+#endif /* !_MACHINE_FRAME_H_ */

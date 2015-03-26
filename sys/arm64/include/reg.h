@@ -1,6 +1,10 @@
 /*-
- * Copyright (c) 2009 Alan L. Cox <alc@cs.rice.edu>
+ * Copyright (c) 2014 Andrew Turner
+ * Copyright (c) 2014-2015 The FreeBSD Foundation
  * All rights reserved.
+ *
+ * This software was developed by Andrew Turner under
+ * sponsorship from the FreeBSD Foundation.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,25 +30,37 @@
  * $FreeBSD$
  */
 
-#ifndef _MACHINE_VM_H_
-#define	_MACHINE_VM_H_
+#ifndef	_MACHINE_REG_H_
+#define	_MACHINE_REG_H_
 
-#ifdef ARM_NEW_PMAP
-#include <machine/pte-v6.h>
+struct reg {
+	uint64_t x[30];
+	uint64_t lr;
+	uint64_t sp;
+	uint64_t elr;
+	uint32_t spsr;
+};
 
-#define VM_MEMATTR_WB_WA	((vm_memattr_t)PTE2_ATTR_WB_WA)
-#define VM_MEMATTR_NOCACHE	((vm_memattr_t)PTE2_ATTR_NOCACHE)
-#define VM_MEMATTR_DEVICE	((vm_memattr_t)PTE2_ATTR_DEVICE)
-#define VM_MEMATTR_SO		((vm_memattr_t)PTE2_ATTR_SO)
+struct fpreg {
+	__uint128_t	fp_q[32];
+	uint32_t	fp_sr;
+	uint32_t	fp_cr;
+};
 
-#define VM_MEMATTR_DEFAULT	VM_MEMATTR_WB_WA
-#define VM_MEMATTR_UNCACHEABLE	VM_MEMATTR_SO /*name is misused by DMA */
+struct dbreg {
+	int dummy;
+};
 
-
-#else
-/* Memory attribute configuration. */
-#define	VM_MEMATTR_DEFAULT	0
-#define	VM_MEMATTR_UNCACHEABLE	1
+#ifdef _KERNEL
+/*
+ * XXX these interfaces are MI, so they should be declared in a MI place.
+ */
+int	fill_regs(struct thread *, struct reg *);
+int	set_regs(struct thread *, struct reg *);
+int	fill_fpregs(struct thread *, struct fpreg *);
+int	set_fpregs(struct thread *, struct fpreg *);
+int	fill_dbregs(struct thread *, struct dbreg *);
+int	set_dbregs(struct thread *, struct dbreg *);
 #endif
 
-#endif /* !_MACHINE_VM_H_ */
+#endif /* !_MACHINE_REG_H_ */
