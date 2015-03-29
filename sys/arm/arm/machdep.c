@@ -1265,7 +1265,7 @@ initarm(struct arm_boot_params *abp)
 	 * Now that proper page tables are installed, call cpu_setup() to enable
 	 * instruction and data caches and other chip-specific features.
 	 */
-	cpu_setup("");
+	cpu_setup();
 
 	/*
 	 * Only after the SOC registers block is mapped we can perform device
@@ -1411,7 +1411,7 @@ initarm(struct arm_boot_params *abp)
 	 * Now that proper page tables are installed, call cpu_setup() to enable
 	 * instruction and data caches and other chip-specific features.
 	 */
-	cpu_setup("");
+	cpu_setup();
 
 	/* Platform-specific initialisation */
 	platform_probe_and_attach();
