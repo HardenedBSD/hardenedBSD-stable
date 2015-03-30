@@ -286,7 +286,7 @@ u_int	cpufunc_faultstatus	(void);
 u_int	cpufunc_faultaddress	(void);
 u_int	cpu_pfr			(int);
 
-#if defined(CPU_FA526) || defined(CPU_FA626TE)
+#if defined(CPU_FA526)
 void	fa526_setup		(void);
 void	fa526_setttb		(u_int ttb);
 void	fa526_context_switch	(void);
@@ -433,8 +433,8 @@ void	armv5_ec_idcache_wbinv_range(vm_offset_t, vm_size_t);
 #endif
 
 #if defined(CPU_ARM9) || defined(CPU_ARM9E) ||				\
-  defined(CPU_XSCALE_80200) || defined(CPU_XSCALE_80321) ||		\
-  defined(CPU_FA526) || defined(CPU_FA626TE) ||				\
+  defined(CPU_XSCALE_80321) ||						\
+  defined(CPU_FA526) ||							\
   defined(CPU_XSCALE_PXA2X0) || defined(CPU_XSCALE_IXP425) ||		\
   defined(CPU_XSCALE_80219) || defined(CPU_XSCALE_81342)
 
@@ -447,7 +447,7 @@ void	armv4_drain_writebuf	(void);
 void	armv4_idcache_inv_all	(void);
 #endif
 
-#if defined(CPU_XSCALE_80200) || defined(CPU_XSCALE_80321) ||	\
+#if defined(CPU_XSCALE_80321) ||				\
   defined(CPU_XSCALE_PXA2X0) || defined(CPU_XSCALE_IXP425) ||	\
   defined(CPU_XSCALE_80219) || defined(CPU_XSCALE_81342)
 void	xscale_cpwait		(void);
@@ -487,7 +487,7 @@ void	xscale_cache_flushD_rng	(vm_offset_t start, vm_size_t end);
 void	xscale_context_switch	(void);
 
 void	xscale_setup		(void);
-#endif	/* CPU_XSCALE_80200 || CPU_XSCALE_80321 || CPU_XSCALE_PXA2X0 || CPU_XSCALE_IXP425
+#endif	/* CPU_XSCALE_80321 || CPU_XSCALE_PXA2X0 || CPU_XSCALE_IXP425
 	   CPU_XSCALE_80219 */
 
 #ifdef	CPU_XSCALE_81342

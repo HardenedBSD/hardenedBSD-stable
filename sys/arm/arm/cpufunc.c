@@ -60,11 +60,6 @@ __FBSDID("$FreeBSD$");
 #include <machine/cpuconf.h>
 #include <machine/cpufunc.h>
 
-#ifdef CPU_XSCALE_80200
-#include <arm/xscale/i80200/i80200reg.h>
-#include <arm/xscale/i80200/i80200var.h>
-#endif
-
 #if defined(CPU_XSCALE_80321) || defined(CPU_XSCALE_80219)
 #include <arm/xscale/i80321/i80321reg.h>
 #include <arm/xscale/i80321/i80321var.h>
@@ -362,7 +357,7 @@ struct cpu_functions pj4bv7_cpufuncs = {
 };
 #endif /* CPU_MV_PJ4B */
 
-#if defined(CPU_XSCALE_80200) || defined(CPU_XSCALE_80321) || \
+#if defined(CPU_XSCALE_80321) || \
   defined(CPU_XSCALE_PXA2X0) || defined(CPU_XSCALE_IXP425) || \
   defined(CPU_XSCALE_80219)
 
@@ -427,7 +422,7 @@ struct cpu_functions xscale_cpufuncs = {
 	xscale_setup			/* cpu setup		*/
 };
 #endif
-/* CPU_XSCALE_80200 || CPU_XSCALE_80321 || CPU_XSCALE_PXA2X0 || CPU_XSCALE_IXP425
+/* CPU_XSCALE_80321 || CPU_XSCALE_PXA2X0 || CPU_XSCALE_IXP425
    CPU_XSCALE_80219 */
 
 #ifdef CPU_XSCALE_81342
@@ -494,7 +489,7 @@ struct cpu_functions xscalec3_cpufuncs = {
 #endif /* CPU_XSCALE_81342 */
 
 
-#if defined(CPU_FA526) || defined(CPU_FA626TE)
+#if defined(CPU_FA526)
 struct cpu_functions fa526_cpufuncs = {
 	/* CPU functions */
 
@@ -555,7 +550,7 @@ struct cpu_functions fa526_cpufuncs = {
 
 	fa526_setup			/* cpu setup 		*/
 };
-#endif	/* CPU_FA526 || CPU_FA626TE */
+#endif	/* CPU_FA526 */
 
 #if defined(CPU_ARM1176)
 struct cpu_functions arm1176_cpufuncs = {
@@ -703,9 +698,9 @@ u_int cpu_reset_needs_v4_MMU_disable;	/* flag used in locore.s */
 
 #if defined(CPU_ARM9) ||	\
   defined (CPU_ARM9E) ||	\
-  defined(CPU_ARM1176) || defined(CPU_XSCALE_80200) || defined(CPU_XSCALE_80321) ||		\
+  defined(CPU_ARM1176) || defined(CPU_XSCALE_80321) ||		\
   defined(CPU_XSCALE_PXA2X0) || defined(CPU_XSCALE_IXP425) ||		\
-  defined(CPU_FA526) || defined(CPU_FA626TE) || defined(CPU_MV_PJ4B) ||			\
+  defined(CPU_FA526) || defined(CPU_MV_PJ4B) ||			\
   defined(CPU_XSCALE_80219) || defined(CPU_XSCALE_81342) || \
   defined(CPU_CORTEXA) || defined(CPU_KRAIT)
 
@@ -943,7 +938,7 @@ set_cpufuncs()
 	}
 #endif /* CPU_MV_PJ4B */
 
-#if defined(CPU_FA526) || defined(CPU_FA626TE)
+#if defined(CPU_FA526)
 	if (cputype == CPU_ID_FA526 || cputype == CPU_ID_FA626TE) {
 		cpufuncs = fa526_cpufuncs;
 		cpu_reset_needs_v4_MMU_disable = 1;	/* SA needs it	*/
@@ -955,49 +950,8 @@ set_cpufuncs()
 
 		goto out;
 	}
-#endif	/* CPU_FA526 || CPU_FA626TE */
+#endif	/* CPU_FA526 */
 
-#ifdef CPU_XSCALE_80200
-	if (cputype == CPU_ID_80200) {
-		int rev = cpufunc_id() & CPU_ID_REVISION_MASK;
-
-		i80200_icu_init();
-
-#if defined(XSCALE_CCLKCFG)
-		/*
-		 * Crank CCLKCFG to maximum legal value.
-		 */
-		__asm __volatile ("mcr p14, 0, %0, c6, c0, 0"
-			:
-			: "r" (XSCALE_CCLKCFG));
-#endif
-
-		/*
-		 * XXX Disable ECC in the Bus Controller Unit; we
-		 * don't really support it, yet.  Clear any pending
-		 * error indications.
-		 */
-		__asm __volatile("mcr p13, 0, %0, c0, c1, 0"
-			:
-			: "r" (BCUCTL_E0|BCUCTL_E1|BCUCTL_EV));
-
-		cpufuncs = xscale_cpufuncs;
-		/*
-		 * i80200 errata: Step-A0 and A1 have a bug where
-		 * D$ dirty bits are not cleared on "invalidate by
-		 * address".
-		 *
-		 * Workaround: Clean cache line before invalidating.
-		 */
-		if (rev == 0 || rev == 1)
-			cpufuncs.cf_dcache_inv_range = xscale_cache_purgeD_rng;
-
-		cpu_reset_needs_v4_MMU_disable = 1;	/* XScale needs it */
-		get_cachetype_cp15();
-		pmap_pte_init_xscale();
-		goto out;
-	}
-#endif /* CPU_XSCALE_80200 */
 #if defined(CPU_XSCALE_80321) || defined(CPU_XSCALE_80219)
 	if (cputype == CPU_ID_80321_400 || cputype == CPU_ID_80321_600 ||
 	    cputype == CPU_ID_80321_400_B0 || cputype == CPU_ID_80321_600_B0 ||
@@ -1378,7 +1332,7 @@ cortexa_setup(void)
 }
 #endif  /* CPU_CORTEXA */
 
-#if defined(CPU_FA526) || defined(CPU_FA626TE)
+#if defined(CPU_FA526)
 void
 fa526_setup(void)
 {
@@ -1415,9 +1369,9 @@ fa526_setup(void)
 	ctrl = cpuctrl;
 	cpu_control(0xffffffff, cpuctrl);
 }
-#endif	/* CPU_FA526 || CPU_FA626TE */
+#endif	/* CPU_FA526 */
 
-#if defined(CPU_XSCALE_80200) || defined(CPU_XSCALE_80321) || \
+#if defined(CPU_XSCALE_80321) || \
   defined(CPU_XSCALE_PXA2X0) || defined(CPU_XSCALE_IXP425) || \
   defined(CPU_XSCALE_80219) || defined(CPU_XSCALE_81342)
 void
@@ -1486,5 +1440,5 @@ xscale_setup(void)
 	__asm __volatile("mcr p15, 0, %0, c1, c0, 1"
 		: : "r" (auxctl));
 }
-#endif	/* CPU_XSCALE_80200 || CPU_XSCALE_80321 || CPU_XSCALE_PXA2X0 || CPU_XSCALE_IXP425
+#endif	/* CPU_XSCALE_80321 || CPU_XSCALE_PXA2X0 || CPU_XSCALE_IXP425
 	   CPU_XSCALE_80219 */
