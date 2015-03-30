@@ -1606,6 +1606,19 @@ OLD_FILES+=usr/share/man/man1/fdwrite.1.gz
 OLD_FILES+=usr/share/man/man8/fdcontrol.8.gz
 .endif
 
+.if ${MK_FORTH} == no
+OLD_FILES+=usr/share/man/man5/loader.conf.5.gz
+OLD_FILES+=usr/share/man/man8/beastie.4th.8.gz
+OLD_FILES+=usr/share/man/man8/brand.4th.8.gz
+OLD_FILES+=usr/share/man/man8/check-password.4th.8.gz
+OLD_FILES+=usr/share/man/man8/color.4th.8.gz
+OLD_FILES+=usr/share/man/man8/delay.4th.8.gz
+OLD_FILES+=usr/share/man/man8/loader.4th.8.gz
+OLD_FILES+=usr/share/man/man8/menu.4th.8.gz
+OLD_FILES+=usr/share/man/man8/menusets.4th.8.gz
+OLD_FILES+=usr/share/man/man8/version.4th.8.gz
+.endif
+
 .if ${MK_FREEBSD_UPDATE} == no
 OLD_FILES+=etc/freebsd-update.conf
 OLD_FILES+=usr/sbin/freebsd-update
@@ -2507,9 +2520,11 @@ OLD_FILES+=usr/sbin/ndp
 OLD_FILES+=usr/sbin/rip6query
 OLD_FILES+=usr/sbin/route6d
 OLD_FILES+=usr/sbin/rrenumd
+OLD_FILES+=usr/sbin/rtadvctl
 OLD_FILES+=usr/sbin/rtadvd
 OLD_FILES+=usr/sbin/rtsold
 OLD_FILES+=usr/sbin/traceroute6
+OLD_FILES+=usr/share/doc/IPv6/IMPLEMENTATION
 OLD_FILES+=usr/share/man/man5/rrenumd.conf.5.gz
 OLD_FILES+=usr/share/man/man5/rtadvd.conf.5.gz
 OLD_FILES+=usr/share/man/man8/ip6addrctl.8.gz
@@ -2519,6 +2534,7 @@ OLD_FILES+=usr/share/man/man8/ping6.8.gz
 OLD_FILES+=usr/share/man/man8/rip6query.8.gz
 OLD_FILES+=usr/share/man/man8/route6d.8.gz
 OLD_FILES+=usr/share/man/man8/rrenumd.8.gz
+OLD_FILES+=usr/share/man/man8/rtadvctl.8.gz
 OLD_FILES+=usr/share/man/man8/rtadvd.8.gz
 OLD_FILES+=usr/share/man/man8/rtsol.8.gz
 OLD_FILES+=usr/share/man/man8/rtsold.8.gz
