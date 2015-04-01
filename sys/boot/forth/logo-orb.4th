@@ -1,5 +1,4 @@
-\ Copyright (c) 2003 Scott Long <scottl@FreeBSD.org>
-\ Copyright (c) 2015 Devin Teske <dteske@FreeBSD.org>
+\ Copyright (c) 2006-2015 Devin Teske <dteske@FreeBSD.org>
 \ All rights reserved.
 \ 
 \ Redistribution and use in source and binary forms, with or without
@@ -25,40 +24,23 @@
 \ 
 \ $FreeBSD$
 
-marker task-screen.4th
+46 logoX ! 7 logoY ! \ Initialize logo placement defaults
 
-\ emit Esc-[
-: escc ( -- ) 27 emit [char] [ emit ;
+: logo ( x y -- ) \ color Orb mascot (15 rows x 30 columns)
 
-\ Home cursor ( Esc-[H )
-: ho ( -- ) escc [char] H emit ;
-
-\ Clear from current position to end of display ( Esc-[J )
-: cld ( -- ) escc [char] J emit ;
-
-\ clear screen
-: clear ( -- ) ho cld ;
-
-\ move cursor to x rows, y cols (1-based coords) ( Esc-[%d;%dH )
-: at-xy ( x y -- ) escc .# [char] ; emit .# [char] H emit ;
-
-\ Set foreground color ( Esc-[3%dm )
-: fg ( x -- ) escc 3 .# .# [char] m emit ;
-
-\ Set background color ( Esc-[4%dm )
-: bg ( x -- ) escc 4 .# .# [char] m emit ;
-
-\ Mode end (clear attributes)
-: me ( -- ) escc [char] m emit ;
-
-\ Enable bold mode ( Esc-[1m )
-: b ( -- ) escc 1 .# [char] m emit ;
-
-\ Disable bold mode ( Esc-[22m )
-: -b ( -- ) escc 22 .# [char] m emit ;
-
-\ Enable inverse foreground/background mode ( Esc-[7m )
-: inv ( -- ) escc 7 .# [char] m emit ;
-
-\ Disable inverse foreground/background mode ( Esc-[27m )
-: -inv ( -- ) escc 27 .# [char] m emit ;
+	2dup at-xy ."  [31m```                        [31;1m`[31m" 1+
+	2dup at-xy ." s` `.....---...[31;1m....--.```   -/[31m" 1+
+	2dup at-xy ." +o   .--`         [31;1m/y:`      +.[31m" 1+
+	2dup at-xy ."  yo`:.            [31;1m:o      `+-[31m" 1+
+	2dup at-xy ."   y/               [31;1m-/`   -o/[31m" 1+
+	2dup at-xy ."  .-                  [31;1m::/sy+:.[31m" 1+
+	2dup at-xy ."  /                     [31;1m`--  /[31m" 1+
+	2dup at-xy ." `:                          [31;1m:`[31m" 1+
+	2dup at-xy ." `:                          [31;1m:`[31m" 1+
+	2dup at-xy ."  /                          [31;1m/[31m" 1+
+	2dup at-xy ."  .-                        [31;1m-.[31m" 1+
+	2dup at-xy ."   --                      [31;1m-.[31m" 1+
+	2dup at-xy ."    `:`                  [31;1m`:`" 1+
+	2dup at-xy ."      [31;1m.--             `--." 1+
+	     at-xy ."         .---.....----.[37m"
+;
