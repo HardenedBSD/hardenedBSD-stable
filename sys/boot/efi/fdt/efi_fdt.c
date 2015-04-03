@@ -1,6 +1,5 @@
 /*-
- * Copyright (c) 2014 Andrew Turner
- * Copyright (c) 2014-2015 The FreeBSD Foundation
+ * Copyright (c) 2014 The FreeBSD Foundation
  * All rights reserved.
  *
  * This software was developed by Andrew Turner under
@@ -26,39 +25,39 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- * $FreeBSD$
  */
 
-#ifndef _MACHINE_UCONTEXT_H_
-#define	_MACHINE_UCONTEXT_H_
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
-struct gpregs {
-	unsigned long long gp_x[30];
-	unsigned long long gp_lr;
-	unsigned long long gp_sp;
-	unsigned long long gp_elr;
-	uint32_t	gp_spsr;
-	u_int		gp_pad;
-};
+#include <sys/param.h>
+#include <stand.h>
+#include <efi.h>
+#include <efilib.h>
+#include <fdt_platform.h>
 
-struct fpregs {
-	__uint128_t	fp_q[32];
-	uint32_t	fp_sr;
-	uint32_t	fp_cr;
-	u_int		fp_flags;
-	u_int		fp_pad;
-};
+#include "bootstrap.h"
 
-struct __mcontext {
-	struct gpregs	mc_gpregs;
-	struct fpregs	mc_fpregs;
-	u_int		mc_flags;
-#define	_MC_FP_VALID	0x1		/* Set when mc_fpregs has valid data */
-	u_int		mc_pad;		/* Padding */
-	uint64_t	mc_spare[8];	/* Space for expansion, set to zero */
-};
+static EFI_GUID fdtdtb = FDT_TABLE_GUID;
 
-typedef struct __mcontext mcontext_t;
+int
+fdt_platform_load_dtb(void)
+{
+	struct fdt_header *hdr;
+	int err;
 
-#endif	/* !_MACHINE_UCONTEXT_H_ */
+	hdr = efi_get_table(&fdtdtb);
+	if (hdr != NULL) {
+		if (fdt_load_dtb_addr(hdr) == 0) {
+			printf("Using DTB provided by EFI at %p.\n", hdr);
+			return (0);
+		}
+	}
+
+	return (err);
+}
+
+void
+fdt_platform_fixups(void)
+{
+}
