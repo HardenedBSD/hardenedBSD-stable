@@ -1,5 +1,9 @@
 /*-
- * Copyright (c) 2013 Konstantin Belousov <kib@FreeBSD.org>
+ * Copyright (c) 2014 The FreeBSD Foundation
+ * All rights reserved.
+ *
+ * This software was developed by Andrew Turner under
+ * sponsorship from the FreeBSD Foundation.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,23 +30,35 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
-#include <sys/types.h>
-#include <sys/time.h>
-#include <sys/vdso.h>
-#include <errno.h>
+#include <sys/param.h>
 
-#pragma weak __vdso_gettc
-u_int
-__vdso_gettc(const struct vdso_timehands *th)
+#include <limits.h>
+#include <kvm.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "kvm_private.h"
+
+void
+_kvm_freevtop(kvm_t *kd)
 {
 
-	return (0);
+	printf("_kvm_freevtop\n");
+	abort();
 }
 
-#pragma weak __vdso_gettimekeep
 int
-__vdso_gettimekeep(struct vdso_timekeep **tk)
+_kvm_initvtop(kvm_t *kd)
 {
 
-	return (ENOSYS);
+	printf("_kvm_initvtop\n");
+	abort();
+}
+
+int
+_kvm_kvatop(kvm_t *kd, u_long va, off_t *pa)
+{
+
+	printf("_kvm_kvatop\n");
+	abort();
 }
