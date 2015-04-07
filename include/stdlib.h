@@ -102,12 +102,8 @@ int	 mbtowc(wchar_t * __restrict, const char * __restrict, size_t);
 void	 qsort(void *, size_t, size_t,
 	    int (*)(const void *, const void *));
 int	 rand(void);
-<<<<<<< HEAD
-void	*realloc(void *, size_t);
-void	*reallocarray(void *, size_t, size_t);
-=======
 void	*realloc(void *, size_t) __result_use_check __alloc_size(2);
->>>>>>> origin/master
+void	*reallocarray(void *, size_t, size_t) __result_use_check __alloc_size(2) __alloc_size(3);
 void	 srand(unsigned);
 double	 strtod(const char * __restrict, char ** __restrict);
 float	 strtof(const char * __restrict, char ** __restrict);
