@@ -23,7 +23,9 @@ CFLAGS+=	-I${.CURDIR}/../../../contrib/dev/acpica/include
 CFLAGS+=	-I${.CURDIR}/../../..
 
 # Always add MI sources and REGULAR efi loader bits
-.PATH:		${.CURDIR}/../loader/arch/${MACHINE_CPUARCH} ${.CURDIR}/../../common
+.PATH:		${.CURDIR}/../loader/arch/${MACHINE_CPUARCH}
+.PATH:		${.CURDIR}/../loader
+.PATH:		${.CURDIR}/../../common
 CFLAGS+=	-I${.CURDIR}/../../common
 
 FILES=	boot1.efi boot1.efifat
@@ -36,9 +38,10 @@ LDFLAGS=	-Wl,-T${LDSCRIPT} -Wl,-Bsymbolic -shared
 LDFLAGS+=	-Wl,-znocombreloc
 .endif
 
-.if ${MACHINE_CPUARCH} == "arm"
+.if ${MACHINE_CPUARCH} == "arm" || ${MACHINE_CPUARCH} == "i386"
 #
-# Add libstand for the __aeabi_* functions used by the compiler
+# Add libstand for the runtime functions used by the compiler - for example
+# __aeabi_* (arm) or __divdi3 (i386).
 #
 DPADD+=		${LIBSTAND}
 LDADD+=		-lstand
