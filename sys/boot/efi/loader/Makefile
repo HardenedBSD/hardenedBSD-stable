@@ -20,9 +20,12 @@ SRCS=	autoload.c \
 	copy.c \
 	devicename.c \
 	main.c \
+	smbios.c \
 	vers.c
 
 .PATH: ${.CURDIR}/arch/${MACHINE_CPUARCH}
+# For smbios.c
+.PATH: ${.CURDIR}/../../i386/libi386
 .include "${.CURDIR}/arch/${MACHINE_CPUARCH}/Makefile.inc"
 
 CFLAGS+=	-fPIC
@@ -32,7 +35,8 @@ CFLAGS+=	-I${.CURDIR}/../include
 CFLAGS+=	-I${.CURDIR}/../include/${MACHINE_CPUARCH}
 CFLAGS+=	-I${.CURDIR}/../../../contrib/dev/acpica/include
 CFLAGS+=	-I${.CURDIR}/../../..
-CFLAGS+=	-DNO_PCI
+CFLAGS+=	-I${.CURDIR}/../../i386/libi386
+CFLAGS+=	-DNO_PCI -DEFI
 
 .if ${MK_FORTH} != "no"
 BOOT_FORTH=	yes
@@ -83,6 +87,8 @@ OBJDUMP?=	objdump
 EFI_TARGET=	efi-app-x86_64
 .elif ${MACHINE_CPUARCH} == "i386"
 EFI_TARGET=	efi-app-ia32
+.else
+EFI_TARGET=	binary
 .endif
 
 loader.efi: loader.sym
@@ -90,7 +96,7 @@ loader.efi: loader.sym
 		${OBJDUMP} -t ${.ALLSRC} | fgrep '*UND*'; \
 		exit 1; \
 	fi
-	${OBJCOPY} -j .text -j .sdata -j .data \
+	${OBJCOPY} -j .peheader -j .text -j .sdata -j .data \
 		-j .dynamic -j .dynsym -j .rel.dyn \
 		-j .rela.dyn -j .reloc -j .eh_frame -j set_Xcommand_set \
 		--output-target=${EFI_TARGET} ${.ALLSRC} ${.TARGET}
