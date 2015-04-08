@@ -4,20 +4,20 @@ Without git:
 
     HardenedBSD source:
 
-	# fetch https://github.com/HardenedBSD/hardenedBSD/archive/hardened/current/master.zip -o hardenedbsd-src.zip
-	# tar xf hardenedbsd-src.zip
+	# fetch https://github.com/HardenedBSD/hardenedBSD/archive/hardened/current/master.tar.gz -o hardenedbsd-src.tar.gz
+	# tar xf hardenedbsd-src.tar.gz
 	# mv hardenedBSD-hardened-current-master /usr/src
 
     HardenedBSD ports:
 
-	# fetch https://github.com/HardenedBSD/freebsd-ports/archive/master.zip -o hardenedbsd-ports.zip
-	# tar xf hardenedbsd-ports.zip
+	# fetch https://github.com/HardenedBSD/freebsd-ports/archive/master.tar.gz -o hardenedbsd-ports.tar.gz
+	# tar xf hardenedbsd-ports.tar.gz
     	# mv freebsd-ports-master /usr/ports
 
     Secadm:
 
-	# fetch https://github.com/HardenedBSD/secadm/archive/master.zip -o secadm.zip
-	# tar xf secadm.zip
+	# fetch https://github.com/HardenedBSD/secadm/archive/master.tar.gz -o secadm.tar.gz
+	# tar xf secadm.tar.gz
 
 With git:
 
