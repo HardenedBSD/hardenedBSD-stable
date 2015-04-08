@@ -1,3 +1,25 @@
+[20150318] Merged first part of NOEXEC project
+
+This is the first part of PaX's MPROTECT restriction:
+* this merge brings per process level restriction settings
+* eliminated the linux's sound related mmap weakness
+* improved the logging
+...
+
+If you have problem with your application, then install
+secadm:
+
+ * from pkg:
+
+	pkg install secadm
+
+ * or from github:
+
+	# git clone https://github.com/hardenedbsd/secadm
+	# cd secadm
+	# make && make install
+
+
 [201502011] Changed kernel knobs
 
 Added ``options PAX`` to enable the HardenedBSD framework.
