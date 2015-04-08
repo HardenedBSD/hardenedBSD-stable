@@ -1,4 +1,12 @@
+[20150404] Added secadm hook to rtld
+__HardenedBSD_version = 18
+
+Added integriforce secadm hook to rtld to validate
+shared object before loading them.
+
+
 [20150318] Merged first part of NOEXEC project
+__HardenedBSD_version = 17
 
 This is the first part of PaX's MPROTECT restriction:
 * this merge brings per process level restriction settings
