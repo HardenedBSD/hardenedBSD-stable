@@ -1,3 +1,39 @@
+[20150408] How to get HardenedBSD and HardenedBSD-ports?
+
+Without git:
+
+    HardenedBSD source:
+
+	# fetch https://github.com/HardenedBSD/hardenedBSD/archive/hardened/current/master.zip -o hardenedbsd-src.zip
+	# tar xf hardenedbsd-src.zip
+	# mv hardenedBSD-hardened-current-master /usr/src
+
+    HardenedBSD ports:
+
+	# fetch https://github.com/HardenedBSD/freebsd-ports/archive/master.zip -o hardenedbsd-ports.zip
+	# tar xf hardenedbsd-ports.zip
+    	# mv freebsd-ports-master /usr/ports
+
+    Secadm:
+
+	# fetch https://github.com/HardenedBSD/secadm/archive/master.zip -o secadm.zip
+	# tar xf secadm.zip
+
+With git:
+
+    HardenedBSD-source:
+
+    	# git clone https://github.com/HardenedBSD/hardenedBSD.git /usr/src
+
+    HardenedBSD ports:
+
+    	# git clone https://github.com/HardenedBSD/freebsd-ports.git /usr/ports
+
+    Secadm:
+
+    	# git clone https://github.com/HardenedBSD/secadm.git
+
+
 [20150404] Added secadm hook to rtld
 __HardenedBSD_version = 18
 
