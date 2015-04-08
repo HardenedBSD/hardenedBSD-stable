@@ -103,7 +103,6 @@ void	 qsort(void *, size_t, size_t,
 	    int (*)(const void *, const void *));
 int	 rand(void);
 void	*realloc(void *, size_t) __result_use_check __alloc_size(2);
-void	*reallocarray(void *, size_t, size_t) __result_use_check __alloc_size(2) __alloc_size(3);
 void	 srand(unsigned);
 double	 strtod(const char * __restrict, char ** __restrict);
 float	 strtof(const char * __restrict, char ** __restrict);
@@ -304,6 +303,7 @@ void	 qsort_r(void *, size_t, size_t, void *,
 	    int (*)(void *, const void *, const void *));
 int	 radixsort(const unsigned char **, int, const unsigned char *,
 	    unsigned);
+void	*reallocarray(void *, size_t, size_t) __result_use_check __alloc_size(2) __alloc_size(3);
 void	*reallocf(void *, size_t) __result_use_check __alloc_size(2);
 int	 rpmatch(const char *);
 void	 setprogname(const char *);
