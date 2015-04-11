@@ -50,7 +50,7 @@ static char uds_name2[] = "reconnect.XXXXXXXX";
 
 #define	sstosa(ss)	((struct sockaddr *)(ss))
 
-void
+static void
 prepare_ifsun(struct sockaddr_un *ifsun, const char *path)
 {
 
@@ -62,7 +62,7 @@ prepare_ifsun(struct sockaddr_un *ifsun, const char *path)
     strcpy(ifsun->sun_path, path);
 }
 
-int
+static int
 create_uds_server(const char *path)
 {
     struct sockaddr_un ifsun;
@@ -82,7 +82,7 @@ create_uds_server(const char *path)
     return sock;
 }
 
-void
+static void
 connect_uds_server(int sock, const char *path)
 {
     struct sockaddr_un ifsun;
@@ -95,14 +95,12 @@ connect_uds_server(int sock, const char *path)
         err(1, "can't connect to a socket");
 }
 
-void
+static void
 cleanup(void)
 {
 
-    if (uds_name1 != NULL)
-        unlink(uds_name1);
-    if (uds_name2 != NULL)
-        unlink(uds_name2);
+    unlink(uds_name1);
+    unlink(uds_name2);
 }
 
 int
