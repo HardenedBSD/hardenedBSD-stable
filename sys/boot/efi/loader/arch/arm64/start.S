@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2014, 2015 Andrew Turner
+ * Copyright (c) 2014 Andrew Turner
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,15 +26,13 @@
  * $FreeBSD$
  */
 
-#include <machine/asm.h>
-
 /*
- * We need to be a PE32 file for EFI. On some architectures we can use
- * objcopy to create the correct file, however on arm we need to do
+ * We need to be a PE32+ file for EFI. On some architectures we can use
+ * objcopy to create the correct file, however on arm64 we need to do
  * it ourselves.
  */
 
-#define	IMAGE_FILE_MACHINE_ARM		0x01c2
+#define	IMAGE_FILE_MACHINE_ARM64	0xaa64
 
 #define	IMAGE_SCN_CNT_CODE		0x00000020
 #define	IMAGE_SCN_CNT_INITIALIZED_DATA	0x00000040
@@ -56,7 +54,7 @@ pe_sig:
 	.ascii	"PE"
 	.short	0
 coff_head:
-	.short	IMAGE_FILE_MACHINE_ARM		/* ARM file */
+	.short	IMAGE_FILE_MACHINE_ARM64	/* AArch64 file */
 	.short	2				/* 2 Sections */
 	.long	0				/* Timestamp */
 	.long	0				/* No symbol table */
@@ -65,7 +63,7 @@ coff_head:
 	.short	0	/* Characteristics TODO: Fill in */
 
 optional_header:
-	.short	0x010b				/* PE32 (32-bit addressing) */
+	.short	0x020b				/* PE32+ (64-bit addressing) */
 	.byte	0				/* Major linker version */
 	.byte	0				/* Minor linker version */
 	.long	_edata - _end_header		/* Code size */
@@ -73,10 +71,9 @@ optional_header:
 	.long	0				/* No uninitialized data */
 	.long	_start - efi_start		/* Entry point */
 	.long	_end_header - efi_start		/* Start of code */
-	.long	0				/* Start of data */
 
 optional_windows_header:
-	.long	0				/* Image base */
+	.quad	0				/* Image base */
 	.long	32				/* Section Alignment */
 	.long	8				/* File alignment */
 	.short	0				/* Major OS version */
@@ -91,10 +88,10 @@ optional_windows_header:
 	.long	0				/* Checksum */
 	.short	0xa				/* Subsystem (EFI app) */
 	.short	0				/* DLL Characteristics */
-	.long	0				/* Stack reserve */
-	.long	0				/* Stack commit */
-	.long	0				/* Heap reserve */
-	.long	0				/* Heap commit */
+	.quad	0				/* Stack reserve */
+	.quad	0				/* Stack commit */
+	.quad	0				/* Heap reserve */
+	.quad	0				/* Heap commit */
 	.long	0				/* Loader flags */
 	.long	6				/* Number of RVAs */
 
@@ -140,50 +137,29 @@ section_table:
 _end_header:
 
 	.text
+	.globl	_start
 _start:
 	/* Save the boot params to the stack */
-	push	{r0, r1}
+	stp	x0, x1, [sp, #-16]!
 
-	adr	r0, .Lbase
-	ldr	r1, [r0]
-	sub	r5, r0, r1
+	adr	x0, __bss_start
+	adr	x1, __bss_end
 
-	ldr	r0, .Limagebase
-	add	r0, r0, r5
-	ldr	r1, .Ldynamic
-	add	r1, r1, r5
+	b 2f
 
-	bl	_C_LABEL(_reloc)
-
-	/* Zero the BSS, _reloc fixed the values for us */
-	ldr	r0, .Lbss
-	ldr	r1, .Lbssend
-	mov	r2, #0
-
-1:	cmp	r0, r1
-	bgt	2f
-	str	r2, [r0], #4
-	b	1b
+1:
+	stp	xzr, xzr, [x0], #16
 2:
+	cmp	x0, x1
+	b.lo	1b
 
-	pop	{r0, r1}
-	bl	_C_LABEL(efi_main)
+	adr	x0, ImageBase
+	adr	x1, _DYNAMIC
+
+	bl	_reloc
+
+	ldp	x0, x1, [sp], #16
+
+	bl	efi_main
 
 1:	b	1b
-
-.Lbase:
-	.word	.
-.Limagebase:
-	.word	ImageBase
-.Ldynamic:
-	.word	_DYNAMIC
-.Lbss:
-	.word	__bss_start
-.Lbssend:
-	.word	__bss_end
-
-.align	3
-stack:
-	.space 512
-stack_end:
-
