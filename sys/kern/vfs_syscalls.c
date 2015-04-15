@@ -436,9 +436,14 @@ sys_getfsstat(td, uap)
 		int flags;
 	} */ *uap;
 {
+	size_t count;
+	int error;
 
-	return (kern_getfsstat(td, &uap->buf, uap->bufsize, UIO_USERSPACE,
-	    uap->flags));
+	error = kern_getfsstat(td, &uap->buf, uap->bufsize, &count,
+	    UIO_USERSPACE, uap->flags);
+	if (error == 0)
+		td->td_retval[0] = count;
+	return (error);
 }
 
 /*
@@ -448,7 +453,7 @@ sys_getfsstat(td, uap)
  */
 int
 kern_getfsstat(struct thread *td, struct statfs **buf, size_t bufsize,
-    enum uio_seg bufseg, int flags)
+    size_t *countp, enum uio_seg bufseg, int flags)
 {
 	struct mount *mp, *nmp;
 	struct statfs *sfsp, *sp, sb;
@@ -535,9 +540,9 @@ kern_getfsstat(struct thread *td, struct statfs **buf, size_t bufsize,
 	}
 	mtx_unlock(&mountlist_mtx);
 	if (sfsp && count > maxcount)
-		td->td_retval[0] = maxcount;
+		*countp = maxcount;
 	else
-		td->td_retval[0] = count;
+		*countp = count;
 	return (0);
 }
 
@@ -626,9 +631,9 @@ freebsd4_getfsstat(td, uap)
 
 	count = uap->bufsize / sizeof(struct ostatfs);
 	size = count * sizeof(struct statfs);
-	error = kern_getfsstat(td, &buf, size, UIO_SYSSPACE, uap->flags);
+	error = kern_getfsstat(td, &buf, size, &count, UIO_SYSSPACE,
+	    uap->flags);
 	if (size > 0) {
-		count = td->td_retval[0];
 		sp = buf;
 		while (count > 0 && error == 0) {
 			cvtstatfs(sp, &osb);
@@ -639,6 +644,8 @@ freebsd4_getfsstat(td, uap)
 		}
 		free(buf, M_TEMP);
 	}
+	if (error == 0)
+		td->td_retval[0] = count;
 	return (error);
 }
 
