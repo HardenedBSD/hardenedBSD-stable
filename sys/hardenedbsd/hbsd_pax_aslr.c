@@ -38,25 +38,26 @@ __FBSDID("$FreeBSD$");
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/kernel.h>
-#include <sys/ktr.h>
+#include <sys/elf_common.h>
+#include <sys/exec.h>
 #include <sys/imgact.h>
 #include <sys/imgact_elf.h>
-#include <sys/sysent.h>
-#include <sys/stat.h>
-#include <sys/proc.h>
-#include <sys/elf_common.h>
+#include <sys/jail.h>
+#include <sys/kthread.h>
+#include <sys/ktr.h>
+#include <sys/libkern.h>
+#include <sys/libkern.h>
+#include <sys/mman.h>
 #include <sys/mount.h>
 #include <sys/pax.h>
-#include <sys/sysctl.h>
-#include <sys/vnode.h>
+#include <sys/proc.h>
 #include <sys/queue.h>
-#include <sys/libkern.h>
-#include <sys/jail.h>
-
-#include <sys/mman.h>
-#include <sys/libkern.h>
-#include <sys/exec.h>
-#include <sys/kthread.h>
+#include <sys/resourcevar.h>
+#include <sys/stat.h>
+#include <sys/syscallsubr.h>
+#include <sys/sysctl.h>
+#include <sys/sysent.h>
+#include <sys/vnode.h>
 
 #include <vm/pmap.h>
 #include <vm/vm_map.h>
@@ -795,11 +796,25 @@ pax_aslr_stack(struct proc *p, uintptr_t *addr)
 void
 pax_aslr_stack_adjust(struct proc *p, u_long *ssiz)
 {
+	struct rlimit rlim_stack;
 
 	if (!pax_aslr_active(p))
 		return;
 
 	*ssiz += p->p_vmspace->vm_aslr_delta_stack;
+
+	/*
+	 * This needed because we currently use
+	 * gap based stack randomization.
+	 */
+	PROC_LOCK(p);
+	lim_rlimit(p, RLIMIT_STACK, &rlim_stack);
+	PROC_UNLOCK(p);
+	if (*ssiz > rlim_stack.rlim_max)
+		rlim_stack.rlim_max = *ssiz;
+	if (*ssiz > rlim_stack.rlim_cur)
+		rlim_stack.rlim_cur = *ssiz;
+	kern_setrlimit(curthread, RLIMIT_STACK, &rlim_stack);
 }
 
 void
