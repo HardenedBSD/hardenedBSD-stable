@@ -350,6 +350,7 @@ pax_printf_flags_td(struct thread *td, uint64_t flags)
 	}
 }
 
+#ifdef DDB
 void
 pax_db_printf_flags(struct proc *p, uint64_t flags)
 {
@@ -371,7 +372,7 @@ pax_db_printf_flags_td(struct thread *td, uint64_t flags)
 		    ' ' : '\n');
 	}
 }
-
+#endif
 
 __HARDENING_LOG_TEMPLATE(PAX, INTERNAL, pax, internal);
 __HARDENING_LOG_TEMPLATE(PAX, ASLR, pax, aslr);
