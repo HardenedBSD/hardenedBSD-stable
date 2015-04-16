@@ -394,9 +394,13 @@ do_execve(td, args, mac_p)
 	imgp->args = args;
 
 #ifdef PAX
+	PROC_LOCK(imgp->proc);
 	error = pax_elf(imgp, 0);
-	if (error)
+	if (error) {
+		PROC_UNLOCK(imgp->proc);
 		goto exec_fail;
+	}
+	PROC_UNLOCK(imgp->proc);
 #endif
 
 #ifdef MAC
@@ -1072,7 +1076,9 @@ exec_new_vmspace(imgp, sv)
 	}
 
 #ifdef PAX_ASLR
+	PROC_LOCK(imgp->proc);
 	pax_aslr_init(imgp);
+	PROC_UNLOCK(imgp->proc);
 #endif
 
 	/* Map a shared page */

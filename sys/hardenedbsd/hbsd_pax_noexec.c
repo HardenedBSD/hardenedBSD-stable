@@ -172,7 +172,7 @@ sysctl_pax_mprotect_status(SYSCTL_HANDLER_ARGS)
 
 
 /*
- * PAX PAGEEXEC functions
+ * PaX PAGEEXEC functions
  */
 
 static void
