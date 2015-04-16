@@ -818,13 +818,13 @@ pax_aslr_stack_adjust(struct proc *p, u_long *ssiz)
 }
 
 void
-pax_aslr_execbase(struct proc *p, u_long *et_dyn_addr)
+pax_aslr_execbase(struct proc *p, u_long *et_dyn_addrp)
 {
 
 	if (!pax_aslr_active(p))
 		return;
 
-	*et_dyn_addr += p->p_vmspace->vm_aslr_delta_exec;
+	*et_dyn_addrp += p->p_vmspace->vm_aslr_delta_exec;
 }
 
 uint32_t
