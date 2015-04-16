@@ -29,8 +29,8 @@
  * $FreeBSD$
  */
 
-#ifndef	__SYS_PAX_H
-#define	__SYS_PAX_H
+#ifndef	_SYS_PAX_H
+#define	_SYS_PAX_H
 
 #define	__HardenedBSD_version	19
 
@@ -222,4 +222,4 @@ int pax_ptrace_hardening(struct thread *td);
 			(PAX_NOTE_NOPAGEEXEC | PAX_NOTE_NOMPROTECT | PAX_NOTE_NOSEGVGUARD | PAX_NOTE_NOASLR)
 #define PAX_NOTE_ALL	(PAX_NOTE_ALL_ENABLED | PAX_NOTE_ALL_DISABLED)
 
-#endif /* __SYS_PAX_H */
+#endif /* _SYS_PAX_H */
