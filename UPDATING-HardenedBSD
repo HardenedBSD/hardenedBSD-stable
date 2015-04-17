@@ -1,3 +1,13 @@
+[20150415] Bumped stack randomization
+__HardenedBSD_version = 20
+
+	Increased stack randomization from 20 bit to 26 bit.
+
+
+[20150415] Fixed stack randomization
+__HardenedBSD_version = 19
+
+
 [20150408] How to get HardenedBSD and HardenedBSD-ports?
 
 Without git:
