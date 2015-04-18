@@ -202,6 +202,7 @@ thread_init(void *mem, int size, int flags)
 
 	td = (struct thread *)mem;
 
+	td->td_sel = NULL;
 	td->td_sleepqueue = sleepq_alloc();
 	td->td_turnstile = turnstile_alloc();
 	td->td_rlqe = NULL;
