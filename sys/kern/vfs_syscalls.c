@@ -1947,6 +1947,7 @@ olseek(td, uap)
 }
 #endif /* COMPAT_43 */
 
+#if defined(COMPAT_FREEBSD6)
 /* Version with the 'pad' argument */
 int
 freebsd6_lseek(td, uap)
@@ -1960,6 +1961,7 @@ freebsd6_lseek(td, uap)
 	ouap.whence = uap->whence;
 	return (sys_lseek(td, &ouap));
 }
+#endif
 
 /*
  * Check access permissions using passed credentials.
@@ -3437,6 +3439,7 @@ otruncate(td, uap)
 }
 #endif /* COMPAT_43 */
 
+#if defined(COMPAT_FREEBSD6)
 /* Versions with the pad argument */
 int
 freebsd6_truncate(struct thread *td, struct freebsd6_truncate_args *uap)
@@ -3457,6 +3460,7 @@ freebsd6_ftruncate(struct thread *td, struct freebsd6_ftruncate_args *uap)
 	ouap.length = uap->length;
 	return (sys_ftruncate(td, &ouap));
 }
+#endif
 
 /*
  * Sync an open file.
