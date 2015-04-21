@@ -3,7 +3,7 @@
 
 libkey() {
 	libkey="lib_symbols_$1"
-	patterns=[.+,-]
+	patterns=[.+,/-]
 	replacement=_
 	while :; do
 		case " ${libkey} " in
@@ -36,7 +36,8 @@ case $mime in
 esac
 
 # Gather all symbols from the target
-unresolved_symbols=$(nm -D --format=posix "$1" | awk -v isbin=${isbin} '$2 == "U" || ($2 == "B" && $4 != "" && isbin == 1) {print $1}' | tr '\n' ' ')
+unresolved_symbols=$(nm -u -D --format=posix "$1" | awk '$2 == "U" {print $1}' | tr '\n' ' ')
+[ ${isbin} -eq 1 ] && bss_symbols=$(nm -D --format=posix "$1" | awk '$2 == "B" && $4 != "" {print $1}' | tr '\n' ' ')
 ldd_libs=$(ldd $(realpath $1) | awk '{print $1 ":" $3}')
 
 # Check for useful libs
@@ -44,11 +45,15 @@ list_libs=
 resolved_symbols=
 for lib in $(readelf -d $1 | awk '$2 ~ /\(?NEEDED\)?/ { sub(/\[/,"",$NF); sub(/\]/,"",$NF); print $NF }'); do
 	echo -n "checking if $lib is needed: "
-	for libpair in ${ldd_libs}; do
-		case "${libpair}" in
-			${lib}:*) libpath="${libpair#*:}" && break ;;
-		esac
-	done
+	if [ -n "${lib##/*}" ]; then
+		for libpair in ${ldd_libs}; do
+			case "${libpair}" in
+				${lib}:*) libpath="${libpair#*:}" && break ;;
+			esac
+		done
+	else
+		libpath="${lib}"
+	fi
 	list_libs="$list_libs $lib"
 	foundone=
 	lib_symbols="$(nm -D --defined-only --format=posix "${libpath}" | awk '$2 ~ /C|R|D|T|W|B|V/ {print $1}' | tr '\n' ' ')"
@@ -58,7 +63,7 @@ for lib in $(readelf -d $1 | awk '$2 ~ /\(?NEEDED\)?/ { sub(/\[/,"",$NF); sub(/\
 		setvar "${libkey}" "${lib_symbols}"
 	fi
 	for fct in ${lib_symbols}; do
-		case " ${unresolved_symbols} " in
+		case " ${unresolved_symbols} ${bss_symbols} " in
 			*\ ${fct}\ *) foundone="${fct}" && break ;;
 		esac
 	done
