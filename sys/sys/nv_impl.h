@@ -41,17 +41,17 @@ typedef struct nvpair nvpair_t;
 
 #define	NV_TYPE_NVLIST_UP		255
 
-#define	NV_TYPE_FIRST		NV_TYPE_NULL
-#define	NV_TYPE_LAST		NV_TYPE_BINARY
+#define	NV_TYPE_FIRST			NV_TYPE_NULL
+#define	NV_TYPE_LAST			NV_TYPE_BINARY
 
 #define	NV_FLAG_BIG_ENDIAN		0x80
 
 #ifdef _KERNEL
-#define	nv_malloc(size)			malloc((size), M_NVLIST, M_NOWAIT)
+#define	nv_malloc(size)			malloc((size), M_NVLIST, M_WAITOK)
 #define	nv_calloc(n, size)		malloc((n) * (size), M_NVLIST, \
-					    M_NOWAIT | M_ZERO)
+					    M_WAITOK | M_ZERO)
 #define	nv_realloc(buf, size)		realloc((buf), (size), M_NVLIST, \
-					    M_NOWAIT)
+					    M_WAITOK)
 #define	nv_free(buf)			free((buf), M_NVLIST)
 #define	nv_strdup(buf)			strdup((buf), M_NVLIST)
 #define	nv_vasprintf(ptr, ...)		vasprintf(ptr, M_NVLIST, __VA_ARGS__)
@@ -70,8 +70,8 @@ typedef struct nvpair nvpair_t;
 #define	nv_strdup(buf)			strdup((buf))
 #define	nv_vasprintf(ptr, ...)		vasprintf(ptr, __VA_ARGS__)
 
-#define	SAVE_ERRNO(var) 		(var) = errno
-#define	RESTORE_ERRNO(var) 		errno = (var)
+#define	SAVE_ERRNO(var)			(var) = errno
+#define	RESTORE_ERRNO(var)		errno = (var)
 
 #define	ERRNO_OR_DEFAULT(default)	(errno == 0 ? (default) : errno)
 
