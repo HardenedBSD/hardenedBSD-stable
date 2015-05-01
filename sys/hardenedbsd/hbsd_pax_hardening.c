@@ -283,13 +283,10 @@ pax_init_hardening(void *dummy __unused)
 	if (pax_init_hardening_global == PAX_FEATURE_SIMPLE_DISABLED)
 		return;
 
-#if 0
-	/* TODO (lattera): Figure out the 10-stable equivalent of kern_unsetenv is */
 	kern_unsetenv("init_chroot");
 	kern_unsetenv("init_path");
 	kern_unsetenv("init_script");
 	kern_unsetenv("init_shell");
-#endif
 }
 SYSINIT(pax_init_hardening, SI_SUB_PAX, SI_ORDER_ANY,
     pax_init_hardening, NULL);
