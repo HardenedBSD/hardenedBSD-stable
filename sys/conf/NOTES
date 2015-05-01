@@ -2981,3 +2981,15 @@ options 	RANDOM_YARROW	# Yarrow RNG
 ##options 	RANDOM_FORTUNA	# Fortuna RNG - not yet implemented
 options 	RANDOM_DEBUG	# Debugging messages
 options 	RANDOM_RWFILE	# Read and write entropy cache
+
+# PAX and HardenedBSD related knobs
+options 	PAX		# Enable the PAX framework
+options 	PAX_ASLR	# Address Space Layout Randomization
+options 	PAX_HARDENING	# Other hardening features
+options 	PAX_NOEXEC	# Remove WX pages from user-space and enforce W^X
+options 	PAX_SEGVGUARD	# Track and ban failing process
+options 	PAX_SYSCTLS	# Run-time settings for PAX and Hardening
+options 	PAX_PTRACE_HARDENING
+options 	PAX_PTRACE_HARDENING_GRP=50000
+options 	PAX_INSECURE_MODE	# Allow to override INVARIANTS enforcements
+

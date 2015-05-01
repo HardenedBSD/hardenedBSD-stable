@@ -286,6 +286,7 @@ struct thread {
 	u_char		td_pri_class;	/* (t) Scheduling class. */
 	u_char		td_user_pri;	/* (t) User pri from estcpu and nice. */
 	u_char		td_base_user_pri; /* (t) Base user pri */
+	uint32_t        td_pax;         /* (b) cached PaX settings from process */
 #define	td_endcopy td_pcb
 
 /*
@@ -560,6 +561,7 @@ struct proc {
 	rlim_t		p_cpulimit;	/* (c) Current CPU limit in seconds. */
 	signed char	p_nice;		/* (c) Process "nice" value. */
 	int		p_fibnum;	/* in this routing domain XXX MRT */
+	uint32_t        p_pax;          /* (b) PaX is enabled to this process */
 /* End area that is copied on creation. */
 #define	p_endcopy	p_xstat
 

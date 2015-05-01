@@ -41,6 +41,7 @@ __FBSDID("$FreeBSD$");
 #include "opt_kdtrace.h"
 #include "opt_ktrace.h"
 #include "opt_core.h"
+#include "opt_pax.h"
 #include "opt_procdesc.h"
 
 #include <sys/param.h>
@@ -61,6 +62,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/mutex.h>
 #include <sys/refcount.h>
 #include <sys/namei.h>
+#include <sys/pax.h>
 #include <sys/proc.h>
 #include <sys/procdesc.h>
 #include <sys/posix4.h>
@@ -2964,6 +2966,9 @@ sigexit(td, sig)
 			    td->td_ucred ? td->td_ucred->cr_uid : -1,
 			    sig &~ WCOREFLAG,
 			    sig & WCOREFLAG ? " (core dumped)" : "");
+#ifdef PAX_SEGVGUARD
+		pax_segvguard_segfault(curthread, p->p_comm);
+#endif
 	} else
 		PROC_UNLOCK(p);
 	exit1(td, W_EXITCODE(0, sig));

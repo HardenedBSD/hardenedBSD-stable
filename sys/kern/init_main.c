@@ -46,6 +46,7 @@ __FBSDID("$FreeBSD$");
 
 #include "opt_ddb.h"
 #include "opt_init_path.h"
+#include "opt_pax.h"
 
 #include <sys/param.h>
 #include <sys/kernel.h>
@@ -58,6 +59,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/loginclass.h>
 #include <sys/mount.h>
 #include <sys/mutex.h>
+#include <sys/pax.h>
 #include <sys/syscallsubr.h>
 #include <sys/sysctl.h>
 #include <sys/proc.h>
@@ -476,6 +478,9 @@ proc0_init(void *dummy __unused)
 	p->p_flag = P_SYSTEM | P_INMEM;
 	p->p_flag2 = 0;
 	p->p_state = PRS_NORMAL;
+#ifdef PAX
+	p->p_pax = PAX_NOTE_ALL_DISABLED;
+#endif
 	knlist_init_mtx(&p->p_klist, &p->p_mtx);
 	STAILQ_INIT(&p->p_ktr);
 	p->p_nice = NZERO;
@@ -493,6 +498,9 @@ proc0_init(void *dummy __unused)
 	td->td_flags = TDF_INMEM;
 	td->td_pflags = TDP_KTHREAD;
 	td->td_cpuset = cpuset_thread0();
+#ifdef PAX
+	td->td_pax = PAX_NOTE_ALL_DISABLED;
+#endif
 	prison0_init();
 	p->p_peers = 0;
 	p->p_leader = p;

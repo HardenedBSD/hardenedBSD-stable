@@ -31,6 +31,7 @@
  */
 
 #include "opt_compat.h"
+#include "opt_pax.h"
 
 #define __ELF_WORD_SIZE 32
 
@@ -42,6 +43,7 @@
 #include <sys/exec.h>
 #include <sys/imgact.h>
 #include <sys/malloc.h>
+#include <sys/pax.h>
 #include <sys/proc.h>
 #include <sys/namei.h>
 #include <sys/fcntl.h>
@@ -106,6 +108,9 @@ struct sysentvec elf32_freebsd_sysvec = {
 	.sv_fetch_syscall_args = cpu_fetch_syscall_args,
 	.sv_syscallnames = freebsd32_syscallnames,
 	.sv_schedtail	= NULL,
+#ifdef PAX_ASLR
+	.sv_pax_aslr_init = pax_aslr_init_vmspace32,
+#endif
 };
 INIT_SYSENTVEC(elf32_sysvec, &elf32_freebsd_sysvec);
 

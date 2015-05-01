@@ -38,6 +38,7 @@
  */
 
 #include "opt_compat.h"
+#include "opt_pax.h"
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -122,9 +123,14 @@ procfs_doprocregs(PFS_FILL_ARGS)
 	if (error == 0 && uio->uio_rw == UIO_WRITE) {
 		if (!P_SHOULDSTOP(p))
 			error = EBUSY;
-		else
+#ifdef PAX_HARDENING
+		else if ((error = pax_procfs_harden(td2)) == 0) {
+#else
+		else {
+#endif
 			/* XXXKSE: */
 			error = PROC(write, regs, td2, &r);
+		}
 	}
 	PROC_UNLOCK(p);
 

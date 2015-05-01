@@ -45,6 +45,7 @@ __FBSDID("$FreeBSD$");
 
 #include "opt_compat.h"
 #include "opt_hwpmc_hooks.h"
+#include "opt_pax.h"
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -54,6 +55,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/mutex.h>
 #include <sys/sysproto.h>
 #include <sys/filedesc.h>
+#include <sys/pax.h>
 #include <sys/priv.h>
 #include <sys/proc.h>
 #include <sys/procctl.h>
@@ -266,6 +268,12 @@ sys_mmap(td, uap)
 	    align >> MAP_ALIGNMENT_SHIFT < PAGE_SHIFT))
 		return (EINVAL);
 
+#if defined(MAP_32BIT) && defined(PAX_HARDENING)
+	if (flags & MAP_32BIT)
+		if (pax_map32_enabled(td) == 0)
+			return (EPERM);
+#endif
+
 	/*
 	 * Check for illegal addresses.  Watch out for address wrap... Note
 	 * that VM_*_ADDRESS are not constants due to casts (argh).
@@ -416,6 +424,13 @@ sys_mmap(td, uap)
 map:
 	td->td_fpop = fp;
 	maxprot &= cap_maxprot;
+#ifdef PAX_NOEXEC
+	pax_pageexec(td->td_proc, &prot, &maxprot);
+	pax_mprotect(td->td_proc, &prot, &maxprot);
+#endif
+#ifdef PAX_ASLR
+	pax_aslr_mmap(td->td_proc, &addr, (vm_offset_t)uap->addr, flags);
+#endif
 	error = vm_mmap(&vms->vm_map, &addr, size, prot, maxprot,
 	    flags, handle_type, handle, pos);
 	td->td_fpop = NULL;
