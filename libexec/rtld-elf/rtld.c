@@ -2111,10 +2111,11 @@ load_needed_objects(Obj_Entry *first, int flags)
     Obj_Entry *obj;
 
     for (obj = first;  obj != NULL;  obj = obj->next) {
-	randomize_neededs(obj, flags);
-	if (process_needed(obj, obj->needed, flags) == -1)
-	    return (-1);
+        randomize_neededs(obj, flags);
+        if (process_needed(obj, obj->needed, flags) == -1)
+            return (-1);
     }
+
     return (0);
 }
 
