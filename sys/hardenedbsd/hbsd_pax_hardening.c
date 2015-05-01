@@ -64,6 +64,10 @@ __FBSDID("$FreeBSD$");
 
 #include <machine/elf.h>
 
+#if __FreeBSD_version < 1100000
+#define	kern_unsetenv	unsetenv
+#endif
+
 #ifdef PAX_HARDENING
 static int pax_map32_enabled_global = PAX_FEATURE_SIMPLE_DISABLED;
 static int pax_procfs_harden_global = PAX_FEATURE_SIMPLE_ENABLED;
