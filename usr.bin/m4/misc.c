@@ -465,6 +465,7 @@ dump_buffer(FILE *f, size_t m)
 	for (s = bp; s-buf > (long)m;)
 		fputc(*--s, f);
 }
+<<<<<<< HEAD
 
 #ifndef HARDENEDBSD
 /*	$OpenBSD: reallocarray.c,v 1.2 2014/12/08 03:45:00 bcook Exp $	*/
@@ -501,3 +502,5 @@ reallocarray(void *optr, size_t nmemb, size_t size)
 	return realloc(optr, size * nmemb);
 }
 #endif
+=======
+>>>>>>> origin/master
