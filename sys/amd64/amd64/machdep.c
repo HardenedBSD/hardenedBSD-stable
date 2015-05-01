@@ -1852,16 +1852,17 @@ makectx(struct trapframe *tf, struct pcb *pcb)
 int
 ptrace_set_pc(struct thread *td, unsigned long addr)
 {
+
 	/*
-	 * DragonflyBSD's safety towards
-	 * SYSRET's potential issue handling
+	 * DragonflyBSD's safety towards:
+	 * enforce canonical addresses - this should
+	 * fix SYSRET's potential issue handling
 	 */
-
 	if (addr & 0x0000800000000000LLU)
-		td->td_frame->tf_rip = addr | 0xFFFF000000000000LLU;
+		addr = addr | 0xFFFF000000000000LLU;
 	else
-		td->td_frame->tf_rip = addr & 0x0000FFFFFFFFFFFFLLU;
-
+		addr = addr & 0x0000FFFFFFFFFFFFLLU;
+	td->td_frame->tf_rip = addr;
 	set_pcb_flags(td->td_pcb, PCB_FULL_IRET);
 	return (0);
 }
