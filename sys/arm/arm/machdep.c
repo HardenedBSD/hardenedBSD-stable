@@ -44,10 +44,10 @@
 
 #include "opt_compat.h"
 #include "opt_ddb.h"
+#include "opt_pax.h"
 #include "opt_platform.h"
 #include "opt_sched.h"
 #include "opt_timer.h"
-#include "opt_pax.h"
 
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
@@ -70,6 +70,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/malloc.h>
 #include <sys/msgbuf.h>
 #include <sys/mutex.h>
+#include <sys/pax.h>
 #include <sys/pcpu.h>
 #include <sys/ptrace.h>
 #include <sys/rwlock.h>
@@ -115,10 +116,6 @@ __FBSDID("$FreeBSD$");
 
 #ifdef DDB
 #include <ddb/ddb.h>
-#endif
-
-#ifdef PAX_ASLR
-#include <sys/pax.h>
 #endif
 
 #ifdef DEBUG
