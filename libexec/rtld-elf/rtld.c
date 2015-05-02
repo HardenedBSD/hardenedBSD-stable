@@ -2079,9 +2079,8 @@ process_needed(Obj_Entry *obj, Needed_Entry *needed, int flags)
 	  obj->strtab + needed->name);
 	obj1 = needed->obj = load_object(obj->strtab + needed->name, -1, obj,
 	  flags & ~RTLD_LO_NOLOAD);
-	if (obj1 == NULL && !ld_tracing && (flags & RTLD_LO_FILTEES) == 0) {
+	if (obj1 == NULL && !ld_tracing && (flags & RTLD_LO_FILTEES) == 0)
 	    return (-1);
-	}
     }
     return (0);
 }
