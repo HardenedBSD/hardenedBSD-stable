@@ -298,12 +298,12 @@ vmspace_alloc(vm_offset_t min, vm_offset_t max, pmap_pinit_t pinit)
 	vm->vm_taddr = 0;
 	vm->vm_daddr = 0;
 	vm->vm_maxsaddr = 0;
-
 #ifdef PAX_ASLR
 	vm->vm_aslr_delta_mmap = 0;
 	vm->vm_aslr_delta_stack = 0;
 	vm->vm_aslr_delta_exec = 0;
 #endif
+
 	return (vm);
 }
 
@@ -2039,7 +2039,6 @@ vm_map_protect(vm_map_t map, vm_offset_t start, vm_offset_t end,
 			return (ret);
 		}
 #endif
-
 		if (set_max)
 			current->protection =
 			    (current->max_protection = new_prot) &
