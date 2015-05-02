@@ -1099,7 +1099,6 @@ exec_new_vmspace(imgp, sv)
 	} else {
 		ssiz = maxssiz;
 	}
-
 #ifdef PAX_ASLR
 	/*
 	 * The current stack randomization based on gap.
@@ -1108,7 +1107,6 @@ exec_new_vmspace(imgp, sv)
 	 */
 	pax_aslr_stack_adjust(p, &ssiz);
 #endif
-
 	stack_addr = sv->sv_usrstack - ssiz;
 	error = vm_map_stack(map, stack_addr, (vm_size_t)ssiz,
 	    obj != NULL && imgp->stack_prot != 0 ? imgp->stack_prot :

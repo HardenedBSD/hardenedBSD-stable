@@ -281,7 +281,6 @@ sendsig(catcher, ksi, mask)
 	tf->tf_pc = (register_t)catcher;
 	tf->tf_usr_sp = (register_t)fp;
 	tf->tf_usr_lr = (register_t)(PS_STRINGS - *(p->p_sysent->sv_szsigcode));
-
 #ifdef PAX_ASLR
 	pax_aslr_stack(td->td_proc, &tf->tf_usr_lr);
 #endif
