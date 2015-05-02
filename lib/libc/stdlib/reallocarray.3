@@ -1,11 +1,6 @@
-<<<<<<< HEAD
-.\" Copyright (c) 1980, 1991, 1993
-.\"	The Regents of the University of California.  All rights reserved.
-=======
 .\"
 .\" Copyright (c) 1980, 1991, 1993
 .\">----The Regents of the University of California.  All rights reserved.
->>>>>>> origin/master
 .\"
 .\" This code is derived from software contributed to Berkeley by
 .\" the American National Standards Committee X3, on Information
@@ -19,12 +14,6 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-<<<<<<< HEAD
-.\" 3. Neither the name of the University nor the names of its contributors
-.\"    may be used to endorse or promote products derived from this software
-.\"    without specific prior written permission.
-=======
->>>>>>> origin/master
 .\"
 .\" THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
 .\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -38,18 +27,10 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-<<<<<<< HEAD
-.\"     @(#)malloc.3	8.1 (Berkeley) 6/4/93
-.\" $FreeBSD$
-.\"
-.Dd November 24, 2014
-.Dt MALLOC 3
-=======
 .\" $FreeBSD$
 .\"
 .Dd May 1, 2015
 .Dt REALLOCARRAY 3
->>>>>>> origin/master
 .Os
 .Sh NAME
 .Nm reallocarray
@@ -59,30 +40,6 @@
 .Sh SYNOPSIS
 .In stdlib.h
 .Ft void *
-<<<<<<< HEAD
-.Fn reallocarray "void *ptr" "size_t nmbr" "size_t size"
-.Sh DESCRIPTION
-The
-.Fn reallocarray
-function allocates space for an array of
-.Fa nmbr
-objects, each
-of whose size is 
-.Fa size
-. The use of
-.Fn reallocarray
-is strongly encouraged when allocating multiple sized objects
-in order to avoid possible integer overflows.
-.Sh RETURN VALUES
-The
-.Fn reallocarray
-function returns a pointer to the allocated space if successful;
-otherwise a null pointer is returned and
-.Va errno
-is set to
-.Er ENOMEM
-.
-=======
 .Fn reallocarray "void *ptr" "size_t nmemb" "size_t size"
 .Sh DESCRIPTION
 The
@@ -171,17 +128,10 @@ Instead, use
 if ((newp = reallocarray(p, num, size)) == NULL) {
 	...
 .Ed
->>>>>>> origin/master
 .Sh SEE ALSO
 .Xr realloc 3
 .Sh HISTORY
 The
-<<<<<<< HEAD
-.Fn reallocarray
-function first appeared in
-.Fx 5.6 .
-=======
 .Fn reallocf
 function first appeared in
 .Ox 5.6 .
->>>>>>> origin/master
