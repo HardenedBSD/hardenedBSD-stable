@@ -84,11 +84,9 @@ struct sysent {			/* system call table */
 #endif
 
 struct image_params;
-struct prison;
 struct __sigset;
 struct syscall_args;
 struct trapframe;
-struct vmspace;
 struct vnode;
 
 struct sysentvec {
