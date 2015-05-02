@@ -773,53 +773,11 @@ _virtio=	virtio
 .if ${MK_BHYVE} != "no" || defined(ALL_MODULES)
 _vmm=		vmm
 .endif
-<<<<<<< HEAD
 _vxge=  	vxge
 _x86bios=	x86bios
 _wbwd=		wbwd
 _wi=		wi
 _wpi=		wpi
-=======
-
-.if ${MACHINE_CPUARCH} == "i386"
-# XXX some of these can move to the general case when de-i386'ed
-# XXX some of these can move now, but are untested on other architectures.
-_3dfx=		3dfx
-_3dfx_linux=	3dfx_linux
-_aic=		aic
-_apm=		apm
-_arcnet=	arcnet
-.if ${MK_SOURCELESS_UCODE} != "no"
-_ce=		ce
-.endif
-.if ${MK_SOURCELESS_UCODE} != "no"
-_cp=		cp
-.endif
-_cs=		cs
-_elink=		elink
-_ep=		ep
-_fe=		fe
-_glxiic=	glxiic
-_glxsb=		glxsb
-_ie=		ie
-_mse=		mse
-_ncr=		ncr
-_ncv=		ncv
-_nsp=		nsp
-_pcfclock=	pcfclock
-_pst=		pst
-_sbni=		sbni
-_stg=		stg
-_wds=		wds
-_xe=		xe
-.if ${MACHINE} == "i386"
-.if ${MK_EISA} != "no"
-_ahb=		ahb
-.endif
-_asr=		asr
-_bios=		bios
-_cm=		cm
->>>>>>> f7cabe7... HBSD JANITOR: remove old IBCS2 and COFF image activator
 .if ${MK_SOURCELESS_UCODE} != "no"
 _wpifw=		wpifw
 .endif
