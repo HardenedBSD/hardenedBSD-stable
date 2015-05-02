@@ -13,7 +13,6 @@ LDIRS=	BSD_daemon \
 	drivers \
 	etc \
 	find_interface \
-	ibcs2 \
 	indent \
 	ipfw \
 	jails \
