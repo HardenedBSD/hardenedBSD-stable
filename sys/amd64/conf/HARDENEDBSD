@@ -1,10 +1,20 @@
 include GENERIC
 
+ident HARDENEDBSD-10-STABLE
+
 options INVARIANTS
 options INVARIANT_SUPPORT
 
 options PAX
 options PAX_ASLR
+options PAX_NOEXEC
 options PAX_SEGVGUARD
 options PAX_HARDENING
 options PAX_SYSCTLS
+
+options UFS_EXTATTR
+
+device cpuctl
+device crypto
+device cryptodev
+device aesni
