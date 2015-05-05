@@ -50,6 +50,7 @@ __FBSDID("$FreeBSD$");
  * structured typesetting.
  */
 #include <err.h>
+#define _WITH_GETLINE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -165,18 +166,22 @@ static const char *knowncmds[MAXCMDS] = {
 "WC", "WH", "XA", "XD", "XE", "XF", "XK", "XP", "XS", "[",  "[-", "[0",
 "[1", "[2", "[3", "[4", "[5", "[<", "[>", "[]", "]",  "]-", "]<", "]>",
 "][", "ab", "ac", "ad", "af", "am", "ar", "as", "b",  "ba", "bc", "bd",
-"bi", "bl", "bp", "br", "bx", "c.", "c2", "cc", "ce", "cf", "ch", "cs",
-"ct", "cu", "da", "de", "di", "dl", "dn", "ds", "dt", "dw", "dy", "ec",
-"ef", "eh", "el", "em", "eo", "ep", "ev", "ex", "fc", "fi", "fl", "fo",
-"fp", "ft", "fz", "hc", "he", "hl", "hp", "ht", "hw", "hx", "hy", "i",
-"ie", "if", "ig", "in", "ip", "it", "ix", "lc", "lg", "li", "ll", "ln",
-"lo", "lp", "ls", "lt", "m1", "m2", "m3", "m4", "mc", "mk", "mo", "n1",
-"n2", "na", "ne", "nf", "nh", "nl", "nm", "nn", "np", "nr", "ns", "nx",
-"of", "oh", "os", "pa", "pc", "pi", "pl", "pm", "pn", "po", "pp", "ps",
-"q",  "r",  "rb", "rd", "re", "rm", "rn", "ro", "rr", "rs", "rt", "sb",
-"sc", "sh", "sk", "so", "sp", "ss", "st", "sv", "sz", "ta", "tc", "th",
-"ti", "tl", "tm", "tp", "tr", "u",  "uf", "uh", "ul", "vs", "wh", "xp",
-"yr", 0
+"bi", "bl", "bp", "br", "bx", "c.", "c2", "cc", "ce", "cf", "ch",
+"chop", "cs", "ct", "cu", "da", "de", "di", "dl", "dn", "do", "ds",
+"dt", "dw", "dy", "ec", "ef", "eh", "el", "em", "eo", "ep", "ev",
+"evc", "ex", "fallback", "fc", "feature", "fi", "fl", "flig", "fo",
+"fp", "ft", "ftr", "fz", "fzoom", "hc", "he", "hidechar", "hl", "hp",
+"ht", "hw", "hx", "hy", "hylang", "i", "ie", "if", "ig", "in", "ip",
+"it", "ix", "kern", "kernafter", "kernbefore", "kernpair", "lc", "lg",
+"lhang", "lc_ctype", "li", "ll", "ln", "lo", "lp", "ls", "lt", "m1",
+"m2", "m3", "m4", "mc", "mk", "mo", "n1", "n2", "na", "ne", "nf", "nh",
+"nl", "nm", "nn", "np", "nr", "ns", "nx", "of", "oh", "os", "pa",
+"papersize", "pc", "pi", "pl", "pm", "pn", "po", "pp", "ps", "q",
+"r",  "rb", "rd", "re", "recursionlimit", "return", "rhang", "rm",
+"rn", "ro", "rr", "rs", "rt", "sb", "sc", "sh", "shift", "sk", "so",
+"sp", "ss", "st", "sv", "sz", "ta", "tc", "th", "ti", "tl", "tm", "tp",
+"tr", "track", "u",  "uf", "uh", "ul", "vs", "wh", "xflag", "xp", "yr",
+0
 };
 
 static int	lineno;		/* current line number in input file */
@@ -250,7 +255,7 @@ main(int argc, char **argv)
 	nfiles = argc - 1;
 
 	if (nfiles > 0) {
-		for (i=1; i<argc; i++) {
+		for (i = 1; i < argc; i++) {
 			cfilename = argv[i];
 			f = fopen(cfilename, "r");
 			if (f == NULL)
@@ -280,11 +285,14 @@ process(FILE *f)
 {
 	int i, n;
 	char mac[5];	/* The current macro or nroff command */
+	char *line;
+	size_t linecap;
 	int pl;
-	static char line[256];	/* the current line */
 
+	line = NULL;
+	linecap = 0;
 	stktop = -1;
-	for (lineno = 1; fgets(line, sizeof line, f); lineno++) {
+	for (lineno = 1; getline(&line, &linecap, f) > 0; lineno++) {
 		if (line[0] == '.') {
 			/*
 			 * find and isolate the macro/command name.
@@ -320,9 +328,9 @@ process(FILE *f)
 		 * At this point we process the line looking
 		 * for \s and \f.
 		 */
-		for (i=0; line[i]; i++)
-			if (line[i]=='\\' && (i==0 || line[i-1]!='\\')) {
-				if (!sflag && line[++i]=='s') {
+		for (i = 0; line[i]; i++)
+			if (line[i] == '\\' && (i == 0 || line[i-1] != '\\')) {
+				if (!sflag && line[++i] == 's') {
 					pl = line[++i];
 					if (isdigit(pl)) {
 						n = pl - '0';
@@ -345,7 +353,7 @@ process(FILE *f)
 						stk[stktop].parm = n;
 						stk[stktop].lno = lineno;
 					}
-				} else if (!fflag && line[i]=='f') {
+				} else if (!fflag && line[i] == 'f') {
 					n = line[++i];
 					if (n == 'P') {
 						if (stk[stktop].opno == FT) {
@@ -363,11 +371,12 @@ process(FILE *f)
 				}
 			}
 	}
+	free(line);
 	/*
 	 * We've hit the end and look at all this stuff that hasn't been
 	 * matched yet!  Complain, complain.
 	 */
-	for (i=stktop; i>=0; i--) {
+	for (i = stktop; i >= 0; i--) {
 		complain(i);
 	}
 }
@@ -386,7 +395,7 @@ prop(int i)
 {
 	if (stk[i].pl == 0)
 		printf(".%s", br[stk[i].opno].opbr);
-	else switch(stk[i].opno) {
+	else switch (stk[i].opno) {
 	case SZ:
 		printf("\\s%c%d", stk[i].pl, stk[i].parm);
 		break;
@@ -395,7 +404,8 @@ prop(int i)
 		break;
 	default:
 		printf("Bug: stk[%d].opno = %d = .%s, .%s",
-			i, stk[i].opno, br[stk[i].opno].opbr, br[stk[i].opno].clbr);
+			i, stk[i].opno, br[stk[i].opno].opbr,
+			br[stk[i].opno].clbr);
 	}
 }
 
@@ -567,7 +577,9 @@ printf("binsrch(%s) -> %d\n", mac, slot);
 	*loc = strcpy(malloc(3), mac);
 	ncmds++;
 #ifdef DEBUG
-printf("after: %s %s %s %s %s, %d cmds\n", knowncmds[slot-2], knowncmds[slot-1], knowncmds[slot], knowncmds[slot+1], knowncmds[slot+2], ncmds);
+	printf("after: %s %s %s %s %s, %d cmds\n",
+	    knowncmds[slot-2], knowncmds[slot-1], knowncmds[slot],
+	    knowncmds[slot+1], knowncmds[slot+2], ncmds);
 #endif
 }
 
@@ -592,12 +604,12 @@ binsrch(const char *mac)
 		if (d == 0)
 			d = p[1] - mac[1];
 		if (d == 0)
-			return mid;
+			return (mid);
 		if (d < 0)
 			bot = mid + 1;
 		else
 			top = mid - 1;
 	}
 	slot = bot;	/* place it would have gone */
-	return -1;
+	return (-1);
 }
