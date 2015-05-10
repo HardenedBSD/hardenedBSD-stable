@@ -34,6 +34,7 @@ static const char rcsid[] =
 #include <string.h>
 #include <ctype.h>
 #include <fcntl.h>
+#include <err.h>
 
 #include "pw.h"
 
@@ -211,15 +212,15 @@ boolean_str(int val)
 char           *
 newstr(char const * p)
 {
-	char           *q = NULL;
+	char	*q;
 
-	if ((p = unquote(p)) != NULL) {
-		int             l = strlen(p) + 1;
+	if ((p = unquote(p)) == NULL)
+		return (NULL);
 
-		if ((q = malloc(l)) != NULL)
-			memcpy(q, p, l);
-	}
-	return q;
+	if ((q = strdup(p)) == NULL)
+		err(1, "strdup()");
+
+	return (q);
 }
 
 struct userconf *
@@ -233,8 +234,10 @@ read_userconfig(char const * file)
 	buf = NULL;
 	linecap = 0;
 
-	extendarray(&config.groups, &config.numgroups, 200);
-	memset(config.groups, 0, config.numgroups * sizeof(char *));
+	config.numgroups = 200;
+	config.groups = calloc(config.numgroups, sizeof(char *));
+	if (config.groups == NULL)
+		err(1, "calloc()");
 	if (file == NULL)
 		file = _PATH_PW_CONF;
 
