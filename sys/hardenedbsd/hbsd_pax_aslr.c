@@ -70,7 +70,7 @@ __FBSDID("$FreeBSD$");
 	(((delta) & ((1UL << (len)) - 1)) << (lsb))
 #endif /* PAX_ASLR_DELTA */
 
-/*
+/*-
  * generic ASLR values
  *
  *  	MMAP	| 32 bit | 64 bit | compat |

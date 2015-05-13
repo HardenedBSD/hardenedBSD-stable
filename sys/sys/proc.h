@@ -288,7 +288,7 @@ struct thread {
 	u_char		td_pri_class;	/* (t) Scheduling class. */
 	u_char		td_user_pri;	/* (t) User pri from estcpu and nice. */
 	u_char		td_base_user_pri; /* (t) Base user pri */
-	uint32_t	td_pax;		/* (b) cached PaX settings from process */
+	uint32_t	td_pax;		/* (b) Cached PaX settings from process. */
 #define	td_endcopy td_pcb
 
 /*

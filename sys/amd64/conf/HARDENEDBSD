@@ -37,8 +37,8 @@ options 	UFS_DIRHASH		# Improve performance on big directories
 options 	UFS_GJOURNAL		# Enable gjournal-based UFS journaling
 options 	QUOTA			# Enable disk quotas for UFS
 options 	MD_ROOT			# MD is a potential root device
-options 	NFSCL			# New Network Filesystem Client
-options 	NFSD			# New Network Filesystem Server
+options 	NFSCL			# Network Filesystem Client
+options 	NFSD			# Network Filesystem Server
 options 	NFSLOCKD		# Network Lock Manager
 options 	NFS_ROOT		# NFS usable as /, requires NFSCL
 options 	MSDOSFS			# MSDOS Filesystem
@@ -48,7 +48,8 @@ options 	PSEUDOFS		# Pseudo-filesystem framework
 options 	GEOM_PART_GPT		# GUID Partition Tables.
 options 	GEOM_RAID		# Soft RAID functionality.
 options 	GEOM_LABEL		# Provides labelization
-options 	COMPAT_FREEBSD32	# Compatible with i386 binaries
+options 	GEOM_ELI
+#options 	COMPAT_FREEBSD32	# Compatible with i386 binaries
 options 	COMPAT_FREEBSD4		# Compatible with FreeBSD4
 options 	COMPAT_FREEBSD5		# Compatible with FreeBSD5
 options 	COMPAT_FREEBSD6		# Compatible with FreeBSD6
@@ -76,11 +77,11 @@ options 	INCLUDE_CONFIG_FILE	# Include this file in kernel
 
 # HardenedBSD hardening options
 options 	PAX
+options 	PAX_SYSCTLS		# sysctls for run-time options
 options 	PAX_ASLR		# Address Space Layout Randomization
 options 	PAX_NOEXEC		# Remove WX pages from user-space and enforce W^X
 options 	PAX_HARDENING		# Various hardening options
-options 	PAX_SYSCTLS		# sysctls for run-time options
-#options 	PAX_SEGVGUARD		# prevent brute-force attacks
+options 	PAX_SEGVGUARD		# prevent brute-force attacks
 #options 	PAX_PTRACE_HARDENING
 #options 	PAX_PTRACE_HARDENING_GRP=50000
 
@@ -109,6 +110,7 @@ device		cpufreq
 device		acpi
 options 	ACPI_DMAR
 device		pci
+options		PCI_IOV			# PCI SR-IOV support
 
 # Floppy drives
 device		fdc
@@ -273,16 +275,6 @@ device		vr			# VIA Rhine, Rhine II
 device		wb			# Winbond W89C840F
 device		xl			# 3Com 3c90x (``Boomerang'', ``Cyclone'')
 
-# ISA Ethernet NICs.  pccard NICs included.
-device		cs			# Crystal Semiconductor CS89x0 NIC
-# 'device ed' requires 'device miibus'
-device		ed			# NE[12]000, SMC Ultra, 3c503, DS8390 cards
-device		ex			# Intel EtherExpress Pro/10 and Pro/10+
-device		ep			# Etherlink III based cards
-device		fe			# Fujitsu MB8696x based cards
-device		sn			# SMC's 9000 series of Ethernet chips
-device		xe			# Xircom pccard Ethernet
-
 # Wireless NIC cards
 device		wlan			# 802.11 support
 options 	IEEE80211_DEBUG		# enable debug msgs
@@ -361,7 +353,9 @@ device		virtio_blk		# VirtIO Block device
 device		virtio_scsi		# VirtIO SCSI device
 device		virtio_balloon		# VirtIO Memory Balloon device
 
-# HyperV drivers
+# HyperV drivers and enchancement support
+# NOTE: HYPERV depends on hyperv.  They must be added or removed together.
+options 	HYPERV			# Hyper-V kernel infrastructure
 device		hyperv			# HyperV drivers 
 
 # Xen HVM Guest Optimizations
@@ -371,6 +365,9 @@ device		xenpci			# Xen HVM Hypervisor services driver
 
 # VMware support
 device		vmx			# VMware VMXNET3 Ethernet
+
+# Netmap provides direct access to TX/RX rings on supported NICs
+device		netmap			# netmap(4) support
 
 # Additonal devices
 device		coretemp
