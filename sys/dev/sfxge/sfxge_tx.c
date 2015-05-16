@@ -602,13 +602,11 @@ sfxge_tx_qdpl_put_unlocked(struct sfxge_txq *txq, struct mbuf *mbuf)
 int
 sfxge_tx_packet_add(struct sfxge_txq *txq, struct mbuf *m)
 {
-	int locked;
 	int rc;
 
 	if (!SFXGE_LINK_UP(txq->sc)) {
-		rc = ENETDOWN;
 		atomic_add_long(&txq->netdown_drops, 1);
-		goto fail;
+		return (ENETDOWN);
 	}
 
 	/*
@@ -616,21 +614,23 @@ sfxge_tx_packet_add(struct sfxge_txq *txq, struct mbuf *m)
 	 * the packet will be appended to the "get list" of the deferred
 	 * packet list.  Otherwise, it will be pushed on the "put list".
 	 */
-	locked = SFXGE_TXQ_TRYLOCK(txq);
-
-	if (locked) {
+	if (SFXGE_TXQ_TRYLOCK(txq)) {
 		/* First swizzle put-list to get-list to keep order */
 		sfxge_tx_qdpl_swizzle(txq);
 
 		rc = sfxge_tx_qdpl_put_locked(txq, m);
 		if (rc != 0) {
 			SFXGE_TXQ_UNLOCK(txq);
-			goto fail;
+			return (rc);
 		}
+
+		/* Try to service the list. */
+		sfxge_tx_qdpl_service(txq);
+		/* Lock has been dropped. */
 	} else {
 		rc = sfxge_tx_qdpl_put_unlocked(txq, m);
 		if (rc != 0)
-			goto fail;
+			return (rc);
 
 		/*
 		 * Try to grab the lock again.
@@ -639,20 +639,15 @@ sfxge_tx_packet_add(struct sfxge_txq *txq, struct mbuf *m)
 		 * the deferred packet list.  If we are not able to get
 		 * the lock, another thread is processing the list.
 		 */
-		locked = SFXGE_TXQ_TRYLOCK(txq);
+		if (SFXGE_TXQ_TRYLOCK(txq)) {
+			sfxge_tx_qdpl_service(txq);
+			/* Lock has been dropped. */
+		}
 	}
 
-	if (locked) {
-		/* Try to service the list. */
-		sfxge_tx_qdpl_service(txq);
-		/* Lock has been dropped. */
-	}
+	SFXGE_TXQ_LOCK_ASSERT_NOTOWNED(txq);
 
 	return (0);
-
-fail:
-	m_freem(m);
-	return (rc);
 }
 
 static void
@@ -730,6 +725,8 @@ sfxge_if_transmit(struct ifnet *ifp, struct mbuf *m)
 	}
 
 	rc = sfxge_tx_packet_add(txq, m);
+	if (rc != 0)
+		m_freem(m);
 
 	return (rc);
 }
