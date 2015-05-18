@@ -5877,9 +5877,10 @@ done:
 				pd.pf_mtag->qid = r->pqid;
 			else
 				pd.pf_mtag->qid = r->qid;
-			/* add hints for ecn */
+			/* Add hints for ecn. */
 			pd.pf_mtag->hdr = h;
 		}
+
 	}
 #endif /* ALTQ */
 
@@ -6303,7 +6304,7 @@ done:
 				pd.pf_mtag->qid = r->pqid;
 			else
 				pd.pf_mtag->qid = r->qid;
-			/* add hints for ecn */
+			/* Add hints for ecn. */
 			pd.pf_mtag->hdr = h;
 		}
 	}
