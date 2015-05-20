@@ -1502,6 +1502,9 @@ _clang_libs=	lib/clang
 _cc=		gnu/usr.bin/cc
 .endif
 .endif
+.if ${MK_USB} != "no"
+_usb_tools=	sys/boot/usb/tools
+.endif
 
 cross-tools: .MAKE
 .for _tool in \
@@ -1512,7 +1515,7 @@ cross-tools: .MAKE
     ${_cc} \
     ${_btxld} \
     ${_crunchide} \
-    sys/boot/usb/tools
+    ${_usb_tools}
 	${_+_}@${ECHODIR} "===> ${_tool} (obj,depend,all,install)"; \
 		cd ${.CURDIR}/${_tool} && \
 		${MAKE} DIRPRFX=${_tool}/ obj && \
@@ -1691,6 +1694,8 @@ _prebuild_libs=	${_kerberos5_lib_libasn1} \
 		lib/libopie lib/libpam ${_lib_libthr} \
 		${_lib_libradius} lib/libsbuf lib/libtacplus \
 		lib/libgeom \
+		lib/libproc \
+		lib/librtld_db \
 		${_cddl_lib_libumem} ${_cddl_lib_libnvpair} \
 		${_cddl_lib_libuutil} \
 		${_cddl_lib_libavl} \
