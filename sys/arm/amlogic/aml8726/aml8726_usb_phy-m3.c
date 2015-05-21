@@ -25,9 +25,9 @@
  */
 
 /*
- * Amlogic aml8726-m6 (and later) USB physical layer driver.
+ * Amlogic aml8726-m3 USB physical layer driver.
  *
- * Each USB physical interface has a dedicated register block.
+ * Both USB physical interfaces share the same configuration register.
  */
 
 #include <sys/cdefs.h>
@@ -53,8 +53,6 @@ __FBSDID("$FreeBSD$");
 #include <dev/ofw/ofw_bus.h>
 #include <dev/ofw/ofw_bus_subr.h>
 
-#include <arm/amlogic/aml8726/aml8726_soc.h>
-
 #include "gpio_if.h"
 
 struct aml8726_usb_phy_gpio {
@@ -68,8 +66,6 @@ struct aml8726_usb_phy_softc {
 	struct resource			*res[1];
 	uint32_t			npwr_en;
 	struct aml8726_usb_phy_gpio	*pwr_en;
-	boolean_t			force_aca;
-	struct aml8726_usb_phy_gpio	hub_rst;
 };
 
 static struct resource_spec aml8726_usb_phy_spec[] = {
@@ -78,24 +74,31 @@ static struct resource_spec aml8726_usb_phy_spec[] = {
 };
 
 #define	AML_USB_PHY_CFG_REG			0
-#define	AML_USB_PHY_CFG_CLK_SEL_32K_ALT		(1 << 15)
-#define	AML_USB_PHY_CFG_CLK_DIV_MASK		(0x7f << 4)
-#define	AML_USB_PHY_CFG_CLK_DIV_SHIFT		4
-#define	AML_USB_PHY_CFG_CLK_SEL_MASK		(7 << 1)
-#define	AML_USB_PHY_CFG_CLK_SEL_XTAL		(0 << 1)
-#define	AML_USB_PHY_CFG_CLK_SEL_XTAL_DIV2	(1 << 1)
-#define	AML_USB_PHY_CFG_CLK_EN			(1 << 0)
+#define	AML_USB_PHY_CFG_A_CLK_DETECTED		(1U << 31)
+#define	AML_USB_PHY_CFG_CLK_DIV_MASK		(0x7f << 24)
+#define	AML_USB_PHY_CFG_CLK_DIV_SHIFT		24
+#define	AML_USB_PHY_CFG_B_CLK_DETECTED		(1 << 22)
+#define	AML_USB_PHY_CFG_A_PLL_RST		(1 << 19)
+#define	AML_USB_PHY_CFG_A_PHYS_RST		(1 << 18)
+#define	AML_USB_PHY_CFG_A_RST			(1 << 17)
+#define	AML_USB_PHY_CFG_B_PLL_RST		(1 << 13)
+#define	AML_USB_PHY_CFG_B_PHYS_RST		(1 << 12)
+#define	AML_USB_PHY_CFG_B_RST			(1 << 11)
+#define	AML_USB_PHY_CFG_CLK_EN			(1 << 8)
+#define	AML_USB_PHY_CFG_CLK_SEL_MASK		(7 << 5)
+#define	AML_USB_PHY_CFG_CLK_SEL_XTAL		(0 << 5)
+#define	AML_USB_PHY_CFG_CLK_SEL_XTAL_DIV2	(1 << 5)
+#define	AML_USB_PHY_CFG_B_POR			(1 << 1)
+#define	AML_USB_PHY_CFG_A_POR			(1 << 0)
 
-#define	AML_USB_PHY_CTRL_REG			4
-#define	AML_USB_PHY_CTRL_FSEL_MASK		(7 << 22)
-#define	AML_USB_PHY_CTRL_FSEL_12M		(2 << 22)
-#define	AML_USB_PHY_CTRL_FSEL_24M		(5 << 22)
-#define	AML_USB_PHY_CTRL_POR			(1 << 15)
-#define	AML_USB_PHY_CTRL_CLK_DETECTED		(1 << 8)
+#define	AML_USB_PHY_CFG_CLK_DETECTED \
+    (AML_USB_PHY_CFG_A_CLK_DETECTED | AML_USB_PHY_CFG_B_CLK_DETECTED)
 
-#define	AML_USB_PHY_ADP_BC_REG			12
-#define	AML_USB_PHY_ADP_BC_ACA_FLOATING		(1 << 26)
-#define	AML_USB_PHY_ADP_BC_ACA_EN		(1 << 16)
+#define	AML_USB_PHY_MISC_A_REG			12
+#define	AML_USB_PHY_MISC_B_REG			16
+#define	AML_USB_PHY_MISC_ID_OVERIDE_EN		(1 << 23)
+#define	AML_USB_PHY_MISC_ID_OVERIDE_DEVICE	(1 << 22)
+#define	AML_USB_PHY_MISC_ID_OVERIDE_HOST	(0 << 22)
 
 #define	CSR_WRITE_4(sc, reg, val)	bus_write_4((sc)->res[0], reg, (val))
 #define	CSR_READ_4(sc, reg)		bus_read_4((sc)->res[0], reg)
@@ -108,25 +111,50 @@ static struct resource_spec aml8726_usb_phy_spec[] = {
     GPIO_PIN_HIGH : GPIO_PIN_LOW)
 
 static int
+aml8726_usb_phy_mode(const char *dwcotg_path, uint32_t *mode)
+{
+	char *usb_mode;
+	phandle_t node;
+	ssize_t len;
+	
+	if ((node = OF_finddevice(dwcotg_path)) == 0)
+		return (ENXIO);
+
+	if (fdt_is_compatible_strict(node, "synopsys,designware-hs-otg2") == 0)
+		return (ENXIO);
+
+	*mode = 0;
+
+	len = OF_getprop_alloc(node, "dr_mode",
+	    sizeof(char), (void **)&usb_mode);
+
+	if (len <= 0)
+		return (0);
+
+	if (strcasecmp(usb_mode, "host") == 0) {
+		*mode = AML_USB_PHY_MISC_ID_OVERIDE_EN |
+		    AML_USB_PHY_MISC_ID_OVERIDE_HOST;
+	} else if (strcasecmp(usb_mode, "peripheral") == 0) {
+		*mode = AML_USB_PHY_MISC_ID_OVERIDE_EN |
+		    AML_USB_PHY_MISC_ID_OVERIDE_DEVICE;
+	}
+
+	free(usb_mode, M_OFWPROP);
+
+	return (0);
+}
+
+static int
 aml8726_usb_phy_probe(device_t dev)
 {
 
 	if (!ofw_bus_status_okay(dev))
 		return (ENXIO);
 
-	if (!ofw_bus_is_compatible(dev, "amlogic,aml8726-m6-usb-phy") &&
-	    !ofw_bus_is_compatible(dev, "amlogic,aml8726-m8-usb-phy"))
+	if (!ofw_bus_is_compatible(dev, "amlogic,aml8726-m3-usb-phy"))
 		return (ENXIO);
 
-	switch (aml8726_soc_hw_rev) {
-	case AML_SOC_HW_REV_M8:
-	case AML_SOC_HW_REV_M8B:
-		device_set_desc(dev, "Amlogic aml8726-m8 USB PHY");
-		break;
-	default:
-		device_set_desc(dev, "Amlogic aml8726-m6 USB PHY");
-		break;
-	}
+	device_set_desc(dev, "Amlogic aml8726-m3 USB PHY");
 
 	return (BUS_PROBE_DEFAULT);
 }
@@ -135,7 +163,6 @@ static int
 aml8726_usb_phy_attach(device_t dev)
 {
 	struct aml8726_usb_phy_softc *sc = device_get_softc(dev);
-	char *force_aca;
 	int err;
 	int npwr_en;
 	pcell_t *prop;
@@ -143,9 +170,21 @@ aml8726_usb_phy_attach(device_t dev)
 	ssize_t len;
 	uint32_t div;
 	uint32_t i;
+	uint32_t mode_a;
+	uint32_t mode_b;
 	uint32_t value;
 
 	sc->dev = dev;
+
+	if (aml8726_usb_phy_mode("/soc/usb@c9040000", &mode_a) != 0) {
+		device_printf(dev, "missing usb@c9040000 node in FDT\n");
+		return (ENXIO);
+	}
+
+	if (aml8726_usb_phy_mode("/soc/usb@c90c0000", &mode_b) != 0) {
+		device_printf(dev, "missing usb@c90c0000 node in FDT\n");
+		return (ENXIO);
+	}
 
 	if (bus_alloc_resources(dev, aml8726_usb_phy_spec, sc->res)) {
 		device_printf(dev, "can not allocate resources for device\n");
@@ -153,18 +192,6 @@ aml8726_usb_phy_attach(device_t dev)
 	}
 
 	node = ofw_bus_get_node(dev);
-
-	len = OF_getprop_alloc(node, "force-aca",
-	    sizeof(char), (void **)&force_aca);
-
-	sc->force_aca = FALSE;
-
-	if (len > 0) {
-		if (strncmp(force_aca, "true", len) == 0)
-			sc->force_aca = TRUE;
-	}
-
-	free(force_aca, M_OFWPROP);
 
 	err = 0;
 
@@ -185,19 +212,6 @@ aml8726_usb_phy_attach(device_t dev)
 			err = 1;
 			break;
 		}
-	}
-
-	free(prop, M_OFWPROP);
-
-	len = OF_getencprop_alloc(node, "usb-hub-rst",
-	    3 * sizeof(pcell_t), (void **)&prop);
-	if (len > 0) {
-		sc->hub_rst.dev = OF_device_from_xref(prop[0]);
-		sc->hub_rst.pin = prop[1];
-		sc->hub_rst.pol = prop[2];
-
-		if (len > 1 || sc->hub_rst.dev == NULL)
-			err = 1;
 	}
 
 	free(prop, M_OFWPROP);
@@ -225,126 +239,121 @@ aml8726_usb_phy_attach(device_t dev)
 	 * Configure the clock source and divider.
 	 */
 
+	div = 2;
+
 	value = CSR_READ_4(sc, AML_USB_PHY_CFG_REG);
 
-	value &= ~(AML_USB_PHY_CFG_CLK_SEL_32K_ALT |
-	    AML_USB_PHY_CFG_CLK_DIV_MASK |
-	    AML_USB_PHY_CFG_CLK_SEL_MASK |
-	    AML_USB_PHY_CFG_CLK_EN);
+	value &= ~(AML_USB_PHY_CFG_CLK_DIV_MASK | AML_USB_PHY_CFG_CLK_SEL_MASK);
 
-	switch (aml8726_soc_hw_rev) {
-	case AML_SOC_HW_REV_M8:
-	case AML_SOC_HW_REV_M8B:
-		value |= AML_USB_PHY_CFG_CLK_SEL_32K_ALT;
-		break;
-	default:
-		div = 2;
-		value |= AML_USB_PHY_CFG_CLK_SEL_XTAL;
-		value |= ((div - 1) << AML_USB_PHY_CFG_CLK_DIV_SHIFT) &
-		    AML_USB_PHY_CFG_CLK_DIV_MASK;
-		value |= AML_USB_PHY_CFG_CLK_EN;
-		break;
-	}
+	value &= ~(AML_USB_PHY_CFG_A_RST | AML_USB_PHY_CFG_B_RST);
+	value &= ~(AML_USB_PHY_CFG_A_PLL_RST | AML_USB_PHY_CFG_B_PLL_RST);
+	value &= ~(AML_USB_PHY_CFG_A_PHYS_RST | AML_USB_PHY_CFG_B_PHYS_RST);
+	value &= ~(AML_USB_PHY_CFG_A_POR | AML_USB_PHY_CFG_B_POR);
+
+	value |= AML_USB_PHY_CFG_CLK_SEL_XTAL;
+	value |= ((div - 1) << AML_USB_PHY_CFG_CLK_DIV_SHIFT) &
+	    AML_USB_PHY_CFG_CLK_DIV_MASK;
+	value |= AML_USB_PHY_CFG_CLK_EN;
 
 	CSR_WRITE_4(sc, AML_USB_PHY_CFG_REG, value);
-
 	CSR_BARRIER(sc, AML_USB_PHY_CFG_REG);
 
 	/*
-	 * Configure the clock frequency and issue a power on reset.
+	 * Issue the reset sequence.
 	 */
 
-	value = CSR_READ_4(sc, AML_USB_PHY_CTRL_REG);
+	value |= (AML_USB_PHY_CFG_A_RST | AML_USB_PHY_CFG_B_RST);
 
-	value &= ~AML_USB_PHY_CTRL_FSEL_MASK;
+	CSR_WRITE_4(sc, AML_USB_PHY_CFG_REG, value);
+	CSR_BARRIER(sc, AML_USB_PHY_CFG_REG);
 
-	switch (aml8726_soc_hw_rev) {
-	case AML_SOC_HW_REV_M8:
-	case AML_SOC_HW_REV_M8B:
-		value |= AML_USB_PHY_CTRL_FSEL_24M;
-		break;
-	default:
-		value |= AML_USB_PHY_CTRL_FSEL_12M;
-		break;
-	}
+	DELAY(200);
 
-	value |= AML_USB_PHY_CTRL_POR;
+	value &= ~(AML_USB_PHY_CFG_A_RST | AML_USB_PHY_CFG_B_RST);
 
-	CSR_WRITE_4(sc, AML_USB_PHY_CTRL_REG, value);
+	CSR_WRITE_4(sc, AML_USB_PHY_CFG_REG, value);
+	CSR_BARRIER(sc, AML_USB_PHY_CFG_REG);
 
-	CSR_BARRIER(sc, AML_USB_PHY_CTRL_REG);
+	DELAY(200);
 
-	DELAY(500);
+	value |= (AML_USB_PHY_CFG_A_PLL_RST | AML_USB_PHY_CFG_B_PLL_RST);
+
+	CSR_WRITE_4(sc, AML_USB_PHY_CFG_REG, value);
+	CSR_BARRIER(sc, AML_USB_PHY_CFG_REG);
+
+	DELAY(200);
+
+	value &= ~(AML_USB_PHY_CFG_A_PLL_RST | AML_USB_PHY_CFG_B_PLL_RST);
+
+	CSR_WRITE_4(sc, AML_USB_PHY_CFG_REG, value);
+	CSR_BARRIER(sc, AML_USB_PHY_CFG_REG);
+
+	DELAY(200);
+
+	value |= (AML_USB_PHY_CFG_A_PHYS_RST | AML_USB_PHY_CFG_B_PHYS_RST);
+
+	CSR_WRITE_4(sc, AML_USB_PHY_CFG_REG, value);
+	CSR_BARRIER(sc, AML_USB_PHY_CFG_REG);
+
+	DELAY(200);
+
+	value &= ~(AML_USB_PHY_CFG_A_PHYS_RST | AML_USB_PHY_CFG_B_PHYS_RST);
+
+	CSR_WRITE_4(sc, AML_USB_PHY_CFG_REG, value);
+	CSR_BARRIER(sc, AML_USB_PHY_CFG_REG);
+
+	DELAY(200);
+
+	value |= (AML_USB_PHY_CFG_A_POR | AML_USB_PHY_CFG_B_POR);
+
+	CSR_WRITE_4(sc, AML_USB_PHY_CFG_REG, value);
+	CSR_BARRIER(sc, AML_USB_PHY_CFG_REG);
+
+	DELAY(200);
 
 	/*
 	 * Enable by clearing the power on reset.
 	 */
 
-	value &= ~AML_USB_PHY_CTRL_POR;
+	value &= ~(AML_USB_PHY_CFG_A_POR | AML_USB_PHY_CFG_B_POR);
 
-	CSR_WRITE_4(sc, AML_USB_PHY_CTRL_REG, value);
+	CSR_WRITE_4(sc, AML_USB_PHY_CFG_REG, value);
 
-	CSR_BARRIER(sc, AML_USB_PHY_CTRL_REG);
+	CSR_BARRIER(sc, AML_USB_PHY_CFG_REG);
 
-	DELAY(1000);
+	DELAY(200);
 
 	/*
 	 * Check if the clock was detected.
 	 */
-	value = CSR_READ_4(sc, AML_USB_PHY_CTRL_REG);
-	if ((value & AML_USB_PHY_CTRL_CLK_DETECTED) == 0)
+	value = CSR_READ_4(sc, AML_USB_PHY_CFG_REG);
+	if ((value & AML_USB_PHY_CFG_CLK_DETECTED) !=
+	    AML_USB_PHY_CFG_CLK_DETECTED)
 		device_printf(dev, "PHY Clock not detected\n");
 
 	/*
-	 * If necessary enabled Accessory Charger Adaptor detection
-	 * so that the port knows what mode to operate in.
+	 * Configure the mode for each port.
 	 */
-	if (sc->force_aca) {
-		value = CSR_READ_4(sc, AML_USB_PHY_ADP_BC_REG);
 
-		value |= AML_USB_PHY_ADP_BC_ACA_EN;
+	value = CSR_READ_4(sc, AML_USB_PHY_MISC_A_REG);
 
-		CSR_WRITE_4(sc, AML_USB_PHY_ADP_BC_REG, value);
+	value &= ~(AML_USB_PHY_MISC_ID_OVERIDE_EN |
+	    AML_USB_PHY_MISC_ID_OVERIDE_DEVICE |
+	    AML_USB_PHY_MISC_ID_OVERIDE_HOST);
+	value |= mode_a;
 
-		CSR_BARRIER(sc, AML_USB_PHY_ADP_BC_REG);
+	CSR_WRITE_4(sc, AML_USB_PHY_MISC_A_REG, value);
 
-		DELAY(50);
+	value = CSR_READ_4(sc, AML_USB_PHY_MISC_B_REG);
 
-		value = CSR_READ_4(sc, AML_USB_PHY_ADP_BC_REG);
+	value &= ~(AML_USB_PHY_MISC_ID_OVERIDE_EN |
+	    AML_USB_PHY_MISC_ID_OVERIDE_DEVICE |
+	    AML_USB_PHY_MISC_ID_OVERIDE_HOST);
+	value |= mode_b;
 
-		if ((value & AML_USB_PHY_ADP_BC_ACA_FLOATING) != 0) {
-			device_printf(dev,
-			    "force-aca requires newer silicon\n");
-			goto fail;
-		}
-	}
+	CSR_WRITE_4(sc, AML_USB_PHY_MISC_B_REG, value);
 
-	/*
-	 * Reset the hub.
-	 */
-	if (sc->hub_rst.dev != NULL) {
-		err = 0;
-
-		if (GPIO_PIN_SET(sc->hub_rst.dev, sc->hub_rst.pin,
-		    PIN_ON_FLAG(sc->hub_rst.pol)) != 0 ||
-		    GPIO_PIN_SETFLAGS(sc->hub_rst.dev, sc->hub_rst.pin,
-		    GPIO_PIN_OUTPUT) != 0)
-			err = 1;
-
-		DELAY(30);
-
-		if (GPIO_PIN_SET(sc->hub_rst.dev, sc->hub_rst.pin,
-		    PIN_OFF_FLAG(sc->hub_rst.pol)) != 0)
-			err = 1;
-
-		DELAY(60000);
-
-		if (err) {
-			device_printf(dev,
-			    "could not use gpio to reset hub\n");
-			goto fail;
-		}
-	}
+	CSR_BARRIER(sc, AML_USB_PHY_MISC_B_REG);
 
 	return (0);
 
@@ -375,18 +384,18 @@ aml8726_usb_phy_detach(device_t dev)
 	 * Disable by issuing a power on reset.
 	 */
 
-	value = CSR_READ_4(sc, AML_USB_PHY_CTRL_REG);
+	value = CSR_READ_4(sc, AML_USB_PHY_CFG_REG);
 
-	value |= AML_USB_PHY_CTRL_POR;
+	value |= (AML_USB_PHY_CFG_A_POR | AML_USB_PHY_CFG_B_POR);
 
-	CSR_WRITE_4(sc, AML_USB_PHY_CTRL_REG, value);
+	CSR_WRITE_4(sc, AML_USB_PHY_CFG_REG, value);
 
-	CSR_BARRIER(sc, AML_USB_PHY_CTRL_REG);
+	CSR_BARRIER(sc, AML_USB_PHY_CFG_REG);
 
 	/* Turn off power */
 	i = sc->npwr_en;
 	while (i-- != 0) {
-		GPIO_PIN_SET(sc->pwr_en[i].dev, sc->pwr_en[i].pin,
+		(void)GPIO_PIN_SET(sc->pwr_en[i].dev, sc->pwr_en[i].pin,
 		    PIN_OFF_FLAG(sc->pwr_en[i].pol));
 	}
 	free (sc->pwr_en, M_DEVBUF);
@@ -414,6 +423,6 @@ static driver_t aml8726_usb_phy_driver = {
 
 static devclass_t aml8726_usb_phy_devclass;
 
-DRIVER_MODULE(aml8726_m6usbphy, simplebus, aml8726_usb_phy_driver,
+DRIVER_MODULE(aml8726_m3usbphy, simplebus, aml8726_usb_phy_driver,
     aml8726_usb_phy_devclass, 0, 0);
-MODULE_DEPEND(aml8726_m6usbphy, aml8726_gpio, 1, 1, 1);
+MODULE_DEPEND(aml8726_m3usbphy, aml8726_gpio, 1, 1, 1);
