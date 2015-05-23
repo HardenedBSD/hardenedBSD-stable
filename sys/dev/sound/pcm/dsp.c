@@ -43,6 +43,12 @@
 
 SND_DECLARE_FILE("$FreeBSD$");
 
+static int dsp_basename_clone = 1;
+SYSCTL_INT(_hw_snd, OID_AUTO, basename_clone, CTLFLAG_RWTUN,
+    &dsp_basename_clone, 0,
+    "DSP basename cloning (0: Disable; 1: Enabled)");
+TUNABLE_INT("hw.snd.basename_clone", &dsp_basename_clone);
+
 struct dsp_cdevinfo {
 	struct pcm_channel *rdch, *wrch;
 	struct pcm_channel *volch;
