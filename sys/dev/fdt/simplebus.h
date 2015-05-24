@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2013 Ian Lepore <ian@freebsd.org>
+ * Copyright (c) 2013 Nathan Whitehorn
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,22 +26,39 @@
  * $FreeBSD$
  */
 
-#ifndef	IMX6_ANATOPVAR_H
-#define	IMX6_ANATOPVAR_H
+#ifndef	_FDT_SIMPLEBUS_H
+#define	_FDT_SIMPLEBUS_H
 
-/*
- * All registers controlling various analog aspects of the SoC (such as PLLs or
- * voltage regulators or USB VBUS detection) are gathered together under the
- * anatop device (because of newbus hierarchical resource management), but other
- * drivers such as CMM or USBPHY need access to these registers.  These
- * functions let them have at the hardware directly.  No effort is made by these
- * functions to mediate concurrent access.
- */
-uint32_t imx6_anatop_read_4(bus_size_t _offset);
-void imx6_anatop_write_4(bus_size_t _offset, uint32_t _value);
+#include <dev/ofw/ofw_bus.h>
 
-uint32_t imx6_get_cpu_clock(void);
+/* FDT simplebus */
+DECLARE_CLASS(simplebus_driver);
 
-uint32_t pll4_configure_output(uint32_t mfi, uint32_t mfn, uint32_t mfd);
+struct simplebus_range {
+	uint64_t bus;
+	uint64_t host;
+	uint64_t size;
+};
 
-#endif
+/* devinfo and softc */
+struct simplebus_softc {
+	device_t dev;
+	phandle_t node;
+
+	struct simplebus_range *ranges;
+	int nranges;
+
+	pcell_t acells, scells;
+};
+
+struct simplebus_devinfo {
+	struct ofw_bus_devinfo	obdinfo;
+	struct resource_list	rl;
+};
+
+void simplebus_init(device_t dev, phandle_t node);
+device_t simplebus_add_device(device_t dev, phandle_t node, u_int order,
+    const char *name, int unit, struct simplebus_devinfo *di);
+struct simplebus_devinfo *simplebus_setup_dinfo(device_t dev, phandle_t node,
+    struct simplebus_devinfo *di);
+#endif	/* _FDT_SIMPLEBUS_H */

@@ -1,4 +1,4 @@
-# Kernel configuration for Digi ConnectCore Wi-i.MX53 boards
+# Kernel configuration for Toradex Apalis i.MX6
 #
 # For more information on this file, please read the config(5) manual page,
 # and/or the handbook section on Kernel Configuration Files:
@@ -19,20 +19,13 @@
 
 #NO_UNIVERSE
 
-include		"IMX53"
-ident		DIGI-CCWMX53
+include 	"IMX6"
+ident		APALIS-IMX6
 
+makeoptions	MODULES_OVERRIDE=""
 makeoptions	WITHOUT_MODULES="ahc"
 
-# required for netbooting
-#options 	BOOTP
-#options 	BOOTP_COMPAT
-#options 	BOOTP_NFSROOT
-#options 	BOOTP_NFSV3
-#options 	BOOTP_WIRED_TO=ffec0
-
-#options 	ROOTDEVNAME=\"ufs:ada0s2a\"
-
 # Flattened Device Tree
+options 	FDT
 options 	FDT_DTB_STATIC
-makeoptions	FDT_DTS_FILE=digi-ccwmx53.dts
+makeoptions	FDT_DTS_FILE=apalis-imx6.dts
