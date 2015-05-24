@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2013-2015 John Wehle <john@feith.com>
+ * Copyright (c) 2015 John Wehle <john@feith.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,29 +30,24 @@
  * The ordering of certain devices is significant (e.g. usb depends on
  * usb-phy which depends on gpio, also the timer should appear early on
  * to provide a reasonably accurate DELAY implementation).
- *
- * Both usb-phys devices must be configured to prevent the usb controller
- * from hanging during initialization.
  */
 
 /dts-v1/;
 
 /memreserve/ 0x84900000 0x00600000;			/* 6MB frame buffer */
 
-#include "meson6.dtsi"
+#include "meson3.dtsi"
 
 / {
 	/*
-	 * My development unit visually appears to be a Visson ATV-102
-	 * and the specs for both my unit and the Visson ATV-102 say
-	 * the SoC is an aml8726-m3.  However the uboot prompt says
-	 * m6_mbx_v1, the RTC is located on SECBUS2 instead of AOBUS,
-	 * and there are two cores so it seems my unit is a newer
-	 * version using the later processor.
+	 * My development unit is a Yiyate Android TV Box containing
+	 * a HD18 motherboard and an aml8726-m3 SoC ... later versions
+	 * shipped with an aml8726-m6.  Printenv in uboot shows m3-oplay
+	 * as the boardname supplied as part of mmcargs.
 	 */
 
-	model = "visson,atv-102";
-	compatible = "visson,atv-102", "amlogic,meson6";
+	model = "yiyate,hd18-m3";
+	compatible = "yiyate,hd18-m3", "amlogic,meson3";
 
 	#address-cells = <1>;
 	#size-cells = <1>;
@@ -71,25 +66,6 @@
 	soc: soc {
 		device_type = "soc";
 		bus-frequency = <0>;
-
-		pic: pic@c1109a40 {
-			device_type = "interrupt-controller";
-			compatible = "amlogic,aml8726-pic";
-			reg = <0xc1109a40 128>;	/* cbus 0x2690 */
-
-			interrupt-controller;
-			#interrupt-cells = <3>;
-		};
-
-		scu: scu@c4300000 {
-			compatible = "arm,cortex-a9-scu";
-			reg = <0xc4300000 0x1000>;
-		};
-
-		cpuconfig: cpuconfig@d901ff80 {
-			compatible = "amlogic,aml8726-cpuconfig";
-			reg = <0xd901ff80 8>;
-		};
 
 		ccm@c1104140 {
 			compatible = "amlogic,aml8726-ccm";
@@ -119,13 +95,10 @@
 			pinctrl-0 = <&pins_uartao &pins_ethernet &pins_hdmi>;
 
 			pins_ethernet: ethernet {
-				amlogic,pins = "ref_clk_in",
-					       "tx_clk", "tx_en",
+				amlogic,pins = "clk_out", "tx_en",
 					       "tx_d0",  "tx_d1",
-					       "tx_d2",  "tx_d3",
-					       "rx_clk", "rx_dv",
+					       "crs_dv", "rx_err",
 					       "rx_d0",  "rx_d1",
-					       "rx_d2",  "rx_d3",
 					       "mdc",    "mdio";
 				amlogic,function = "ethernet";
 			};
@@ -149,9 +122,9 @@
 			};
 		};
 
-		rtc@da004340 {
+		rtc@c8100740 {
 			compatible = "amlogic,aml8726-rtc";
-			reg = <0xda004340 20>;	/* secbus2 0xd0 */
+			reg = <0xc8100740 20>;	/* aobus 0x1d0 */
 			interrupts = <0 72 1>;	/* AM_IRQ2(8) */
 		};
 
@@ -160,18 +133,6 @@
 			reg = <0xc1108758 16>;	/* cbus 0x21d6 */
 
 			clocks = <&clk81>;
-		};
-
-		gpioao: gpio@c8100024 {
-			/* gpio unit 7 */
-			compatible = "amlogic,aml8726-gpio";
-			reg = <0xc8100024 4>,	/* oen aobus 0x9 */
-			      <0xc8100024 4>,	/* out */
-			      <0xc8100028 4>;	/* in */
-
-			gpio-controller;
-			#gpio-cells = <1>;
-			pin-count = <12>;
 		};
 
 		gpio5: gpio@c110806c {
@@ -183,17 +144,6 @@
 			gpio-controller;
 			#gpio-cells = <1>;
 			pin-count = <32>;
-		};
-
-		gpio6: gpio@c1108020 {
-			compatible = "amlogic,aml8726-gpio";
-			reg = <0xc1108020 4>,	/* oen cbus 0x2008 */
-			      <0xc1108024 4>,	/* out */
-			      <0xc1108028 4>;	/* in */
-
-			gpio-controller;
-			#gpio-cells = <1>;
-			pin-count = <29>;
 		};
 
 		mmc@c1108c20 {
@@ -218,18 +168,9 @@
 		};
 
 		usb-phy@c1108400 {
-			/* usb-a phy */
-			compatible = "amlogic,aml8726-m6-usb-phy";
+			/* usb-a and usb-b phy */
+			compatible = "amlogic,aml8726-m3-usb-phy";
 			reg = <0xc1108400 32>;	/* cbus 0x2100 */
-		};
-
-		usb-phy@c1108420 {
-			/* usb-b phy */
-			compatible = "amlogic,aml8726-m6-usb-phy";
-			reg = <0xc1108420 32>;	/* cbus 0x2108 */
-
-			usb-pwr-en = <&gpioao 3 1>,	/* gpioao_3 vbus */
-				     <&gpio6 11 0>;	/* gpioe_11 wifi */
 		};
 
 		usb@c9040000 {
@@ -259,14 +200,12 @@
 			interrupts = <0 8 1>;		/* AM_IRQ0(8) */
 			#address-cells = <1>;
 			#size-cells = <0>;
-
-			eth-phy-rst = <&gpio5 15 0>;	/* gpioy_15 phy-rst */
 		};
 
-		screen: fb@c8006324 {
+		screen: fb@c8001324 {
 			device_type = "display";
 			compatible = "amlogic,aml8726-fb";
-			reg = <0xc8006324 12>,		/* CANVAS */
+			reg = <0xc8001324 12>,		/* CANVAS */
 			      <0xc1106800 1024>,	/* VIU */
 			      <0xc1107400 1024>;	/* VPP */
 			interrupts = <0 2 1>,		/* AM_IRQ0(2) */
@@ -279,17 +218,6 @@
 			height = <480>;
 			depth = <24>;
 			linebytes = <2160>;
-		};
-	};
-
-	leds {
-		compatible = "gpio-leds";
-
-		sys_led {
-			gpios = <&gpioao 2>;	/* gpioao_2 sys_led */
-			label = "sys_led";
-
-			default-state = "on";
 		};
 	};
 
