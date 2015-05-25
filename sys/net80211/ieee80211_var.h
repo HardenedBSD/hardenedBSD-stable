@@ -258,11 +258,11 @@ struct ieee80211com {
 				    struct mbuf *,
 				    const struct ieee80211_bpf_params *);
 	/* update device state for 802.11 slot time change */
-	void			(*ic_updateslot)(struct ifnet *);
+	void			(*ic_updateslot)(struct ieee80211com *);
 	/* handle multicast state changes */
-	void			(*ic_update_mcast)(struct ifnet *);
+	void			(*ic_update_mcast)(struct ieee80211com *);
 	/* handle promiscuous mode changes */
-	void			(*ic_update_promisc)(struct ifnet *);
+	void			(*ic_update_promisc)(struct ieee80211com *);
 	/* new station association callback/notification */
 	void			(*ic_newassoc)(struct ieee80211_node *, int);
 	/* TDMA update notification */
@@ -468,9 +468,13 @@ struct ieee80211vap {
 	void			(*iv_opdetach)(struct ieee80211vap *);
 	/* receive processing */
 	int			(*iv_input)(struct ieee80211_node *,
-				    struct mbuf *, int, int);
+				    struct mbuf *,
+				    const struct ieee80211_rx_stats *,
+				    int, int);
 	void			(*iv_recv_mgmt)(struct ieee80211_node *,
-				    struct mbuf *, int, int, int);
+				    struct mbuf *, int,
+				    const struct ieee80211_rx_stats *,
+				    int, int);
 	void			(*iv_recv_ctl)(struct ieee80211_node *,
 				    struct mbuf *, int);
 	void			(*iv_deliver_data)(struct ieee80211vap *,
@@ -498,13 +502,8 @@ struct ieee80211vap {
 	int			(*iv_newstate)(struct ieee80211vap *,
 				    enum ieee80211_state, int);
 	/* 802.3 output method for raw frame xmit */
-#if __FreeBSD_version >= 1000031
 	int			(*iv_output)(struct ifnet *, struct mbuf *,
 				    const struct sockaddr *, struct route *);
-#else
-	int			(*iv_output)(struct ifnet *, struct mbuf *,
-				    struct sockaddr *, struct route *);
-#endif
 	uint64_t		iv_spare[6];
 };
 MALLOC_DECLARE(M_80211_VAP);
@@ -710,6 +709,8 @@ struct ieee80211_channel *ieee80211_find_channel(struct ieee80211com *,
 		int freq, int flags);
 struct ieee80211_channel *ieee80211_find_channel_byieee(struct ieee80211com *,
 		int ieee, int flags);
+struct ieee80211_channel *ieee80211_lookup_channel_rxstatus(struct ieee80211vap *,
+		const struct ieee80211_rx_stats *);
 int	ieee80211_setmode(struct ieee80211com *, enum ieee80211_phymode);
 enum ieee80211_phymode ieee80211_chan2mode(const struct ieee80211_channel *);
 uint32_t ieee80211_mac_hash(const struct ieee80211com *,
