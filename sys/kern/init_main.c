@@ -413,11 +413,8 @@ struct sysentvec null_sysvec = {
 	.sv_fetch_syscall_args = null_fetch_syscall_args,
 	.sv_syscallnames = NULL,
 	.sv_schedtail	= NULL,
-<<<<<<< HEAD
-	.sv_pax_aslr_init = NULL,
-=======
 	.sv_thread_detach = NULL,
->>>>>>> origin/master
+	.sv_pax_aslr_init = NULL,
 };
 
 /*
