@@ -99,14 +99,16 @@ void pax_init_prison(struct prison *pr);
  * ASLR related functions
  */
 int pax_aslr_active(struct proc *p);
-void pax_aslr_init_vmspace(struct proc *p);
-void pax_aslr_init_vmspace32(struct proc *p);
 #ifdef PAX_ASLR
 void pax_aslr_init_prison(struct prison *pr);
 void pax_aslr_init_prison32(struct prison *pr);
+void pax_aslr_init_vmspace(struct proc *p);
+void pax_aslr_init_vmspace32(struct proc *p);
 #else
 #define	pax_aslr_init_prison(pr)	do {} while (0)
 #define	pax_aslr_init_prison32(pr)	do {} while (0)
+#define	pax_aslr_init_vmspace		NULL
+#define	pax_aslr_init_vmspace32		NULL
 #endif
 void pax_aslr_init(struct image_params *imgp);
 void pax_aslr_execbase(struct proc *p, u_long *et_dyn_addrp);

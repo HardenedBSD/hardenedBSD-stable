@@ -109,9 +109,7 @@ struct sysentvec elf32_freebsd_sysvec = {
 	.sv_syscallnames = freebsd32_syscallnames,
 	.sv_schedtail	= NULL,
 	.sv_thread_detach = NULL,
-#ifdef PAX_ASLR
 	.sv_pax_aslr_init = pax_aslr_init_vmspace32,
-#endif
 };
 INIT_SYSENTVEC(elf32_sysvec, &elf32_freebsd_sysvec);
 
