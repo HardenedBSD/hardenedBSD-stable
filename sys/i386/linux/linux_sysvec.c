@@ -975,9 +975,7 @@ struct sysentvec elf_linux_sysvec = {
 	.sv_shared_page_base = LINUX_SHAREDPAGE,
 	.sv_shared_page_len = PAGE_SIZE,
 	.sv_schedtail	= linux_schedtail,
-#ifdef PAX_ASLR
-	.sv_pax_aslr_init 	= pax_aslr_init_vmspace,
-#endif
+	.sv_pax_aslr_init = pax_aslr_init_vmspace,
 };
 INIT_SYSENTVEC(elf_sysvec, &elf_linux_sysvec);
 
