@@ -90,13 +90,10 @@ static struct sysentvec elf64_freebsd_sysvec = {
 	.sv_fetch_syscall_args = cpu_fetch_syscall_args,
 	.sv_syscallnames = syscallnames,
 	.sv_schedtail	= NULL,
-<<<<<<< HEAD
+	.sv_thread_detach = NULL,
 #ifdef PAX_ASLR
 	.sv_pax_aslr_init = pax_aslr_init_vmspace,
 #endif
-=======
-	.sv_thread_detach = NULL,
->>>>>>> origin/master
 };
 
 static Elf64_Brandinfo freebsd_brand_info = {
