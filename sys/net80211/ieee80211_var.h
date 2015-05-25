@@ -117,6 +117,8 @@ struct ieee80211_frame;
 
 struct ieee80211com {
 	struct ifnet		*ic_ifp;	/* associated device */
+	void			*ic_softc;	/* driver softc */
+	const char		*ic_name;	/* usually device name */
 	ieee80211_com_lock_t	ic_comlock;	/* state update lock */
 	ieee80211_tx_lock_t	ic_txlock;	/* ic/vap TX lock */
 	TAILQ_HEAD(, ieee80211vap) ic_vaps;	/* list of vap instances */
@@ -675,6 +677,7 @@ MALLOC_DECLARE(M_80211_VAP);
 	"\20\1LDPC\2CHWIDTH40\5GREENFIELD\6SHORTGI20\7SHORTGI40\10TXSTBC" \
 	"\21AMPDU\22AMSDU\23HT\24SMPS\25RIFS"
 
+int	ic_printf(struct ieee80211com *, const char *, ...) __printflike(2, 3);
 void	ieee80211_ifattach(struct ieee80211com *,
 		const uint8_t macaddr[IEEE80211_ADDR_LEN]);
 void	ieee80211_ifdetach(struct ieee80211com *);
