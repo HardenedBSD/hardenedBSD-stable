@@ -669,7 +669,7 @@ pax_segvguard_sysinit(void)
 	printf("[PAX SEGVGUARD] suspension: %d sec\n", pax_segvguard_suspension);
 	printf("[PAX SEGVGUARD] maxcrahes: %d\n", pax_segvguard_maxcrashes);
 
-	switch (pax_segvguard_status) {
+	switch (pax_segvguard_debug) {
 	case PAX_FEATURE_SIMPLE_DISABLED:
 	case PAX_FEATURE_SIMPLE_ENABLED:
 		break;
