@@ -4755,8 +4755,6 @@ db_show_prison(struct prison *pr)
 	   pr->pr_hardening.hr_pax_mprotect_status);
 	db_printf(" .hr_pax_segvguard_status        = %d\n",
 	   pr->pr_hardening.hr_pax_segvguard_status);
-	db_printf(" .hr_pax_segvguard_debug         = %d\n",
-	   pr->pr_hardening.hr_pax_segvguard_debug);
 	db_printf(" .hr_pax_segvguard_expiry        = %d\n",
 	   pr->pr_hardening.hr_pax_segvguard_expiry);
 	db_printf(" .hr_pax_segvguard_suspension    = %d\n",

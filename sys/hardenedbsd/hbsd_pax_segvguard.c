@@ -75,7 +75,6 @@ __FBSDID("$FreeBSD$");
 FEATURE(segvguard, "Segmentation fault protection.");
 
 static int pax_segvguard_status = PAX_FEATURE_OPTIN;
-static int pax_segvguard_debug = PAX_FEATURE_SIMPLE_DISABLED;
 static int pax_segvguard_expiry = PAX_SEGVGUARD_EXPIRY;
 static int pax_segvguard_suspension = PAX_SEGVGUARD_SUSPENSION;
 static int pax_segvguard_maxcrashes = PAX_SEGVGUARD_MAXCRASHES;
@@ -129,14 +128,12 @@ MALLOC_DECLARE(M_PAX);
 MALLOC_DEFINE(M_PAX, "pax_segvguard", "PaX segvguard memory");
 
 TUNABLE_INT("hardening.pax.segvguard.status", &pax_segvguard_status);
-TUNABLE_INT("hardening.pax.segvguard.debug", &pax_segvguard_debug);
 TUNABLE_INT("hardening.pax.segvguard.expiry_timeout", &pax_segvguard_expiry);
 TUNABLE_INT("hardening.pax.segvguard.suspend_timeout", &pax_segvguard_suspension);
 TUNABLE_INT("hardening.pax.segvguard.max_crashes", &pax_segvguard_maxcrashes);
 
 #ifdef PAX_SYSCTLS
 static int sysctl_pax_segvguard_status(SYSCTL_HANDLER_ARGS);
-static int sysctl_pax_segvguard_debug(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_segvguard_expiry(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_segvguard_suspension(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_segvguard_maxcrashes(SYSCTL_HANDLER_ARGS);
@@ -152,11 +149,6 @@ SYSCTL_PROC(_hardening_pax_segvguard, OID_AUTO, status,
     "1 - opt-in,  "
     "2 - opt-out, "
     "3 - force enabled");
-
-SYSCTL_PROC(_hardening_pax_segvguard, OID_AUTO, debug,
-    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
-    NULL, 0, sysctl_pax_segvguard_debug, "I",
-    "Debug mode.");
 
 SYSCTL_PROC(_hardening_pax_segvguard, OID_AUTO, expiry_timeout,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
@@ -270,28 +262,6 @@ sysctl_pax_segvguard_maxcrashes(SYSCTL_HANDLER_ARGS)
 
 	return (0);
 }
-
-static int
-sysctl_pax_segvguard_debug(SYSCTL_HANDLER_ARGS)
-{
-	int err;
-	int val;
-	struct prison *pr;
-
-	pr = pax_get_prison_td(req->td);
-
-	val = pr->pr_hardening.hr_pax_segvguard_debug;
-	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
-	if (err || (req->newptr == NULL))
-		return (err);
-
-	if (pr == &prison0)
-		pax_segvguard_debug = val;
-
-	pr->pr_hardening.hr_pax_segvguard_debug = val;
-
-	return (0);
-}
 #endif
 
 void
@@ -303,8 +273,6 @@ pax_segvguard_init_prison(struct prison *pr)
 		/* prison0 has no parent, use globals */
 		pr->pr_hardening.hr_pax_segvguard_status =
 		    pax_segvguard_status;
-		pr->pr_hardening.hr_pax_segvguard_debug =
-		    pax_segvguard_debug;
 		pr->pr_hardening.hr_pax_segvguard_expiry =
 		    pax_segvguard_expiry;
 		pr->pr_hardening.hr_pax_segvguard_suspension =
@@ -318,8 +286,6 @@ pax_segvguard_init_prison(struct prison *pr)
 
 		pr->pr_hardening.hr_pax_segvguard_status =
 		    pr_p->pr_hardening.hr_pax_segvguard_status;
-		pr->pr_hardening.hr_pax_segvguard_debug =
-		    pr_p->pr_hardening.hr_pax_segvguard_debug;
 		pr->pr_hardening.hr_pax_segvguard_expiry =
 		    pr_p->pr_hardening.hr_pax_segvguard_expiry;
 		pr->pr_hardening.hr_pax_segvguard_suspension =
@@ -668,17 +634,6 @@ pax_segvguard_sysinit(void)
 	printf("[PAX SEGVGUARD] expiry: %d sec\n", pax_segvguard_expiry);
 	printf("[PAX SEGVGUARD] suspension: %d sec\n", pax_segvguard_suspension);
 	printf("[PAX SEGVGUARD] maxcrahes: %d\n", pax_segvguard_maxcrashes);
-
-	switch (pax_segvguard_debug) {
-	case PAX_FEATURE_SIMPLE_DISABLED:
-	case PAX_FEATURE_SIMPLE_ENABLED:
-		break;
-	default:
-		printf("[PAX SEGVGUARD] WARNING, invalid settings in loader.conf!"
-		    " (pax_segvguard_debug = %d)\n", pax_segvguard_debug);
-		pax_segvguard_debug = PAX_FEATURE_SIMPLE_ENABLED;
-	}
-	printf("[PAX SEGVGUARD] debug: %s\n", pax_status_simple_str[pax_segvguard_debug]);
 
 	pax_segvguard_hashtbl =
 		malloc(pax_segvguard_hashsize * sizeof(struct pax_segvguard_entryhead),
