@@ -30,12 +30,8 @@ SRCS+=	opt_apic.h
 OBJS=	${VDSO}.so
 
 .if ${MACHINE_CPUARCH} == "i386"
-<<<<<<< HEAD
-SRCS+=	linux_ptrace.c opt_cpu.h
-=======
 SRCS+=	linux_ptrace.c imgact_linux.c linux_util.c linux_mib.c \
 	linux_emul.c opt_cpu.h linux.c
->>>>>>> origin/master
 .endif
 
 .if ${MACHINE_CPUARCH} == "i386"
