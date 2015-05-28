@@ -45,7 +45,6 @@ struct hardening_features {
 	int	 hr_pax_aslr_compat_stack_len;	/* (p) Number of bits randomized with stack (compat32) */
 	int	 hr_pax_aslr_compat_exec_len;	/* (p) Number of bits randomized with the execbase (compat32) */
 	int	 hr_pax_segvguard_status;       /* (p) PaX segvguard enabled */
-	int	 hr_pax_segvguard_debug;        /* (p) PaX segvguard debug */
 	int	 hr_pax_segvguard_expiry;       /* (p) Number of seconds to expire an entry */
 	int	 hr_pax_segvguard_suspension;   /* (p) Number of seconds to suspend an application */
 	int	 hr_pax_segvguard_maxcrashes;   /* (p) Maximum number of crashes before suspending application */
