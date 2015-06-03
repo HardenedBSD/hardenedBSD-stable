@@ -37,7 +37,6 @@
 #include <sys/param.h>
 #include <sys/mount.h>
 #include <sys/mman.h>
-#include <sys/pax.h>
 #include <sys/stat.h>
 #include <sys/sysctl.h>
 #include <sys/uio.h>
@@ -198,8 +197,6 @@ static Obj_Entry *obj_main;	/* The main program shared object */
 static Obj_Entry obj_rtld;	/* The dynamic linker shared object */
 static unsigned int obj_count;	/* Number of objects in obj_list */
 static unsigned int obj_loads;	/* Number of objects in obj_list */
-
-static Elf_Word pax_flags=0;	/* PaX / HardenedBSD flags */
 
 static Objlist list_global =	/* Objects dlopened with RTLD_GLOBAL */
   STAILQ_HEAD_INITIALIZER(list_global);
@@ -398,10 +395,6 @@ _rtld(Elf_Addr *sp, func_ptr_type *exit_proc, Obj_Entry **objp)
     environ = env;
     main_argc = argc;
     main_argv = argv;
-
-    /* Load PaX flags */
-    pax_flags = aux_info[AT_PAXFLAGS]->a_un.a_val;
-    aux_info[AT_PAXFLAGS]->a_un.a_val = 0;
 
     if (aux_info[AT_CANARY] != NULL &&
 	aux_info[AT_CANARY]->a_un.a_ptr != NULL) {
@@ -2147,8 +2140,7 @@ load_needed_objects(Obj_Entry *first, int flags)
     Obj_Entry *obj;
 
     for (obj = first;  obj != NULL;  obj = obj->next) {
-        if ((pax_flags & PAX_NOTE_NOSHLIBRANDOM) != PAX_NOTE_NOSHLIBRANDOM)
-            randomize_neededs(obj, flags);
+        randomize_neededs(obj, flags);
         if (process_needed(obj, obj->needed, flags) == -1)
             return (-1);
     }
