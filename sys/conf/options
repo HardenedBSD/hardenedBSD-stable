@@ -954,3 +954,6 @@ PAX_PTRACE_HARDENING_GRP	opt_pax.h
 RANDOM_YARROW	opt_random.h
 RANDOM_FORTUNA	opt_random.h
 RANDOM_DEBUG	opt_random.h
+
+# Intel em(4) driver
+EM_MULTIQUEUE	opt_em.h
