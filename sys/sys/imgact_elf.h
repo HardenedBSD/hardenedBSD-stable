@@ -52,6 +52,7 @@ typedef struct {
 	Elf_Size	base;
 	Elf_Size	flags;
 	Elf_Size	entry;
+	Elf_Word	pax_flags;
 } __ElfN(Auxargs);
 
 typedef struct {
