@@ -780,7 +780,7 @@ pax_aslr_mmap(struct proc *p, vm_offset_t *addr, vm_offset_t orig_addr, int flag
 }
 
 void
-pax_aslr_rtld(struct proc *p, vm_offset_t *addr)
+pax_aslr_rtld(struct proc *p, u_long *addr)
 {
 
 	PROC_LOCK_ASSERT(p, MA_OWNED);
