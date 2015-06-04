@@ -41,7 +41,9 @@
 #include <sys/param.h>
 #include <sys/mount.h>
 #include <sys/mman.h>
+#ifdef HARDENEDBSD
 #include <sys/pax.h>
+#endif
 #include <sys/stat.h>
 #include <sys/sysctl.h>
 #include <sys/uio.h>
@@ -395,11 +397,13 @@ _rtld(Elf_Addr *sp, func_ptr_type *exit_proc, Obj_Entry **objp)
     main_argc = argc;
     main_argv = argv;
 
+#ifdef HARDENEDBSD
     /* Load PaX flags */
     if (aux_info[AT_PAXFLAGS] != NULL) {
         pax_flags = aux_info[AT_PAXFLAGS]->a_un.a_val;
         aux_info[AT_PAXFLAGS]->a_un.a_val = 0;
     }
+#endif
 
     if (aux_info[AT_CANARY] != NULL &&
 	aux_info[AT_CANARY]->a_un.a_ptr != NULL) {
@@ -2066,6 +2070,11 @@ process_needed(Obj_Entry *obj, Needed_Entry *needed, int flags)
     Obj_Entry *obj1;
 
     for (; needed != NULL; needed = needed->next) {
+#ifdef HARDENEDBSD
+        dbg("%s: %s requires %s.",
+	  __func__, obj->path ? obj->path : "[nopath]",
+	  obj->strtab + needed->name);
+#endif
 	obj1 = needed->obj = load_object(obj->strtab + needed->name, -1, obj,
 	  flags & ~RTLD_LO_NOLOAD);
 	if (obj1 == NULL && !ld_tracing && (flags & RTLD_LO_FILTEES) == 0)
@@ -2140,10 +2149,9 @@ load_needed_objects(Obj_Entry *first, int flags)
 	  PAX_NOTE_NOSHLIBRANDOM)
             randomize_neededs(obj, flags);
 #endif
-        if (process_needed(obj, obj->needed, flags) == -1)
-            return (-1);
+	if (process_needed(obj, obj->needed, flags) == -1)
+	    return (-1);
     }
-
     return (0);
 }
 
