@@ -925,6 +925,9 @@ __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp)
 	 */
 	addr = round_page((vm_offset_t)vmspace->vm_daddr + lim_max(imgp->proc,
 	    RLIMIT_DATA));
+#ifdef PAX_ASLR
+	pax_aslr_rtld(imgp->proc, &addr);
+#endif
 	PROC_UNLOCK(imgp->proc);
 
 	imgp->entry_addr = entry;

@@ -780,6 +780,19 @@ pax_aslr_mmap(struct proc *p, vm_offset_t *addr, vm_offset_t orig_addr, int flag
 }
 
 void
+pax_aslr_rtld(struct proc *p, vm_offset_t *addr)
+{
+
+	PROC_LOCK_ASSERT(p, MA_OWNED);
+
+	if (!pax_aslr_active(p))
+		return;
+
+	*addr += p->p_vmspace->vm_aslr_delta_mmap;
+	CTR2(KTR_PAX, "%s: result %p\n", __func__, (void *)*addr);
+}
+
+void
 pax_aslr_stack(struct proc *p, uintptr_t *addr)
 {
 	uintptr_t orig_addr;
