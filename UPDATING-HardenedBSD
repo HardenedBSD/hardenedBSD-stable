@@ -1,3 +1,9 @@
+[20150604] fix ASLR - randomize the rtld's shared object too
+__HardenedBSD_version = 23
+
+	Randomize the rtld's address before load them in imgact_elf.c
+
+
 [20150604] added PAX_NOTE_{,NO}SHLIBRANDOM extension
 __HardenedBSD_version = 22
 
