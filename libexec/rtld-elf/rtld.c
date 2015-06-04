@@ -106,7 +106,9 @@ static void linkmap_add(Obj_Entry *);
 static void linkmap_delete(Obj_Entry *);
 static void load_filtees(Obj_Entry *, int flags, RtldLockState *);
 static void unload_filtees(Obj_Entry *);
+#ifdef HARDENEDBSD
 static void randomize_neededs(Obj_Entry *obj, int flags);
+#endif
 static int load_needed_objects(Obj_Entry *, int);
 static int load_preload_objects(void);
 static Obj_Entry *load_object(const char *, int fd, const Obj_Entry *, int);
@@ -199,7 +201,9 @@ static Obj_Entry obj_rtld;	/* The dynamic linker shared object */
 static unsigned int obj_count;	/* Number of objects in obj_list */
 static unsigned int obj_loads;	/* Number of objects in obj_list */
 
-static Elf_Word pax_flags=0;	/* PaX / HardenedBSD flags */
+#ifdef HARDENEDBSD
+static Elf_Word pax_flags = 0;	/* PaX / HardenedBSD flags */
+#endif
 
 static Objlist list_global =	/* Objects dlopened with RTLD_GLOBAL */
   STAILQ_HEAD_INITIALIZER(list_global);
@@ -400,8 +404,10 @@ _rtld(Elf_Addr *sp, func_ptr_type *exit_proc, Obj_Entry **objp)
     main_argv = argv;
 
     /* Load PaX flags */
-    pax_flags = aux_info[AT_PAXFLAGS]->a_un.a_val;
-    aux_info[AT_PAXFLAGS]->a_un.a_val = 0;
+    if (aux_info[AT_PAXFLAGS] != NULL) {
+        pax_flags = aux_info[AT_PAXFLAGS]->a_un.a_val;
+        aux_info[AT_PAXFLAGS]->a_un.a_val = 0;
+    }
 
     if (aux_info[AT_CANARY] != NULL &&
 	aux_info[AT_CANARY]->a_un.a_ptr != NULL) {
@@ -2088,6 +2094,7 @@ process_needed(Obj_Entry *obj, Needed_Entry *needed, int flags)
     return (0);
 }
 
+#ifdef HARDENEDBSD
 static void
 randomize_neededs(Obj_Entry *obj, int flags)
 {
@@ -2135,6 +2142,7 @@ err:
 
     return;
 }
+#endif
 
 /*
  * Given a shared object, traverse its list of needed objects, and load
@@ -2147,8 +2155,11 @@ load_needed_objects(Obj_Entry *first, int flags)
     Obj_Entry *obj;
 
     for (obj = first;  obj != NULL;  obj = obj->next) {
-        if ((pax_flags & PAX_NOTE_NOSHLIBRANDOM) != PAX_NOTE_NOSHLIBRANDOM)
+#ifdef HARDENEDBSD
+        if ((pax_flags & (PAX_NOTE_NOSHLIBRANDOM | PAX_NOTE_SHLIBRANDOM)) !=
+	  PAX_NOTE_NOSHLIBRANDOM)
             randomize_neededs(obj, flags);
+#endif
         if (process_needed(obj, obj->needed, flags) == -1)
             return (-1);
     }
