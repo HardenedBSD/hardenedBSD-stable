@@ -60,8 +60,8 @@ static void pax_log_ulog(const char *prefix, const char *fmt, va_list ap);
 		    "\006NOSEGVGUARD"	\
 		    "\007ASLR"		\
 		    "\010NOASLR"	\
-		    "\011<f8>"		\
-		    "\012<f9>"		\
+		    "\011SHLIBRANDOM"	\
+		    "\012NOSHLIBRANDOM"		\
 		    "\013<f10>"		\
 		    "\014<f11>"		\
 		    "\015<f12>"		\
