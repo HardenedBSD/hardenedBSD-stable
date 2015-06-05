@@ -36,6 +36,7 @@ FILES=	DAEMON \
 	geli \
 	geli2 \
 	gptboot \
+	growfs \
 	gssd \
 	${_hcsecd} \
 	hostid \
