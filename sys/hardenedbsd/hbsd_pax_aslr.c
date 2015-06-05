@@ -754,7 +754,7 @@ pax_aslr_mmap(struct proc *p, vm_offset_t *addr, vm_offset_t orig_addr, int flag
 	PROC_LOCK_ASSERT(p, MA_OWNED);
 
 #ifdef MAP_32BIT
-	if (((flags & MAP_32BIT) != MAP_32BIT) && !pax_aslr_active(p))
+	if (((flags & MAP_32BIT) == MAP_32BIT) || !pax_aslr_active(p))
 #else
 	if (!pax_aslr_active(p))
 #endif
