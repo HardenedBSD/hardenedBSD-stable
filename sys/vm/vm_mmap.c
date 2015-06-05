@@ -195,18 +195,14 @@ sys_mmap(td, uap)
 	struct file *fp;
 	vm_offset_t addr;
 	vm_size_t size, pageoff;
-<<<<<<< HEAD
-	vm_prot_t cap_maxprot, prot, maxprot;
-	void *handle;
-	objtype_t handle_type;
+	vm_prot_t cap_maxprot, prot;
 	int align, error, flags;
-=======
-	vm_prot_t cap_maxprot;
-	int align, error, flags, prot;
->>>>>>> origin/master
 	off_t pos;
 	struct vmspace *vms = td->td_proc->p_vmspace;
 	cap_rights_t rights;
+#ifdef PAX_ASLR
+	int pax_aslr_done;
+#endif
 
 	addr = (vm_offset_t) uap->addr;
 	size = uap->len;
@@ -215,6 +211,10 @@ sys_mmap(td, uap)
 	pos = uap->pos;
 
 	fp = NULL;
+
+#ifdef PAX_ASLR
+	pax_aslr_done = 0;
+#endif
 
 	/*
 	 * Ignore old flags that used to be defined but did not do anything.
@@ -312,7 +312,13 @@ sys_mmap(td, uap)
 		 */
 		if (addr + size > MAP_32BIT_MAX_ADDR)
 			addr = 0;
-#endif
+#ifdef PAX_ASLR
+		PROC_LOCK(td->td_proc);
+		pax_aslr_mmap_map_32bit(td->td_proc, &addr, (vm_offset_t)uap->addr, flags);
+		pax_aslr_done = 1;
+		PROC_UNLOCK(td->td_proc);
+#endif /* PAX_ASLR */
+#endif /* MAP_32BIT */
 	} else {
 		/*
 		 * XXX for non-fixed mappings where no hint is provided or
@@ -329,6 +335,10 @@ sys_mmap(td, uap)
 		    lim_max(td->td_proc, RLIMIT_DATA))))
 			addr = round_page((vm_offset_t)vms->vm_daddr +
 			    lim_max(td->td_proc, RLIMIT_DATA));
+#ifdef PAX_ASLR
+		pax_aslr_mmap(td->td_proc, &addr, (vm_offset_t)uap->addr, flags);
+		pax_aslr_done = 1;
+#endif
 		PROC_UNLOCK(td->td_proc);
 	}
 	if (size == 0) {
@@ -345,8 +355,18 @@ sys_mmap(td, uap)
 		 *
 		 * This relies on VM_PROT_* matching PROT_*.
 		 */
+#ifdef PAX_NOEXEC
+		cap_maxprot = VM_PROT_ALL;
+
+		pax_pageexec(td->td_proc, &prot, &cap_maxprot);
+		pax_mprotect(td->td_proc, &prot, &cap_maxprot);
+
+		error = vm_mmap_object(&vms->vm_map, &addr, size, prot,
+		    cap_maxprot, flags, NULL, pos, FALSE, td);
+#else
 		error = vm_mmap_object(&vms->vm_map, &addr, size, prot,
 		    VM_PROT_ALL, flags, NULL, pos, FALSE, td);
+#endif
 	} else {
 		/*
 		 * Mapping file, get fp for validation and don't let the
@@ -372,30 +392,17 @@ sys_mmap(td, uap)
 			goto done;
 		}
 
-<<<<<<< HEAD
 #ifdef PAX_NOEXEC
-	pax_pageexec(td->td_proc, &prot, &maxprot);
-	pax_mprotect(td->td_proc, &prot, &maxprot);
+		pax_pageexec(td->td_proc, &prot, &cap_maxprot);
+		pax_mprotect(td->td_proc, &prot, &cap_maxprot);
 #endif
 #ifdef PAX_ASLR
-	pax_aslr_mmap(td->td_proc, &addr, (vm_offset_t)uap->addr, flags);
+		KASSERT((flags & MAP_FIXED) == MAP_FIXED || pax_aslr_done == 1,
+		    ("%s: ASLR reqiured ...", __func__));
 #endif
-	/* This relies on VM_PROT_* matching PROT_*. */
-	error = vm_mmap(&vms->vm_map, &addr, size, prot, maxprot,
-	    flags, handle_type, handle, pos);
-	td->td_fpop = NULL;
-#ifdef HWPMC_HOOKS
-	/* inform hwpmc(4) if an executable is being mapped */
-	if (error == 0 && handle_type == OBJT_VNODE &&
-	    (prot & PROT_EXEC)) {
-		pkm.pm_file = handle;
-		pkm.pm_address = (uintptr_t) addr;
-		PMC_CALL_HOOK(td, PMC_FN_MMAP, (void *) &pkm);
-=======
 		/* This relies on VM_PROT_* matching PROT_*. */
 		error = fo_mmap(fp, &vms->vm_map, &addr, size, prot,
 		    cap_maxprot, flags, pos, td);
->>>>>>> origin/master
 	}
 
 	if (error == 0)
