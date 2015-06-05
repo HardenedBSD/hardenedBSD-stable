@@ -77,10 +77,12 @@
 typedef void (*func_ptr_type)();
 typedef void * (*path_enum_proc) (const char *path, size_t len, void *arg);
 
-typedef struct integriforce_so_check {
+#ifdef HARDENEDBSD
+struct integriforce_so_check {
 	char	 isc_path[MAXPATHLEN];
 	int	 isc_result;
-} integriforce_so_check_t;
+};
+#endif
 
 /*
  * Function declarations.
@@ -2283,11 +2285,13 @@ static Obj_Entry *
 do_load_object(int fd, const char *name, char *path, struct stat *sbp,
   int flags)
 {
-    integriforce_so_check_t check;
     Obj_Entry *obj;
     struct statfs fs;
+#ifdef HARDENEDBSD
+    struct integriforce_so_check check;
     int res, err;
     size_t sz;
+#endif
 
     /*
      * but first, make sure that environment variables haven't been
@@ -2303,7 +2307,7 @@ do_load_object(int fd, const char *name, char *path, struct stat *sbp,
 	    return NULL;
 	}
     }
-
+#ifdef HARDENEDBSD
     if (path != NULL) {
 	    sz = sizeof(int);
 	    err = sysctlbyname("kern.features.integriforce",
@@ -2311,16 +2315,16 @@ do_load_object(int fd, const char *name, char *path, struct stat *sbp,
 	    if (err == 0 && res == 1) {
 		    strlcpy(check.isc_path, path, MAXPATHLEN);
 		    check.isc_result = 0;
-		    sz = sizeof(integriforce_so_check_t);
+		    sz = sizeof(struct integriforce_so_check);
 		    err = sysctlbyname("hardening.secadm.integriforce_so",
-			&check, &sz, &check, sizeof(integriforce_so_check_t));
+			&check, &sz, &check, sizeof(struct integriforce_so_check));
 		    if (err == 0 && check.isc_result != 0) {
 			    _rtld_error("Integriforce validation failed on %s. Aborting.\n", path);
 			    return (NULL);
 		    }
 	    }
     }
-
+#endif
     dbg("loading \"%s\"", printable_path(path));
     obj = map_object(fd, printable_path(path), sbp);
     if (obj == NULL)
