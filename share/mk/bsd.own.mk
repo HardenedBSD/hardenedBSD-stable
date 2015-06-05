@@ -347,6 +347,7 @@ __DEFAULT_YES_OPTIONS = \
     PAM \
     PC_SYSINSTALL \
     PF \
+    PIE \
     PKGBOOTSTRAP \
     PMC \
     PORTSNAP \
