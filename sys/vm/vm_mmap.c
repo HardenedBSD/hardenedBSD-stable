@@ -213,6 +213,9 @@ sys_mmap(td, uap)
 	off_t pos;
 	struct vmspace *vms = td->td_proc->p_vmspace;
 	cap_rights_t rights;
+#ifdef PAX_ASLR
+	int pax_aslr_done;
+#endif
 
 	addr = (vm_offset_t) uap->addr;
 	size = uap->len;
@@ -221,6 +224,10 @@ sys_mmap(td, uap)
 	pos = uap->pos;
 
 	fp = NULL;
+
+#ifdef PAX_ASLR
+	pax_aslr_done = 0;
+#endif
 
 	/*
 	 * Enforce the constraints.
@@ -300,7 +307,13 @@ sys_mmap(td, uap)
 		 */
 		if (addr + size > MAP_32BIT_MAX_ADDR)
 			addr = 0;
-#endif
+#ifdef PAX_ASLR
+		PROC_LOCK(td->td_proc);
+		pax_aslr_mmap_map_32bit(td->td_proc, &addr, (vm_offset_t)uap->addr, flags);
+		pax_aslr_done = 1;
+		PROC_UNLOCK(td->td_proc);
+#endif /* PAX_ASLR */
+#endif /* MAP_32BIT */
 	} else {
 		/*
 		 * XXX for non-fixed mappings where no hint is provided or
@@ -317,6 +330,10 @@ sys_mmap(td, uap)
 		    lim_max(td->td_proc, RLIMIT_DATA))))
 			addr = round_page((vm_offset_t)vms->vm_daddr +
 			    lim_max(td->td_proc, RLIMIT_DATA));
+#ifdef PAX_ASLR
+		pax_aslr_mmap(td->td_proc, &addr, (vm_offset_t)uap->addr, flags);
+		pax_aslr_done = 1;
+#endif
 		PROC_UNLOCK(td->td_proc);
 	}
 	if (flags & MAP_ANON) {
@@ -424,7 +441,8 @@ map:
 	pax_mprotect(td->td_proc, &prot, &maxprot);
 #endif
 #ifdef PAX_ASLR
-	pax_aslr_mmap(td->td_proc, &addr, (vm_offset_t)uap->addr, flags);
+	KASSERT((flags & MAP_FIXED) == MAP_FIXED || pax_aslr_done == 1,
+	    ("%s: ASLR reqiured ...", __func__));
 #endif
 	error = vm_mmap(&vms->vm_map, &addr, size, prot, maxprot,
 	    flags, handle_type, handle, pos);

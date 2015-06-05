@@ -751,33 +751,90 @@ void
 pax_aslr_mmap(struct proc *p, vm_offset_t *addr, vm_offset_t orig_addr, int flags)
 {
 
-	if (!pax_aslr_active(p))
-		return;
-
-	if (!(flags & MAP_FIXED) && ((orig_addr == 0) || !(flags & MAP_ANON))) {
-		CTR4(KTR_PAX, "%s: applying to %p orig_addr=%p flags=%x\n",
-		    __func__, (void *)*addr, (void *)orig_addr, flags);
+	PROC_LOCK_ASSERT(p, MA_OWNED);
 
 #ifdef MAP_32BIT
-		if (flags & MAP_32BIT) {
-			int len_32bit;
-
-#ifdef COMPAT_FREEBSD32
-			len_32bit = pax_aslr_compat_mmap_len;
+	if (((flags & MAP_32BIT) != MAP_32BIT) && !pax_aslr_active(p))
 #else
-			len_32bit = PAX_ASLR_COMPAT_DELTA_MMAP_MIN_LEN;
+	if (!pax_aslr_active(p))
 #endif
-			*addr += PAX_ASLR_DELTA(arc4random(),
-			    PAX_ASLR_COMPAT_DELTA_MMAP_LSB,
-			    len_32bit);
-		 } else
-#endif /* MAP_32BIT */
-			*addr += p->p_vmspace->vm_aslr_delta_mmap;
+		return;
+
+#ifdef MAP_32BIT
+	KASSERT((flags & MAP_32BIT) != MAP_32BIT,
+	    ("%s: we can't handle MAP_32BIT mapping here", __func__));
+#endif
+	KASSERT((flags & MAP_FIXED) != MAP_FIXED,
+	    ("%s: we can't randomize MAP_FIXED mapping", __func__));
+
+	/*
+	 * From original PaX doc:
+	 *
+	 * PaX applies randomization (delta_mmap) to TASK_UNMAPPED_BASE in bits 12-27
+	 * (16 bits) and ignores the hint for file mappings (unfortunately there is
+	 * a 'feature' in linuxthreads where the thread stack mappings do not specify
+	 * MAP_FIXED but still expect that behaviour so the hint cannot be overriden
+	 * for anonymous mappings).
+	 *
+	 * https://github.com/HardenedBSD/pax-docs-mirror/blob/master/randmmap.txt#L30
+	 */
+	if ((orig_addr == 0) || !(flags & MAP_ANON)) {
+		CTR4(KTR_PAX, "%s: applying to %p orig_addr=%p flags=%x\n",
+		    __func__, (void *)*addr, (void *)orig_addr, flags);
+		*addr += p->p_vmspace->vm_aslr_delta_mmap;
 		CTR2(KTR_PAX, "%s: result %p\n", __func__, (void *)*addr);
 	} else
 		CTR4(KTR_PAX, "%s: not applying to %p orig_addr=%p flags=%x\n",
 		    __func__, (void *)*addr, (void *)orig_addr, flags);
 }
+
+#ifdef MAP_32BIT
+void
+pax_aslr_mmap_map_32bit(struct proc *p, vm_offset_t *addr, vm_offset_t orig_addr, int flags)
+{
+	int len_32bit;
+
+	PROC_LOCK_ASSERT(p, MA_OWNED);
+
+	if (((flags & MAP_32BIT) != MAP_32BIT) || !pax_aslr_active(p))
+		return;
+
+	KASSERT((flags & MAP_32BIT) == MAP_32BIT,
+	    ("%s: we can't handle not MAP_32BIT mapping here", __func__));
+	KASSERT((flags & MAP_FIXED) != MAP_FIXED,
+	    ("%s: we can't randomize MAP_FIXED mapping", __func__));
+
+	/*
+	 * From original PaX doc:
+	 *
+	 * PaX applies randomization (delta_mmap) to TASK_UNMAPPED_BASE in bits 12-27
+	 * (16 bits) and ignores the hint for file mappings (unfortunately there is
+	 * a 'feature' in linuxthreads where the thread stack mappings do not specify
+	 * MAP_FIXED but still expect that behaviour so the hint cannot be overriden
+	 * for anonymous mappings).
+	 *
+	 * https://github.com/HardenedBSD/pax-docs-mirror/blob/master/randmmap.txt#L30
+	 */
+	if ((orig_addr == 0) || !(flags & MAP_ANON)) {
+		CTR4(KTR_PAX, "%s: applying to %p orig_addr=%p flags=%x\n",
+				__func__, (void *)*addr, (void *)orig_addr, flags);
+
+#ifdef COMPAT_FREEBSD32
+		len_32bit = pax_aslr_compat_mmap_len;
+#else
+		len_32bit = PAX_ASLR_COMPAT_DELTA_MMAP_MAX_LEN;
+#endif
+		/*
+		 * XXXOP - use proper pregenerated randoms here, rather than generate
+		 * every time new random. Currently in MAP_32bit case is an ASR, and
+		 * not ASLR.
+		 */
+		*addr += PAX_ASLR_DELTA(arc4random(), PAX_ASLR_COMPAT_DELTA_MMAP_LSB,
+		    len_32bit);
+		CTR2(KTR_PAX, "%s: result %p\n", __func__, (void *)*addr);
+	}
+}
+#endif
 
 void
 pax_aslr_rtld(struct proc *p, vm_offset_t *addr)
