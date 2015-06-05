@@ -3,6 +3,7 @@
 #
 
 PROG=	bhyve
+WANTS_PIE=	yes
 
 DEBUG_FLAGS= -g -O0 
 
