@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2014, 2015 Marcel Moolenaar
+ * Copyright (c) 2015 Marcel Moolenaar
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,41 +26,15 @@
  * $FreeBSD$
  */
 
-#ifndef _DEV_PROTO_DEV_H_
-#define _DEV_PROTO_DEV_H_
+#ifndef _TOOLS_BUS_DMA_H_
+#define	_TOOLS_BUS_DMA_H_
 
-#include <sys/ioccom.h>
+int	bd_tag_create(const char *dev, u_long align, u_long bndry,
+	    u_long maxaddr, u_long maxsz, u_int nsegs, u_long maxsegsz,
+	    u_int datarate, u_int flags);
+int	bd_tag_derive(int tid, u_long align, u_long bndry, u_long maxaddr,
+	    u_long maxsz, u_int nsegs, u_long maxsegsz, u_int datarate,
+	    u_int flags);
+int	bd_tag_destroy(int tid);
 
-#define	PROTO_IOC_CLASS	'h'
-
-struct proto_ioc_region {
-	unsigned long	address;
-	unsigned long	size;
-};
-
-#define PROTO_IOC_REGION _IOWR(PROTO_IOC_CLASS, 1, struct proto_ioc_region)
-
-struct proto_ioc_busdma {
-	unsigned int	request;
-#define	PROTO_IOC_BUSDMA_TAG_CREATE	1
-#define	PROTO_IOC_BUSDMA_TAG_DERIVE	2
-#define	PROTO_IOC_BUSDMA_TAG_DESTROY	3
-	unsigned long	key;
-	union {
-		struct {
-			unsigned long	align;
-			unsigned long	bndry;
-			unsigned long	maxaddr;
-			unsigned long	maxsz;
-			unsigned long	maxsegsz;
-			unsigned int	nsegs;
-			unsigned int	datarate;
-			unsigned int	flags;
-		} tag;
-	} u;
-	unsigned long	result;
-};
-
-#define PROTO_IOC_BUSDMA _IOWR(PROTO_IOC_CLASS, 2, struct proto_ioc_busdma)
-
-#endif /* _DEV_PROTO_H_ */
+#endif /* _TOOLS_BUS_DMA_H_ */
