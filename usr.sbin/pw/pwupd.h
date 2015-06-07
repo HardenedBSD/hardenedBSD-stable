@@ -83,9 +83,12 @@ struct userconf {
 struct pwconf {
 	char		 rootdir[MAXPATHLEN];
 	char		 etcpath[MAXPATHLEN];
+	char		*newname;
+	char		*config;
 	bool		 dryrun;
 	bool		 pretty;
 	bool		 v7;
+	bool		 checkduplicate;
 	struct userconf	*userconf;
 };
 

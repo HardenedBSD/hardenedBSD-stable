@@ -99,9 +99,11 @@ main(int argc, char *argv[])
 	int             ch;
 	int             mode = -1;
 	int             which = -1;
+	long		id = -1;
 	char		*config = NULL;
 	struct stat	st;
-	char		arg;
+	const char	*errstr;
+	char		arg, *name;
 	bool		relocated, nis;
 
 	static const char *opts[W_NUM][M_NUM] =
@@ -111,7 +113,7 @@ main(int argc, char *argv[])
 			"R:V:C:qn:u:rY",
 			"R:V:C:qn:u:c:d:e:p:g:G:mM:l:k:s:w:L:h:H:FNPY",
 			"R:V:C:qn:u:FPa7",
-			"R:V:C:q",
+			"R:V:C:",
 			"R:V:C:q",
 			"R:V:C:q"
 		},
@@ -120,16 +122,18 @@ main(int argc, char *argv[])
 			"R:V:C:qn:g:Y",
 			"R:V:C:qn:d:g:l:h:H:FM:m:NPY",
 			"R:V:C:qn:g:FPa",
-			"R:V:C:q"
+			"R:V:C:"
 		 }
 	};
 
-	static int      (*funcs[W_NUM]) (int _mode, struct cargs * _args) =
+	static int      (*funcs[W_NUM]) (int _mode, char *_name, long _id,
+	    struct cargs * _args) =
 	{			/* Request handlers */
 		pw_user,
 		pw_group
 	};
 
+	name = NULL;
 	relocated = nis = false;
 	memset(&conf, 0, sizeof(conf));
 	strlcpy(conf.etcpath, _PATH_PWD, sizeof(conf.etcpath));
@@ -190,9 +194,15 @@ main(int argc, char *argv[])
 			mode = tmp % M_NUM;
 		} else if (strcmp(argv[1], "help") == 0 && argv[2] == NULL)
 			cmdhelp(mode, which);
-		else if (which != -1 && mode != -1)
-			addarg(&arglist, 'n', argv[1]);
-		else
+		else if (which != -1 && mode != -1) {
+			if (strspn(argv[1], "0123456789") == strlen(argv[1])) {
+				id = strtonum(argv[1], 0, LONG_MAX, &errstr);
+				if (errstr != NULL)
+					errx(EX_USAGE, "Bad id '%s': %s",
+					    argv[1], errstr);
+			} else
+				name = argv[1];
+		} else
 			errx(EX_USAGE, "unknown keyword `%s'", argv[1]);
 		++argv;
 		--argc;
@@ -219,10 +229,16 @@ main(int argc, char *argv[])
 			conf.v7 = true;
 			break;
 		case 'C':
-			config = optarg;
+			conf.config = optarg;
+			config = conf.config;
 			break;
 		case 'N':
 			conf.dryrun = true;
+			break;
+		case 'l':
+			if (strlen(optarg) >= MAXLOGNAME)
+				errx(EX_USAGE, "new name too long: %s", optarg);
+			conf.newname = optarg;
 			break;
 		case 'P':
 			conf.pretty = true;
@@ -230,12 +246,52 @@ main(int argc, char *argv[])
 		case 'Y':
 			nis = true;
 			break;
+		case 'g':
+			if (which == 0) { /* for user* */
+				addarg(&arglist, 'g', optarg);
+				break;
+			}
+			if (strspn(optarg, "0123456789") != strlen(optarg))
+				errx(EX_USAGE, "-g expects a number");
+			id = strtonum(optarg, 0, LONG_MAX, &errstr);
+			if (errstr != NULL)
+				errx(EX_USAGE, "Bad id '%s': %s", optarg,
+				    errstr);
+			break;
+		case 'u':
+			if (strspn(optarg, "0123456789,") != strlen(optarg))
+				errx(EX_USAGE, "-u expects a number");
+			if (strchr(optarg, ',') != NULL) {
+				addarg(&arglist, 'u', optarg);
+				break;
+			}
+			id = strtonum(optarg, 0, LONG_MAX, &errstr);
+			if (errstr != NULL)
+				errx(EX_USAGE, "Bad id '%s': %s", optarg,
+				    errstr);
+			break;
+		case 'n':
+			if (strspn(optarg, "0123456789") != strlen(optarg)) {
+				name = optarg;
+				break;
+			}
+			id = strtonum(optarg, 0, LONG_MAX, &errstr);
+			if (errstr != NULL)
+				errx(EX_USAGE, "Bad id '%s': %s", optarg,
+				    errstr);
+			break;
+		case 'o':
+			conf.checkduplicate = true;
+			break;
 		default:
 			addarg(&arglist, ch, optarg);
 			break;
 		}
 		optarg = NULL;
 	}
+
+	if (name != NULL && strlen(name) >= MAXLOGNAME)
+		errx(EX_USAGE, "name too long: %s", name);
 
 	/*
 	 * Must be root to attempt an update
@@ -265,7 +321,7 @@ main(int argc, char *argv[])
 	 */
 	conf.userconf = read_userconfig(config);
 
-	ch = funcs[which] (mode, &arglist);
+	ch = funcs[which] (mode, name, id, &arglist);
 
 	/*
 	 * If everything went ok, and we've been asked to update
@@ -413,8 +469,7 @@ cmdhelp(int mode, int which)
 				"usage: pw usernext [switches]\n"
 				"\t-V etcdir      alternate /etc location\n"
 				"\t-R rootir      alternate root directory\n"
-				"\t-C config      configuration file\n"
-				"\t-q             quiet operation\n",
+				"\t-C config      configuration file\n",
 				"usage pw: lock [switches]\n"
 				"\t-V etcdir      alternate /etc locations\n"
 				"\t-C config      configuration file\n"
@@ -468,7 +523,6 @@ cmdhelp(int mode, int which)
 				"\t-V etcdir      alternate /etc location\n"
 				"\t-R rootir      alternate root directory\n"
 				"\t-C config      configuration file\n"
-				"\t-q             quiet operation\n"
 			}
 		};
 
