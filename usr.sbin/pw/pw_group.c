@@ -44,11 +44,11 @@ static const char rcsid[] =
 static struct passwd *lookup_pwent(const char *user);
 static void	delete_members(char ***members, int *grmembers, int *i,
     struct carg *arg, struct group *grp);
-static int      print_group(struct group * grp, int pretty);
+static int	print_group(struct group * grp);
 static gid_t    gr_gidpolicy(struct userconf * cnf, struct cargs * args);
 
 int
-pw_group(struct userconf * cnf, int mode, struct cargs * args)
+pw_group(int mode, struct cargs * args)
 {
 	int		rc;
 	struct carg    *a_newname = getarg(args, 'l');
@@ -58,6 +58,7 @@ pw_group(struct userconf * cnf, int mode, struct cargs * args)
 	struct group   *grp = NULL;
 	int	        grmembers = 0;
 	char           **members = NULL;
+	struct userconf	*cnf = conf.userconf;
 
 	static struct group fakegroup =
 	{
@@ -88,11 +89,9 @@ pw_group(struct userconf * cnf, int mode, struct cargs * args)
 	}
 
 	if (mode == M_PRINT && getarg(args, 'a')) {
-		int             pretty = getarg(args, 'P') != NULL;
-
 		SETGRENT();
 		while ((grp = GETGRENT()) != NULL)
-			print_group(grp, pretty);
+			print_group(grp);
 		ENDGRENT();
 		return EXIT_SUCCESS;
 	}
@@ -118,7 +117,7 @@ pw_group(struct userconf * cnf, int mode, struct cargs * args)
 				fakegroup.gr_name = a_name ? a_name->val : "nogroup";
 				fakegroup.gr_gid = a_gid ? (gid_t) atol(a_gid->val) : (gid_t)-1;
 				fakegroup.gr_mem = fmems;
-				return print_group(&fakegroup, getarg(args, 'P') != NULL);
+				return print_group(&fakegroup);
 			}
 			errx(EX_DATAERR, "unknown group `%s'", a_name ? a_name->val : a_gid->val);
 		}
@@ -140,13 +139,13 @@ pw_group(struct userconf * cnf, int mode, struct cargs * args)
 			pw_log(cnf, mode, W_GROUP, "%s(%u) removed", a_name->val, gid);
 			return EXIT_SUCCESS;
 		} else if (mode == M_PRINT)
-			return print_group(grp, getarg(args, 'P') != NULL);
+			return print_group(grp);
 
 		if (a_gid)
 			grp->gr_gid = (gid_t) atoi(a_gid->val);
 
 		if (a_newname != NULL)
-			grp->gr_name = pw_checkname((u_char *)a_newname->val, 0);
+			grp->gr_name = pw_checkname(a_newname->val, 0);
 	} else {
 		if (a_name == NULL)	/* Required */
 			errx(EX_DATAERR, "group name required");
@@ -156,7 +155,7 @@ pw_group(struct userconf * cnf, int mode, struct cargs * args)
 		extendarray(&members, &grmembers, 200);
 		members[0] = NULL;
 		grp = &fakegroup;
-		grp->gr_name = pw_checkname((u_char *)a_name->val, 0);
+		grp->gr_name = pw_checkname(a_name->val, 0);
 		grp->gr_passwd = "*";
 		grp->gr_gid = gr_gidpolicy(cnf, args);
 		grp->gr_mem = members;
@@ -257,8 +256,8 @@ pw_group(struct userconf * cnf, int mode, struct cargs * args)
 		grp->gr_mem = members;
 	}
 
-	if (getarg(args, 'N') != NULL)
-		return print_group(grp, getarg(args, 'P') != NULL);
+	if (conf.dryrun)
+		return print_group(grp);
 
 	if (mode == M_ADD && (rc = addgrent(grp)) != 0) {
 		if (rc == -1)
@@ -411,9 +410,9 @@ gr_gidpolicy(struct userconf * cnf, struct cargs * args)
 
 
 static int
-print_group(struct group * grp, int pretty)
+print_group(struct group * grp)
 {
-	if (!pretty) {
+	if (!conf.pretty) {
 		char           *buf = NULL;
 
 		buf = gr_make(grp);
