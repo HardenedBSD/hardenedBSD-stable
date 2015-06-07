@@ -240,11 +240,11 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 	imgp->proc->p_pax = flags;
 
 	/*
-	 * if we disable features with secadm, print out a warning
+	 * if we enable/disable features with secadm, print out a warning
 	 */
 	if (mode != 0) {
 		pax_log_internal_imgp(imgp, PAX_LOG_DEFAULT,
-		   "the process has explicitly disabled features");
+		   "the process has non-default settings");
 	}
 
 	return (0);
