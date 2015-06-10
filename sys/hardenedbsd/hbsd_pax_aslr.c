@@ -878,7 +878,7 @@ pax_aslr_stack_adjust(struct proc *p, u_long *ssiz)
 	 * gap based stack randomization.
 	 */
 	PROC_LOCK(p);
-	lim_rlimit(p, RLIMIT_STACK, &rlim_stack);
+	lim_rlimit_proc(p, RLIMIT_STACK, &rlim_stack);
 	PROC_UNLOCK(p);
 	if (*ssiz > rlim_stack.rlim_max)
 		rlim_stack.rlim_max = *ssiz;
