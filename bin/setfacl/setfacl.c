@@ -131,7 +131,7 @@ sanitize_inheritance(const struct stat *sb, acl_t acl)
 static int
 walk_path(const char *path, const struct stat *sb, int flag, struct FTW *ftwp __unused)
 {
-	acl_t acl, acl_backup;
+	acl_t acl, acl_backup=NULL;
 	acl_entry_t unused_entry;
 	struct sf_entry *entry;
 	unsigned int local_error;
