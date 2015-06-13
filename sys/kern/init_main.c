@@ -726,10 +726,18 @@ start_init(void *dummy)
 	/* Wipe GELI passphrase from the environment. */
 	kern_unsetenv("kern.geom.eli.passphrase");
 
+#ifdef PAX_ASLR
+	/* Initialize PaX settings. */
+	pax_aslr_init_vmspace(p);
+#endif
+
 	/*
 	 * Need just enough stack to hold the faked-up "execve()" arguments.
 	 */
 	addr = p->p_sysent->sv_usrstack - PAGE_SIZE;
+#ifdef PAX_ASLR
+	pax_aslr_stack(p, &addr);
+#endif
 	if (vm_map_find(&p->p_vmspace->vm_map, NULL, 0, &addr, PAGE_SIZE, 0,
 	    VMFS_NO_SPACE, VM_PROT_ALL, VM_PROT_ALL, 0) != 0)
 		panic("init: couldn't allocate argument space");
@@ -756,7 +764,11 @@ start_init(void *dummy)
 		 * Move out the boot flag argument.
 		 */
 		options = 0;
+#ifdef PAX_ASLR
 		ucp = (char *)p->p_sysent->sv_usrstack;
+#else
+		ucp = (char *)(addr + PAGE_SIZE);
+#endif
 		(void)subyte(--ucp, 0);		/* trailing zero */
 		if (boothowto & RB_SINGLE) {
 			(void)subyte(--ucp, 's');
