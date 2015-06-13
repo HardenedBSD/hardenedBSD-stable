@@ -145,7 +145,8 @@ __FBSDID("$FreeBSD$");
 #define PAX_ASLR_DELTA_MMAP_DEF_LEN	30
 #endif /* PAX_ASLR_DELTA_MMAP_DEF_LEN */
 #ifndef PAX_ASLR_DELTA_STACK_DEF_LEN
-#define PAX_ASLR_DELTA_STACK_DEF_LEN	26
+//#define PAX_ASLR_DELTA_STACK_DEF_LEN	26
+#define PAX_ASLR_DELTA_STACK_DEF_LEN	16
 #endif /* PAX_ASLR_DELTA_STACK_DEF_LEN */
 #ifndef PAX_ASLR_DELTA_EXEC_DEF_LEN
 #define PAX_ASLR_DELTA_EXEC_DEF_LEN	21
@@ -545,6 +546,7 @@ pax_aslr_sysinit(void)
 	printf("[PAX ASLR] mmap: %d bit\n", pax_aslr_mmap_len);
 	printf("[PAX ASLR] exec base: %d bit\n", pax_aslr_exec_len);
 	printf("[PAX ASLR] stack: %d bit\n", pax_aslr_stack_len);
+	printf("[PAX ASLR] XXXOP stack randomization should be bump from %d bit to 26+ bit, when I created a proper fix to boot issues\n", pax_aslr_stack_len);
 }
 SYSINIT(pax_aslr, SI_SUB_PAX, SI_ORDER_SECOND, pax_aslr_sysinit, NULL);
 
