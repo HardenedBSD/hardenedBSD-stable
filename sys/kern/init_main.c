@@ -724,6 +724,11 @@ start_init(void *dummy)
 	pax_aslr_init_vmspace(p);
 #endif
 
+#ifdef PAX_ASLR
+	/* Initialize PaX settings. */
+	pax_aslr_init_vmspace(p);
+#endif
+
 	/*
 	 * Need just enough stack to hold the faked-up "execve()" arguments.
 	 */
