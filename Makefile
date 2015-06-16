@@ -99,7 +99,10 @@
 #
 # For more information, see the build(7) manual page.
 #
-.if ${MK_META_MODE:Uno} == "yes"
+
+# Note: we use this awkward construct to be compatible with FreeBSD's
+# old make used in 10.0 and 9.2 and earlier.
+.if defined(MK_META_MODE) && ${MK_META_MODE} == "yes"
 # targets/Makefile plays the role of top-level
 .include "targets/Makefile"
 .else
@@ -435,9 +438,12 @@ universe_epilogue: universe_${target}
 universe_${target}: universe_${target}_prologue
 universe_${target}_prologue: universe_prologue
 	@echo ">> ${target} started on `LC_ALL=C date`"
+universe_${target}_worlds:
+
 .if !defined(MAKE_JUST_KERNELS)
+universe_${target}_done: universe_${target}_worlds
 .for target_arch in ${TARGET_ARCHES_${target}}
-universe_${target}: universe_${target}_${target_arch}
+universe_${target}_worlds: universe_${target}_${target_arch}
 universe_${target}_${target_arch}: universe_${target}_prologue .MAKE
 	@echo ">> ${target}.${target_arch} ${UNIVERSE_TARGET} started on `LC_ALL=C date`"
 	@(cd ${.CURDIR} && env __MAKE_CONF=/dev/null \
@@ -450,15 +456,11 @@ universe_${target}_${target_arch}: universe_${target}_prologue .MAKE
 	    ${MAKEFAIL}))
 	@echo ">> ${target}.${target_arch} ${UNIVERSE_TARGET} completed on `LC_ALL=C date`"
 .endfor
-.endif
+.endif # !MAKE_JUST_KERNELS
+
 .if !defined(MAKE_JUST_WORLDS)
-# If we are building world and kernels wait for the required worlds to finish
-.if !defined(MAKE_JUST_KERNELS)
-.for target_arch in ${TARGET_ARCHES_${target}}
-universe_${target}_kernels: universe_${target}_${target_arch}
-.endfor
-.endif
-universe_${target}: universe_${target}_kernels
+universe_${target}_done: universe_${target}_kernels
+universe_${target}_kernels: universe_${target}_worlds
 universe_${target}_kernels: universe_${target}_prologue .MAKE
 .if exists(${KERNSRCDIR}/${target}/conf/NOTES)
 	@(cd ${KERNSRCDIR}/${target}/conf && env __MAKE_CONF=/dev/null \
@@ -468,7 +470,11 @@ universe_${target}_kernels: universe_${target}_prologue .MAKE
 .endif
 	@cd ${.CURDIR} && ${SUB_MAKE} ${.MAKEFLAGS} TARGET=${target} \
 	    universe_kernels
-.endif
+.endif # !MAKE_JUST_WORLDS
+
+# Tell the user the worlds and kernels have completed
+universe_${target}: universe_${target}_done
+universe_${target}_done:
 	@echo ">> ${target} completed on `LC_ALL=C date`"
 .endfor
 universe_kernels: universe_kernconfs
@@ -521,6 +527,7 @@ universe_epilogue:
 buildLINT:
 	${MAKE} -C ${.CURDIR}/sys/${_TARGET}/conf LINT
 
+.if defined(.PARSEDIR)
 # This makefile does not run in meta mode
 .MAKE.MODE= normal
 # Normally the things we run from here don't either.
@@ -538,5 +545,6 @@ UPDATE_DEPENDFILE= NO
 MAKE_JOB_ERROR_TOKEN= no
 .export MAKE_JOB_ERROR_TOKEN
 .endif
+.endif # bmake
 
 .endif				# META_MODE
