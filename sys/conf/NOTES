@@ -2991,7 +2991,6 @@ options 	RANDOM_YARROW	# Yarrow RNG
 options 	RANDOM_DEBUG	# Debugging messages
 options 	RANDOM_RWFILE	# Read and write entropy cache
 
-<<<<<<< HEAD
 # PAX and HardenedBSD related knobs
 options 	PAX		# Enable the PAX framework
 options 	PAX_ASLR	# Address Space Layout Randomization
@@ -3003,7 +3002,5 @@ options 	PAX_PTRACE_HARDENING
 options 	PAX_PTRACE_HARDENING_GRP=50000
 options 	PAX_INSECURE_MODE	# Allow to override INVARIANTS enforcements
 
-=======
 # Intel em(4) driver
 options		EM_MULTIQUEUE # Activate multiqueue features/disable MSI-X
->>>>>>> origin/stable/10
