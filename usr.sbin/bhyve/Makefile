@@ -3,7 +3,6 @@
 #
 
 PROG=	bhyve
-WANTS_PIE=	yes
 
 DEBUG_FLAGS= -g -O0 
 
@@ -46,6 +45,7 @@ SRCS+=	vmm_instruction_emul.c
 
 DPADD=	${LIBVMMAPI} ${LIBMD} ${LIBUTIL} ${LIBPTHREAD}
 LDADD=	-lvmmapi -lmd -lutil -lpthread
+WANTS_PIE=	yes
 
 WARNS?=	2
 
