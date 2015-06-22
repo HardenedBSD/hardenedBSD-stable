@@ -802,7 +802,6 @@ __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp)
 	error = exec_new_vmspace(imgp, sv);
 	imgp->proc->p_sysent = sv;
 
-
 	et_dyn_addr = 0;
 	if (hdr->e_type == ET_DYN) {
 		/*
