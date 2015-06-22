@@ -31,10 +31,10 @@
  *	from: NetBSD: mdreloc.c,v 1.42 2008/04/28 20:23:04 martin Exp
  */
 
+#include "opt_pax.h"
+
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
-
-#include "opt_pax.h"
 
 #include <sys/param.h>
 #include <sys/kernel.h>

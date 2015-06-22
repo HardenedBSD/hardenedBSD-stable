@@ -651,6 +651,7 @@ kern_ptrace(struct thread *td, int req, pid_t pid, void *addr, int data)
 	struct ptrace_lwpinfo32 *pl32 = NULL;
 	struct ptrace_lwpinfo plr;
 #endif
+
 	curp = td->td_proc;
 
 	/* Lock proctree before locking the process. */
@@ -701,7 +702,6 @@ kern_ptrace(struct thread *td, int req, pid_t pid, void *addr, int data)
 	if (error)
 		goto fail;
 #endif
-
 
 	if ((p->p_flag & P_WEXIT) != 0) {
 		error = ESRCH;

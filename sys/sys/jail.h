@@ -35,7 +35,6 @@
 #endif
 
 #ifdef _KERNEL
-
 struct jail_v0 {
 	u_int32_t	version;
 	char		*path;

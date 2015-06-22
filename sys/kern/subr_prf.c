@@ -222,7 +222,6 @@ hbsd_uprintf(const char *fmt, ...)
 	return (retval);
 }
 
-
 /*
  * tprintf and vtprintf print on the controlling terminal associated with the
  * given session, possibly to the log as well.

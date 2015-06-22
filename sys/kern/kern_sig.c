@@ -2971,10 +2971,8 @@ sigexit(td, sig)
 #ifdef PAX_SEGVGUARD
 		pax_segvguard_segfault(curthread, p->p_comm);
 #endif
-	} else {
+	} else
 		PROC_UNLOCK(p);
-	}
-
 	exit1(td, W_EXITCODE(0, sig));
 	/* NOTREACHED */
 }
