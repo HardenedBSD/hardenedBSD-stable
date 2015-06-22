@@ -217,6 +217,7 @@ sysctl_kern_randompid(SYSCTL_HANDLER_ARGS)
 	sx_xunlock(&allproc_lock);
 	return (error);
 }
+
 SYSCTL_PROC(_kern, OID_AUTO, randompid, CTLTYPE_INT|CTLFLAG_RW,
     0, 0, sysctl_kern_randompid, "I", "Random PID modulus");
 #else
