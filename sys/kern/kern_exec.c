@@ -140,12 +140,12 @@ sysctl_kern_ps_strings(SYSCTL_HANDLER_ARGS)
 #ifdef SCTL_MASK32
 	if (req->flags & SCTL_MASK32) {
 		unsigned int val;
-		val = (unsigned int)p->p_sysent->sv_psstrings;
+		val = (unsigned int)p->p_psstrings;
 		error = SYSCTL_OUT(req, &val, sizeof(val));
 	} else
 #endif
-		error = SYSCTL_OUT(req, &p->p_sysent->sv_psstrings,
-		   sizeof(p->p_sysent->sv_psstrings));
+		error = SYSCTL_OUT(req, &p->p_psstrings,
+		   sizeof(p->p_psstrings));
 	return error;
 }
 
@@ -159,12 +159,12 @@ sysctl_kern_usrstack(SYSCTL_HANDLER_ARGS)
 #ifdef SCTL_MASK32
 	if (req->flags & SCTL_MASK32) {
 		unsigned int val;
-		val = (unsigned int)p->p_sysent->sv_usrstack;
+		val = (unsigned int)p->p_usrstack;
 		error = SYSCTL_OUT(req, &val, sizeof(val));
 	} else
 #endif
-		error = SYSCTL_OUT(req, &p->p_sysent->sv_usrstack,
-		    sizeof(p->p_sysent->sv_usrstack));
+		error = SYSCTL_OUT(req, &p->p_usrstack,
+		    sizeof(p->p_usrstack));
 	return error;
 }
 
@@ -580,6 +580,10 @@ interpret:
 		goto exec_fail_dealloc;
 	}
 
+	p->p_psstrings = p->p_sysent->sv_psstrings;
+#ifdef PAX_ASLR
+	pax_aslr_stack_with_gap(p, &(p->p_psstrings));
+#endif
 	/*
 	 * Copy out strings (args and env) and initialize stack base
 	 */
@@ -1047,6 +1051,9 @@ exec_new_vmspace(imgp, sv)
 	vm_offset_t sv_minuser, stack_addr;
 	vm_map_t map;
 	u_long ssiz;
+#ifdef __ia64__
+	vm_offset_t ia64backingstore_addr;
+#endif
 
 	imgp->vmspace_destroyed = 1;
 	imgp->sysent = sv;
@@ -1110,15 +1117,16 @@ exec_new_vmspace(imgp, sv)
 	} else {
 		ssiz = maxssiz;
 	}
+
+	stack_addr = sv->sv_usrstack;
 #ifdef PAX_ASLR
-	/*
-	 * The current stack randomization based on gap.
-	 * To fix the mapping, we should increase the allocatable
-	 * stack size with the gap size.
-	 */
-	pax_aslr_stack_adjust(p, &ssiz);
+	/* Randomize the stack top. */
+	pax_aslr_stack(p, &stack_addr);
 #endif
-	stack_addr = sv->sv_usrstack - ssiz;
+	/* Save the process specific randomized stack top. */
+	p->p_usrstack = stack_addr;
+	/* Calculate the stack's mapping address.  */
+	stack_addr -= ssiz;
 	error = vm_map_stack(map, stack_addr, (vm_size_t)ssiz,
 	    obj != NULL && imgp->stack_prot != 0 ? imgp->stack_prot :
 		sv->sv_stackprot,
@@ -1127,8 +1135,12 @@ exec_new_vmspace(imgp, sv)
 		return (error);
 
 #ifdef __ia64__
+	ia64backingstore_addr = IA64_BACKINGSTORE;
+#ifdef PAX_ASLR
+	pax_aslr_stack(p, &ia64backingstore_addr);
+#endif
 	/* Allocate a new register stack */
-	error = vm_map_stack(map, IA64_BACKINGSTORE, (vm_size_t)ssiz,
+	error = vm_map_stack(map, ia64backingstore_addr, (vm_size_t)ssiz,
 	    sv->sv_stackprot, VM_PROT_ALL, MAP_STACK_GROWS_UP);
 	if (error)
 		return (error);
@@ -1301,15 +1313,12 @@ exec_copyout_strings(imgp)
 		execpath_len = 0;
 	p = imgp->proc;
 	szsigcode = 0;
-	arginfo = (struct ps_strings *)p->p_sysent->sv_psstrings;
+	arginfo = (struct ps_strings *)p->p_psstrings;
 	if (p->p_sysent->sv_sigcode_base == 0) {
 		if (p->p_sysent->sv_szsigcode != NULL)
 			szsigcode = *(p->p_sysent->sv_szsigcode);
 	}
 	destp =	(uintptr_t)arginfo;
-#ifdef PAX_ASLR
-	pax_aslr_stack(p, &destp);
-#endif
 
 	/*
 	 * install sigcode

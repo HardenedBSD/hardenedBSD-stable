@@ -86,7 +86,7 @@ __FBSDID("$FreeBSD$");
  * 	+-------+--------+--------+--------+
  * 	| MIN	|  8 bit | 16 bit |  8 bit |
  * 	+-------+--------+--------+--------+
- * 	| DEF	|  8 bit | 26 bit |  8 bit |
+ * 	| DEF	|  8 bit | 42 bit |  8 bit |
  * 	+-------+--------+--------+--------+
  * 	| MAX   | 21 bit | 42 bit | 21 bit |
  * 	+-------+--------+--------+--------+
@@ -114,8 +114,12 @@ __FBSDID("$FreeBSD$");
 #endif /* PAX_ASLR_DELTA_MMAP_MAX_LEN */
 
 #ifndef PAX_ASLR_DELTA_STACK_LSB
-#define PAX_ASLR_DELTA_STACK_LSB	3
+#define PAX_ASLR_DELTA_STACK_LSB	PAGE_SHIFT
 #endif /* PAX_ASLR_DELTA_STACK_LSB */
+
+#ifndef PAX_ASLR_DELTA_STACK_WITH_GAP_LSB
+#define PAX_ASLR_DELTA_STACK_WITH_GAP_LSB	3
+#endif /* PAX_ASLR_DELTA_STACK_WITH_GAP_LSB */
 
 #ifndef PAX_ASLR_DELTA_STACK_MIN_LEN
 #define PAX_ASLR_DELTA_STACK_MIN_LEN	((sizeof(void *) * NBBY) / 4)
@@ -145,7 +149,7 @@ __FBSDID("$FreeBSD$");
 #define PAX_ASLR_DELTA_MMAP_DEF_LEN	30
 #endif /* PAX_ASLR_DELTA_MMAP_DEF_LEN */
 #ifndef PAX_ASLR_DELTA_STACK_DEF_LEN
-#define PAX_ASLR_DELTA_STACK_DEF_LEN	26
+#define PAX_ASLR_DELTA_STACK_DEF_LEN	42
 #endif /* PAX_ASLR_DELTA_STACK_DEF_LEN */
 #ifndef PAX_ASLR_DELTA_EXEC_DEF_LEN
 #define PAX_ASLR_DELTA_EXEC_DEF_LEN	21
@@ -585,7 +589,7 @@ pax_aslr_init_vmspace(struct proc *p)
 
 	arc4rand(&rand_buf, sizeof(rand_buf), 0);
 	vm->vm_aslr_delta_stack = PAX_ASLR_DELTA(rand_buf,
-	    PAX_ASLR_DELTA_STACK_LSB,
+	    PAX_ASLR_DELTA_STACK_WITH_GAP_LSB,
 	    pr->pr_hardening.hr_pax_aslr_stack_len);
 	vm->vm_aslr_delta_stack = ALIGN(vm->vm_aslr_delta_stack);
 
@@ -850,41 +854,46 @@ pax_aslr_rtld(struct proc *p, vm_offset_t *addr)
 }
 
 void
-pax_aslr_stack(struct proc *p, uintptr_t *addr)
+pax_aslr_stack(struct proc *p, vm_offset_t *addr)
 {
 	uintptr_t orig_addr;
+	uintptr_t random;
 
 	if (!pax_aslr_active(p))
 		return;
 
 	orig_addr = *addr;
-	*addr -= p->p_vmspace->vm_aslr_delta_stack;
+
+	/*
+	 * Apply the random offset to the mapping.
+	 * This should page aligned.
+	 */
+	random = p->p_vmspace->vm_aslr_delta_stack;
+	random &= (-1UL << PAX_ASLR_DELTA_STACK_LSB);
+	*addr -= random;
+
 	CTR3(KTR_PAX, "%s: orig_addr=%p, new_addr=%p\n",
 	    __func__, (void *)orig_addr, (void *)*addr);
 }
 
 void
-pax_aslr_stack_adjust(struct proc *p, u_long *ssiz)
+pax_aslr_stack_with_gap(struct proc *p, vm_offset_t *addr)
 {
-	struct rlimit rlim_stack;
+	uintptr_t orig_addr;
+	uintptr_t random;
 
 	if (!pax_aslr_active(p))
 		return;
 
-	*ssiz += p->p_vmspace->vm_aslr_delta_stack;
-
+	orig_addr = *addr;
 	/*
-	 * This needed because we currently use
-	 * gap based stack randomization.
+	 * Apply the random gap offset withing the page.
 	 */
-	PROC_LOCK(p);
-	lim_rlimit(p, RLIMIT_STACK, &rlim_stack);
-	PROC_UNLOCK(p);
-	if (*ssiz > rlim_stack.rlim_max)
-		rlim_stack.rlim_max = *ssiz;
-	if (*ssiz > rlim_stack.rlim_cur)
-		rlim_stack.rlim_cur = *ssiz;
-	kern_setrlimit(curthread, RLIMIT_STACK, &rlim_stack);
+	random = p->p_vmspace->vm_aslr_delta_stack;
+	*addr -= random;
+
+	CTR3(KTR_PAX, "%s: orig_addr=%p, new_addr=%p\n",
+	    __func__, (void *)orig_addr, (void *)*addr);
 }
 
 void

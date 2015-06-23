@@ -482,6 +482,8 @@ proc0_init(void *dummy __unused)
 #ifdef PAX
 	p->p_pax = PAX_NOTE_ALL_DISABLED;
 #endif
+	p->p_usrstack = USRSTACK;
+	p->p_psstrings = PS_STRINGS;
 	knlist_init_mtx(&p->p_klist, &p->p_mtx);
 	STAILQ_INIT(&p->p_ktr);
 	p->p_nice = NZERO;
@@ -722,7 +724,7 @@ start_init(void *dummy)
 	/*
 	 * Need just enough stack to hold the faked-up "execve()" arguments.
 	 */
-	addr = p->p_sysent->sv_usrstack - PAGE_SIZE;
+	addr = p->p_usrstack - PAGE_SIZE;
 	if (vm_map_find(&p->p_vmspace->vm_map, NULL, 0, &addr, PAGE_SIZE, 0,
 	    VMFS_NO_SPACE, VM_PROT_ALL, VM_PROT_ALL, 0) != 0)
 		panic("init: couldn't allocate argument space");
@@ -749,7 +751,7 @@ start_init(void *dummy)
 		 * Move out the boot flag argument.
 		 */
 		options = 0;
-		ucp = (char *)p->p_sysent->sv_usrstack;
+		ucp = (char *)p->p_usrstack;
 		(void)subyte(--ucp, 0);		/* trailing zero */
 		if (boothowto & RB_SINGLE) {
 			(void)subyte(--ucp, 's');
