@@ -138,7 +138,7 @@ struct pmc_mdep;
 
 #define	PMC_IN_KERNEL_STACK(S,START,END)		\
 	((S) >= (START) && (S) < (END))
-#define	PMC_IN_KERNEL(va) (((va) >= USRSTACK) &&	\
+#define	PMC_IN_KERNEL(va) (((va) >= VM_MAXUSER_ADDRESS) &&	\
 	((va) < VM_MAX_KERNEL_ADDRESS))
 
 #define	PMC_IN_USERSPACE(va) ((va) <= VM_MAXUSER_ADDRESS)

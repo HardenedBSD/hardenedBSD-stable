@@ -585,6 +585,8 @@ struct proc {
 	pid_t		p_reapsubtree;	/* (e) Pid of the direct child of the
 					       reaper which spawned
 					       our subtree. */
+	vm_offset_t	p_usrstack;	/* (b) Process stack top. */
+	vm_offset_t	p_psstrings;	/* (b) Process psstrings address. */
 /* End area that is copied on creation. */
 #define	p_endcopy	p_xstat
 
