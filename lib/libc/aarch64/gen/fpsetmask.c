@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2014 The FreeBSD Foundation
+ * Copyright (c) 2015 The FreeBSD Foundation
  * All rights reserved.
  *
  * This software was developed by Andrew Turner under
@@ -27,27 +27,26 @@
  * SUCH DAMAGE.
  */
 
-#include <machine/asm.h>
+#include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
-#include <machine/setjmp.h>
+#include <sys/types.h>
+#include <ieeefp.h>
 
-ENTRY(sigsetjmp)
-	cmp	x1, #0
-	b.eq	_C_LABEL(_setjmp)
-	b	_C_LABEL(setjmp)
-END(sigsetjmp)
+#define FP_X_MASK	(FP_X_INV | FP_X_DZ | FP_X_OFL | FP_X_UFL | FP_X_IMP)
 
-ENTRY(siglongjmp)
-	/* Load the _setjmp magic */
-	ldr	x2, .Lmagic
-	ldr	x3, [x0]
+fp_except_t
+fpsetmask(fp_except_t mask)
+{
+	uint64_t old, new;
 
-	/* Check the magic */
-	cmp	x2, x3
-	b.eq	_C_LABEL(_longjmp)
-	b	_C_LABEL(longjmp)
-	.align	3
-.Lmagic:
-	.quad	_JB_MAGIC__SETJMP
-END(siglongjmp)
+	mask &= FP_X_MASK;
+
+	/* Read the current mask */
+	__asm __volatile("mrs %0, fpcr" : "=&r"(old));
+	new = old & ~FP_X_MASK;
+	new |= mask;
+	__asm __volatile("msr fpcr, %0" :: "r"(new));
+
+	return ((fp_except_t)old);
+}
