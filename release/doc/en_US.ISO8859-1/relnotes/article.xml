@@ -22,7 +22,7 @@
 
     <pubdate>$FreeBSD$</pubdate>
 
-    <!-- Last rev: 282497 -->
+    <!-- Last rev: 284813 -->
 
     <copyright>
       <year>2015</year>
@@ -204,6 +204,20 @@
 	would cause final results to be sent to &man.stderr.4; when
 	receiving the <literal>SIGINFO</literal> signal has been
 	fixed.</para>
+
+      <para revision="282870" contrib="sponsor"
+	sponsor="&scaleengine;">The &man.freebsd-update.8; utility has
+	been updated to prevent fetching updated binary patches when
+	a previous upgrade has not been thoroughly completed.</para>
+
+      <para revision="282974" contrib="sponsor" sponsor="&ff;">The
+	&man.uefisign.8; utility has been added.</para>
+
+      <para revision="283875" contrib="sponsor"
+	sponsor="&multiplay;">The &man.chflags.1;, &man.chgrp.1;,
+	&man.chmod.1;, and &man.chown.8; utilities now affect symbolic
+	links when the <literal>-R</literal> flag is specified, as
+	documented in &man.symlink.7;.</para>
     </sect2>
 
     <sect2 xml:id="userland-contrib">
@@ -212,11 +226,18 @@
       <para revision="277592"><application>file</application> has been
 	updated to version 5.22.</para>
 
-      <para revision="280304"><application>OpenSSL</application> has
-	been updated to version 1.0.1m.</para>
+      <para revision="282746" contrib="sponsor" sponsor="&ff;">The
+	&man.resolvconf.8; utility has been updated to version
+	3.7.0.</para>
 
-      <para revision="281687">The &man.acpi.4; subsystem has been
-	updated to version 20150410.</para>
+      <para revision="284330"><application>OpenSSL</application> has
+	been updated to version 1.0.1o.</para>
+
+      <para revision="284460">The &man.acpi.4; subsystem has been
+	updated to version 20150515.</para>
+
+      <para revision="284778">The &man.file.1; utility has been
+	updated to version 5.23.</para>
     </sect2>
 
     <sect2 xml:id="userland-installer">
@@ -273,7 +294,15 @@
     <sect2 xml:id="kernel-config">
       <title>Kernel Configuration</title>
 
-      <para>&nbsp;</para>
+      <para revision="284522" contrib="sponsor"
+	sponsor="&limelight;">A new kernel configuration option,
+	<literal>EM_MULTIQUEUE</literal>, has been added which enables
+	multi-queue support in the &man.em.4; driver.</para>
+
+      <note>
+	<para>Multi-queue support in the &man.em.4; driver is not
+	  officially supported by &intel;.</para>
+      </note>
     </sect2>
 
     <sect2 xml:id="kernel-sysctl">
@@ -299,6 +328,26 @@
       <para revision="280632">The <literal>kern.osrelease</literal>
 	and <literal>kern.osreldate</literal> are now configurable
 	&man.jail.8; parameters.</para>
+
+      <para revision="284665" contrib="sponsor" sponsor="&ff;">A new
+	&man.sysctl.8;, <literal>kern.racct.enable</literal>, has been
+	added, which when set to a non-zero value allows using
+	&man.rctl.8; with the <literal>GENERIC</literal> kernel.
+	A new kernel configuration option,
+	<literal>RACCT_DISABLED</literal> has also been added.</para>
+
+      <para revision="284665" contrib="sponsor" sponsor="&ff;">The
+	<literal>GENERIC</literal> kernel configuration now includes
+	<literal>RACCT</literal> and <literal>RCTL</literal> by
+	default.</para>
+
+      <note>
+	<para>To enable <literal>RACCT</literal> and
+	  <literal>RCTL</literal> on a system using the
+	  <literal>GENERIC</literal> kernel configuration, add
+	  <literal>kern.racct.enable=1</literal> to
+	  &man.loader.conf.5;, and reboot the system.</para>
+      </note>
     </sect2>
   </sect1>
 
@@ -349,6 +398,27 @@
       <para revision="280370">The &man.bhyve.8; hypervisor has been
 	updated to support <literal>DSM TRIM</literal> commands for
 	virtual <acronym>AHCI</acronym> disks.</para>
+
+      <para revision="283280" contrib="sponsor" sponsor="&msostc;">The
+	Hyper-V&trade; drivers have been updated with several
+	enhancements:</para>
+
+      <itemizedlist>
+	<listitem>
+	  <para>The &man.hv.vmbus.4; driver now has multi-channel
+	    support.</para>
+	</listitem>
+
+	<listitem>
+	  <para>The &man.hv.storvsc.4; driver now has scatter/gather
+	    support, in addition to performance improvements.</para>
+	</listitem>
+
+	<listitem>
+	  <para>The &man.hv.kvp.4; driver has received several bug
+	    fixes.</para>
+	</listitem>
+      </itemizedlist>
     </sect2>
 
     <sect2 xml:id="hardware-arm">
@@ -378,6 +448,19 @@
       <para revision="279055" contrib="sponsor" sponsor="&ix;">The
 	&man.ctld.8; utility has been updated to allow controlling
 	non-<acronym>iSCSI</acronym> &man.ctl.4; ports.</para>
+
+      <para revision="283223" contrib="sponsor" sponsor="&ff;">The
+	&man.autofs.5; subsystem has been updated to include a new
+	&man.auto.master.5; map, <literal>-media</literal>, which
+	allows automatically mounting removable media, such as
+	<acronym>CD</acronym> drives or <acronym>USB</acronym> flash
+	drives.</para>
+
+      <para revision="283242" contrib="sponsor" sponsor="&ff;">The
+	&man.autofs.5; subsystem has been updated to include a new
+	&man.auto.master.5; map, <literal>-noauto</literal>, which
+	handles &man.fstab.5; entries set to
+	<literal>noauto</literal>.</para>
     </sect2>
 
     <sect2 xml:id="storage-net">
@@ -433,6 +516,10 @@
 	loading the kernel.  To enable this behavior, add
 	<literal>geom_eli_passphrase_prompt="YES"</literal> to
 	&man.loader.conf.5;.</para>
+
+      <para revision="283262" contrib="sponsor" sponsor="&ff;">The
+	memory test run at boot time on &os;/&arch.amd64; platforms
+	has been disabled by default.</para>
     </sect2>
 
     <sect2 xml:id="boot-menu">
