@@ -1,6 +1,9 @@
 /*-
- * Copyright (c) 2011 HighPoint Technologies, Inc.
+ * Copyright (c) 2015 The FreeBSD Foundation
  * All rights reserved.
+ *
+ * This software was developed by Andrew Turner under
+ * sponsorship from the FreeBSD Foundation.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -22,32 +25,23 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- * $FreeBSD$
  */
 
-#include <dev/hptnr/hptnr_config.h>
-/****************************************************************************
- * config.c - auto-generated file
- ****************************************************************************/
-#include <dev/hptnr/os_bsd.h>
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
-extern int init_module_him_r750(void);
-extern int init_module_him_dc7280(void);
-extern int init_module_vdev_raw(void);
+#include <sys/types.h>
+#include <ieeefp.h>
 
-int init_config(void)
+#define FP_X_MASK	(FP_X_INV | FP_X_DZ | FP_X_OFL | FP_X_UFL | FP_X_IMP)
+
+fp_except_t
+fpgetmask(void)
 {
-	init_module_him_r750();	
-	init_module_him_dc7280();	
-	init_module_vdev_raw();
-	return 0;
+	uint64_t mask;
+
+	/* Read the current mask */
+	__asm __volatile("mrs %0, fpcr" : "=&r"(mask));
+
+	return (mask & FP_X_MASK);
 }
-
-const char driver_name[] = "hptnr";
-const char driver_name_long[] = "R750/DC7280 controller driver";
-const char driver_ver[] = "v1.1.4";
-int  osm_max_targets = 0xff;
-
-
-int os_max_cache_size = 0x1000000;
