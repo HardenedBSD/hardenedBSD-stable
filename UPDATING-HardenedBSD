@@ -37,38 +37,52 @@ __HardenedBSD_version = 19
 
 [20150408] How to get HardenedBSD and HardenedBSD-ports?
 
-Without git:
+	Without git/svnlite:
 
-    HardenedBSD source:
+	    HardenedBSD source:
 
-	# fetch https://github.com/HardenedBSD/hardenedBSD/archive/hardened/current/master.tar.gz -o hardenedbsd-src.tar.gz
-	# tar xf hardenedbsd-src.tar.gz
-	# mv hardenedBSD-hardened-current-master /usr/src
+		# fetch https://github.com/HardenedBSD/hardenedBSD/archive/hardened/current/master.tar.gz -o hardenedbsd-src.tar.gz
+		# tar xf hardenedbsd-src.tar.gz
+		# mv hardenedBSD-hardened-current-master /usr/src
 
-    HardenedBSD ports:
+	    HardenedBSD ports:
 
-	# fetch https://github.com/HardenedBSD/freebsd-ports/archive/master.tar.gz -o hardenedbsd-ports.tar.gz
-	# tar xf hardenedbsd-ports.tar.gz
-    	# mv freebsd-ports-master /usr/ports
+		# fetch https://github.com/HardenedBSD/freebsd-ports/archive/master.tar.gz -o hardenedbsd-ports.tar.gz
+		# tar xf hardenedbsd-ports.tar.gz
+		# mv freebsd-ports-master /usr/ports
 
-    Secadm:
+	    Secadm:
 
-	# fetch https://github.com/HardenedBSD/secadm/archive/master.tar.gz -o secadm.tar.gz
-	# tar xf secadm.tar.gz
+		# fetch https://github.com/HardenedBSD/secadm/archive/master.tar.gz -o secadm.tar.gz
+		# tar xf secadm.tar.gz
 
-With git:
+	With git:
 
-    HardenedBSD-source:
+	    HardenedBSD-source:
 
-    	# git clone https://github.com/HardenedBSD/hardenedBSD.git /usr/src
+		# git clone https://github.com/HardenedBSD/hardenedBSD.git /usr/src
 
-    HardenedBSD ports:
+	    HardenedBSD ports:
 
-    	# git clone https://github.com/HardenedBSD/freebsd-ports.git /usr/ports
+		# git clone https://github.com/HardenedBSD/freebsd-ports.git /usr/ports
 
-    Secadm:
+	    Secadm:
 
-    	# git clone https://github.com/HardenedBSD/secadm.git
+		# git clone https://github.com/HardenedBSD/secadm.git
+
+	With svnlite (much more slower than git version):
+
+	    HardenedBSD-source:
+
+		# svnlite co https://github.com/HardenedBSD/hardenedBSD.git /usr/src
+
+	    HardenedBSD ports:
+
+		# svnlite co https://github.com/HardenedBSD/freebsd-ports.git /usr/ports
+
+	    Secadm:
+
+		# svnlite co https://github.com/HardenedBSD/secadm.git
 
 
 [20150404] Added secadm hook to rtld
