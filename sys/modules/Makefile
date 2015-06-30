@@ -288,7 +288,6 @@ SUBDIR=	\
 	${_qlxgbe} \
 	ral \
 	${_ralfw} \
-	${_random} \
 	rc4 \
 	${_rdma} \
 	${_rdrand_rng} \
@@ -389,9 +388,6 @@ _autofs=	autofs
 .if exists(${.CURDIR}/../opencrypto)
 _crypto=	crypto
 _cryptodev=	cryptodev
-.endif
-.if exists(${.CURDIR}/../crypto)
-_random=	random
 .endif
 .endif
 
