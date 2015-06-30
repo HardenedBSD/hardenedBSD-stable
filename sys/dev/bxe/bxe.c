@@ -737,7 +737,6 @@ static __noinline int bxe_nic_unload(struct bxe_softc *sc,
                                      uint8_t          keep_link);
 
 static void bxe_handle_sp_tq(void *context, int pending);
-static void bxe_handle_rx_mode_tq(void *context, int pending);
 static void bxe_handle_fp_tq(void *context, int pending);
 
 
@@ -1185,7 +1184,17 @@ bxe_release_hw_lock(struct bxe_softc *sc,
     REG_WR(sc, hw_lock_control_reg, resource_bit);
     return (0);
 }
+static void bxe_acquire_phy_lock(struct bxe_softc *sc)
+{
+	BXE_PHY_LOCK(sc);
+	bxe_acquire_hw_lock(sc,HW_LOCK_RESOURCE_MDIO); 
+}
 
+static void bxe_release_phy_lock(struct bxe_softc *sc)
+{
+	bxe_release_hw_lock(sc,HW_LOCK_RESOURCE_MDIO); 
+	BXE_PHY_UNLOCK(sc);
+}
 /*
  * Per pf misc lock must be acquired before the per port mcp lock. Otherwise,
  * had we done things the other way around, if two pfs from the same port
@@ -4775,29 +4784,6 @@ bxe_handle_chip_tq(void *context,
 
     switch (work)
     {
-    case CHIP_TQ_START:
-        if ((sc->ifnet->if_flags & IFF_UP) &&
-            !(sc->ifnet->if_drv_flags & IFF_DRV_RUNNING)) {
-            /* start the interface */
-            BLOGD(sc, DBG_LOAD, "Starting the interface...\n");
-            BXE_CORE_LOCK(sc);
-            bxe_init_locked(sc);
-            BXE_CORE_UNLOCK(sc);
-        }
-        break;
-
-    case CHIP_TQ_STOP:
-        if (!(sc->ifnet->if_flags & IFF_UP) &&
-            (sc->ifnet->if_drv_flags & IFF_DRV_RUNNING)) {
-            /* bring down the interface */
-            BLOGD(sc, DBG_LOAD, "Stopping the interface...\n");
-            bxe_periodic_stop(sc);
-            BXE_CORE_LOCK(sc);
-            bxe_stop_locked(sc);
-            BXE_CORE_UNLOCK(sc);
-        }
-        break;
-
     case CHIP_TQ_REINIT:
         if (sc->ifnet->if_drv_flags & IFF_DRV_RUNNING) {
             /* restart the interface */
@@ -4867,21 +4853,22 @@ bxe_ioctl(struct ifnet *ifp,
         /* toggle the interface state up or down */
         BLOGD(sc, DBG_IOCTL, "Received SIOCSIFFLAGS ioctl\n");
 
+	BXE_CORE_LOCK(sc);
         /* check if the interface is up */
         if (ifp->if_flags & IFF_UP) {
             if (ifp->if_drv_flags & IFF_DRV_RUNNING) {
                 /* set the receive mode flags */
                 bxe_set_rx_mode(sc);
             } else {
-                atomic_store_rel_long(&sc->chip_tq_flags, CHIP_TQ_START);
-                taskqueue_enqueue(sc->chip_tq, &sc->chip_tq_task);
+		bxe_init_locked(sc);
             }
         } else {
             if (ifp->if_drv_flags & IFF_DRV_RUNNING) {
-                atomic_store_rel_long(&sc->chip_tq_flags, CHIP_TQ_STOP);
-                taskqueue_enqueue(sc->chip_tq, &sc->chip_tq_task);
+		bxe_periodic_stop(sc);
+		bxe_stop_locked(sc);
             }
         }
+	BXE_CORE_UNLOCK(sc);
 
         break;
 
@@ -4893,7 +4880,9 @@ bxe_ioctl(struct ifnet *ifp,
         /* check if the interface is up */
         if (ifp->if_drv_flags & IFF_DRV_RUNNING) {
             /* set the receive mode flags */
+	    BXE_CORE_LOCK(sc);
             bxe_set_rx_mode(sc);
+	    BXE_CORE_UNLOCK(sc); 
         }
 
         break;
@@ -5051,8 +5040,11 @@ bxe_ioctl(struct ifnet *ifp,
     if (reinit && (sc->ifnet->if_drv_flags & IFF_DRV_RUNNING)) {
         BLOGD(sc, DBG_LOAD | DBG_IOCTL,
               "Re-initializing hardware from IOCTL change\n");
-        atomic_store_rel_long(&sc->chip_tq_flags, CHIP_TQ_REINIT);
-        taskqueue_enqueue(sc->chip_tq, &sc->chip_tq_task);
+	bxe_periodic_stop(sc);
+	BXE_CORE_LOCK(sc);
+	bxe_stop_locked(sc);
+	bxe_init_locked(sc);
+	BXE_CORE_UNLOCK(sc);
     }
 
     return (error);
@@ -6561,10 +6553,14 @@ bxe_free_fp_buffers(struct bxe_softc *sc)
 
 #if __FreeBSD_version >= 800000
         if (fp->tx_br != NULL) {
-            struct mbuf *m;
             /* just in case bxe_mq_flush() wasn't called */
-            while ((m = buf_ring_dequeue_sc(fp->tx_br)) != NULL) {
-                m_freem(m);
+            if (mtx_initialized(&fp->tx_mtx)) {
+                struct mbuf *m;
+
+                BXE_FP_TX_LOCK(fp);
+                while ((m = buf_ring_dequeue_sc(fp->tx_br)) != NULL)
+                    m_freem(m);
+                BXE_FP_TX_UNLOCK(fp);
             }
             buf_ring_free(fp->tx_br, M_DEVBUF);
             fp->tx_br = NULL;
@@ -7494,8 +7490,7 @@ bxe_attn_int_asserted(struct bxe_softc *sc,
     if (asserted & ATTN_HARD_WIRED_MASK) {
         if (asserted & ATTN_NIG_FOR_FUNC) {
 
-            BXE_PHY_LOCK(sc);
-
+	    bxe_acquire_phy_lock(sc);
             /* save nig interrupt mask */
             nig_mask = REG_RD(sc, nig_int_mask_addr);
 
@@ -7588,7 +7583,7 @@ bxe_attn_int_asserted(struct bxe_softc *sc,
 
         REG_WR(sc, nig_int_mask_addr, nig_mask);
 
-        BXE_PHY_UNLOCK(sc);
+	bxe_release_phy_lock(sc);
     }
 }
 
@@ -8346,10 +8341,10 @@ bxe_attn_int_deasserted3(struct bxe_softc *sc,
             if (sc->link_vars.periodic_flags &
                 ELINK_PERIODIC_FLAGS_LINK_EVENT) {
                 /* sync with link */
-                BXE_PHY_LOCK(sc);
+		bxe_acquire_phy_lock(sc);
                 sc->link_vars.periodic_flags &=
                     ~ELINK_PERIODIC_FLAGS_LINK_EVENT;
-                BXE_PHY_UNLOCK(sc);
+		bxe_release_phy_lock(sc);
                 if (IS_MF(sc))
                     ; // XXX bxe_link_sync_notify(sc);
                 bxe_link_report(sc);
@@ -8542,9 +8537,9 @@ bxe_attn_int_deasserted0(struct bxe_softc *sc,
     }
 
     if ((attn & sc->link_vars.aeu_int_mask) && sc->port.pmf) {
-        BXE_PHY_LOCK(sc);
+	bxe_acquire_phy_lock(sc);
         elink_handle_module_detect_int(&sc->link_params);
-        BXE_PHY_UNLOCK(sc);
+	bxe_release_phy_lock(sc);
     }
 
     if (attn & HW_INTERRUT_ASSERT_SET_0) {
@@ -9571,11 +9566,6 @@ bxe_interrupt_detach(struct bxe_softc *sc)
         }
     }
 
-    if (sc->rx_mode_tq) {
-        taskqueue_drain(sc->rx_mode_tq, &sc->rx_mode_tq_task);
-        taskqueue_free(sc->rx_mode_tq);
-        sc->rx_mode_tq = NULL;
-    }
 
     if (sc->sp_tq) {
         taskqueue_drain(sc->sp_tq, &sc->sp_tq_task);
@@ -9609,14 +9599,6 @@ bxe_interrupt_attach(struct bxe_softc *sc)
     taskqueue_start_threads(&sc->sp_tq, 1, PWAIT, /* lower priority */
                             "%s", sc->sp_tq_name);
 
-    snprintf(sc->rx_mode_tq_name, sizeof(sc->rx_mode_tq_name),
-             "bxe%d_rx_mode_tq", sc->unit);
-    TASK_INIT(&sc->rx_mode_tq_task, 0, bxe_handle_rx_mode_tq, sc);
-    sc->rx_mode_tq = taskqueue_create_fast(sc->rx_mode_tq_name, M_NOWAIT,
-                                           taskqueue_thread_enqueue,
-                                           &sc->rx_mode_tq);
-    taskqueue_start_threads(&sc->rx_mode_tq, 1, PWAIT, /* lower priority */
-                            "%s", sc->rx_mode_tq_name);
 
     for (i = 0; i < sc->num_queues; i++) {
         fp = &sc->fp[i];
@@ -12370,9 +12352,9 @@ bxe_link_report_locked(struct bxe_softc *sc)
 static void
 bxe_link_report(struct bxe_softc *sc)
 {
-    BXE_PHY_LOCK(sc);
+    bxe_acquire_phy_lock(sc);
     bxe_link_report_locked(sc);
-    BXE_PHY_UNLOCK(sc);
+    bxe_release_phy_lock(sc);
 }
 
 static void
@@ -12488,7 +12470,7 @@ bxe_initial_phy_init(struct bxe_softc *sc,
         sc->link_params.feature_config_flags |= feat;
     }
 
-    BXE_PHY_LOCK(sc);
+    bxe_acquire_phy_lock(sc);
 
     if (load_mode == LOAD_DIAG) {
         lp->loopback_mode = ELINK_LOOPBACK_XGXS;
@@ -12509,7 +12491,7 @@ bxe_initial_phy_init(struct bxe_softc *sc,
 
     rc = elink_phy_init(&sc->link_params, &sc->link_vars);
 
-    BXE_PHY_UNLOCK(sc);
+    bxe_release_phy_lock(sc);
 
     bxe_calc_fc_adv(sc);
 
@@ -12557,6 +12539,7 @@ bxe_init_mcast_macs_list(struct bxe_softc                 *sc,
         BLOGE(sc, "Failed to allocate temp mcast list\n");
         return (-1);
     }
+    bzero(mc_mac, (sizeof(*mc_mac) * mc_count));
 
     TAILQ_FOREACH(ifma, &ifp->if_multiaddrs, ifma_link) {
         if (ifma->ifma_addr->sa_family != AF_LINK) {
@@ -12607,6 +12590,7 @@ bxe_set_mc_list(struct bxe_softc *sc)
     rc = ecore_config_mcast(sc, &rparam, ECORE_MCAST_CMD_DEL);
     if (rc < 0) {
         BLOGE(sc, "Failed to clear multicast configuration: %d\n", rc);
+        BXE_MCAST_UNLOCK(sc);
         return (rc);
     }
 
@@ -12697,18 +12681,13 @@ bxe_set_uc_list(struct bxe_softc *sc)
 }
 
 static void
-bxe_handle_rx_mode_tq(void *context,
-                      int  pending)
+bxe_set_rx_mode(struct bxe_softc *sc)
 {
-    struct bxe_softc *sc = (struct bxe_softc *)context;
     struct ifnet *ifp = sc->ifnet;
     uint32_t rx_mode = BXE_RX_MODE_NORMAL;
 
-    BXE_CORE_LOCK(sc);
-
     if (sc->state != BXE_STATE_OPEN) {
         BLOGD(sc, DBG_SP, "state is %x, returning\n", sc->state);
-        BXE_CORE_UNLOCK(sc);
         return;
     }
 
@@ -12750,7 +12729,6 @@ bxe_handle_rx_mode_tq(void *context,
     if (bxe_test_bit(ECORE_FILTER_RX_MODE_PENDING, &sc->sp_state)) {
         BLOGD(sc, DBG_LOAD, "Scheduled setting rx_mode with ECORE...\n");
         bxe_set_bit(ECORE_FILTER_RX_MODE_SCHED, &sc->sp_state);
-        BXE_CORE_UNLOCK(sc);
         return;
     }
 
@@ -12770,14 +12748,8 @@ bxe_handle_rx_mode_tq(void *context,
     }
 #endif
 
-    BXE_CORE_UNLOCK(sc);
 }
 
-static void
-bxe_set_rx_mode(struct bxe_softc *sc)
-{
-    taskqueue_enqueue(sc->rx_mode_tq, &sc->rx_mode_tq_task);
-}
 
 /* update flags in shmem */
 static void
@@ -12848,13 +12820,13 @@ bxe_periodic_callout_func(void *xsc)
          */
         mb();
         if (sc->port.pmf) {
-            BXE_PHY_LOCK(sc);
+	    bxe_acquire_phy_lock(sc);
             elink_period_func(&sc->link_params, &sc->link_vars);
-            BXE_PHY_UNLOCK(sc);
+	    bxe_release_phy_lock(sc);
         }
     }
 
-    if (IS_PF(sc) && !BXE_NOMCP(sc)) {
+    if (IS_PF(sc) && !(sc->flags & BXE_NO_PULSE)) {
         int mb_idx = SC_FW_MB_IDX(sc);
         uint32_t drv_pulse;
         uint32_t mcp_pulse;
@@ -12997,6 +12969,11 @@ bxe_nic_load(struct bxe_softc *sc,
             goto bxe_nic_load_error2;
         }
     }
+
+    /* set ALWAYS_ALIVE bit in shmem */
+    sc->fw_drv_pulse_wr_seq |= DRV_PULSE_ALWAYS_ALIVE;
+    bxe_drv_pulse(sc);
+    sc->flags |= BXE_NO_PULSE;
 
     /* attach interrupts */
     if (bxe_interrupt_attach(sc) != 0) {
@@ -16755,10 +16732,10 @@ bxe_common_init_phy(struct bxe_softc *sc)
         shmem2_base[1] = SHMEM2_RD(sc, other_shmem2_base_addr);
     }
 
-    BXE_PHY_LOCK(sc);
+    bxe_acquire_phy_lock(sc);
     elink_common_init_phy(sc, shmem_base, shmem2_base,
                           sc->devinfo.chip_id, 0);
-    BXE_PHY_UNLOCK(sc);
+    bxe_release_phy_lock(sc);
 }
 
 static void
@@ -18635,9 +18612,9 @@ static void
 bxe_link_reset(struct bxe_softc *sc)
 {
     if (!BXE_NOMCP(sc)) {
-        BXE_PHY_LOCK(sc);
+	bxe_acquire_phy_lock(sc);
         elink_lfa_reset(&sc->link_params, &sc->link_vars);
-        BXE_PHY_UNLOCK(sc);
+	bxe_release_phy_lock(sc);
     } else {
         if (!CHIP_REV_IS_SLOW(sc)) {
             BLOGW(sc, "Bootcode is missing - cannot reset link\n");
