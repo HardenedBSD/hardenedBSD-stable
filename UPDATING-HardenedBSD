@@ -1,4 +1,14 @@
+[20150701] Rewriten stack randomization, and bumped ASLR settings
+__HardenedBSD_version = 26
+
+	This version brings in true stack randomization.
+	Changed ASLR settings:
+		stack random : 26 -> 42 bit
+		exec random : 21 -> 30 bit
+
+
 [20150605] ASLR "rewrite" and NOEXEC fixes after jhb's vm_mmap.c changes 
+__HardenedBSD_version = 25
 __HardenedBSD_version = 24
 
 	Move the mmap randomization to it's own place and add more state enforcements (KASSERTs).
