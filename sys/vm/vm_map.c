@@ -3669,8 +3669,13 @@ Retry:
 		return (KERN_NO_SPACE);
 	}
 
+<<<<<<< HEAD
 	is_procstack = (addr >= (vm_offset_t)vm->vm_maxsaddr
 	    && addr < (vm_offset_t)p->p_usrstack) ? 1 : 0;
+=======
+	is_procstack = (addr >= (vm_offset_t)vm->vm_maxsaddr &&
+	    addr < (vm_offset_t)p->p_sysent->sv_usrstack) ? 1 : 0;
+>>>>>>> origin/master
 
 	/*
 	 * If this is the main process stack, see if we're over the stack
