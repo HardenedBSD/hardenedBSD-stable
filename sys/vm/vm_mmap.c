@@ -333,16 +333,13 @@ sys_mmap(td, uap)
 		    addr < round_page((vm_offset_t)vms->vm_daddr +
 		    lim_max(td, RLIMIT_DATA))))
 			addr = round_page((vm_offset_t)vms->vm_daddr +
-<<<<<<< HEAD
-			    lim_max_proc(td->td_proc, RLIMIT_DATA));
+			    lim_max(td, RLIMIT_DATA));
 #ifdef PAX_ASLR
+		PROC_LOCK(td->td_proc);
 		pax_aslr_mmap(td->td_proc, &addr, (vm_offset_t)uap->addr, flags);
 		pax_aslr_done = 1;
-#endif
 		PROC_UNLOCK(td->td_proc);
-=======
-			    lim_max(td, RLIMIT_DATA));
->>>>>>> origin/master
+#endif
 	}
 	if (size == 0) {
 		/*
