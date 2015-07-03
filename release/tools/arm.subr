@@ -63,18 +63,6 @@ umount_loop() {
 }
 
 arm_create_disk() {
-	# XXX: This is potentially dangerous, but works around an issue
-	#      properly labeling md(4) devices when the label already
-	#      exists.
-	#      EVERYTHINGISFINE should *never* be set for non-RE use.
-	#      Trust me.  I'm an engineer.
-	if [ ! -z "${EVERYTHINGISFINE}" ]; then
-		for _label in ufs/rootfs msdosfs/MSDOSBOOT; do
-			if [ -e "/dev/${_label}" ]; then
-				rm /dev/${_label}
-			fi
-		done
-	fi
 	# Create the target raw file and temporary work directory.
 	chroot ${CHROOTDIR} gpart create -s ${PART_SCHEME} ${mddev}
 	chroot ${CHROOTDIR} gpart add -t '!12' -a 63 -s ${FAT_SIZE} ${mddev}
@@ -139,6 +127,14 @@ arm_install_base() {
 	echo 'sendmail_outbound_enable="NO"' >> ${CHROOTDIR}/${DESTDIR}/etc/rc.conf
 	echo 'sendmail_msp_queue_enable="NO"' >> ${CHROOTDIR}/${DESTDIR}/etc/rc.conf
 	echo 'growfs_enable="YES"' >> ${CHROOTDIR}/${DESTDIR}/etc/rc.conf
+
+	# The fstab(5) above uses UFS/MSDOSFS labels.
+	echo 'geom_label_load="YES"' >> ${CHROOTDIR}/${DESTDIR}/boot/loader.conf
+	# Workaround missing loader.rc if needed.
+	if [ ! -e "${CHROOTDIR}/${DESTDIR}/boot/loader.rc" ]; then
+		chroot ${CHROOTDIR} \
+			ln -s /boot/loader.rc.sample ${DESTDIR}/boot/loader.rc
+	fi
 
 	sync
 	umount_loop ${CHROOTDIR}/${DESTDIR}
