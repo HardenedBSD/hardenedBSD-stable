@@ -10,8 +10,12 @@ CFLAGS+=	-I${.CURDIR}/../../sys/dev/iscsi
 #CFLAGS+=	-DICL_KERNEL_PROXY
 MAN=		ctld.8 ctl.conf.5
 
+<<<<<<< HEAD
 LIBADD=		bsdxml crypto l sbuf util
 WANTS_PIE=	yes
+=======
+LIBADD=		bsdxml l md sbuf util
+>>>>>>> origin/master
 
 YFLAGS+=	-v
 CLEANFILES=	y.tab.c y.tab.h y.output

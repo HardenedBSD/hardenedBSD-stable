@@ -8,8 +8,12 @@ CFLAGS+=	-I${.CURDIR}/../../sys/dev/iscsi
 #CFLAGS+=	-DICL_KERNEL_PROXY
 MAN=		iscsid.8
 
+<<<<<<< HEAD
 LIBADD=		crypto util
 WANTS_PIE=	yes
+=======
+LIBADD=		md util
+>>>>>>> origin/master
 
 WARNS=		6
 
