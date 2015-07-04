@@ -1085,12 +1085,29 @@ exec_new_vmspace(imgp, sv)
 	/* Map a shared page */
 	obj = sv->sv_shared_page_obj;
 	if (obj != NULL) {
+		p->p_shared_page_base=sv->sv_shared_page_base;
+#ifdef PAX_ASLR
+		PROC_LOCK(imgp->proc);
+		pax_aslr_vdso(p, &(p->p_shared_page_base));
+		PROC_UNLOCK(imgp->proc);
+#endif
 		vm_object_reference(obj);
-		error = vm_map_fixed(map, obj, 0,
-		    sv->sv_shared_page_base, sv->sv_shared_page_len,
-		    VM_PROT_READ | VM_PROT_EXECUTE,
-		    VM_PROT_READ | VM_PROT_EXECUTE,
-		    MAP_INHERIT_SHARE | MAP_ACC_NO_CHARGE);
+		if (p->p_shared_page_base != sv->sv_shared_page_base) {
+			/* Only use vm_map_find if ASLR is active */
+			error = vm_map_find(map, obj, 0,
+			    &(p->p_shared_page_base), sv->sv_shared_page_len,
+			    sv->sv_shared_page_base,
+			    VMFS_ANY_SPACE,
+			    VM_PROT_READ | VM_PROT_EXECUTE,
+			    VM_PROT_READ | VM_PROT_EXECUTE,
+			    MAP_INHERIT_SHARE | MAP_ACC_NO_CHARGE);
+		} else {
+			error = vm_map_fixed(map, obj, 0,
+			    p->p_shared_page_base, sv->sv_shared_page_len,
+			    VM_PROT_READ | VM_PROT_EXECUTE,
+			    VM_PROT_READ | VM_PROT_EXECUTE,
+			    MAP_INHERIT_SHARE | MAP_ACC_NO_CHARGE);
+		}
 		if (error) {
 			vm_object_deallocate(obj);
 			return (error);
@@ -1298,10 +1315,16 @@ exec_copyout_strings(imgp)
 		execpath_len = 0;
 	p = imgp->proc;
 	szsigcode = 0;
+	p->p_sigcode_base = p->p_sysent->sv_sigcode_base;
 	arginfo = (struct ps_strings *)p->p_psstrings;
-	if (p->p_sysent->sv_sigcode_base == 0) {
+	if (p->p_sigcode_base == 0) {
 		if (p->p_sysent->sv_szsigcode != NULL)
 			szsigcode = *(p->p_sysent->sv_szsigcode);
+#ifdef PAX_ASLR
+	} else {
+		// XXXOP
+		pax_aslr_vdso(p, &(p->p_sigcode_base));
+#endif
 	}
 	destp =	(uintptr_t)arginfo;
 

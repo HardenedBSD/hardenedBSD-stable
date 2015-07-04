@@ -2775,8 +2775,8 @@ sysctl_kern_proc_sigtramp(SYSCTL_HANDLER_ARGS)
 		bzero(&kst32, sizeof(kst32));
 		if (SV_PROC_FLAG(p, SV_ILP32)) {
 			if (sv->sv_sigcode_base != 0) {
-				kst32.ksigtramp_start = sv->sv_sigcode_base;
-				kst32.ksigtramp_end = sv->sv_sigcode_base +
+				kst32.ksigtramp_start = p->p_sigcode_base;
+				kst32.ksigtramp_end = p->p_sigcode_base +
 				    *sv->sv_szsigcode;
 			} else {
 				kst32.ksigtramp_start = p->p_psstrings -
@@ -2791,8 +2791,8 @@ sysctl_kern_proc_sigtramp(SYSCTL_HANDLER_ARGS)
 #endif
 	bzero(&kst, sizeof(kst));
 	if (sv->sv_sigcode_base != 0) {
-		kst.ksigtramp_start = (char *)sv->sv_sigcode_base;
-		kst.ksigtramp_end = (char *)sv->sv_sigcode_base +
+		kst.ksigtramp_start = (char *)p->p_sigcode_base;
+		kst.ksigtramp_end = (char *)p->p_sigcode_base +
 		    *sv->sv_szsigcode;
 	} else {
 		kst.ksigtramp_start = (char *)p->p_psstrings -
