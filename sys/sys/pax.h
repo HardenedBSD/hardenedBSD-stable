@@ -40,10 +40,12 @@ struct hardening_features {
 	int	 hr_pax_aslr_mmap_len;		/* (p) Number of bits randomized with mmap */
 	int	 hr_pax_aslr_stack_len;		/* (p) Number of bits randomized with stack */
 	int	 hr_pax_aslr_exec_len;		/* (p) Number of bits randomized with the execbase */
+	int	 hr_pax_aslr_vdso_len;		/* (p) Number of bits randomized with the VDSO */
 	int	 hr_pax_aslr_compat_status;	/* (p) PaX ASLR enabled (compat32) */
 	int	 hr_pax_aslr_compat_mmap_len;	/* (p) Number of bits randomized with mmap (compat32) */
 	int	 hr_pax_aslr_compat_stack_len;	/* (p) Number of bits randomized with stack (compat32) */
 	int	 hr_pax_aslr_compat_exec_len;	/* (p) Number of bits randomized with the execbase (compat32) */
+	int	 hr_pax_aslr_compat_vdso_len;	/* (p) Number of bits randomized with the VDSO (compat32) */
 	int	 hr_pax_segvguard_status;       /* (p) PaX segvguard enabled */
 	int	 hr_pax_segvguard_expiry;       /* (p) Number of seconds to expire an entry */
 	int	 hr_pax_segvguard_suspension;   /* (p) Number of seconds to suspend an application */
@@ -119,6 +121,7 @@ void pax_aslr_rtld(struct proc *p, vm_offset_t *addr);
 uint32_t pax_aslr_setup_flags(struct image_params *imgp, uint32_t mode);
 void pax_aslr_stack(struct proc *p, vm_offset_t *addr);
 void pax_aslr_stack_with_gap(struct proc *p, vm_offset_t *addr);
+void pax_aslr_vdso(struct proc *p, vm_offset_t *addr);
 
 /*
  * Log related functions

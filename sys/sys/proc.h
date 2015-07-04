@@ -565,6 +565,8 @@ struct proc {
 	uint32_t        p_pax;          /* (b) PaX is enabled to this process */
 	vm_offset_t	p_usrstack;	/* (b) Process stack top. */
 	vm_offset_t	p_psstrings;	/* (b) Process psstrings address. */
+	vm_offset_t	p_shared_page_base;	/* (c) Address of shared page. */
+	vm_offset_t	p_sigcode_base;	/* (c) Address of sigcode. */
 /* End area that is copied on creation. */
 #define	p_endcopy	p_xstat
 
