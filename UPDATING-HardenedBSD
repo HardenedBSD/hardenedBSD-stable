@@ -1,3 +1,11 @@
+[20150706] Added shared-page (vdso) randomization
+__HardenedBSD_version = 27
+
+	This version brings in true stack randomization.
+	Changed ASLR settings:
+		vdso random : 20 bit
+
+
 [20150701] Rewriten stack randomization, and bumped ASLR settings
 __HardenedBSD_version = 26
 
