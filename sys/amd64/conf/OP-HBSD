@@ -24,7 +24,7 @@ ident		OP-PERPETUA
 options		HZ=100
 
 makeoptions	DEBUG=-gdwarf-2		# Build kernel with gdb(1) debug symbols
-makeoptions	MODULES_OVERRIDE="geom/geom_sched linux iwnfw"
+makeoptions	MODULES_OVERRIDE="usb/umodem usb/u3g usb/umass usb/ucom usb/uplcom drm2 i2c vmm nmdm"
 #makeoptions	WITH_CTF=1		# Run ctfconvert(1) for DTrace support
 
 options 	SCHED_ULE		# ULE scheduler
@@ -318,6 +318,8 @@ device		wlan_amrr	# AMRR transmit rate control algorithm
 #device		ipw		# Intel 2100 wireless NICs.
 #device		iwi		# Intel 2200BG/2225BG/2915ABG wireless NICs.
 device		iwn		# Intel 4965/1000/5000/6000 wireless NICs.
+device		iwn1000fw
+device		iwn2030fw
 #device		malo		# Marvell Libertas wireless NICs.
 #device		mwl		# Marvell 88W8363 802.11n wireless NICs.
 #device		ral		# Ralink Technology RT2500 wireless NICs.
