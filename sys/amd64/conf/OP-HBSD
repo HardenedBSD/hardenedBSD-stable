@@ -36,6 +36,8 @@ options 	TCP_OFFLOAD		# TCP offload
 options 	FFS			# Berkeley Fast Filesystem
 options 	SOFTUPDATES		# Enable FFS soft updates support
 options 	UFS_ACL			# Support for access control lists
+options 	UFS_EXTATTR		# Extended attributes for eg ACLs
+options 	UFS_EXTATTR_AUTOSTART	# 
 options 	UFS_DIRHASH		# Improve performance on big directories
 #options 	UFS_GJOURNAL		# Enable gjournal-based UFS journaling
 options 	QUOTA			# Enable disk quotas for UFS
@@ -51,11 +53,12 @@ options 	PSEUDOFS		# Pseudo-filesystem framework
 options 	GEOM_PART_GPT		# GUID Partition Tables.
 options 	GEOM_RAID		# Soft RAID functionality.
 options 	GEOM_LABEL		# Provides labelization
-options 	COMPAT_FREEBSD32	# Compatible with i386 binaries
-options 	COMPAT_FREEBSD4		# Compatible with FreeBSD4
-options 	COMPAT_FREEBSD5		# Compatible with FreeBSD5
-options 	COMPAT_FREEBSD6		# Compatible with FreeBSD6
-options 	COMPAT_FREEBSD7		# Compatible with FreeBSD7
+options 	GEOM_ELI		# Disk encryption.
+#options 	COMPAT_FREEBSD32	# Compatible with i386 binaries
+#options 	COMPAT_FREEBSD4		# Compatible with FreeBSD4
+#options 	COMPAT_FREEBSD5		# Compatible with FreeBSD5
+#options 	COMPAT_FREEBSD6		# Compatible with FreeBSD6
+#options 	COMPAT_FREEBSD7		# Compatible with FreeBSD7
 options 	SCSI_DELAY=5000		# Delay (in ms) before probing SCSI
 options 	KTRACE			# ktrace(1) support
 options 	STACK			# stack(9) support
@@ -75,9 +78,12 @@ options 	MAC			# TrustedBSD MAC Framework
 #options 	KDTRACE_HOOKS		# Kernel DTrace hooks
 #options 	DDB_CTF			# Kernel ELF linker loads CTF data
 options 	INCLUDE_CONFIG_FILE     # Include this file in kernel
+options 	RACCT			# Resource accounting framework
+options 	RACCT_DEFAULT_TO_DISABLED # Set kern.racct.enable=0 by default
+options 	RCTL			# Resource limits
 
 # HardenedBSD hardening options
-options 	PAX
+options 	PAX			# PaX framework
 options 	PAX_SYSCTLS		# sysctls for run-time options
 options 	PAX_ASLR		# Address Space Layout Randomization
 options 	PAX_NOEXEC		# Remove WX pages from user-space and enforce W^X
@@ -85,13 +91,16 @@ options 	PAX_HARDENING		# Various hardening options
 options 	PAX_SEGVGUARD		# prevent brute-force attacks
 #options 	PAX_PTRACE_HARDENING
 #options 	PAX_PTRACE_HARDENING_GRP=50000
-
-options		UFS_EXTATTR
+options 	INVARIANTS		# Check and enforce proper kernel state.
+options 	INVARIANT_SUPPORT
 
 # Debugging support.  Always need this:
 options 	KDB			# Enable kernel debugger support.
 options 	KDB_TRACE		# Print a stack trace for a panic.
 options		DDB			# Support DDB.
+options 	DEADLKRES               # Enable the deadlock resolver
+options 	WITNESS                 # Enable checks to detect deadlo
+options 	WITNESS_SKIPSPIN        # Don't run witness on spinlocks
 
 # Make an SMP-capable kernel by default
 options 	SMP			# Symmetric MultiProcessor Kernel
@@ -389,10 +398,6 @@ device		cpuctl
 # sc related
 options		SC_DISABLE_REBOOT
 
-# ukbd
-options		UKBD_DFLT_KEYMAP
-makeoptions	UKBD_DFLT_KEYMAP=us.pc-ctrl
-
 # ipfw
 options		IPFIREWALL
 options		IPFIREWALL_VERBOSE
@@ -407,11 +412,6 @@ device		aesni
 # sec
 options		MALLOC_DEBUG_MAXZONES=8	# Separate malloc(9) zones
 
-options 	DEADLKRES               # Enable the deadlock resolver
-options 	INVARIANTS              # Enable calls of extra sanity c
-options 	INVARIANT_SUPPORT       # Extra sanity checks of interna
-options 	WITNESS                 # Enable checks to detect deadlo
-options 	WITNESS_SKIPSPIN        # Don't run witness on spinlocks
-
+# debug
 options 	ALT_BREAK_TO_DEBUGGER
 options 	BREAK_TO_DEBUGGER
