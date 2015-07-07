@@ -19,7 +19,7 @@
 # $FreeBSD$
 
 cpu		HAMMER
-ident		OP-HARDENEDBSD
+ident		OP-HARDENEDBSD-11
 
 options		HZ=100
 
@@ -38,6 +38,8 @@ options 	SOFTUPDATES		# Enable FFS soft updates support
 options 	UFS_ACL			# Support for access control lists
 options 	UFS_DIRHASH		# Improve performance on big directories
 #options 	UFS_GJOURNAL		# Enable gjournal-based UFS journaling
+options 	UFS_EXTATTR		# Extended attributes
+options 	UFS_EXTATTR_AUTOSTART	#
 options 	QUOTA			# Enable disk quotas for UFS
 #options 	MD_ROOT			# MD is a potential root device
 #options 	NFSCL			# Network Filesystem Client
@@ -51,14 +53,14 @@ options 	PSEUDOFS		# Pseudo-filesystem framework
 options 	GEOM_PART_GPT		# GUID Partition Tables.
 options 	GEOM_RAID		# Soft RAID functionality.
 options 	GEOM_LABEL		# Provides labelization
-options 	GEOM_ELI
+options 	GEOM_ELI		# Disk encryption.
 #options 	COMPAT_FREEBSD32	# Compatible with i386 binaries
-options 	COMPAT_FREEBSD4		# Compatible with FreeBSD4
-options 	COMPAT_FREEBSD5		# Compatible with FreeBSD5
-options 	COMPAT_FREEBSD6		# Compatible with FreeBSD6
-options 	COMPAT_FREEBSD7		# Compatible with FreeBSD7
-options 	COMPAT_FREEBSD9		# Compatible with FreeBSD9
-options 	COMPAT_FREEBSD10	# Compatible with FreeBSD10
+#options 	COMPAT_FREEBSD4		# Compatible with FreeBSD4
+#options 	COMPAT_FREEBSD5		# Compatible with FreeBSD5
+#options 	COMPAT_FREEBSD6		# Compatible with FreeBSD6
+#options 	COMPAT_FREEBSD7		# Compatible with FreeBSD7
+#options 	COMPAT_FREEBSD9		# Compatible with FreeBSD9
+#options 	COMPAT_FREEBSD10	# Compatible with FreeBSD10
 options 	SCSI_DELAY=5000		# Delay (in ms) before probing SCSI
 options 	KTRACE			# ktrace(1) support
 options 	STACK			# stack(9) support
@@ -77,18 +79,20 @@ options 	MAC			# TrustedBSD MAC Framework
 #options 	KDTRACE_HOOKS		# Kernel DTrace hooks
 #options 	DDB_CTF			# Kernel ELF linker loads CTF data
 options 	INCLUDE_CONFIG_FILE     # Include this file in kernel
+options 	RACCT			# Resource accounting framework
+options 	RACCT_DEFAULT_TO_DISABLED # Set kern.racct.enable=0 by default
+options 	RCTL			# Resource limits
 
 # HardenedBSD hardening options
 options 	PAX
 options 	PAX_SYSCTLS		# sysctls for run-time options
 options 	PAX_ASLR		# Address Space Layout Randomization
-options 	PAX_HARDENING		# Various hardening options
 options 	PAX_NOEXEC		# Remove WX pages from user-space and enforce W^X
+options 	PAX_HARDENING		# Various hardening options
 options 	PAX_SEGVGUARD		# prevent brute-force attacks
 options 	PAX_PTRACE_HARDENING
 options 	PAX_PTRACE_HARDENING_GRP=50000
 
-options		UFS_EXTATTR
 
 # Debugging support.  Always need this:
 options 	KDB			# Enable kernel debugger support.
@@ -383,7 +387,7 @@ device		snd_hda			# Intel High Definition Audio
 #device		vmx			# VMware VMXNET3 Ethernet
 
 # Netmap provides direct access to TX/RX rings on supported NICs
-device		netmap			# netmap(4) support
+#device		netmap			# netmap(4) support
 
 # Additonal devices
 device		coretemp
