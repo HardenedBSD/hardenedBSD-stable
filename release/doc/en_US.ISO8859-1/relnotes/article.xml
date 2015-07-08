@@ -218,6 +218,10 @@
 	&man.chmod.1;, and &man.chown.8; utilities now affect symbolic
 	links when the <literal>-R</literal> flag is specified, as
 	documented in &man.symlink.7;.</para>
+
+      <para revision="285092">The &man.pw.8; utility has been updated
+	with a new flag, <literal>-R</literal>, that sets the root
+	directory within which the utility will operate.</para>
     </sect2>
 
     <sect2 xml:id="userland-contrib">
@@ -238,6 +242,9 @@
 
       <para revision="284778">The &man.file.1; utility has been
 	updated to version 5.23.</para>
+
+      <para revision="285206">The &man.unbound.8; utility has been
+	updated to version 1.5.3.</para>
     </sect2>
 
     <sect2 xml:id="userland-installer">
@@ -419,6 +426,10 @@
 	    fixes.</para>
 	</listitem>
       </itemizedlist>
+
+      <para revision="285236" contrib="sponsor" sponsor="&msostc;">The
+	&man.hv.netvsc.4; driver has been updated to support checksum
+	offloading and <acronym>TSO</acronym>.</para>
     </sect2>
 
     <sect2 xml:id="hardware-arm">
