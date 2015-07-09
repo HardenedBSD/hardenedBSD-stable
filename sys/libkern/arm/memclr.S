@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Andrew Turner
+ * Copyright (C) 2015 Andrew Turner
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,35 +25,16 @@
  *
  */
 
-#include <sys/cdefs.h>
+#include <machine/asm.h>
 __FBSDID("$FreeBSD$");
 
-#include <sys/types.h>
-#ifdef _KERNEL
-#include <sys/systm.h>
-#else
-#define	panic(x) (void)0
-#endif
+/*
+ * This implements
+ *  void __aeabi_memclr4(void *dest, size_t len)
+ * by calling:
+ *  void bzero(dest, len)
+ */
+ENTRY_NP(__aeabi_memclr4)
+	b	bzero
+END(__aeabi_memclr4)
 
-/* We need to provide these functions never call them */
-void __aeabi_unwind_cpp_pr0(void);
-void __aeabi_unwind_cpp_pr1(void);
-void __aeabi_unwind_cpp_pr2(void);
-
-void
-__aeabi_unwind_cpp_pr0(void)
-{
-	panic("__aeabi_unwind_cpp_pr0");
-}
-
-void
-__aeabi_unwind_cpp_pr1(void)
-{
-	panic("__aeabi_unwind_cpp_pr1");
-}
-
-void
-__aeabi_unwind_cpp_pr2(void)
-{
-	panic("__aeabi_unwind_cpp_pr2");
-}
