@@ -85,12 +85,17 @@ struct pwconf {
 	char		 etcpath[MAXPATHLEN];
 	char		*newname;
 	char		*config;
+	char		*gecos;
 	int		 fd;
 	int		 which;
+	bool		 quiet;
+	bool		 force;
+	bool		 all;
 	bool		 dryrun;
 	bool		 pretty;
 	bool		 v7;
 	bool		 checkduplicate;
+	bool		 deletehome;
 	bool		 precrypted;
 	struct userconf	*userconf;
 };

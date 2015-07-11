@@ -51,8 +51,7 @@ static const char rcsid[] =
 
 static		char locked_str[] = "*LOCKED*";
 
-static int	delete_user(struct userconf *cnf, struct passwd *pwd,
-		    char *name, int delete, int mode);
+static int	pw_userdel(char *name, long id);
 static int	print_user(struct passwd * pwd);
 static uid_t    pw_uidpolicy(struct userconf * cnf, long id);
 static uid_t    pw_gidpolicy(struct cargs * args, char *nam, gid_t prefer);
@@ -60,13 +59,13 @@ static time_t   pw_pwdpolicy(struct userconf * cnf, struct cargs * args);
 static time_t   pw_exppolicy(struct userconf * cnf, struct cargs * args);
 static char    *pw_homepolicy(struct userconf * cnf, struct cargs * args, char const * user);
 static char    *pw_shellpolicy(struct userconf * cnf, struct cargs * args, char *newshell);
-static char    *pw_password(struct userconf * cnf, struct cargs * args, char const * user);
+static char    *pw_password(struct userconf * cnf, char const * user);
 static char    *shell_path(char const * path, char *shells[], char *sh);
 static void     rmat(uid_t uid);
 static void     rmopie(char const * name);
 
 static void
-create_and_populate_homedir(int mode, struct passwd *pwd)
+create_and_populate_homedir(struct passwd *pwd)
 {
 	char *homedir, *dotdir;
 	struct userconf *cnf = conf.userconf;
@@ -82,7 +81,7 @@ create_and_populate_homedir(int mode, struct passwd *pwd)
 
 	copymkdir(homedir ? homedir : pwd->pw_dir, dotdir ? dotdir: cnf->dotdir,
 	    cnf->homemode, pwd->pw_uid, pwd->pw_gid);
-	pw_log(cnf, mode, W_USER, "%s(%u) home %s made", pwd->pw_name,
+	pw_log(cnf, M_ADD, W_USER, "%s(%u) home %s made", pwd->pw_name,
 	    pwd->pw_uid, pwd->pw_dir);
 }
 
@@ -148,6 +147,122 @@ set_passwd(struct passwd *pwd, bool update)
 	return (1);
 }
 
+int
+pw_usernext(struct userconf *cnf, bool quiet)
+{
+	uid_t next = pw_uidpolicy(cnf, -1);
+
+	if (quiet)
+		return (next);
+
+	printf("%u:", next);
+	pw_groupnext(cnf, quiet);
+
+	return (EXIT_SUCCESS);
+}
+
+static int
+pw_usershow(char *name, long id, struct passwd *fakeuser)
+{
+	struct passwd *pwd = NULL;
+
+	if (id < 0 && name == NULL && !conf.all)
+		errx(EX_DATAERR, "username or id or '-a' required");
+
+	if (conf.all) {
+		SETPWENT();
+		while ((pwd = GETPWENT()) != NULL)
+			print_user(pwd);
+		ENDPWENT();
+		return (EXIT_SUCCESS);
+	}
+
+	pwd = (name != NULL) ? GETPWNAM(pw_checkname(name, 0)) : GETPWUID(id);
+	if (pwd == NULL) {
+		if (conf.force) {
+			pwd = fakeuser;
+		} else {
+			if (name == NULL)
+				errx(EX_NOUSER, "no such uid `%ld'", id);
+			errx(EX_NOUSER, "no such user `%s'", name);
+		}
+	}
+
+	return (print_user(pwd));
+}
+
+static void
+perform_chgpwent(const char *name, struct passwd *pwd)
+{
+	int rc;
+
+	rc = chgpwent(name, pwd);
+	if (rc == -1)
+		errx(EX_IOERR, "user '%s' does not exist (NIS?)", pwd->pw_name);
+	else if (rc != 0)
+		err(EX_IOERR, "passwd file update");
+
+	if (conf.userconf->nispasswd && *conf.userconf->nispasswd == '/') {
+		rc = chgnispwent(conf.userconf->nispasswd, name, pwd);
+		if (rc == -1)
+			warn("User '%s' not found in NIS passwd", pwd->pw_name);
+		else
+			warn("NIS passwd update");
+		/* NOTE: NIS-only update errors are not fatal */
+	}
+}
+
+/*
+ * The M_LOCK and M_UNLOCK functions simply add or remove
+ * a "*LOCKED*" prefix from in front of the password to
+ * prevent it decoding correctly, and therefore prevents
+ * access. Of course, this only prevents access via
+ * password authentication (not ssh, kerberos or any
+ * other method that does not use the UNIX password) but
+ * that is a known limitation.
+ */
+static int
+pw_userlock(char *name, long id, int mode)
+{
+	struct passwd *pwd = NULL;
+	char *passtmp = NULL;
+	bool locked = false;
+
+	if (id < 0 && name == NULL)
+		errx(EX_DATAERR, "username or id required");
+
+	pwd = (name != NULL) ? GETPWNAM(pw_checkname(name, 0)) : GETPWUID(id);
+	if (pwd == NULL) {
+		if (name == NULL)
+			errx(EX_NOUSER, "no such uid `%ld'", id);
+		errx(EX_NOUSER, "no such user `%s'", name);
+	}
+
+	if (name == NULL)
+		name = pwd->pw_name;
+
+	if (strncmp(pwd->pw_passwd, locked_str, sizeof(locked_str) -1) == 0)
+		locked = true;
+	if (mode == M_LOCK && locked)
+		errx(EX_DATAERR, "user '%s' is already locked", pwd->pw_name);
+	if (mode == M_UNLOCK && !locked)
+		errx(EX_DATAERR, "user '%s' is not locked", pwd->pw_name);
+
+	if (mode == M_LOCK) {
+		asprintf(&passtmp, "%s%s", locked_str, pwd->pw_passwd);
+		if (passtmp == NULL)	/* disaster */
+			errx(EX_UNAVAILABLE, "out of memory");
+		pwd->pw_passwd = passtmp;
+	} else {
+		pwd->pw_passwd += sizeof(locked_str)-1;
+	}
+
+	perform_chgpwent(name, pwd);
+	free(passtmp);
+
+	return (EXIT_SUCCESS);
+}
+
 /*-
  * -C config      configuration file
  * -q             quiet operation
@@ -185,7 +300,6 @@ pw_user(int mode, char *name, long id, struct cargs * args)
 {
 	int	        rc, edited = 0;
 	char           *p = NULL;
-	char					 *passtmp;
 	struct carg    *arg;
 	struct passwd  *pwd = NULL;
 	struct group   *grp;
@@ -199,7 +313,7 @@ pw_user(int mode, char *name, long id, struct cargs * args)
 
 	static struct passwd fakeuser =
 	{
-		NULL,
+		"nouser",
 		"*",
 		-1,
 		-1,
@@ -216,19 +330,17 @@ pw_user(int mode, char *name, long id, struct cargs * args)
 
 	cnf = conf.userconf;
 
-	/*
-	 * With M_NEXT, we only need to return the
-	 * next uid to stdout
-	 */
 	if (mode == M_NEXT)
-	{
-		uid_t next = pw_uidpolicy(cnf, id);
-		if (getarg(args, 'q'))
-			return next;
-		printf("%u:", next);
-		pw_group(mode, name, -1, args);
-		return EXIT_SUCCESS;
-	}
+		return (pw_usernext(cnf, conf.quiet));
+
+	if (mode == M_PRINT)
+		return (pw_usershow(name, id, &fakeuser));
+
+	if (mode == M_DELETE)
+		return (pw_userdel(name, id));
+
+	if (mode == M_LOCK || mode == M_UNLOCK)
+		return (pw_userlock(name, id, mode));
 
 	/*
 	 * We can do all of the common legwork here
@@ -288,7 +400,7 @@ pw_user(int mode, char *name, long id, struct cargs * args)
 					*p = '\0';
 					if (stat(dbuf, &st) == -1) {
 						if (mkdir(dbuf, _DEF_DIRMODE) == -1)
-							goto direrr;
+							err(EX_OSFILE, "mkdir '%s'", dbuf);
 						chown(dbuf, 0, 0);
 					} else if (!S_ISDIR(st.st_mode))
 						errx(EX_OSFILE, "'%s' (root home parent) is not a directory", dbuf);
@@ -296,9 +408,8 @@ pw_user(int mode, char *name, long id, struct cargs * args)
 				}
 			}
 			if (stat(dbuf, &st) == -1) {
-				if (mkdir(dbuf, _DEF_DIRMODE) == -1) {
-				direrr:	err(EX_OSFILE, "mkdir '%s'", dbuf);
-				}
+				if (mkdir(dbuf, _DEF_DIRMODE) == -1)
+					err(EX_OSFILE, "mkdir '%s'", dbuf);
 				chown(dbuf, 0, 0);
 			}
 		} else if (!S_ISDIR(st.st_mode))
@@ -374,14 +485,6 @@ pw_user(int mode, char *name, long id, struct cargs * args)
 		err(EX_IOERR, "config udpate");
 	}
 
-	if (mode == M_PRINT && getarg(args, 'a')) {
-		SETPWENT();
-		while ((pwd = GETPWENT()) != NULL)
-			print_user(pwd);
-		ENDPWENT();
-		return EXIT_SUCCESS;
-	}
-
 	if (name != NULL)
 		pwd = GETPWNAM(pw_checkname(name, 0));
 
@@ -389,20 +492,14 @@ pw_user(int mode, char *name, long id, struct cargs * args)
 		errx(EX_DATAERR, "user name or id required");
 
 	/*
-	 * Update, delete & print require that the user exists
+	 * Update require that the user exists
 	 */
-	if (mode == M_UPDATE || mode == M_DELETE ||
-	    mode == M_PRINT  || mode == M_LOCK   || mode == M_UNLOCK) {
+	if (mode == M_UPDATE) {
 
 		if (name == NULL && pwd == NULL)	/* Try harder */
 			pwd = GETPWUID(id);
 
 		if (pwd == NULL) {
-			if (mode == M_PRINT && getarg(args, 'F')) {
-				fakeuser.pw_name = name ? name : "nouser";
-				fakeuser.pw_uid = (uid_t) id;
-				return print_user(&fakeuser);
-			}
 			if (name == NULL)
 				errx(EX_NOUSER, "no such uid `%ld'", id);
 			errx(EX_NOUSER, "no such user `%s'", name);
@@ -410,35 +507,6 @@ pw_user(int mode, char *name, long id, struct cargs * args)
 
 		if (name == NULL)
 			name = pwd->pw_name;
-
-		/*
-		 * The M_LOCK and M_UNLOCK functions simply add or remove
-		 * a "*LOCKED*" prefix from in front of the password to
-		 * prevent it decoding correctly, and therefore prevents
-		 * access. Of course, this only prevents access via
-		 * password authentication (not ssh, kerberos or any
-		 * other method that does not use the UNIX password) but
-		 * that is a known limitation.
-		 */
-
-		if (mode == M_LOCK) {
-			if (strncmp(pwd->pw_passwd, locked_str, sizeof(locked_str)-1) == 0)
-				errx(EX_DATAERR, "user '%s' is already locked", pwd->pw_name);
-			asprintf(&passtmp, "%s%s", locked_str, pwd->pw_passwd);
-			if (passtmp == NULL)	/* disaster */
-				errx(EX_UNAVAILABLE, "out of memory");
-			pwd->pw_passwd = passtmp;
-			edited = 1;
-		} else if (mode == M_UNLOCK) {
-			if (strncmp(pwd->pw_passwd, locked_str, sizeof(locked_str)-1) != 0)
-				errx(EX_DATAERR, "user '%s' is not locked", pwd->pw_name);
-			pwd->pw_passwd += sizeof(locked_str)-1;
-			edited = 1;
-		} else if (mode == M_DELETE)
-			return (delete_user(cnf, pwd, name,
-				    getarg(args, 'r') != NULL, mode));
-		else if (mode == M_PRINT)
-			return print_user(pwd);
 
 		/*
 		 * The rest is edit code
@@ -540,7 +608,7 @@ pw_user(int mode, char *name, long id, struct cargs * args)
 			    login_setcryptfmt(lc, "sha512", NULL) == NULL)
 				warn("setting crypt(3) format");
 			login_close(lc);
-			pwd->pw_passwd = pw_password(cnf, args, pwd->pw_name);
+			pwd->pw_passwd = pw_password(cnf, pwd->pw_name);
 			edited = 1;
 		}
 
@@ -572,7 +640,7 @@ pw_user(int mode, char *name, long id, struct cargs * args)
 		if (lc == NULL || login_setcryptfmt(lc, "sha512", NULL) == NULL)
 			warn("setting crypt(3) format");
 		login_close(lc);
-		pwd->pw_passwd = pw_password(cnf, args, pwd->pw_name);
+		pwd->pw_passwd = pw_password(cnf, pwd->pw_name);
 		edited = 1;
 
 		if (pwd->pw_uid == 0 && strcmp(pwd->pw_name, "root") != 0)
@@ -582,10 +650,9 @@ pw_user(int mode, char *name, long id, struct cargs * args)
 	/*
 	 * Shared add/edit code
 	 */
-	if ((arg = getarg(args, 'c')) != NULL) {
-		char	*gecos = pw_checkname(arg->val, 1);
-		if (strcmp(pwd->pw_gecos, gecos) != 0) {
-			pwd->pw_gecos = gecos;
+	if (conf.gecos != NULL) {
+		if (strcmp(pwd->pw_gecos, conf.gecos) != 0) {
+			pwd->pw_gecos = conf.gecos;
 			edited = 1;
 		}
 	}
@@ -615,23 +682,8 @@ pw_user(int mode, char *name, long id, struct cargs * args)
 				warn("NIS passwd update");
 			/* NOTE: we treat NIS-only update errors as non-fatal */
 		}
-	} else if (mode == M_UPDATE || mode == M_LOCK || mode == M_UNLOCK) {
-		if (edited) {	/* Only updated this if required */
-			rc = chgpwent(name, pwd);
-			if (rc == -1)
-				errx(EX_IOERR, "user '%s' does not exist (NIS?)", pwd->pw_name);
-			else if (rc != 0)
-				err(EX_IOERR, "passwd file update");
-			if ( cnf->nispasswd && *cnf->nispasswd=='/') {
-				rc = chgnispwent(cnf->nispasswd, name, pwd);
-				if (rc == -1)
-					warn("User '%s' not found in NIS passwd", pwd->pw_name);
-				else
-					warn("NIS passwd update");
-				/* NOTE: NIS-only update errors are not fatal */
-			}
-		}
-	}
+	} else if (mode == M_UPDATE && edited) /* Only updated this if required */
+		perform_chgpwent(name, pwd);
 
 	/*
 	 * Ok, user is created or changed - now edit group file
@@ -715,7 +767,7 @@ pw_user(int mode, char *name, long id, struct cargs * args)
 	 */
 	if (PWALTDIR() != PWF_ALT && getarg(args, 'm') != NULL && pwd->pw_dir &&
 	    *pwd->pw_dir == '/' && pwd->pw_dir[1])
-		create_and_populate_homedir(mode, pwd);
+		create_and_populate_homedir(pwd);
 
 	/*
 	 * Finally, send mail to the new user as well, if we are asked to
@@ -845,11 +897,8 @@ pw_gidpolicy(struct cargs * args, char *nam, gid_t prefer)
 			addarg(&grpargs, 'g', tmp);
 		}
 		if (conf.dryrun) {
-			addarg(&grpargs, 'q', NULL);
-			gid = pw_group(M_NEXT, nam, -1, &grpargs);
-		}
-		else
-		{
+			gid = pw_groupnext(cnf, true);
+		} else {
 			pw_group(M_ADD, nam, -1, &grpargs);
 			if ((grp = GETGRNAM(nam)) != NULL)
 				gid = grp->gr_gid;
@@ -989,7 +1038,7 @@ pw_pwcrypt(char *password)
 
 
 static char    *
-pw_password(struct userconf * cnf, struct cargs * args, char const * user)
+pw_password(struct userconf * cnf, char const * user)
 {
 	int             i, l;
 	char            pwbuf[32];
@@ -1027,16 +1076,29 @@ pw_password(struct userconf * cnf, struct cargs * args, char const * user)
 }
 
 static int
-delete_user(struct userconf *cnf, struct passwd *pwd, char *name,
-    int delete, int mode)
+pw_userdel(char *name, long id)
 {
+	struct passwd *pwd = NULL;
 	char		 file[MAXPATHLEN];
 	char		 home[MAXPATHLEN];
-	uid_t		 uid = pwd->pw_uid;
+	uid_t		 uid;
 	struct group	*gr, *grp;
 	char		 grname[LOGNAMESIZE];
 	int		 rc;
 	struct stat	 st;
+
+	if (id < 0 && name == NULL)
+		errx(EX_DATAERR, "username or id required");
+
+	pwd = (name != NULL) ? GETPWNAM(pw_checkname(name, 0)) : GETPWUID(id);
+	if (pwd == NULL) {
+		if (name == NULL)
+			errx(EX_NOUSER, "no such uid `%ld'", id);
+		errx(EX_NOUSER, "no such user `%s'", name);
+	}
+	uid = pwd->pw_uid;
+	if (name == NULL)
+		name = pwd->pw_name;
 
 	if (strcmp(pwd->pw_name, "root") == 0)
 		errx(EX_DATAERR, "cannot remove user 'root'");
@@ -1075,10 +1137,11 @@ delete_user(struct userconf *cnf, struct passwd *pwd, char *name,
 	else if (rc != 0)
 		err(EX_IOERR, "passwd update");
 
-	if (cnf->nispasswd && *cnf->nispasswd=='/') {
-		rc = delnispwent(cnf->nispasswd, name);
+	if (conf.userconf->nispasswd && *conf.userconf->nispasswd=='/') {
+		rc = delnispwent(conf.userconf->nispasswd, name);
 		if (rc == -1)
-			warnx("WARNING: user '%s' does not exist in NIS passwd", pwd->pw_name);
+			warnx("WARNING: user '%s' does not exist in NIS passwd",
+			    pwd->pw_name);
 		else if (rc != 0)
 			warn("WARNING: NIS passwd update");
 		/* non-fatal */
@@ -1108,7 +1171,8 @@ delete_user(struct userconf *cnf, struct passwd *pwd, char *name,
 	}
 	ENDGRENT();
 
-	pw_log(cnf, mode, W_USER, "%s(%u) account removed", name, uid);
+	pw_log(conf.userconf, M_DELETE, W_USER, "%s(%u) account removed", name,
+	    uid);
 
 	if (!PWALTDIR()) {
 		/*
@@ -1125,10 +1189,10 @@ delete_user(struct userconf *cnf, struct passwd *pwd, char *name,
 		/*
 		 * Remove home directory and contents
 		 */
-		if (delete && *home == '/' && getpwuid(uid) == NULL &&
+		if (conf.deletehome && *home == '/' && getpwuid(uid) == NULL &&
 		    stat(home, &st) != -1) {
 			rm_r(home, uid);
-			pw_log(cnf, mode, W_USER, "%s(%u) home '%s' %sremoved",
+			pw_log(conf.userconf, M_DELETE, W_USER, "%s(%u) home '%s' %sremoved",
 			       name, uid, home,
 			       stat(home, &st) == -1 ? "" : "not completely ");
 		}

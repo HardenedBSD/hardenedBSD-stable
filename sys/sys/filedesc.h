@@ -205,6 +205,11 @@ fd_modified(struct filedesc *fdp, int fd, seq_t seq)
 	return (!seq_consistent(fd_seq(fdp->fd_files, fd), seq));
 }
 
+/* cdir/rdir/jdir manipulation functions. */
+void	pwd_chdir(struct thread *td, struct vnode *vp);
+int	pwd_chroot(struct thread *td, struct vnode *vp);
+void	pwd_ensure_dirs(void);
+
 #endif /* _KERNEL */
 
 #endif /* !_SYS_FILEDESC_H_ */

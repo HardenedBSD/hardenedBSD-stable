@@ -105,6 +105,8 @@ static void	v_incr_usecount(struct vnode *);
 static void	v_decr_usecount(struct vnode *);
 static void	v_decr_useonly(struct vnode *);
 static void	v_upgrade_usecount(struct vnode *);
+static void	v_incr_devcount(struct vnode *);
+static void	v_decr_devcount(struct vnode *);
 static void	vnlru_free(int);
 static void	vgonel(struct vnode *);
 static void	vfs_knllock(void *arg);
@@ -2080,13 +2082,13 @@ v_incr_usecount(struct vnode *vp)
 {
 
 	CTR2(KTR_VFS, "%s: vp %p", __func__, vp);
+	VNASSERT(vp->v_usecount == 0 || (vp->v_iflag & VI_OWEINACT) == 0, vp,
+	    ("vnode with usecount and VI_OWEINACT set"));
+	if (vp->v_iflag & VI_OWEINACT)
+		vp->v_iflag &= ~VI_OWEINACT;
 	vholdl(vp);
 	vp->v_usecount++;
-	if (vp->v_type == VCHR && vp->v_rdev != NULL) {
-		dev_lock();
-		vp->v_rdev->si_usecount++;
-		dev_unlock();
-	}
+	v_incr_devcount(vp);
 }
 
 /*
@@ -2099,11 +2101,7 @@ v_upgrade_usecount(struct vnode *vp)
 
 	CTR2(KTR_VFS, "%s: vp %p", __func__, vp);
 	vp->v_usecount++;
-	if (vp->v_type == VCHR && vp->v_rdev != NULL) {
-		dev_lock();
-		vp->v_rdev->si_usecount++;
-		dev_unlock();
-	}
+	v_incr_devcount(vp);
 }
 
 /*
@@ -2120,11 +2118,7 @@ v_decr_usecount(struct vnode *vp)
 	    ("v_decr_usecount: negative usecount"));
 	CTR2(KTR_VFS, "%s: vp %p", __func__, vp);
 	vp->v_usecount--;
-	if (vp->v_type == VCHR && vp->v_rdev != NULL) {
-		dev_lock();
-		vp->v_rdev->si_usecount--;
-		dev_unlock();
-	}
+	v_decr_devcount(vp);
 	vdropl(vp);
 }
 
@@ -2143,6 +2137,36 @@ v_decr_useonly(struct vnode *vp)
 	    ("v_decr_useonly: negative usecount"));
 	CTR2(KTR_VFS, "%s: vp %p", __func__, vp);
 	vp->v_usecount--;
+	v_decr_devcount(vp);
+}
+
+/*
+ * Increment si_usecount of the associated device, if any.
+ */
+static void
+v_incr_devcount(struct vnode *vp)
+{
+
+#ifdef INVARIANTS
+	/* getnewvnode() calls v_incr_usecount() without holding interlock. */
+	if (vp->v_type != VNON || vp->v_data != NULL)
+		ASSERT_VI_LOCKED(vp, __FUNCTION__);
+#endif
+	if (vp->v_type == VCHR && vp->v_rdev != NULL) {
+		dev_lock();
+		vp->v_rdev->si_usecount++;
+		dev_unlock();
+	}
+}
+
+/*
+ * Decrement si_usecount of the associated device, if any.
+ */
+static void
+v_decr_devcount(struct vnode *vp)
+{
+
+	ASSERT_VI_LOCKED(vp, __FUNCTION__);
 	if (vp->v_type == VCHR && vp->v_rdev != NULL) {
 		dev_lock();
 		vp->v_rdev->si_usecount--;
@@ -2179,6 +2203,8 @@ vget(struct vnode *vp, int flags, struct thread *td)
 	if (vp->v_iflag & VI_DOOMED && (flags & LK_RETRY) == 0)
 		panic("vget: vn_lock failed to return ENOENT\n");
 	VI_LOCK(vp);
+	VNASSERT(vp->v_usecount == 0 || (vp->v_iflag & VI_OWEINACT) == 0, vp,
+	    ("vnode with usecount and VI_OWEINACT set"));
 	/* Upgrade our holdcnt to a usecount. */
 	v_upgrade_usecount(vp);
 	/*
@@ -2298,8 +2324,8 @@ vputx(struct vnode *vp, int func)
 		}
 		break;
 	}
-	if (vp->v_usecount > 0)
-		vp->v_iflag &= ~VI_OWEINACT;
+	VNASSERT(vp->v_usecount == 0 || (vp->v_iflag & VI_OWEINACT) == 0, vp,
+	    ("vnode with usecount and VI_OWEINACT set"));
 	if (error == 0) {
 		if (vp->v_iflag & VI_OWEINACT)
 			vinactive(vp, curthread);

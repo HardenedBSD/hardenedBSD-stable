@@ -234,6 +234,9 @@ main(int argc, char *argv[])
 			conf.config = optarg;
 			config = conf.config;
 			break;
+		case 'F':
+			conf.force = true;
+			break;
 		case 'N':
 			conf.dryrun = true;
 			break;
@@ -247,6 +250,12 @@ main(int argc, char *argv[])
 			break;
 		case 'Y':
 			nis = true;
+			break;
+		case 'a':
+			conf.all = true;
+			break;
+		case 'c':
+			conf.gecos = pw_checkname(optarg, 1);
 			break;
 		case 'g':
 			if (which == 0) { /* for user* */
@@ -314,6 +323,12 @@ main(int argc, char *argv[])
 		case 'o':
 			conf.checkduplicate = true;
 			break;
+		case 'q':
+			conf.quiet = true;
+			break;
+		case 'r':
+			conf.deletehome = true;
+			break;
 		default:
 			addarg(&arglist, ch, optarg);
 			break;
@@ -334,7 +349,7 @@ main(int argc, char *argv[])
 	 * We should immediately look for the -q 'quiet' switch so that we
 	 * don't bother with extraneous errors
 	 */
-	if (getarg(&arglist, 'q') != NULL)
+	if (conf.quiet)
 		freopen(_PATH_DEVNULL, "w", stderr);
 
 	/*

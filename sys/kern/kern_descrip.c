@@ -68,6 +68,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/sbuf.h>
 #include <sys/signalvar.h>
 #include <sys/socketvar.h>
+#include <sys/kdb.h>
 #include <sys/stat.h>
 #include <sys/sx.h>
 #include <sys/syscallsubr.h>
@@ -306,6 +307,24 @@ fdfree(struct filedesc *fdp, int fd)
 #ifdef CAPABILITIES
 	seq_write_end(&fde->fde_seq);
 #endif
+}
+
+void
+pwd_ensure_dirs(void)
+{
+	struct filedesc *fdp;
+
+	fdp = curproc->p_fd;
+	FILEDESC_XLOCK(fdp);
+	if (fdp->fd_cdir == NULL) {
+		fdp->fd_cdir = rootvnode;
+		VREF(rootvnode);
+	}
+	if (fdp->fd_rdir == NULL) {
+		fdp->fd_rdir = rootvnode;
+		VREF(rootvnode);
+	}
+	FILEDESC_XUNLOCK(fdp);
 }
 
 /*
@@ -2852,6 +2871,96 @@ dupfdopen(struct thread *td, struct filedesc *fdp, int dfd, int mode,
 	FILEDESC_XUNLOCK(fdp);
 	*indxp = indx;
 	return (0);
+}
+
+/*
+ * This sysctl determines if we will allow a process to chroot(2) if it
+ * has a directory open:
+ *	0: disallowed for all processes.
+ *	1: allowed for processes that were not already chroot(2)'ed.
+ *	2: allowed for all processes.
+ */
+
+static int chroot_allow_open_directories = 1;
+
+SYSCTL_INT(_kern, OID_AUTO, chroot_allow_open_directories, CTLFLAG_RW,
+    &chroot_allow_open_directories, 0,
+    "Allow a process to chroot(2) if it has a directory open");
+
+/*
+ * Helper function for raised chroot(2) security function:  Refuse if
+ * any filedescriptors are open directories.
+ */
+static int
+chroot_refuse_vdir_fds(struct filedesc *fdp)
+{
+	struct vnode *vp;
+	struct file *fp;
+	int fd;
+
+	FILEDESC_LOCK_ASSERT(fdp);
+
+	for (fd = 0; fd <= fdp->fd_lastfile; fd++) {
+		fp = fget_locked(fdp, fd);
+		if (fp == NULL)
+			continue;
+		if (fp->f_type == DTYPE_VNODE) {
+			vp = fp->f_vnode;
+			if (vp->v_type == VDIR)
+				return (EPERM);
+		}
+	}
+	return (0);
+}
+
+/*
+ * Common routine for kern_chroot() and jail_attach().  The caller is
+ * responsible for invoking priv_check() and mac_vnode_check_chroot() to
+ * authorize this operation.
+ */
+int
+pwd_chroot(struct thread *td, struct vnode *vp)
+{
+	struct filedesc *fdp;
+	struct vnode *oldvp;
+	int error;
+
+	fdp = td->td_proc->p_fd;
+	FILEDESC_XLOCK(fdp);
+	if (chroot_allow_open_directories == 0 ||
+	    (chroot_allow_open_directories == 1 && fdp->fd_rdir != rootvnode)) {
+		error = chroot_refuse_vdir_fds(fdp);
+		if (error != 0) {
+			FILEDESC_XUNLOCK(fdp);
+			return (error);
+		}
+	}
+	oldvp = fdp->fd_rdir;
+	VREF(vp);
+	fdp->fd_rdir = vp;
+	if (fdp->fd_jdir == NULL) {
+		VREF(vp);
+		fdp->fd_jdir = vp;
+	}
+	FILEDESC_XUNLOCK(fdp);
+	vrele(oldvp);
+	return (0);
+}
+
+void
+pwd_chdir(struct thread *td, struct vnode *vp)
+{
+	struct filedesc *fdp;
+	struct vnode *oldvp;
+
+	fdp = td->td_proc->p_fd;
+	FILEDESC_XLOCK(fdp);
+	VNASSERT(vp->v_usecount > 0, vp,
+	    ("chdir to a vnode with zero usecount"));
+	oldvp = fdp->fd_cdir;
+	fdp->fd_cdir = vp;
+	FILEDESC_XUNLOCK(fdp);
+	vrele(oldvp);
 }
 
 /*
