@@ -1092,24 +1092,16 @@ exec_new_vmspace(imgp, sv)
 		PROC_UNLOCK(imgp->proc);
 #endif
 		vm_object_reference(obj);
-		if (p->p_shared_page_base != sv->sv_shared_page_base) {
-			/* Only use vm_map_find if ASLR is active */
-			error = vm_map_find(map, obj, 0,
-			    &(p->p_shared_page_base), sv->sv_shared_page_len,
-			    sv->sv_shared_page_base,
-			    VMFS_ANY_SPACE,
-			    VM_PROT_READ | VM_PROT_EXECUTE,
-			    VM_PROT_READ | VM_PROT_EXECUTE,
-			    MAP_INHERIT_SHARE | MAP_ACC_NO_CHARGE);
-		} else {
-			error = vm_map_fixed(map, obj, 0,
-			    p->p_shared_page_base, sv->sv_shared_page_len,
-			    VM_PROT_READ | VM_PROT_EXECUTE,
-			    VM_PROT_READ | VM_PROT_EXECUTE,
-			    MAP_INHERIT_SHARE | MAP_ACC_NO_CHARGE);
-		}
+		error = vm_map_fixed(map, obj, 0,
+		    p->p_shared_page_base, sv->sv_shared_page_len,
+		    VM_PROT_READ | VM_PROT_EXECUTE,
+		    VM_PROT_READ | VM_PROT_EXECUTE,
+		    MAP_INHERIT_SHARE | MAP_ACC_NO_CHARGE);
 		if (error) {
 			vm_object_deallocate(obj);
+			pax_log_aslr(p, PAX_LOG_DEFAULT,
+			    "failed to map the shared-page @%p",
+			    (void *)p->p_shared_page_base);
 			return (error);
 		}
 	}
@@ -1145,8 +1137,12 @@ exec_new_vmspace(imgp, sv)
 	    obj != NULL && imgp->stack_prot != 0 ? imgp->stack_prot :
 		sv->sv_stackprot,
 	    VM_PROT_ALL, MAP_STACK_GROWS_DOWN);
-	if (error)
+	if (error) {
+		pax_log_aslr(p, PAX_LOG_DEFAULT,
+		    "failed to map the main stack @%p",
+		    (void *)p->p_usrstack);
 		return (error);
+	}
 
 	/*
 	 * vm_ssize and vm_maxsaddr are somewhat antiquated concepts, but they
