@@ -87,6 +87,7 @@ struct pwconf {
 	char		*config;
 	char		*gecos;
 	int		 fd;
+	int		 rootfd;
 	int		 which;
 	bool		 quiet;
 	bool		 force;
@@ -156,8 +157,9 @@ struct group * vgetgrnam(const char * nam);
 RET_SETGRENT   vsetgrent(void);
 void           vendgrent(void);
 
-void copymkdir(char const * dir, char const * skel, mode_t mode, uid_t uid, gid_t gid);
-void rm_r(char const * dir, uid_t uid);
+void copymkdir(int rootfd, char const * dir, int skelfd, mode_t mode, uid_t uid,
+    gid_t gid, int flags);
+void rm_r(int rootfd, char const * dir, uid_t uid);
 __END_DECLS
 
 #endif				/* !_PWUPD_H */
