@@ -183,6 +183,11 @@
 	&man.fstyp.8; utility has been added, which is used to
 	determine the filesystem on a specified device.</para>
 
+      <para revision="278968" contrib="sponsor" sponsor="&ff;">The
+	&man.mkimg.1; utility has been updated to support the
+	<acronym>MBR</acronym> <acronym>EFI</acronym> partition
+	type.</para>
+
       <para revision="281044">A regression in the &man.libarchive.3;
 	library that would prevent a directory from being included in
 	the archive when <literal>--one-file-system</literal> is used
@@ -219,15 +224,19 @@
 	links when the <literal>-R</literal> flag is specified, as
 	documented in &man.symlink.7;.</para>
 
-      <para revision="285092">The &man.pw.8; utility has been updated
-	with a new flag, <literal>-R</literal>, that sets the root
-	directory within which the utility will operate.</para>
-
       <para revision="283258">The &man.date.1; utility has been
 	updated to print the modification time of the file passed as
 	an argument to the <literal>-r</literal> flag, improving
 	compatibility with the <acronym>GNU</acronym> &man.date.1;
 	utility behavior.</para>
+
+      <para revision="284523">A new flag, <literal>-c</literal>, has
+	been added to the &man.mkimg.1; utility, which allows
+	specifying the capacity of the target disk image.</para>
+
+      <para revision="285092">The &man.pw.8; utility has been updated
+	with a new flag, <literal>-R</literal>, that sets the root
+	directory within which the utility will operate.</para>
     </sect2>
 
     <sect2 xml:id="userland-contrib">
@@ -302,7 +311,12 @@
     <sect2 xml:id="userland-abi">
       <title>ABI Compatibility</title>
 
-      <para>&nbsp;</para>
+      <para revision="275807">The &linux; compatibility version has
+	been updated to <literal>2.6.18</literal>.  The
+	<literal>compat.linux.osrelease</literal> &man.sysctl.8; is
+	evaluated when building the <filename
+	  role="package">emulators/linux-c6</filename> and related
+	ports.</para>
     </sect2>
   </sect1>
 
@@ -321,6 +335,11 @@
 
     <sect2 xml:id="kernel-config">
       <title>Kernel Configuration</title>
+
+      <para revision="283076" contrib="sponsor" sponsor="&intelcorp;"
+	arch="amd64,i386">The &man.nvd.4; and &man.nvme.4; drivers are
+	now included in the <filename>GENERIC</filename> kernel
+	configuration by default.</para>
 
       <para revision="284522" contrib="sponsor"
 	sponsor="&limelight;">A new kernel configuration option,
@@ -402,7 +421,24 @@
     <sect2 xml:id="drivers-network">
       <title>Network Drivers</title>
 
-      <para>&nbsp;</para>
+      <para revision="274486">The &man.pfil.9; interface default hash
+	has been changed from <literal>Jenkins</literal> to
+	<literal>Murmur3</literal>, providing a 3-percent performance
+	increase in packets-per-second.</para>
+
+      <para revision="279157">The &man.ral.4; driver has been updated
+	to support the RT5390 and RT5392 chipsets.</para>
+
+      <para revision="284066" contrib="sponsor" sponsor="&yandex;">The
+	&man.gre.4; driver has been significantly overhauled, and has
+	been split into two separate modules, &man.gre.4; and
+	&man.me.4;.</para>
+
+      <para revision="284365">The &man.vxlan.4; driver has been added,
+	which creates a virtual Layer 2 (Ethernet) network overlaid in
+	a Layer 3 (IP/UDP) network.  The &man.vxlan.4; driver is
+	analogous to &man.vlan.4;, but is designed to be better suited
+	for large, multiple-tenant datacenter environments.</para>
     </sect2>
   </sect1>
 
@@ -422,6 +458,15 @@
 
     <sect2 xml:id="hardware-virtualization">
       <title>Virtualization Support</title>
+
+      <para revision="275273">The &man.virtio.console.4; driver has
+	been added, which provides an interface to VirtIO console
+	devices through a &man.tty.4; device.</para>
+
+      <para revision="276403">The &man.bhyve.8; hypervisior has been
+	updated to support &amd; processors with
+	<acronym>SVM</acronym> and <acronym>AMD-V</acronym> hardware
+	extensions.</para>
 
       <para revision="280370">The &man.bhyve.8; hypervisor has been
 	updated to support <literal>DSM TRIM</literal> commands for
@@ -531,6 +576,11 @@
 	limit from <literal>128</literal> to <literal>256</literal>,
 	and <acronym>LUN</acronym> limit from <literal>256</literal>
 	to <literal>1024</literal>.</para>
+
+      <para revision="282861">Support for the
+	<literal>apple-boot</literal>, <literal>apple-hfs</literal>,
+	and <literal>apple-ufs</literal> <acronym>MBR</acronym>
+	partitioning schemes have been added to &man.gpart.8;.</para>
     </sect2>
   </sect1>
 
