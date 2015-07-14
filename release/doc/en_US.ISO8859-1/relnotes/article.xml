@@ -347,10 +347,45 @@
     <sect2 xml:id="kernel-config">
       <title>Kernel Configuration</title>
 
+      <para revision="282065" contrib="sponsor" sponsor="&ff;">The
+	<literal>PAE_TABLES</literal> kernel configuration option has
+	been added for &os;/&arch.i386;, which instructs &man.pmap.9;
+	to use <acronym>PAE</acronym> format for page tables.</para>
+
+      <para revision="282826">The <literal>SIFTR</literal> kernel
+	configuration has been added, allowing building &man.siftr.4;
+	statically into the kernel.</para>
+
       <para revision="283076" contrib="sponsor" sponsor="&intelcorp;"
 	arch="amd64,i386">The &man.nvd.4; and &man.nvme.4; drivers are
 	now included in the <filename>GENERIC</filename> kernel
 	configuration by default.</para>
+
+      <para revision="283505">Support for booting relocatable kernels
+	has been extended to non-<acronym>EFI</acronym>
+	systems.</para>
+
+      <para revision="283505" arch="arm">The &arch.arm; boot loader,
+	<filename>ubldr</filename>, is now relocatable.  In addition,
+	<filename>ubldr.bin</filename> is now created during build
+	time, which is a stripped binary with an entry point of
+	<literal>0</literal>, providing the ability to specify the
+	load address by running <literal>go
+	  &dollar;{loadaddr}</literal> in
+	<literal>u-boot</literal>.</para>
+
+      <para revision="284094" arch="arm">A new module for creating
+	<filename>rpi.dtb</filename> has been added for the Raspberry
+	Pi.</para>
+
+      <para revision="284094" arch="arm">The
+	<filename>rpi.dtb</filename> module is now installed to
+	<filename class="directory">/boot/dtb/</filename> by
+	default for the Raspberry Pi system.</para>
+
+      <para revision="284096" arch="arm">A new module for creating
+	the <filename>dtb</filename> module for AM335x systems has
+	been added.</para>
 
       <para revision="284522" contrib="sponsor"
 	sponsor="&limelight;">A new kernel configuration option,
@@ -455,6 +490,14 @@
 	a Layer 3 (IP/UDP) network.  The &man.vxlan.4; driver is
 	analogous to &man.vlan.4;, but is designed to be better suited
 	for large, multiple-tenant datacenter environments.</para>
+
+      <para revision="284499">The &man.cdce.4; driver has been updated
+	to include support for the RTL8153 chipset.</para>
+
+      <para revision="284555" contrib="sponsor"
+	sponsor="&solarflare;">The &man.sfxge.4; driver has been
+	updated to support Solarflare Flareon Ultra 7000-series
+	chipsets.</para>
     </sect2>
   </sect1>
 
@@ -517,10 +560,31 @@
     <sect2 xml:id="hardware-arm">
       <title>ARM Support</title>
 
+      <para revision="278079" arch="arm">Support to turn off the
+	BeagleBone Black system with the &man.shutdown.8;
+	<literal>-p</literal> flag or by invoking &man.poweroff.8; has
+	been added.</para>
+
+      <para revision="278599" arch="arm">Support for the Exynos 5420
+	Octa system has been added.</para>
+
+      <para revision="278599" arch="arm">The <acronym>SMP</acronym>
+	option has been enabled for all Exynos 5 systems supported by
+	&os;.</para>
+
       <para revision="278608">The <literal>bcm2835_cpufreq</literal>
 	driver has been added, which supports <acronym>CPU</acronym>
 	frequency and voltage control on the Raspberry Pi
 	<acronym>SOC</acronym>.</para>
+
+      <para revision="283500" arch="arm">Support for the Toradex
+	Apalis i.MX6 development board has been added.</para>
+
+      <para revision="283500" arch="arm">Audio transmission drivers
+	have been added for Digital Audio Multiplexer
+	(<acronym>AUDMUXM</acronym>), Smart Direct Memory Access
+	Controller (<acronym>SDMA</acronym>), and Syncronous Serial
+	Interface (<acronym>SSI</acronym>).</para>
     </sect2>
   </sect1>
 
@@ -566,6 +630,11 @@
 	which allows <acronym>iSCSI</acronym> initiators to find
 	targets and portals without requiring active
 	discovery.</para>
+
+      <para revision="275249" contrib="sponsor" sponsor="&ff;">Support
+	for the <literal>timeo</literal>, <literal>actimeo</literal>,
+	<literal>noac</literal>, and <literal>proto</literal> options
+	have been added to &man.mount.nfs.8;.</para>
     </sect2>
 
     <sect2 xml:id="storage-zfs">
@@ -608,6 +677,9 @@
 
     <sect2 xml:id="boot-loader">
       <title>Boot Loader Changes</title>
+
+      <para revision="281323">Support for <literal>bzipfs</literal>
+	has been added to the <acronym>EFI</acronym> loader.</para>
 
       <para revision="281843">The boot loader has been updated to
 	support entering the <acronym>GELI</acronym> passphrase before
