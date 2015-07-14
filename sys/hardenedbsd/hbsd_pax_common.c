@@ -260,7 +260,7 @@ static void
 pax_sysinit(void)
 {
 
-	printf("PAX: initialize and check PaX and HardeneBSD features.\n");
+	printf("PAX: initialize and check PaX and HardenedBSD features.\n");
 }
 SYSINIT(pax, SI_SUB_PAX, SI_ORDER_FIRST, pax_sysinit, NULL);
 
