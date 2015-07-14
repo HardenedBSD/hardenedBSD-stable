@@ -303,6 +303,11 @@
       <para revision="275040">A new file configuration library,
 	&man.figpar.3;, has been added to the base system.</para>
 
+      <para revision="276686" contrib="sponsor" sponsor="&ff;">The
+	&man.procctl.2; system call has been updated to include
+	a facility for non-&man.init.8; processes to be declared as
+	the reaper of child processes and their decendants.</para>
+
       <para revision="280392">The &man.setmode.3; function has been
 	updated to consistently set <literal>errno</literal> on
 	failure.</para>
@@ -330,7 +335,13 @@
     <sect2 xml:id="kernel-bugfix">
       <title>Kernel Bug Fixes</title>
 
-      <para>&nbsp;</para>
+      <para revision="276068">A kernel panic triggered when destroying
+	a &man.vnet.9; &man.jail.8; configured with &man.gif.4; has
+	been fixed.</para>
+
+      <para revision="284018">A kernel panic triggered when destroying
+	a &man.vnet.9; &man.jail.8; configured with &man.gre.4; has
+	been fixed.</para>
     </sect2>
 
     <sect2 xml:id="kernel-config">
@@ -409,6 +420,11 @@
 
       <para revision="282199">The <literal>drm</literal> code has
 	been updated to match &linux; version 3.8.13.</para>
+
+      <para revision="281708">The &man.psm.4; driver has been updated
+	to include improved support for newer Synaptics&nbsp;&reg;
+	touchpads and the ClickPad&nbsp;&reg; mouse on newer
+	Lenovo&nbsp;&trade; laptops.</para>
     </sect2>
 
     <sect2 xml:id="drivers-storage">
