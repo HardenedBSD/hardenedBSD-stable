@@ -152,6 +152,13 @@ static struct selinfo rsel;
 static int
 randomdev_read(struct cdev *dev __unused, struct uio *uio, int flags)
 {
+
+	return (read_random_uio(uio, (flags & O_NONBLOCK) != 0));
+}
+
+int
+read_random_uio(struct uio *uio, bool nonblock)
+{
 	uint8_t *random_buf;
 	int error;
 	ssize_t read_len, total_read, c;
@@ -161,7 +168,7 @@ randomdev_read(struct cdev *dev __unused, struct uio *uio, int flags)
 	/* (Un)Blocking logic */
 	error = 0;
 	while (!random_alg_context.ra_seeded()) {
-		if (flags & O_NONBLOCK)	{
+		if (nonblock) {
 			error = EWOULDBLOCK;
 			break;
 		}

@@ -773,6 +773,15 @@
 	  system.</para>
       </important>
 
+      <para revision="278338" arch="arm">A new module for creating
+	<filename>rpi.dtb</filename> has been added for the Raspberry
+	Pi.</para>
+
+      <para revision="278340" arch="arm">The
+	<filename>rpi.dtb</filename> module is now installed to
+	<filename class="directory">/boot/dtb/</filename> by
+	default for the Raspberry Pi system.</para>
+
       <para revision="279189" contrib="sponsor" sponsor="&ff;"
 	arch="powerpc">Kernel support for Vector-Scalar eXtension
 	(<acronym>VSX</acronym>) found on POWER7 and POWER8 hardware
@@ -782,6 +791,32 @@
 	arch="powerpc">The &man.pmap.9; implementation for 64-bit
 	&powerpc; processors has been overhaulded to improve
 	concurrency.</para>
+
+      <para revision="279824" arch="arm">A new module for creating
+	the <filename>dtb</filename> module for AM335x systems has
+	been added.</para>
+
+      <para revision="281495" contrib="sponsor" sponsor="&ff;">The
+	<literal>PAE_TABLES</literal> kernel configuration option has
+	been added for &os;/&arch.i386;, which instructs &man.pmap.9;
+	to use <acronym>PAE</acronym> format for page tables.</para>
+
+      <para revision="282215">The <literal>SIFTR</literal> kernel
+	configuration has been added, allowing building &man.siftr.4;
+	statically into the kernel.</para>
+
+      <para revision="282727">Support for booting relocatable kernels
+	has been extended to non-<acronym>EFI</acronym>
+	systems.</para>
+
+      <para revision="282731" arch="arm">The &arch.arm; boot loader,
+	<filename>ubldr</filename>, is now relocatable.  In addition,
+	<filename>ubldr.bin</filename> is now created during build
+	time, which is a stripped binary with an entry point of
+	<literal>0</literal>, providing the ability to specify the
+	load address by running <literal>go
+	  &dollar;{loadaddr}</literal> in
+	<literal>u-boot</literal>.</para>
 
       <para revision="282921" contrib="sponsor" sponsor="&intelcorp;"
 	arch="amd64,i386">The &man.nvd.4; and &man.nvme.4; drivers are
@@ -998,9 +1033,17 @@
       <para revision="278551">The &man.ral.4; driver has been updated
 	to support the RT5390 and RT5392 chipsets.</para>
 
+      <para revision="283514" contrib="sponsor"
+	sponsor="&solarflare;">The &man.sfxge.4; driver has been
+	updated to support Solarflare Flareon Ultra 7000-series
+	chipsets.</para>
+
       <para revision="283766" contrib="sponsor"
 	sponsor="&limelight;">The &man.em.4; driver has been updated
 	with improved transmission queue hang detection.</para>
+
+      <para revision="284125">The &man.cdce.4; driver has been updated
+	to include support for the RTL8153 chipset.</para>
     </sect2>
   </sect1>
 
@@ -1147,6 +1190,16 @@
       <para revision="260921">The &man.nand.4; device is enabled for
 	ARM devices by default.</para>
 
+      <para revision="266943" arch="arm">Support for the Exynos 5420
+	Octa system has been added.</para>
+
+      <para revision="267390" arch="arm">The <acronym>SMP</acronym>
+	option has been enabled for all Exynos 5 systems supported by
+	&os;.</para>
+
+      <para revision="268838" arch="arm">Support for the Toradex
+	Apalis i.MX6 development board has been added.</para>
+
       <para revision="273264" arch="armv6">An issue that could cause
 	instability when detecting <acronym>SD</acronym> cards on the
 	Raspberry Pi <acronym>SOC</acronym> has been fixed.</para>
@@ -1155,6 +1208,17 @@
 	driver has been added, which supports <acronym>CPU</acronym>
 	frequency and voltage control on the Raspberry Pi
 	<acronym>SOC</acronym>.</para>
+
+      <para revision="277042" arch="arm">Support to turn off the
+	BeagleBone Black system with the &man.shutdown.8;
+	<literal>-p</literal> flag or by invoking &man.poweroff.8; has
+	been added.</para>
+
+      <para revision="277644" arch="arm">Audio transmission drivers
+	have been added for Digital Audio Multiplexer
+	(<acronym>AUDMUXM</acronym>), Smart Direct Memory Access
+	Controller (<acronym>SDMA</acronym>), and Syncronous Serial
+	Interface (<acronym>SSI</acronym>).</para>
 
       <para revision="280259" contrib="sponsor" sponsor="&ff;">Initial
 	support for the ARM AArch64 architecture has been
@@ -1217,6 +1281,11 @@
 	is administered with the &man.automount.8; userland utility,
 	and the &man.automountd.8; and &man.autounmountd.8;
 	daemons.</para>
+
+      <para revision="273849" contrib="sponsor" sponsor="&ff;">Support
+	for the <literal>timeo</literal>, <literal>actimeo</literal>,
+	<literal>noac</literal>, and <literal>proto</literal> options
+	have been added to &man.mount.nfs.8;.</para>
     </sect2>
 
     <sect2 xml:id="storage-zfs">
@@ -1270,6 +1339,9 @@
 	Alternatively, &man.syscons.4; can be enabled at boot time by
 	entering <literal>set kern.vty=sc</literal> at the
 	&man.loader.8; prompt.</para>
+
+      <para revision="279950">Support for <literal>bzipfs</literal>
+	has been added to the <acronym>EFI</acronym> loader.</para>
 
       <para revision="281616">The boot loader has been updated to
 	support entering the <acronym>GELI</acronym> passphrase before
