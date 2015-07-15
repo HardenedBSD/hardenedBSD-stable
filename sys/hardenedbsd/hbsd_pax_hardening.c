@@ -149,7 +149,7 @@ pax_hardening_sysinit(void)
 	default:
 		pax_init_hardening_global = PAX_FEATURE_SIMPLE_ENABLED;
 	}
-	printf("[PAX HARDENING] unset unsecure init variables: %s\n",
+	printf("[PAX HARDENING] unset insecure init variables: %s\n",
 	    pax_status_simple_str[pax_init_hardening_global]);
 }
 SYSINIT(pax_hardening, SI_SUB_PAX, SI_ORDER_SECOND, pax_hardening_sysinit, NULL);
