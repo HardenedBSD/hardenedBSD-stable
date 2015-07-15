@@ -1,3 +1,9 @@
+[20150715] Fixed vdso randomization
+__HardenedBSD_version = 28
+
+	Fixed and simplified vdso and stack mapping.
+
+
 [20150706] Added shared-page (vdso) randomization
 __HardenedBSD_version = 27
 
