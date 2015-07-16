@@ -1,6 +1,5 @@
 /*-
- * Copyright (c) 2005 Antoine Brodin
- * All rights reserved.
+ * Copyright (c) 2015 Nuxi, https://nuxi.nl/
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -22,66 +21,16 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
+ * $FreeBSD$
  */
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
+#ifndef _CLOUDABI_UTIL_H_
+#define	_CLOUDABI_UTIL_H_
 
-#include <sys/param.h>
-#include <sys/systm.h>
-#include <sys/proc.h>
-#include <sys/stack.h>
+#include <compat/cloudabi/cloudabi_syscalldefs.h>
 
-#include <machine/pcb.h>
-#include <machine/stack.h>
+/* Converts a FreeBSD errno to a CloudABI errno. */
+cloudabi_errno_t cloudabi_convert_errno(int);
 
-#include <vm/vm.h>
-#include <vm/vm_param.h>
-#include <vm/pmap.h>
-
-static void
-stack_capture(struct thread *td, struct stack *st, register_t rbp)
-{
-	struct amd64_frame *frame;
-	vm_offset_t callpc;
-
-	stack_zero(st);
-	frame = (struct amd64_frame *)rbp;
-	while (1) {
-		if (!INKERNEL((long)frame))
-			break;
-		callpc = frame->f_retaddr;
-		if (!INKERNEL(callpc))
-			break;
-		if (stack_put(st, callpc) == -1)
-			break;
-		if (frame->f_frame <= frame ||
-		    (vm_offset_t)frame->f_frame >= td->td_kstack +
-		    td->td_kstack_pages * PAGE_SIZE)
-			break;
-		frame = frame->f_frame;
-	}
-}
-
-void
-stack_save_td(struct stack *st, struct thread *td)
-{
-	register_t rbp;
-
-	if (TD_IS_SWAPPED(td))
-		panic("stack_save_td: swapped");
-	if (TD_IS_RUNNING(td))
-		panic("stack_save_td: running");
-
-	rbp = td->td_pcb->pcb_rbp;
-	stack_capture(td, st, rbp);
-}
-
-void
-stack_save(struct stack *st)
-{
-	register_t rbp;
-
-	__asm __volatile("movq %%rbp,%0" : "=r" (rbp));
-	stack_capture(curthread, st, rbp);
-}
+#endif
