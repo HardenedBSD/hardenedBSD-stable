@@ -587,15 +587,12 @@ struct proc {
 	pid_t		p_reapsubtree;	/* (e) Pid of the direct child of the
 					       reaper which spawned
 					       our subtree. */
-<<<<<<< HEAD
 	vm_offset_t	p_usrstack;	/* (b) Process stack top. */
 	vm_offset_t	p_psstrings;	/* (b) Process psstrings address. */
 	vm_offset_t	p_shared_page_base;	/* (c) Address of shared page. */
 	vm_offset_t	p_sigcode_base;	/* (c) Address of sigcode. */
-=======
 	u_int		p_xexit;	/* (c) Exit code. */
 	u_int		p_xsig;		/* (c) Stop/kill sig. */
->>>>>>> origin/master
 /* End area that is copied on creation. */
 #define	p_endcopy	p_xsig
 	struct knlist	p_klist;	/* (c) Knotes attached to this proc. */
