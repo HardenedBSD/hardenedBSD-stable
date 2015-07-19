@@ -587,14 +587,17 @@ struct proc {
 	pid_t		p_reapsubtree;	/* (e) Pid of the direct child of the
 					       reaper which spawned
 					       our subtree. */
+<<<<<<< HEAD
 	vm_offset_t	p_usrstack;	/* (b) Process stack top. */
 	vm_offset_t	p_psstrings;	/* (b) Process psstrings address. */
 	vm_offset_t	p_shared_page_base;	/* (c) Address of shared page. */
 	vm_offset_t	p_sigcode_base;	/* (c) Address of sigcode. */
+=======
+	u_int		p_xexit;	/* (c) Exit code. */
+	u_int		p_xsig;		/* (c) Stop/kill sig. */
+>>>>>>> origin/master
 /* End area that is copied on creation. */
-#define	p_endcopy	p_xstat
-
-	u_short		p_xstat;	/* (c) Exit status; also stop sig. */
+#define	p_endcopy	p_xsig
 	struct knlist	p_klist;	/* (c) Knotes attached to this proc. */
 	int		p_numthreads;	/* (c) Number of threads. */
 	struct mdproc	p_md;		/* Any machine-dependent fields. */
@@ -976,7 +979,7 @@ void	unsleep(struct thread *);
 void	userret(struct thread *, struct trapframe *);
 
 void	cpu_exit(struct thread *);
-void	exit1(struct thread *, int) __dead2;
+void	exit1(struct thread *, int, int) __dead2;
 struct syscall_args;
 int	cpu_fetch_syscall_args(struct thread *td, struct syscall_args *sa);
 void	cpu_fork(struct thread *, struct proc *, struct thread *, int);
