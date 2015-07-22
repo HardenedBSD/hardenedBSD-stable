@@ -71,6 +71,8 @@ SUBDIR=	\
 	${_ce} \
 	${_cfi} \
 	${_ciss} \
+	cloudabi \
+	${_cloudabi64} \
 	${_cm} \
 	${_cmx} \
 	${_coretemp} \
@@ -610,6 +612,7 @@ _x86bios=	x86bios
 .endif
 
 .if ${MACHINE_CPUARCH} == "amd64"
+_cloudabi64=	cloudabi64
 _ixl=		ixl
 _ixlv=		ixlv
 _linux64=	linux64
