@@ -107,6 +107,7 @@ MAN=	aac.4 \
 	cxgb.4 \
 	cxgbe.4 \
 	cy.4 \
+	cyapa.4 \
 	da.4 \
 	dc.4 \
 	dcons.4 \
@@ -215,6 +216,7 @@ MAN=	aac.4 \
 	ipw.4 \
 	ipwfw.4 \
 	isci.4 \
+	isl.4 \
 	ismt.4 \
 	isp.4 \
 	ispfw.4 \
