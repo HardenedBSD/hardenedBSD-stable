@@ -71,8 +71,8 @@ ttymsg(struct iovec *iov, int iovcnt, const char *line, int tmout)
 	if (iovcnt > (int)(sizeof(localiov) / sizeof(localiov[0])))
 		return ("too many iov's (change code in wall/ttymsg.c)");
 
+	strlcat(device, line, sizeof(device));
 	p = device + sizeof(_PATH_DEV) - 1;
-	strlcpy(p, line, sizeof(device));
 	if (strncmp(p, "pts/", 4) == 0)
 		p += 4;
 	if (strchr(p, '/') != NULL) {
