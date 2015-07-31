@@ -1,9 +1,6 @@
 /*-
- * Copyright (c) 2015 The FreeBSD Foundation
+ * Copyright (c) 2003 Alan L. Cox <alc@cs.rice.edu>
  * All rights reserved.
- *
- * This software was developed by Andrew Turner under
- * sponsorship from the FreeBSD Foundation.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,64 +22,60 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
  */
 
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
 #include <sys/param.h>
+#include <sys/lock.h>
+#include <sys/malloc.h>
+#include <sys/mutex.h>
 #include <sys/systm.h>
-#include <sys/proc.h>
-#include <sys/stack.h>
-
+#include <vm/vm.h>
+#include <vm/vm_page.h>
+#include <vm/vm_pageout.h>
+#include <vm/uma.h>
+#include <vm/uma_int.h>
+#include <machine/md_var.h>
 #include <machine/vmparam.h>
-#include <machine/pcb.h>
-#include <machine/stack.h>
 
-static void
-stack_capture(struct stack *st, struct unwind_state *frame)
+void *
+uma_small_alloc(uma_zone_t zone, vm_size_t bytes, u_int8_t *flags, int wait)
 {
+	vm_page_t m;
+	vm_paddr_t pa;
+	void *va;
+	int pflags;
 
-	stack_zero(st);
-	while (1) {
-		unwind_frame(frame);
-		if (!INKERNEL((vm_offset_t)frame->fp) ||
-		     !INKERNEL((vm_offset_t)frame->pc))
-			break;
-		if (stack_put(st, frame->pc) == -1)
+	*flags = UMA_SLAB_PRIV;
+	pflags = malloc2vm_flags(wait) | VM_ALLOC_NOOBJ | VM_ALLOC_WIRED;
+	for (;;) {
+		m = vm_page_alloc(NULL, 0, pflags);
+		if (m == NULL) {
+			if (wait & M_NOWAIT)
+				return (NULL);
+			else
+				VM_WAIT;
+		} else
 			break;
 	}
+	pa = m->phys_addr;
+	va = (void *)PHYS_TO_DMAP(pa);
+	if ((wait & M_ZERO) && (m->flags & PG_ZERO) == 0)
+		bzero(va, PAGE_SIZE);
+	return (va);
 }
 
 void
-stack_save_td(struct stack *st, struct thread *td)
+uma_small_free(void *mem, vm_size_t size, u_int8_t flags)
 {
-	struct unwind_state frame;
+	vm_page_t m;
+	vm_paddr_t pa;
 
-	if (TD_IS_SWAPPED(td))
-		panic("stack_save_td: swapped");
-	if (TD_IS_RUNNING(td))
-		panic("stack_save_td: running");
-
-	frame.sp = td->td_pcb->pcb_sp;
-	frame.fp = td->td_pcb->pcb_x[29];
-	frame.pc = td->td_pcb->pcb_x[30];
-
-	stack_capture(st, &frame);
-}
-
-void
-stack_save(struct stack *st)
-{
-	struct unwind_state frame;
-	uint64_t sp;
-
-	__asm __volatile("mov %0, sp" : "=&r" (sp));
-
-	frame.sp = sp;
-	frame.fp = (uint64_t)__builtin_frame_address(0);
-	frame.pc = (uint64_t)stack_save;
-
-	stack_capture(st, &frame);
+	pa = DMAP_TO_PHYS((vm_offset_t)mem);
+	m = PHYS_TO_VM_PAGE(pa);
+	m->wire_count--;
+	vm_page_free(m);
+	atomic_subtract_int(&vm_cnt.v_wire_count, 1);
 }
