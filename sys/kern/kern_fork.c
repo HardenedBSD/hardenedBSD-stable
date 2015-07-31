@@ -106,7 +106,7 @@ sys_fork(struct thread *td, struct fork_args *uap)
 	int error;
 	struct proc *p2;
 
-	error = fork1(td, RFFDG | RFPROC, 0, &p2, NULL, 0);
+	error = fork1(td, RFFDG | RFPROC, 0, &p2, NULL, 0, NULL);
 	if (error == 0) {
 		td->td_retval[0] = p2->p_pid;
 		td->td_retval[1] = 0;
@@ -129,7 +129,7 @@ sys_pdfork(td, uap)
 	 * itself from the parent using the return value.
 	 */
 	error = fork1(td, RFFDG | RFPROC | RFPROCDESC, 0, &p2,
-	    &fd, uap->flags);
+	    &fd, uap->flags, NULL);
 	if (error == 0) {
 		td->td_retval[0] = p2->p_pid;
 		td->td_retval[1] = 0;
@@ -146,7 +146,7 @@ sys_vfork(struct thread *td, struct vfork_args *uap)
 	struct proc *p2;
 
 	flags = RFFDG | RFPROC | RFPPWAIT | RFMEM;
-	error = fork1(td, flags, 0, &p2, NULL, 0);
+	error = fork1(td, flags, 0, &p2, NULL, 0, NULL);
 	if (error == 0) {
 		td->td_retval[0] = p2->p_pid;
 		td->td_retval[1] = 0;
@@ -165,7 +165,7 @@ sys_rfork(struct thread *td, struct rfork_args *uap)
 		return (EINVAL);
 
 	AUDIT_ARG_FFLAGS(uap->flags);
-	error = fork1(td, uap->flags, 0, &p2, NULL, 0);
+	error = fork1(td, uap->flags, 0, &p2, NULL, 0, NULL);
 	if (error == 0) {
 		td->td_retval[0] = p2 ? p2->p_pid : 0;
 		td->td_retval[1] = 0;
@@ -776,7 +776,7 @@ do_fork(struct thread *td, int flags, struct proc *p2, struct thread *td2,
 
 int
 fork1(struct thread *td, int flags, int pages, struct proc **procp,
-    int *procdescp, int pdflags)
+    int *procdescp, int pdflags, struct filecaps *fcaps)
 {
 	struct proc *p1;
 	struct proc *newproc;
@@ -841,7 +841,7 @@ fork1(struct thread *td, int flags, int pages, struct proc **procp,
 	 * later.
 	 */
 	if (flags & RFPROCDESC) {
-		error = falloc(td, &fp_procdesc, procdescp, 0);
+		error = falloc_caps(td, &fp_procdesc, procdescp, 0, fcaps);
 		if (error != 0)
 			return (error);
 	}
