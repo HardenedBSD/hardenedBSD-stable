@@ -62,7 +62,7 @@ ttymsg(struct iovec *iov, int iovcnt, const char *line, int tmout)
 	struct iovec localiov[7];
 	ssize_t left, wret;
 	int cnt, fd;
-	static char device[MAXNAMLEN] = _PATH_DEV;
+	char device[MAXNAMLEN] = _PATH_DEV;
 	static char errbuf[1024];
 	char *p;
 	int forked;
