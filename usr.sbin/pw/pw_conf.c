@@ -228,6 +228,7 @@ read_userconfig(char const * file)
 {
 	FILE	*fp;
 	char	*buf, *p;
+	const char *errstr;
 	size_t	linecap;
 	ssize_t	linelen;
 
@@ -323,28 +324,58 @@ read_userconfig(char const * file)
 					? NULL : newstr(q);
 				break;
 			case _UC_MINUID:
-				if ((q = unquote(q)) != NULL && isdigit(*q))
-					config.min_uid = (uid_t) atol(q);
+				if ((q = unquote(q)) != NULL) {
+					config.min_uid = strtounum(q, 0,
+					    UID_MAX, &errstr);
+					if (errstr)
+						warnx("Invalid min_uid: '%s';"
+						    " ignoring", q);
+				}
 				break;
 			case _UC_MAXUID:
-				if ((q = unquote(q)) != NULL && isdigit(*q))
-					config.max_uid = (uid_t) atol(q);
+				if ((q = unquote(q)) != NULL) {
+					config.max_uid = strtounum(q, 0,
+					    UID_MAX, &errstr);
+					if (errstr)
+						warnx("Invalid max_uid: '%s';"
+						    " ignoring", q);
+				}
 				break;
 			case _UC_MINGID:
-				if ((q = unquote(q)) != NULL && isdigit(*q))
-					config.min_gid = (gid_t) atol(q);
+				if ((q = unquote(q)) != NULL) {
+					config.min_gid = strtounum(q, 0,
+					    GID_MAX, &errstr);
+					if (errstr)
+						warnx("Invalid min_gid: '%s';"
+						    " ignoring", q);
+				}
 				break;
 			case _UC_MAXGID:
-				if ((q = unquote(q)) != NULL && isdigit(*q))
-					config.max_gid = (gid_t) atol(q);
+				if ((q = unquote(q)) != NULL) {
+					config.max_gid = strtounum(q, 0,
+					    GID_MAX, &errstr);
+					if (errstr)
+						warnx("Invalid max_gid: '%s';"
+						    " ignoring", q);
+				}
 				break;
 			case _UC_EXPIRE:
-				if ((q = unquote(q)) != NULL && isdigit(*q))
-					config.expire_days = atoi(q);
+				if ((q = unquote(q)) != NULL) {
+					config.expire_days = strtonum(q, 0,
+					    INT_MAX, &errstr);
+					if (errstr)
+						warnx("Invalid expire days:"
+						    " '%s'; ignoring", q);
+				}
 				break;
 			case _UC_PASSWORD:
-				if ((q = unquote(q)) != NULL && isdigit(*q))
-					config.password_days = atoi(q);
+				if ((q = unquote(q)) != NULL) {
+					config.password_days = strtonum(q, 0,
+					    INT_MAX, &errstr);
+					if (errstr)
+						warnx("Invalid password days:"
+						    " '%s'; ignoring", q);
+				}
 				break;
 			case _UC_FIELDS:
 			case _UC_NONE:
