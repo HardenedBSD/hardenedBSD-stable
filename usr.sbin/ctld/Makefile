@@ -10,14 +10,10 @@ CFLAGS+=	-I${.CURDIR}/../../sys/dev/iscsi
 #CFLAGS+=	-DICL_KERNEL_PROXY
 MAN=		ctld.8 ctl.conf.5
 
-<<<<<<< HEAD
-DPADD=		${LIBBSDXML} ${LIBCRYPTO} ${LIBL} ${LIBSBUF} ${LIBUTIL}
-LDADD=		-lbsdxml -lcrypto -ll -lsbuf -lutil
 WANTS_PIE=	yes
-=======
+
 DPADD=		${LIBBSDXML} ${LIBL} ${LIBMD} ${LIBSBUF} ${LIBUTIL}
 LDADD=		-lbsdxml -ll -lmd -lsbuf -lutil
->>>>>>> origin/stable/10
 
 YFLAGS+=	-v
 CLEANFILES=	y.tab.c y.tab.h y.output
