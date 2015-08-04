@@ -291,7 +291,6 @@ __DEFAULT_YES_OPTIONS = \
     FORMAT_EXTENSIONS \
     FORTH \
     FP_LIBC \
-    FREEBSD_UPDATE \
     FTP \
     GAMES \
     GCOV \
@@ -393,6 +392,7 @@ __DEFAULT_NO_OPTIONS = \
     CLANG_EXTRAS \
     CTF \
     DEBUG_FILES \
+    FREEBSD_UPDATE \
     HESIOD \
     INSTALL_AS_USER \
     LLDB \
