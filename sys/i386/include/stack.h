@@ -32,11 +32,6 @@
 /*
  * Stack trace.
  */
-<<<<<<< HEAD
-#define INKERNEL(va)	(((vm_offset_t)(va)) >= VM_MAXUSER_ADDRESS && \
-	    ((vm_offset_t)(va)) < VM_MAX_KERNEL_ADDRESS)
-=======
->>>>>>> origin/stable/10
 
 struct i386_frame {
 	struct i386_frame	*f_frame;

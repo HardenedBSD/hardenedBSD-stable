@@ -3689,11 +3689,7 @@ Retry:
 	}
 
 	is_procstack = (addr >= (vm_offset_t)vm->vm_maxsaddr &&
-<<<<<<< HEAD
 	    addr < (vm_offset_t)p->p_usrstack) ? 1 : 0;
-=======
-	    addr < (vm_offset_t)p->p_sysent->sv_usrstack) ? 1 : 0;
->>>>>>> origin/stable/10
 
 	/*
 	 * If this is the main process stack, see if we're over the stack
