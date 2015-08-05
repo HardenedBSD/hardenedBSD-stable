@@ -31,6 +31,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/filedesc.h>
 #include <sys/imgact.h>
 #include <sys/lock.h>
+#include <sys/module.h>
 #include <sys/mutex.h>
 #include <sys/proc.h>
 #include <sys/signalvar.h>
@@ -133,3 +134,5 @@ cloudabi_sys_proc_raise(struct thread *td,
 	PROC_UNLOCK(p);
 	return (0);
 }
+
+MODULE_VERSION(cloudabi, 1);
