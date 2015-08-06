@@ -93,7 +93,7 @@ static const char rcsid[] =
  */
 static struct syscall syscalls[] = {
 	{ .name = "fcntl", .ret_type = 1, .nargs = 3,
-	  .args = { { Int, 0 }, { Fcntl, 1 }, { Fcntlflag | OUT, 2 } } },
+	  .args = { { Int, 0 }, { Fcntl, 1 }, { Fcntlflag, 2 } } },
 	{ .name = "fork", .ret_type = 1, .nargs = 0 },
 	{ .name = "vfork", .ret_type = 1, .nargs = 0 },
 	{ .name = "rfork", .ret_type = 1, .nargs = 1,
@@ -101,9 +101,9 @@ static struct syscall syscalls[] = {
 	{ .name = "getegid", .ret_type = 1, .nargs = 0 },
 	{ .name = "geteuid", .ret_type = 1, .nargs = 0 },
 	{ .name = "linux_readlink", .ret_type = 1, .nargs = 3,
-	  .args = { { Name, 0 }, { Name | OUT, 1 }, { Int, 2 }}},
+	  .args = { { Name, 0 }, { Name | OUT, 1 }, { Int, 2 } } },
 	{ .name = "linux_socketcall", .ret_type = 1, .nargs = 2,
-	  .args = { { Int, 0 }, { LinuxSockArgs, 1 }}},
+	  .args = { { Int, 0 }, { LinuxSockArgs, 1 } } },
 	{ .name = "getgid", .ret_type = 1, .nargs = 0 },
 	{ .name = "getpid", .ret_type = 1, .nargs = 0 },
 	{ .name = "getpgid", .ret_type = 1, .nargs = 1,
@@ -115,46 +115,83 @@ static struct syscall syscalls[] = {
 	{ .name = "getuid", .ret_type = 1, .nargs = 0 },
 	{ .name = "readlink", .ret_type = 1, .nargs = 3,
 	  .args = { { Name, 0 }, { Readlinkres | OUT, 1 }, { Int, 2 } } },
+	{ .name = "readlinkat", .ret_type = 1, .nargs = 4,
+	  .args = { { Atfd, 0 }, { Name, 1 }, { Readlinkres | OUT, 2 },
+		    { Int, 3 } } },
 	{ .name = "lseek", .ret_type = 2, .nargs = 3,
-	  .args = { { Int, 0 }, { Quad, 1 + QUAD_ALIGN }, { Whence, 1 + QUAD_SLOTS + QUAD_ALIGN } } },
+	  .args = { { Int, 0 }, { Quad, 1 + QUAD_ALIGN },
+		    { Whence, 1 + QUAD_SLOTS + QUAD_ALIGN } } },
 	{ .name = "linux_lseek", .ret_type = 2, .nargs = 3,
 	  .args = { { Int, 0 }, { Int, 1 }, { Whence, 2 } } },
 	{ .name = "mmap", .ret_type = 2, .nargs = 6,
-	  .args = { { Ptr, 0 }, { Int, 1 }, { Mprot, 2 }, { Mmapflags, 3 }, { Int, 4 }, { Quad, 5 + QUAD_ALIGN } } },
+	  .args = { { Ptr, 0 }, { Int, 1 }, { Mprot, 2 }, { Mmapflags, 3 },
+		    { Int, 4 }, { Quad, 5 + QUAD_ALIGN } } },
 	{ .name = "linux_mkdir", .ret_type = 1, .nargs = 2,
-	  .args = { { Name | IN, 0}, {Int, 1}}},
+	  .args = { { Name | IN, 0 }, { Int, 1 } } },
 	{ .name = "mprotect", .ret_type = 1, .nargs = 3,
 	  .args = { { Ptr, 0 }, { Int, 1 }, { Mprot, 2 } } },
 	{ .name = "open", .ret_type = 1, .nargs = 3,
 	  .args = { { Name | IN, 0 }, { Open, 1 }, { Octal, 2 } } },
+	{ .name = "openat", .ret_type = 1, .nargs = 4,
+	  .args = { { Atfd, 0 }, { Name | IN, 1 }, { Open, 2 },
+		    { Octal, 3 } } },
 	{ .name = "mkdir", .ret_type = 1, .nargs = 2,
 	  .args = { { Name, 0 }, { Octal, 1 } } },
+	{ .name = "mkdirat", .ret_type = 1, .nargs = 3,
+	  .args = { { Atfd, 0 }, { Name, 1 }, { Octal, 2 } } },
 	{ .name = "linux_open", .ret_type = 1, .nargs = 3,
 	  .args = { { Name, 0 }, { Hex, 1 }, { Octal, 2 } } },
 	{ .name = "close", .ret_type = 1, .nargs = 1,
 	  .args = { { Int, 0 } } },
 	{ .name = "link", .ret_type = 0, .nargs = 2,
 	  .args = { { Name, 0 }, { Name, 1 } } },
+	{ .name = "linkat", .ret_type = 0, .nargs = 5,
+	  .args = { { Atfd, 0 }, { Name, 1 }, { Atfd, 2 }, { Name, 3 },
+		    { Atflags, 4 } } },
 	{ .name = "unlink", .ret_type = 0, .nargs = 1,
 	  .args = { { Name, 0 } } },
+	{ .name = "unlinkat", .ret_type = 0, .nargs = 3,
+	  .args = { { Atfd, 0 }, { Name, 1 }, { Atflags, 2 } } },
 	{ .name = "chdir", .ret_type = 0, .nargs = 1,
 	  .args = { { Name, 0 } } },
 	{ .name = "chroot", .ret_type = 0, .nargs = 1,
 	  .args = { { Name, 0 } } },
+	{ .name = "mkfifo", .ret_type = 0, .nargs = 2,
+	  .args = { { Name, 0 }, { Octal, 1 } } },
+	{ .name = "mkfifoat", .ret_type = 0, .nargs = 3,
+	  .args = { { Atfd, 0 }, { Name, 1 }, { Octal, 2 } } },
 	{ .name = "mknod", .ret_type = 0, .nargs = 3,
-	  .args = { { Name, 0 }, { Octal, 1 }, { Int, 3 } } },
+	  .args = { { Name, 0 }, { Octal, 1 }, { Int, 2 } } },
+	{ .name = "mknodat", .ret_type = 0, .nargs = 4,
+	  .args = { { Atfd, 0 }, { Name, 1 }, { Octal, 2 }, { Int, 3 } } },
 	{ .name = "chmod", .ret_type = 0, .nargs = 2,
 	  .args = { { Name, 0 }, { Octal, 1 } } },
+	{ .name = "fchmod", .ret_type = 0, .nargs = 2,
+	  .args = { { Int, 0 }, { Octal, 1 } } },
+	{ .name = "lchmod", .ret_type = 0, .nargs = 2,
+	  .args = { { Name, 0 }, { Octal, 1 } } },
+	{ .name = "fchmodat", .ret_type = 0, .nargs = 4,
+	  .args = { { Atfd, 0 }, { Name, 1 }, { Octal, 2 }, { Atflags, 3 } } },
 	{ .name = "chown", .ret_type = 0, .nargs = 3,
 	  .args = { { Name, 0 }, { Int, 1 }, { Int, 2 } } },
+	{ .name = "fchown", .ret_type = 0, .nargs = 3,
+	  .args = { { Int, 0 }, { Int, 1 }, { Int, 2 } } },
+	{ .name = "lchown", .ret_type = 0, .nargs = 3,
+	  .args = { { Name, 0 }, { Int, 1 }, { Int, 2 } } },
+	{ .name = "fchownat", .ret_type = 0, .nargs = 5,
+	  .args = { { Atfd, 0 }, { Name, 1 }, { Int, 2 }, { Int, 3 },
+		    { Atflags, 4 } } },
 	{ .name = "linux_stat64", .ret_type = 1, .nargs = 3,
-	  .args = { { Name | IN, 0 }, { Ptr | OUT, 1 }, { Ptr | IN, 1 }}},
+	  .args = { { Name | IN, 0 }, { Ptr | OUT, 1 }, { Ptr | IN, 1 } } },
 	{ .name = "mount", .ret_type = 0, .nargs = 4,
 	  .args = { { Name, 0 }, { Name, 1 }, { Int, 2 }, { Ptr, 3 } } },
 	{ .name = "umount", .ret_type = 0, .nargs = 2,
 	  .args = { { Name, 0 }, { Int, 2 } } },
 	{ .name = "fstat", .ret_type = 1, .nargs = 2,
 	  .args = { { Int, 0 }, { Stat | OUT, 1 } } },
+	{ .name = "fstatat", .ret_type = 1, .nargs = 4,
+	  .args = { { Atfd, 0 }, { Name | IN, 1 }, { Stat | OUT, 2 },
+		    { Atflags, 3 } } },
 	{ .name = "stat", .ret_type = 1, .nargs = 2,
 	  .args = { { Name | IN, 0 }, { Stat | OUT, 1 } } },
 	{ .name = "lstat", .ret_type = 1, .nargs = 2,
@@ -162,7 +199,7 @@ static struct syscall syscalls[] = {
 	{ .name = "linux_newstat", .ret_type = 1, .nargs = 2,
 	  .args = { { Name | IN, 0 }, { Ptr | OUT, 1 } } },
 	{ .name = "linux_access", .ret_type = 1, .nargs = 2,
-	  .args = { { Name, 0 }, { Int, 1 }}},
+	  .args = { { Name, 0 }, { Accessmode, 1 } } },
 	{ .name = "linux_newfstat", .ret_type = 1, .nargs = 2,
 	  .args = { { Int, 0 }, { Ptr | OUT, 1 } } },
 	{ .name = "write", .ret_type = 1, .nargs = 3,
@@ -174,27 +211,43 @@ static struct syscall syscalls[] = {
 	{ .name = "exit", .ret_type = 0, .nargs = 1,
 	  .args = { { Hex, 0 } } },
 	{ .name = "access", .ret_type = 1, .nargs = 2,
-	  .args = { { Name | IN, 0 }, { Int, 1 } } },
+	  .args = { { Name | IN, 0 }, { Accessmode, 1 } } },
+	{ .name = "eaccess", .ret_type = 1, .nargs = 2,
+	  .args = { { Name | IN, 0 }, { Accessmode, 1 } } },
+	{ .name = "faccessat", .ret_type = 1, .nargs = 4,
+	  .args = { { Atfd, 0 }, { Name | IN, 1 }, { Accessmode, 2 },
+		    { Atflags, 3 } } },
 	{ .name = "sigaction", .ret_type = 1, .nargs = 3,
-	  .args = { { Signal, 0 }, { Sigaction | IN, 1 }, { Sigaction | OUT, 2 } } },
+	  .args = { { Signal, 0 }, { Sigaction | IN, 1 },
+		    { Sigaction | OUT, 2 } } },
 	{ .name = "accept", .ret_type = 1, .nargs = 3,
 	  .args = { { Int, 0 }, { Sockaddr | OUT, 1 }, { Ptr | OUT, 2 } } },
 	{ .name = "bind", .ret_type = 1, .nargs = 3,
 	  .args = { { Int, 0 }, { Sockaddr | IN, 1 }, { Int, 2 } } },
+	{ .name = "bindat", .ret_type = 1, .nargs = 4,
+	  .args = { { Atfd, 0 }, { Int, 1 }, { Sockaddr | IN, 2 },
+		    { Int, 3 } } },
 	{ .name = "connect", .ret_type = 1, .nargs = 3,
 	  .args = { { Int, 0 }, { Sockaddr | IN, 1 }, { Int, 2 } } },
+	{ .name = "connectat", .ret_type = 1, .nargs = 4,
+	  .args = { { Atfd, 0 }, { Int, 1 }, { Sockaddr | IN, 2 },
+		    { Int, 3 } } },
 	{ .name = "getpeername", .ret_type = 1, .nargs = 3,
 	  .args = { { Int, 0 }, { Sockaddr | OUT, 1 }, { Ptr | OUT, 2 } } },
 	{ .name = "getsockname", .ret_type = 1, .nargs = 3,
 	  .args = { { Int, 0 }, { Sockaddr | OUT, 1 }, { Ptr | OUT, 2 } } },
 	{ .name = "recvfrom", .ret_type = 1, .nargs = 6,
-	  .args = { { Int, 0 }, { BinString | OUT, 1 }, { Int, 2 }, { Hex, 3 }, { Sockaddr | OUT, 4 }, { Ptr | OUT, 5 } } },
+	  .args = { { Int, 0 }, { BinString | OUT, 1 }, { Int, 2 }, { Hex, 3 },
+		    { Sockaddr | OUT, 4 }, { Ptr | OUT, 5 } } },
 	{ .name = "sendto", .ret_type = 1, .nargs = 6,
-	  .args = { { Int, 0 }, { BinString | IN, 1 }, { Int, 2 }, { Hex, 3 }, { Sockaddr | IN, 4 }, { Ptr | IN, 5 } } },
+	  .args = { { Int, 0 }, { BinString | IN, 1 }, { Int, 2 }, { Hex, 3 },
+		    { Sockaddr | IN, 4 }, { Ptr | IN, 5 } } },
 	{ .name = "execve", .ret_type = 1, .nargs = 3,
-	  .args = { { Name | IN, 0 }, { StringArray | IN, 1 }, { StringArray | IN, 2 } } },
+	  .args = { { Name | IN, 0 }, { StringArray | IN, 1 },
+		    { StringArray | IN, 2 } } },
 	{ .name = "linux_execve", .ret_type = 1, .nargs = 3,
-	  .args = { { Name | IN, 0 }, { StringArray | IN, 1 }, { StringArray | IN, 2 } } },
+	  .args = { { Name | IN, 0 }, { StringArray | IN, 1 },
+		    { StringArray | IN, 2 } } },
 	{ .name = "kldload", .ret_type = 0, .nargs = 1,
 	  .args = { { Name | IN, 0 } } },
 	{ .name = "kldunload", .ret_type = 0, .nargs = 1,
@@ -210,7 +263,8 @@ static struct syscall syscalls[] = {
 	{ .name = "nanosleep", .ret_type = 0, .nargs = 1,
 	  .args = { { Timespec, 0 } } },
 	{ .name = "select", .ret_type = 1, .nargs = 5,
-	  .args = { { Int, 0 }, { Fd_set, 1 }, { Fd_set, 2 }, { Fd_set, 3 }, { Timeval, 4 } } },
+	  .args = { { Int, 0 }, { Fd_set, 1 }, { Fd_set, 2 }, { Fd_set, 3 },
+		    { Timeval, 4 } } },
 	{ .name = "poll", .ret_type = 1, .nargs = 3,
 	  .args = { { Pollfd, 0 }, { Int, 1 }, { Int, 2 } } },
 	{ .name = "gettimeofday", .ret_type = 1, .nargs = 2,
@@ -224,7 +278,8 @@ static struct syscall syscalls[] = {
 	{ .name = "kse_release", .ret_type = 0, .nargs = 1,
 	  .args = { { Timespec, 0 } } },
 	{ .name = "kevent", .ret_type = 0, .nargs = 6,
-	  .args = { { Int, 0 }, { Kevent, 1 }, { Int, 2 }, { Kevent | OUT, 3 }, { Int, 4 }, { Timespec, 5 } } },
+	  .args = { { Int, 0 }, { Kevent, 1 }, { Int, 2 }, { Kevent | OUT, 3 },
+		    { Int, 4 }, { Timespec, 5 } } },
 	{ .name = "sigprocmask", .ret_type = 0, .nargs = 3,
 	  .args = { { Sigprocmask, 0 }, { Sigset, 1 }, { Sigset | OUT, 2 } } },
 	{ .name = "unmount", .ret_type = 1, .nargs = 2,
@@ -246,7 +301,14 @@ static struct syscall syscalls[] = {
 	{ .name = "lutimes", .ret_type = 1, .nargs = 2,
 	  .args = { { Name | IN, 0 }, { Timeval2 | IN, 1 } } },
 	{ .name = "futimes", .ret_type = 1, .nargs = 2,
-	  .args = { { Int, 0 }, { Timeval | IN, 1 } } },
+	  .args = { { Int, 0 }, { Timeval2 | IN, 1 } } },
+	{ .name = "futimesat", .ret_type = 1, .nargs = 3,
+	  .args = { { Atfd, 0 }, { Name | IN, 1 }, { Timeval2 | IN, 2 } } },
+	{ .name = "futimens", .ret_type = 1, .nargs = 2,
+	  .args = { { Int, 0 }, { Timespec2 | IN, 1 } } },
+	{ .name = "utimensat", .ret_type = 1, .nargs = 4,
+	  .args = { { Atfd, 0 }, { Name | IN, 1 }, { Timespec2 | IN, 2 },
+		    { Atflags, 3 } } },
 	{ .name = "chflags", .ret_type = 1, .nargs = 2,
 	  .args = { { Name | IN, 0 }, { Hex, 1 } } },
 	{ .name = "lchflags", .ret_type = 1, .nargs = 2,
@@ -267,8 +329,12 @@ static struct syscall syscalls[] = {
 	  .args = { { Int, 0 }, { BinString | OUT, 1 }, { Int, 2 } } },
 	{ .name = "rename", .ret_type = 1, .nargs = 2,
 	  .args = { { Name, 0 }, { Name, 1 } } },
+	{ .name = "renameat", .ret_type = 1, .nargs = 4,
+	  .args = { { Atfd, 0 }, { Name, 1 }, { Atfd, 2 }, { Name, 3 } } },
 	{ .name = "symlink", .ret_type = 1, .nargs = 2,
 	  .args = { { Name, 0 }, { Name, 1 } } },
+	{ .name = "symlinkat", .ret_type = 1, .nargs = 3,
+	  .args = { { Name, 0 }, { Atfd, 1 }, { Name, 2 } } },
 	{ .name = "posix_openpt", .ret_type = 1, .nargs = 1,
 	  .args = { { Open, 0 } } },
 	{ .name = "wait4", .ret_type = 1, .nargs = 4,
@@ -434,6 +500,15 @@ static struct xlat umtx_ops[] = {
 	X(UMTX_OP_SEM_WAKE) X(UMTX_OP_NWAKE_PRIVATE) X(UMTX_OP_MUTEX_WAKE2)
 	X(UMTX_OP_SEM2_WAIT) X(UMTX_OP_SEM2_WAKE)
 	XEND
+};
+
+static struct xlat at_flags[] = {
+	X(AT_EACCESS) X(AT_SYMLINK_NOFOLLOW) X(AT_SYMLINK_FOLLOW)
+	X(AT_REMOVEDIR) XEND
+};
+
+static struct xlat access_modes[] = {
+	X(R_OK) X(W_OK) X(X_OK) XEND
 };
 
 #undef X
@@ -772,9 +847,43 @@ print_arg(struct syscall_args *sc, unsigned long *args, long retval,
 		struct timespec ts;
 		if (get_struct(pid, (void *)args[sc->offset], &ts,
 		    sizeof(ts)) != -1)
-			asprintf(&tmp, "{%ld.%09ld }", (long)ts.tv_sec,
+			asprintf(&tmp, "{ %ld.%09ld }", (long)ts.tv_sec,
 			    ts.tv_nsec);
 		else
+			asprintf(&tmp, "0x%lx", args[sc->offset]);
+		break;
+	}
+	case Timespec2: {
+		struct timespec ts[2];
+		FILE *fp;
+		size_t len;
+		const char *sep;
+		unsigned int i;
+
+		if (get_struct(pid, (void *)args[sc->offset], &ts, sizeof(ts))
+		    != -1) {
+			fp = open_memstream(&tmp, &len);
+			fputs("{ ", fp);
+			sep = "";
+			for (i = 0; i < nitems(ts); i++) {
+				fputs(sep, fp);
+				sep = ", ";
+				switch (ts[i].tv_nsec) {
+				case UTIME_NOW:
+					fprintf(fp, "UTIME_NOW");
+					break;
+				case UTIME_OMIT:
+					fprintf(fp, "UTIME_OMIT");
+					break;
+				default:
+					fprintf(fp, "%ld.%09ld",
+					    (long)ts[i].tv_sec, ts[i].tv_nsec);
+					break;
+				}
+			}
+			fputs(" }", fp);
+			fclose(fp);
+		} else
 			asprintf(&tmp, "0x%lx", args[sc->offset]);
 		break;
 	}
@@ -782,7 +891,7 @@ print_arg(struct syscall_args *sc, unsigned long *args, long retval,
 		struct timeval tv;
 		if (get_struct(pid, (void *)args[sc->offset], &tv, sizeof(tv))
 		    != -1)
-			asprintf(&tmp, "{%ld.%06ld }", (long)tv.tv_sec,
+			asprintf(&tmp, "{ %ld.%06ld }", (long)tv.tv_sec,
 			    tv.tv_usec);
 		else
 			asprintf(&tmp, "0x%lx", args[sc->offset]);
@@ -792,7 +901,7 @@ print_arg(struct syscall_args *sc, unsigned long *args, long retval,
 		struct timeval tv[2];
 		if (get_struct(pid, (void *)args[sc->offset], &tv, sizeof(tv))
 		    != -1)
-			asprintf(&tmp, "{%ld.%06ld, %ld.%06ld }",
+			asprintf(&tmp, "{ %ld.%06ld, %ld.%06ld }",
 			    (long)tv[0].tv_sec, tv[0].tv_usec,
 			    (long)tv[1].tv_sec, tv[1].tv_usec);
 		else
@@ -803,7 +912,7 @@ print_arg(struct syscall_args *sc, unsigned long *args, long retval,
 		struct itimerval itv;
 		if (get_struct(pid, (void *)args[sc->offset], &itv,
 		    sizeof(itv)) != -1)
-			asprintf(&tmp, "{%ld.%06ld, %ld.%06ld }",
+			asprintf(&tmp, "{ %ld.%06ld, %ld.%06ld }",
 			    (long)itv.it_interval.tv_sec,
 			    itv.it_interval.tv_usec,
 			    (long)itv.it_value.tv_sec,
@@ -879,7 +988,8 @@ print_arg(struct syscall_args *sc, unsigned long *args, long retval,
 			what = buf;
 			break;
 		}
-		asprintf(&tmp, "(0x%lx)%s, 0x%lx", args[sc->offset], what, (long unsigned int)largs.args);
+		asprintf(&tmp, "(0x%lx)%s, 0x%lx", args[sc->offset], what,
+		    (long unsigned int)largs.args);
 		break;
 	}
 	case Pollfd: {
@@ -906,6 +1016,7 @@ print_arg(struct syscall_args *sc, unsigned long *args, long retval,
 				    tmpsize);
 
 			tmp[used++] = '{';
+			tmp[used++] = ' ';
 			for (i = 0; i < numfds; i++) {
 
 				u = snprintf(tmp + used, per_fd, "%s%d/%s",
@@ -914,6 +1025,7 @@ print_arg(struct syscall_args *sc, unsigned long *args, long retval,
 				if (u > 0)
 					used += u < per_fd ? u : per_fd;
 			}
+			tmp[used++] = ' ';
 			tmp[used++] = '}';
 			tmp[used++] = '\0';
 		} else {
@@ -946,6 +1058,7 @@ print_arg(struct syscall_args *sc, unsigned long *args, long retval,
 				    "output", tmpsize);
 
 			tmp[used++] = '{';
+			tmp[used++] = ' ';
 			for (i = 0; i < numfds; i++) {
 				if (FD_ISSET(i, fds)) {
 					u = snprintf(tmp + used, per_fd, "%d ",
@@ -954,8 +1067,6 @@ print_arg(struct syscall_args *sc, unsigned long *args, long retval,
 						used += u < per_fd ? u : per_fd;
 				}
 			}
-			if (tmp[used-1] == ' ')
-				used--;
 			tmp[used++] = '}';
 			tmp[used++] = '\0';
 		} else
@@ -1156,8 +1267,9 @@ print_arg(struct syscall_args *sc, unsigned long *args, long retval,
 		default:
 			sa = (struct sockaddr *)&ss;
 			asprintf(&tmp, "{ sa_len = %d, sa_family = %d, sa_data "
-			    "= {%n%*s } }", (int)sa->sa_len, (int)sa->sa_family,
-			    &i, 6 * (int)(sa->sa_len - ((char *)&sa->sa_data -
+			    "= { %n%*s } }", (int)sa->sa_len,
+			    (int)sa->sa_family, &i,
+			    6 * (int)(sa->sa_len - ((char *)&sa->sa_data -
 			    (char *)sa)), "");
 			if (tmp != NULL) {
 				p = tmp + i;
@@ -1223,6 +1335,7 @@ print_arg(struct syscall_args *sc, unsigned long *args, long retval,
 				    "output", tmpsize);
 
 			tmp[used++] = '{';
+			tmp[used++] = ' ';
 			for (i = 0; i < numevents; i++) {
 				u = snprintf(tmp + used, per_ke,
 				    "%s%p,%s,%s,%d,%p,%p",
@@ -1236,6 +1349,7 @@ print_arg(struct syscall_args *sc, unsigned long *args, long retval,
 				if (u > 0)
 					used += u < per_ke ? u : per_ke;
 			}
+			tmp[used++] = ' ';
 			tmp[used++] = '}';
 			tmp[used++] = '\0';
 		} else {
@@ -1316,6 +1430,22 @@ print_arg(struct syscall_args *sc, unsigned long *args, long retval,
 		break;
 	case Umtxop:
 		tmp = strdup(xlookup(umtx_ops, args[sc->offset]));
+		break;
+	case Atfd:
+		if ((int)args[sc->offset] == AT_FDCWD)
+			tmp = strdup("AT_FDCWD");
+		else
+			asprintf(&tmp, "%d", (int)args[sc->offset]);
+		break;
+	case Atflags:
+		tmp = strdup(xlookup_bits(at_flags, args[sc->offset]));
+		break;
+	case Accessmode:
+		if (args[sc->offset] == F_OK)
+			tmp = strdup("F_OK");
+		else
+			tmp = strdup(xlookup_bits(access_modes,
+				args[sc->offset]));
 		break;
 	default:
 		errx(1, "Invalid argument type %d\n", sc->type & ARG_MASK);
