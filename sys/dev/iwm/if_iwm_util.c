@@ -148,12 +148,12 @@ __FBSDID("$FreeBSD$");
 #include <net80211/ieee80211_ratectl.h>
 #include <net80211/ieee80211_radiotap.h>
 
-#include <if_iwmreg.h>
-#include <if_iwmvar.h>
-#include <if_iwm_debug.h>
-#include <if_iwm_binding.h>
-#include <if_iwm_util.h>
-#include <if_iwm_pcie_trans.h>
+#include <dev/iwm/if_iwmreg.h>
+#include <dev/iwm/if_iwmvar.h>
+#include <dev/iwm/if_iwm_debug.h>
+#include <dev/iwm/if_iwm_binding.h>
+#include <dev/iwm/if_iwm_util.h>
+#include <dev/iwm/if_iwm_pcie_trans.h>
 
 static void
 iwm_dma_map_mem(void *arg, bus_dma_segment_t *segs, int nsegs, int error)
@@ -163,7 +163,7 @@ iwm_dma_map_mem(void *arg, bus_dma_segment_t *segs, int nsegs, int error)
 	KASSERT(nsegs <= 2, ("too many DMA segments, %d should be <= 2",
 	    nsegs));
 	if (nsegs > 1)
-		KASSERT(segs[1].ds_addr == segs[0].ds_addr + segs[0].ds_size,
+		KASSERT(segs[1].ds_addr == segs[0].ds_addr + segs[0].ds_len,
 		    ("fragmented DMA memory"));
 	*(bus_addr_t *)arg = segs[0].ds_addr;
 }
@@ -402,4 +402,3 @@ iwm_free_resp(struct iwm_softc *sc, struct iwm_host_cmd *hcmd)
 	sc->sc_wantresp = -1;
 	wakeup(&sc->sc_wantresp);
 }
-
