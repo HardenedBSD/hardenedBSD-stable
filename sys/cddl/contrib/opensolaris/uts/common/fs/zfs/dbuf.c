@@ -118,11 +118,9 @@ dbuf_hash(void *os, uint64_t obj, uint8_t lvl, uint64_t blkid)
 	(dbuf)->db_blkid == (blkid))
 
 dmu_buf_impl_t *
-dbuf_find(dnode_t *dn, uint8_t level, uint64_t blkid)
+dbuf_find(objset_t *os, uint64_t obj, uint8_t level, uint64_t blkid)
 {
 	dbuf_hash_table_t *h = &dbuf_hash_table;
-	objset_t *os = dn->dn_objset;
-	uint64_t obj = dn->dn_object;
 	uint64_t hv = DBUF_HASH(os, obj, level, blkid);
 	uint64_t idx = hv & h->hash_table_mask;
 	dmu_buf_impl_t *db;
@@ -140,6 +138,24 @@ dbuf_find(dnode_t *dn, uint8_t level, uint64_t blkid)
 	}
 	mutex_exit(DBUF_HASH_MUTEX(h, idx));
 	return (NULL);
+}
+
+static dmu_buf_impl_t *
+dbuf_find_bonus(objset_t *os, uint64_t object)
+{
+	dnode_t *dn;
+	dmu_buf_impl_t *db = NULL;
+
+	if (dnode_hold(os, object, FTAG, &dn) == 0) {
+		rw_enter(&dn->dn_struct_rwlock, RW_READER);
+		if (dn->dn_bonus != NULL) {
+			db = dn->dn_bonus;
+			mutex_enter(&db->db_mtx);
+		}
+		rw_exit(&dn->dn_struct_rwlock);
+		dnode_rele(dn, FTAG);
+	}
+	return (db);
 }
 
 /*
@@ -1852,7 +1868,7 @@ dbuf_prefetch(dnode_t *dn, uint64_t blkid, zio_priority_t prio)
 		return;
 
 	/* dbuf_find() returns with db_mtx held */
-	if (db = dbuf_find(dn, 0, blkid)) {
+	if (db = dbuf_find(dn->dn_objset, dn->dn_object, 0, blkid)) {
 		/*
 		 * This dbuf is already in the cache.  We assume that
 		 * it is already CACHED, or else about to be either
@@ -1899,7 +1915,7 @@ dbuf_hold_impl(dnode_t *dn, uint8_t level, uint64_t blkid, int fail_sparse,
 	*dbp = NULL;
 top:
 	/* dbuf_find() returns with db_mtx held */
-	db = dbuf_find(dn, level, blkid);
+	db = dbuf_find(dn->dn_objset, dn->dn_object, level, blkid);
 
 	if (db == NULL) {
 		blkptr_t *bp = NULL;
@@ -2035,6 +2051,30 @@ dbuf_add_ref(dmu_buf_impl_t *db, void *tag)
 	ASSERT(holds > 1);
 }
 
+#pragma weak dmu_buf_try_add_ref = dbuf_try_add_ref
+boolean_t
+dbuf_try_add_ref(dmu_buf_t *db_fake, objset_t *os, uint64_t obj, uint64_t blkid,
+    void *tag)
+{
+	dmu_buf_impl_t *db = (dmu_buf_impl_t *)db_fake;
+	dmu_buf_impl_t *found_db;
+	boolean_t result = B_FALSE;
+
+	if (db->db_blkid == DMU_BONUS_BLKID)
+		found_db = dbuf_find_bonus(os, obj);
+	else
+		found_db = dbuf_find(os, obj, 0, blkid);
+
+	if (found_db != NULL) {
+		if (db == found_db && dbuf_refcount(db) > db->db_dirtycnt) {
+			(void) refcount_add(&db->db_holds, tag);
+			result = B_TRUE;
+		}
+		mutex_exit(&db->db_mtx);
+	}
+	return (result);
+}
+
 /*
  * If you call dbuf_rele() you had better not be referencing the dnode handle
  * unless you have some other direct or indirect hold on the dnode. (An indirect
@@ -2088,21 +2128,60 @@ dbuf_rele_and_unlock(dmu_buf_impl_t *db, void *tag)
 
 	if (holds == 0) {
 		if (db->db_blkid == DMU_BONUS_BLKID) {
+			dnode_t *dn;
+
+			/*
+			 * If the dnode moves here, we cannot cross this
+			 * barrier until the move completes.
+			 */
+			DB_DNODE_ENTER(db);
+
+			dn = DB_DNODE(db);
+			atomic_dec_32(&dn->dn_dbufs_count);
+
+			/*
+			 * Decrementing the dbuf count means that the bonus
+			 * buffer's dnode hold is no longer discounted in
+			 * dnode_move(). The dnode cannot move until after
+			 * the dnode_rele_and_unlock() below.
+			 */
+			DB_DNODE_EXIT(db);
+
+			/*
+			 * Do not reference db after its lock is dropped.
+			 * Another thread may evict it.
+			 */
 			mutex_exit(&db->db_mtx);
 
 			/*
-			 * If the dnode moves here, we cannot cross this barrier
-			 * until the move completes.
+			 * If the dnode has been freed, evict the bonus
+			 * buffer immediately.	The data in the bonus
+			 * buffer is no longer relevant and this prevents
+			 * a stale bonus buffer from being associated
+			 * with this dnode_t should the dnode_t be reused
+			 * prior to being destroyed.
 			 */
-			DB_DNODE_ENTER(db);
-			atomic_dec_32(&DB_DNODE(db)->dn_dbufs_count);
-			DB_DNODE_EXIT(db);
-			/*
-			 * The bonus buffer's dnode hold is no longer discounted
-			 * in dnode_move(). The dnode cannot move until after
-			 * the dnode_rele().
-			 */
-			dnode_rele(DB_DNODE(db), db);
+			mutex_enter(&dn->dn_mtx);
+			if (dn->dn_type == DMU_OT_NONE ||
+			    dn->dn_free_txg != 0) {
+				/*
+				 * Drop dn_mtx.  It is a leaf lock and
+				 * cannot be held when dnode_evict_bonus()
+				 * acquires other locks in order to
+				 * perform the eviction.
+				 *
+				 * Freed dnodes cannot be reused until the
+				 * last hold is released.  Since this bonus
+				 * buffer has a hold, the dnode will remain
+				 * in the free state, even without dn_mtx
+				 * held, until the dnode_rele_and_unlock()
+				 * below.
+				 */
+				mutex_exit(&dn->dn_mtx);
+				dnode_evict_bonus(dn);
+				mutex_enter(&dn->dn_mtx);
+			}
+			dnode_rele_and_unlock(dn, db);
 		} else if (db->db_buf == NULL) {
 			/*
 			 * This is a special case: we never associated this

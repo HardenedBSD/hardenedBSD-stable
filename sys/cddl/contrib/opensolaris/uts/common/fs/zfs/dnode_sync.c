@@ -76,7 +76,8 @@ dnode_increase_indirection(dnode_t *dn, dmu_tx_t *tx)
 
 	/* set dbuf's parent pointers to new indirect buf */
 	for (i = 0; i < nblkptr; i++) {
-		dmu_buf_impl_t *child = dbuf_find(dn, old_toplvl, i);
+		dmu_buf_impl_t *child =
+		    dbuf_find(dn->dn_objset, dn->dn_object, old_toplvl, i);
 
 		if (child == NULL)
 			continue;
@@ -440,6 +441,12 @@ dnode_evict_dbufs(dnode_t *dn)
 		ASSERT(pass < 100); /* sanity check */
 	} while (progress);
 
+	dnode_evict_bonus(dn);
+}
+
+void
+dnode_evict_bonus(dnode_t *dn)
+{
 	rw_enter(&dn->dn_struct_rwlock, RW_WRITER);
 	if (dn->dn_bonus && refcount_is_zero(&dn->dn_bonus->db_holds)) {
 		mutex_enter(&dn->dn_bonus->db_mtx);
