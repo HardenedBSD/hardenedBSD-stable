@@ -82,9 +82,9 @@
  * types of locks: 1) the hash table lock array, and 2) the
  * arc list locks.
  *
- * Buffers do not have their own mutexs, rather they rely on the
- * hash table mutexs for the bulk of their protection (i.e. most
- * fields in the arc_buf_hdr_t are protected by these mutexs).
+ * Buffers do not have their own mutexes, rather they rely on the
+ * hash table mutexes for the bulk of their protection (i.e. most
+ * fields in the arc_buf_hdr_t are protected by these mutexes).
  *
  * buf_hash_find() returns the appropriate mutex (held) when it
  * locates the requested buffer in the hash table.  It returns
@@ -1027,21 +1027,21 @@ SYSCTL_INT(_vfs_zfs, OID_AUTO, l2arc_norw, CTLFLAG_RW,
     &l2arc_norw, 0, "no reads during writes");
 
 SYSCTL_UQUAD(_vfs_zfs, OID_AUTO, anon_size, CTLFLAG_RD,
-    &ARC_anon.arcs_size, 0, "size of anonymous state");
+    &ARC_anon.arcs_size.rc_count, 0, "size of anonymous state");
 SYSCTL_UQUAD(_vfs_zfs, OID_AUTO, anon_metadata_lsize, CTLFLAG_RD,
     &ARC_anon.arcs_lsize[ARC_BUFC_METADATA], 0, "size of anonymous state");
 SYSCTL_UQUAD(_vfs_zfs, OID_AUTO, anon_data_lsize, CTLFLAG_RD,
     &ARC_anon.arcs_lsize[ARC_BUFC_DATA], 0, "size of anonymous state");
 
 SYSCTL_UQUAD(_vfs_zfs, OID_AUTO, mru_size, CTLFLAG_RD,
-    &ARC_mru.arcs_size, 0, "size of mru state");
+    &ARC_mru.arcs_size.rc_count, 0, "size of mru state");
 SYSCTL_UQUAD(_vfs_zfs, OID_AUTO, mru_metadata_lsize, CTLFLAG_RD,
     &ARC_mru.arcs_lsize[ARC_BUFC_METADATA], 0, "size of metadata in mru state");
 SYSCTL_UQUAD(_vfs_zfs, OID_AUTO, mru_data_lsize, CTLFLAG_RD,
     &ARC_mru.arcs_lsize[ARC_BUFC_DATA], 0, "size of data in mru state");
 
 SYSCTL_UQUAD(_vfs_zfs, OID_AUTO, mru_ghost_size, CTLFLAG_RD,
-    &ARC_mru_ghost.arcs_size, 0, "size of mru ghost state");
+    &ARC_mru_ghost.arcs_size.rc_count, 0, "size of mru ghost state");
 SYSCTL_UQUAD(_vfs_zfs, OID_AUTO, mru_ghost_metadata_lsize, CTLFLAG_RD,
     &ARC_mru_ghost.arcs_lsize[ARC_BUFC_METADATA], 0,
     "size of metadata in mru ghost state");
@@ -1050,14 +1050,14 @@ SYSCTL_UQUAD(_vfs_zfs, OID_AUTO, mru_ghost_data_lsize, CTLFLAG_RD,
     "size of data in mru ghost state");
 
 SYSCTL_UQUAD(_vfs_zfs, OID_AUTO, mfu_size, CTLFLAG_RD,
-    &ARC_mfu.arcs_size, 0, "size of mfu state");
+    &ARC_mfu.arcs_size.rc_count, 0, "size of mfu state");
 SYSCTL_UQUAD(_vfs_zfs, OID_AUTO, mfu_metadata_lsize, CTLFLAG_RD,
     &ARC_mfu.arcs_lsize[ARC_BUFC_METADATA], 0, "size of metadata in mfu state");
 SYSCTL_UQUAD(_vfs_zfs, OID_AUTO, mfu_data_lsize, CTLFLAG_RD,
     &ARC_mfu.arcs_lsize[ARC_BUFC_DATA], 0, "size of data in mfu state");
 
 SYSCTL_UQUAD(_vfs_zfs, OID_AUTO, mfu_ghost_size, CTLFLAG_RD,
-    &ARC_mfu_ghost.arcs_size, 0, "size of mfu ghost state");
+    &ARC_mfu_ghost.arcs_size.rc_count, 0, "size of mfu ghost state");
 SYSCTL_UQUAD(_vfs_zfs, OID_AUTO, mfu_ghost_metadata_lsize, CTLFLAG_RD,
     &ARC_mfu_ghost.arcs_lsize[ARC_BUFC_METADATA], 0,
     "size of metadata in mfu ghost state");
@@ -1066,7 +1066,7 @@ SYSCTL_UQUAD(_vfs_zfs, OID_AUTO, mfu_ghost_data_lsize, CTLFLAG_RD,
     "size of data in mfu ghost state");
 
 SYSCTL_UQUAD(_vfs_zfs, OID_AUTO, l2c_only_size, CTLFLAG_RD,
-    &ARC_l2c_only.arcs_size, 0, "size of mru state");
+    &ARC_l2c_only.arcs_size.rc_count, 0, "size of mru state");
 
 /*
  * L2ARC Internals
@@ -2413,6 +2413,7 @@ arc_hdr_destroy(arc_buf_hdr_t *hdr)
 
 	if (!BUF_EMPTY(hdr))
 		buf_discard_identity(hdr);
+
 	if (hdr->b_freeze_cksum != NULL) {
 		kmem_free(hdr->b_freeze_cksum, sizeof (zio_cksum_t));
 		hdr->b_freeze_cksum = NULL;
@@ -4655,8 +4656,6 @@ arc_release(arc_buf_t *buf, void *tag)
 {
 	arc_buf_hdr_t *hdr = buf->b_hdr;
 
-	ASSERT(HDR_HAS_L1HDR(hdr));
-
 	/*
 	 * It would be nice to assert that if it's DMU metadata (level >
 	 * 0 || it's the dnode file), then it must be syncing context.
@@ -4664,6 +4663,9 @@ arc_release(arc_buf_t *buf, void *tag)
 	 */
 
 	mutex_enter(&buf->b_evict_lock);
+
+	ASSERT(HDR_HAS_L1HDR(hdr));
+
 	/*
 	 * We don't grab the hash lock prior to this check, because if
 	 * the buffer's header is in the arc_anon state, it won't be
@@ -5894,6 +5896,7 @@ top:
 			/*
 			 * Error - drop L2ARC entry.
 			 */
+			list_remove(buflist, hdr);
 			trim_map_free(hdr->b_l2hdr.b_dev->l2ad_vdev,
 			    hdr->b_l2hdr.b_daddr, hdr->b_l2hdr.b_asize, 0);
 			hdr->b_flags &= ~ARC_FLAG_HAS_L2HDR;
@@ -6414,14 +6417,6 @@ l2arc_write_buffers(spa_t *spa, l2arc_dev_t *dev, uint64_t target_sz,
 		buf_sz = hdr->b_l2hdr.b_asize;
 
 		/*
-		 * If the data has not been compressed, then clear b_tmp_cdata
-		 * to make sure that it points only to a temporary compression
-		 * buffer.
-		 */
-		if (!L2ARC_IS_VALID_COMPRESS(HDR_GET_COMPRESS(hdr)))
-			hdr->b_l1hdr.b_tmp_cdata = NULL;
-
-		/*
 		 * We need to do this regardless if buf_sz is zero or
 		 * not, otherwise, when this l2hdr is evicted we'll
 		 * remove a reference that was never added.
@@ -6514,6 +6509,12 @@ l2arc_compress_buf(arc_buf_hdr_t *hdr)
 	csize = zio_compress_data(ZIO_COMPRESS_LZ4, hdr->b_l1hdr.b_tmp_cdata,
 	    cdata, l2hdr->b_asize);
 
+	rounded = P2ROUNDUP(csize, (size_t)SPA_MINBLOCKSIZE);
+	if (rounded > csize) {
+		bzero((char *)cdata + csize, rounded - csize);
+		csize = rounded;
+	}
+
 	if (csize == 0) {
 		/* zero block, indicate that there's nothing to write */
 		zio_data_buf_free(cdata, len);
@@ -6522,19 +6523,11 @@ l2arc_compress_buf(arc_buf_hdr_t *hdr)
 		hdr->b_l1hdr.b_tmp_cdata = NULL;
 		ARCSTAT_BUMP(arcstat_l2_compress_zeros);
 		return (B_TRUE);
-	}
-
-	rounded = P2ROUNDUP(csize,
-	    (size_t)1 << l2hdr->b_dev->l2ad_vdev->vdev_ashift);
-	if (rounded < len) {
+	} else if (csize > 0 && csize < len) {
 		/*
 		 * Compression succeeded, we'll keep the cdata around for
 		 * writing and release it afterwards.
 		 */
-		if (rounded > csize) {
-			bzero((char *)cdata + csize, rounded - csize);
-			csize = rounded;
-		}
 		HDR_SET_COMPRESS(hdr, ZIO_COMPRESS_LZ4);
 		l2hdr->b_asize = csize;
 		hdr->b_l1hdr.b_tmp_cdata = cdata;
@@ -6651,6 +6644,7 @@ l2arc_release_cdata_buf(arc_buf_hdr_t *hdr)
 		    hdr->b_size);
 		hdr->b_l1hdr.b_tmp_cdata = NULL;
 	}
+
 }
 
 /*
