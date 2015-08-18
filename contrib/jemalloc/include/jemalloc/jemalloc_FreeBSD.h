@@ -40,6 +40,9 @@
 #ifdef __arm__
 #  define LG_SIZEOF_PTR		2
 #endif
+#ifdef __aarch64__
+#  define LG_SIZEOF_PTR		3
+#endif
 #ifdef __mips__
 #ifdef __mips_n64
 #  define LG_SIZEOF_PTR		3
@@ -55,6 +58,10 @@
 
 #ifndef JEMALLOC_TLS_MODEL
 #  define JEMALLOC_TLS_MODEL	/* Default. */
+#endif
+
+#ifndef CPU_SPINWAIT
+#  define CPU_SPINWAIT do {} while (0)
 #endif
 
 #define	STATIC_PAGE_SHIFT	PAGE_SHIFT
