@@ -64,7 +64,7 @@ static const char rcsid[] =
 
 #include "syscalls.h"
 
-static int nsyscalls = sizeof(syscallnames) / sizeof(syscallnames[0]);
+static int nsyscalls = nitems(syscallnames);
 
 /*
  * This is what this particular file uses to keep track of a system call.
@@ -299,6 +299,7 @@ i386_syscall_exit(struct trussinfo *trussinfo, int syscall_num __unused)
 		 */
 		for (i = 0; i < sc->nargs; i++) {
 			char *temp;
+
 			if (sc->args[i].type & OUT) {
 				/*
 				 * If an error occurred, then don't bother

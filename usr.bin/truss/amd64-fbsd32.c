@@ -64,8 +64,7 @@ static const char rcsid[] =
 
 #include "freebsd32_syscalls.h"
 
-static int nsyscalls = sizeof(freebsd32_syscallnames) /
-    sizeof(freebsd32_syscallnames[0]);
+static int nsyscalls = nitems(freebsd32_syscallnames);
 
 /*
  * This is what this particular file uses to keep track of a system call.
@@ -306,6 +305,7 @@ amd64_fbsd32_syscall_exit(struct trussinfo *trussinfo, int syscall_num __unused)
 		 */
 		for (i = 0; i < sc->nargs; i++) {
 			char *temp;
+
 			if (sc->args[i].type & OUT) {
 				/*
 				 * If an error occurred, then don't bother
