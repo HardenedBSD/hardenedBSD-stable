@@ -245,11 +245,11 @@ static struct syscall syscalls[] = {
 	  .args = { { Int, 0 }, { BinString | IN, 1 }, { Int, 2 }, { Hex, 3 },
 		    { Sockaddr | IN, 4 }, { Ptr | IN, 5 } } },
 	{ .name = "execve", .ret_type = 1, .nargs = 3,
-	  .args = { { Name | IN, 0 }, { StringArray | IN, 1 },
-		    { StringArray | IN, 2 } } },
+	  .args = { { Name | IN, 0 }, { ExecArgs | IN, 1 },
+		    { ExecEnv | IN, 2 } } },
 	{ .name = "linux_execve", .ret_type = 1, .nargs = 3,
-	  .args = { { Name | IN, 0 }, { StringArray | IN, 1 },
-		    { StringArray | IN, 2 } } },
+	  .args = { { Name | IN, 0 }, { ExecArgs | IN, 1 },
+		    { ExecEnv | IN, 2 } } },
 	{ .name = "kldload", .ret_type = 0, .nargs = 1,
 	  .args = { { Name | IN, 0 } } },
 	{ .name = "kldunload", .ret_type = 0, .nargs = 1,
@@ -912,37 +912,69 @@ print_arg(struct syscall_args *sc, unsigned long *args, long retval,
 		}
 		break;
 	}
+	case ExecArgs:
+	case ExecEnv:
 	case StringArray: {
-		int num, size, i;
-		char *tmp2;
+		uintptr_t addr;
+		union {
+			char *strarray[0];
+			char buf[PAGE_SIZE];
+		} u;
 		char *string;
-		char *strarray[100];	/* XXX This is ugly. */
+		size_t len;
+		int first, i;
 
-		if (get_struct(pid, (void *)args[sc->offset],
-		    (void *)&strarray, sizeof(strarray)) == -1)
-			err(1, "get_struct %p", (void *)args[sc->offset]);
-		num = 0;
-		size = 0;
-
-		/* Find out how large of a buffer we'll need. */
-		while (strarray[num] != NULL) {
-			string = get_string(pid, (void*)strarray[num], 0);
-			size += strlen(string);
-			free(string);
-			num++;
+		/*
+		 * Only parse argv[] and environment arrays from exec calls
+		 * if requested.
+		 */
+		if (((sc->type & ARG_MASK) == ExecArgs &&
+		    (trussinfo->flags & EXECVEARGS) == 0) ||
+		    ((sc->type & ARG_MASK) == ExecEnv &&
+		    (trussinfo->flags & EXECVEENVS) == 0)) {
+			fprintf(fp, "0x%lx", args[sc->offset]);
+			break;
 		}
-		size += 4 + (num * 4);
-		tmp = (char *)malloc(size);
-		tmp2 = tmp;
-
-		tmp2 += sprintf(tmp2, " [");
-		for (i = 0; i < num; i++) {
-			string = get_string(pid, (void*)strarray[i], 0);
-			tmp2 += sprintf(tmp2, " \"%s\"%c", string,
-			    (i + 1 == num) ? ' ' : ',');
-			free(string);
+		    
+		/*
+		 * Read a page of pointers at a time.  Punt if the top-level
+		 * pointer is not aligned.  Note that the first read is of
+		 * a partial page.
+		 */
+		addr = args[sc->offset];
+		if (addr % sizeof(char *) != 0) {
+			fprintf(fp, "0x%lx", args[sc->offset]);
+			break;
 		}
-		tmp2 += sprintf(tmp2, "]");
+
+		len = PAGE_SIZE - (addr & PAGE_MASK);
+		if (get_struct(pid, (void *)addr, u.buf, len) == -1) {
+			fprintf(fp, "0x%lx", args[sc->offset]);
+			break;
+		}
+
+		fputc('[', fp);
+		first = 1;
+		i = 0;
+		while (u.strarray[i] != NULL) {
+			string = get_string(pid, u.strarray[i], 0);
+			fprintf(fp, "%s \"%s\"", first ? "" : ",", string);
+			free(string);
+			first = 0;
+
+			i++;
+			if (i == len / sizeof(char *)) {
+				addr += len;
+				len = PAGE_SIZE;
+				if (get_struct(pid, (void *)addr, u.buf, len) ==
+				    -1) {
+					fprintf(fp, ", <inval>");
+					break;
+				}
+				i = 0;
+			}
+		}
+		fputs(" ]", fp);
 		break;
 	}
 #ifdef __LP64__
