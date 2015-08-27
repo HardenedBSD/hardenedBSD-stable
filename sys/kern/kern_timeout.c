@@ -1379,11 +1379,14 @@ again:
 	}
 	callout_cc_del(c, cc);
 
-	/*
-	 * If we are asked to stop a callout which is currently in progress
-	 * and indeed impossible to stop then return 0.
-	 */
-	not_running = !(cc_exec_curr(cc, direct) == c);
+	if (!use_lock) {
+		/*
+		 * If we are asked to stop a callout which is currently in progress
+		 * and indeed impossible to stop then return 0.
+		 */
+		not_running = !(cc_exec_curr(cc, direct) == c);
+	} else
+		not_running = 1;
 
 	CC_UNLOCK(cc);
 	return (not_running);
