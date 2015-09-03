@@ -338,7 +338,8 @@ sendsig(catcher, ksi, mask)
 	tf->tf_r5 = (register_t)&fp->sf_uc;
 	tf->tf_pc = (register_t)catcher;
 	tf->tf_usr_sp = (register_t)fp;
-	tf->tf_usr_lr = (register_t)(p->p_psstrings - *(p->p_sysent->sv_szsigcode));
+	tf->tf_usr_lr = (register_t)(p->p_psstrings -
+	    *(p->p_sysent->sv_szsigcode));
 	/* Set the mode to enter in the signal handler */
 #if __ARM_ARCH >= 7
 	if ((register_t)catcher & 1)
