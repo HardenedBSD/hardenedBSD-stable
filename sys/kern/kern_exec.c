@@ -1095,7 +1095,7 @@ exec_new_vmspace(imgp, sv)
 	/* Map a shared page */
 	obj = sv->sv_shared_page_obj;
 	if (obj != NULL) {
-		p->p_shared_page_base=sv->sv_shared_page_base;
+		p->p_shared_page_base = sv->sv_shared_page_base;
 #ifdef PAX_ASLR
 		PROC_LOCK(imgp->proc);
 		pax_aslr_vdso(p, &(p->p_shared_page_base));
