@@ -32,7 +32,7 @@
 #ifndef	_SYS_PAX_H
 #define	_SYS_PAX_H
 
-#define	__HardenedBSD_version	29
+#define	__HardenedBSD_version	30
 
 #if defined(_KERNEL) || defined(_WANT_PRISON)
 struct hardening_features {
@@ -52,7 +52,7 @@ struct hardening_features {
 	int	 hr_pax_segvguard_maxcrashes;   /* (p) Maximum number of crashes before suspending application */
 	int	 hr_pax_pageexec_status;	/* (p) Remove WX pages from user-space */
 	int	 hr_pax_mprotect_status;	/* (p) Enforce W^X mappings */
-	int	 hr_pax_map32_enabled;		/* (p) MAP_32BIT enabled (amd64 only) */
+	int	 hr_pax_map32_protect_status;	/* (p) MAP_32BIT protection (amd64 only) */
 	int	 hr_pax_procfs_harden;		/* (p) Harden procfs */
 	int	 hr_pax_ptrace_hardening_status;	/* (p) Disallow unprivileged ptrace */
 	gid_t	 hr_pax_ptrace_hardening_gid;	/* (p) Allowed ptrace users group */
@@ -195,9 +195,11 @@ void pax_hardening_init_prison(struct prison *pr);
 #else
 #define	pax_hardening_init_prison(pr)	do {} while (0)
 #endif
-int pax_map32_enabled(struct thread *td);
+int pax_map32_protect_active(struct thread *td);
 int pax_mprotect_exec_harden(struct thread *td);
 int pax_procfs_harden(struct thread *td);
+uint32_t pax_hardening_setup_flags(struct image_params *imgp,
+    uint32_t mode);
 
 /*
  * ptrace hardening related functions
@@ -221,14 +223,19 @@ int pax_ptrace_hardening(struct thread *td);
 #define	PAX_NOTE_NOASLR		0x00000080
 #define	PAX_NOTE_SHLIBRANDOM	0x00000100
 #define	PAX_NOTE_NOSHLIBRANDOM	0x00000200
+#define PAX_NOTE_MAP32_PROTECT	0x00000400
+#define PAX_NOTE_NOMAP32_PROTECT	0x00000800
 
 #define	PAX_NOTE_RESERVED0	0x40000000
 #define	PAX_NOTE_FINALIZED	0x80000000
 
 #define PAX_NOTE_ALL_ENABLED	\
-    (PAX_NOTE_PAGEEXEC | PAX_NOTE_MPROTECT | PAX_NOTE_SEGVGUARD | PAX_NOTE_ASLR | PAX_NOTE_SHLIBRANDOM)
+    (PAX_NOTE_PAGEEXEC | PAX_NOTE_MPROTECT | PAX_NOTE_SEGVGUARD | \
+    PAX_NOTE_ASLR | PAX_NOTE_SHLIBRANDOM | PAX_NOTE_MAP32_PROTECT)
 #define PAX_NOTE_ALL_DISABLED	\
-    (PAX_NOTE_NOPAGEEXEC | PAX_NOTE_NOMPROTECT | PAX_NOTE_NOSEGVGUARD | PAX_NOTE_NOASLR | PAX_NOTE_NOSHLIBRANDOM)
+    (PAX_NOTE_NOPAGEEXEC | PAX_NOTE_NOMPROTECT | \
+    PAX_NOTE_NOSEGVGUARD | PAX_NOTE_NOASLR | PAX_NOTE_NOSHLIBRANDOM | \
+    PAX_NOTE_NOMAP32_PROTECT)
 #define PAX_NOTE_ALL	(PAX_NOTE_ALL_ENABLED | PAX_NOTE_ALL_DISABLED)
 
 #endif /* !_SYS_PAX_H */
