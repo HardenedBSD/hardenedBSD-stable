@@ -4769,8 +4769,8 @@ db_show_prison(struct prison *pr)
 	   pr->pr_hardening.hr_pax_segvguard_suspension);
 	db_printf(" .hr_pax_segvguard_maxcrashes    = %d\n",
 	   pr->pr_hardening.hr_pax_segvguard_maxcrashes);
-	db_printf(" .hr_pax_map32_enabled           = %d\n",
-	   pr->pr_hardening.hr_pax_map32_enabled);
+	db_printf(" .hr_pax_map32_protect_status    = %d\n",
+	   pr->pr_hardening.hr_pax_map32_protect_status);
 	db_printf(" .hr_pax_procfs_harden           = %d\n",
 	   pr->pr_hardening.hr_pax_procfs_harden);
 	db_printf(" .hr_pax_ptrace_hardening_status = %d\n",
