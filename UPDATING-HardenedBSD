@@ -1,3 +1,16 @@
+[20150907] Reworked DISALLOWMAP32BIT and changes some internal functions
+__HardenedBSD_version = 31
+
+	Rename and correctly paxify the DISALLOWMAP32BIT.
+	Changed pax flags setup.
+
+
+[20150905] Added MAP32_PROTECT
+__HardenedBSD_version = 30
+
+	Added per-process mode to disable MAP_32BIT mode mmap(2).
+
+
 [20150823] Fixed pkg bootstrap
 __HardenedBSD_version = 29
 
