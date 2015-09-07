@@ -276,9 +276,8 @@ sys_mmap(td, uap)
 		return (EINVAL);
 
 #if defined(MAP_32BIT) && defined(PAX_HARDENING)
-	if ((flags & MAP_32BIT) == MAP_32BIT)
-		if (pax_map32_protect_active(td))
-			return (EPERM);
+	if (pax_disallow_map32bit_active(td, flags))
+		return (EPERM);
 #endif
 
 	/*
