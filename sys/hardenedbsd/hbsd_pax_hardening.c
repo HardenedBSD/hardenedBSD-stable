@@ -71,34 +71,17 @@ FEATURE(pax_hardening, "Various hardening features.");
 #endif
 
 #ifdef PAX_HARDENING
-static int pax_disallow_map32bit_status_global = PAX_FEATURE_OPTOUT;
 static int pax_procfs_harden_global = PAX_FEATURE_SIMPLE_ENABLED;
 static int pax_randomize_pids_global = PAX_FEATURE_SIMPLE_ENABLED;
 static int pax_init_hardening_global = PAX_FEATURE_SIMPLE_ENABLED;
 #else
-static int pax_disallow_map32bit_status_global = PAX_FEATURE_OPTIN;
 static int pax_procfs_harden_global = PAX_FEATURE_SIMPLE_DISABLED;
 static int pax_randomize_pids_global = PAX_FEATURE_SIMPLE_DISABLED;
 static int pax_init_hardening_global = PAX_FEATURE_SIMPLE_DISABLED;
 #endif
 
-static int sysctl_pax_disallow_map32bit(SYSCTL_HANDLER_ARGS);
-static int sysctl_pax_procfs(SYSCTL_HANDLER_ARGS);
-
 #ifdef PAX_SYSCTLS
-SYSCTL_DECL(_hardening_pax);
-
-SYSCTL_NODE(_hardening_pax, OID_AUTO, disallow_map32bit, CTLFLAG_RD, 0,
-    "Disallow MAP_32BIT mode mmap(2) calls.");
-
-SYSCTL_PROC(_hardening_pax_disallow_map32bit, OID_AUTO, status,
-    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
-    NULL, 0, sysctl_pax_disallow_map32bit, "I",
-    "Restriction status:"
-    "0 - disabled, "
-    "1 - opt-in, "
-    "2 - opt-out, "
-    "3 - force enabled.");
+static int sysctl_pax_procfs(SYSCTL_HANDLER_ARGS);
 
 SYSCTL_PROC(_hardening, OID_AUTO, procfs_harden,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_SECURE,
@@ -108,27 +91,12 @@ SYSCTL_PROC(_hardening, OID_AUTO, procfs_harden,
     "1 - enabled.");
 #endif
 
-TUNABLE_INT("hardening.pax.disallow_map32bit.status", &pax_disallow_map32bit_status_global);
 TUNABLE_INT("hardening.procfs_harden", &pax_procfs_harden_global);
 TUNABLE_INT("hardening.randomize_pids", &pax_randomize_pids_global);
 
 static void
 pax_hardening_sysinit(void)
 {
-	switch (pax_disallow_map32bit_status_global) {
-	case PAX_FEATURE_DISABLED:
-	case PAX_FEATURE_OPTIN:
-	case PAX_FEATURE_OPTOUT:
-	case PAX_FEATURE_FORCE_ENABLED:
-		break;
-	default:
-		printf("[PAX HARDENING] WARNING, invalid settings in loader.conf!"
-		    " (hardening.pax.disallow_map32bit.status = %d)\n",
-		    pax_disallow_map32bit_status_global);
-		pax_disallow_map32bit_status_global = PAX_FEATURE_FORCE_ENABLED;
-	}
-	printf("[PAX HARDENING] disallow MAP_32BIT mode mmap: %s\n",
-	    pax_status_str[pax_disallow_map32bit_status_global]);
 
 	switch (pax_procfs_harden_global) {
 	case PAX_FEATURE_SIMPLE_DISABLED:
@@ -168,36 +136,6 @@ SYSINIT(pax_hardening, SI_SUB_PAX, SI_ORDER_SECOND, pax_hardening_sysinit, NULL)
 
 #ifdef PAX_SYSCTLS
 static int
-sysctl_pax_disallow_map32bit(SYSCTL_HANDLER_ARGS)
-{
-	struct prison *pr;
-	int err, val;
-
-	pr = pax_get_prison_td(req->td);
-
-	val = pr->pr_hardening.hr_pax_disallow_map32bit_status;
-	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
-	if (err || (req->newptr == NULL))
-		return (err);
-
-	switch (val) {
-	case PAX_FEATURE_DISABLED:
-	case PAX_FEATURE_OPTIN:
-	case PAX_FEATURE_OPTOUT:
-	case PAX_FEATURE_FORCE_ENABLED:
-		if ((pr == NULL) || (pr == &prison0))
-			pax_disallow_map32bit_status_global = val;
-
-		pr->pr_hardening.hr_pax_disallow_map32bit_status = val;
-		break;
-	default:
-		return (EINVAL);
-	}
-
-	return (0);
-}
-
-static int
 sysctl_pax_procfs(SYSCTL_HANDLER_ARGS)
 {
 	struct prison *pr;
@@ -232,10 +170,6 @@ pax_hardening_init_prison(struct prison *pr)
 
 	if (pr == &prison0) {
 		/* prison0 has no parent, use globals */
-#ifdef MAP_32BIT
-		pr->pr_hardening.hr_pax_disallow_map32bit_status =
-		    pax_disallow_map32bit_status_global;
-#endif
 		pr->pr_hardening.hr_pax_procfs_harden =
 		    pax_procfs_harden_global;
 	} else {
@@ -243,40 +177,9 @@ pax_hardening_init_prison(struct prison *pr)
 		   ("%s: pr->pr_parent == NULL", __func__));
 		pr_p = pr->pr_parent;
 
-#ifdef MAP_32BIT
-		pr->pr_hardening.hr_pax_disallow_map32bit_status =
-		    pr_p->pr_hardening.hr_pax_disallow_map32bit_status;
-#endif
 		pr->pr_hardening.hr_pax_procfs_harden =
 		    pr_p->pr_hardening.hr_pax_procfs_harden;
 	}
-}
-
-int
-pax_disallow_map32bit_active(struct thread *td, int mmap_flags)
-{
-	uint32_t flags;
-
-	if ((mmap_flags & MAP_32BIT) != MAP_32BIT)
-		/*
-		 * Fast path, the mmap request does not
-		 * contains MAP_32BIT flag.
-		 */
-		return (false);
-
-	/* XXXOP: pax_get_flags_td(...) here? */
-	pax_get_flags(td->td_proc, &flags);
-
-	CTR3(KTR_PAX, "%S: pid = %d p_pax = %x",
-	    __func__, td->td_proc->p_pid, flags);
-
-	if ((flags & PAX_NOTE_DISALLOWMAP32BIT) == PAX_NOTE_DISALLOWMAP32BIT)
-		return (true);
-
-	if ((flags & PAX_NOTE_NODISALLOWMAP32BIT) == PAX_NOTE_NODISALLOWMAP32BIT)
-		return (false);
-
-	return (true);
 }
 
 int
@@ -299,49 +202,51 @@ pax_hardening_setup_flags(struct image_params *imgp, uint32_t mode)
 	status = 0;
 
 	pr = pax_get_prison(imgp->proc);
-	status = pr->pr_hardening.hr_pax_disallow_map32bit_status;
+#if 0
+	status = pr->pr_hardening.hr_pax_FOO_status;
 
 	if (status == PAX_FEATURE_DISABLED) {
-		flags &= ~PAX_NOTE_DISALLOWMAP32BIT;
-		flags |= PAX_NOTE_NODISALLOWMAP32BIT;
+		flags &= ~PAX_NOTE_FOO;
+		flags |= PAX_NOTE_NOFOO;
 
 		return (flags);
 	}
 
 	if (status == PAX_FEATURE_FORCE_ENABLED) {
-		flags &= ~PAX_NOTE_NODISALLOWMAP32BIT;
-		flags |= PAX_NOTE_DISALLOWMAP32BIT;
+		flags &= ~PAX_NOTE_NOFOO;
+		flags |= PAX_NOTE_FOO;
 
 		return (flags);
 	}
 
 	if (status == PAX_FEATURE_OPTIN) {
-		if (mode & PAX_NOTE_DISALLOWMAP32BIT) {
-			flags |= PAX_NOTE_DISALLOWMAP32BIT;
-			flags &= ~PAX_NOTE_NODISALLOWMAP32BIT;
+		if (mode & PAX_NOTE_FOO) {
+			flags |= PAX_NOTE_FOO;
+			flags &= ~PAX_NOTE_NOFOO;
 		} else {
-			flags &= ~PAX_NOTE_DISALLOWMAP32BIT;
-			flags |= PAX_NOTE_NODISALLOWMAP32BIT;
+			flags &= ~PAX_NOTE_FOO;
+			flags |= PAX_NOTE_NOFOO;
 		}
 
 		return (flags);
 	}
 
 	if (status == PAX_FEATURE_OPTOUT) {
-		if (mode & PAX_NOTE_NODISALLOWMAP32BIT) {
-			flags |= PAX_NOTE_NODISALLOWMAP32BIT;
-			flags &= ~PAX_NOTE_DISALLOWMAP32BIT;
+		if (mode & PAX_NOTE_NOFOO) {
+			flags |= PAX_NOTE_NOFOO;
+			flags &= ~PAX_NOTE_FOO;
 		} else {
-			flags &= ~PAX_NOTE_NODISALLOWMAP32BIT;
-			flags |= PAX_NOTE_DISALLOWMAP32BIT;
+			flags &= ~PAX_NOTE_NOFOO;
+			flags |= PAX_NOTE_FOO;
 		}
 
 		return (flags);
 	}
 
-	/* Unknown status, force MAP32 restriction. */
-	flags |= PAX_NOTE_DISALLOWMAP32BIT;
-	flags &= ~PAX_NOTE_NODISALLOWMAP32BIT;
+	/* Unknown status, force FOO restriction. */
+	flags |= PAX_NOTE_FOO;
+	flags &= ~PAX_NOTE_NOFOO;
+#endif
 
 	return (flags);
 }
