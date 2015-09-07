@@ -187,15 +187,12 @@ pax_check_conflicting_modes(uint32_t mode)
 int
 pax_elf(struct image_params *imgp, uint32_t mode)
 {
-	uint32_t flags, flags_aslr, flags_mprotect, flags_pageexec, flags_segvuard, flags_hardening;
+	uint32_t flags;
 
-	flags = mode;
-	flags_aslr = flags_segvuard = flags_hardening = flags_mprotect = flags_pageexec = 0;
-
-	if (pax_validate_flags(flags) != 0) {
+	if (pax_validate_flags(mode) != 0) {
 		pax_log_internal_imgp(imgp, PAX_LOG_DEFAULT,
-		    "unknown paxflags: %x", flags);
-		pax_ulog_internal("unknown paxflags: %x\n", flags);
+		    "unknown paxflags: %x", mode);
+		pax_ulog_internal("unknown paxflags: %x\n", mode);
 
 		return (ENOEXEC);
 	}
@@ -205,33 +202,59 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 		 * indicate flags inconsistencies in dmesg and in user terminal
 		 */
 		pax_log_internal_imgp(imgp, PAX_LOG_DEFAULT,
-		    "inconsistent paxflags: %x", flags);
-		pax_ulog_internal("inconsistent paxflags: %x\n", flags);
+		    "inconsistent paxflags: %x", mode);
+		pax_ulog_internal("inconsistent paxflags: %x\n", mode);
 
 		return (ENOEXEC);
 	}
 
+	flags = 0;
+
 #ifdef PAX_ASLR
-	flags_aslr = pax_aslr_setup_flags(imgp, mode);
+	flags |= pax_aslr_setup_flags(imgp, mode);
 #endif
 
 #ifdef PAX_NOEXEC
-	flags_pageexec = pax_pageexec_setup_flags(imgp, mode);
-	flags_mprotect = pax_mprotect_setup_flags(imgp, mode);
+	flags |= pax_pageexec_setup_flags(imgp, mode);
+	flags |= pax_mprotect_setup_flags(imgp, mode);
 #endif
 
 #ifdef PAX_SEGVGUARD
-	flags_segvuard = pax_segvguard_setup_flags(imgp, mode);
+	flags |= pax_segvguard_setup_flags(imgp, mode);
 #endif
 
 #ifdef PAX_HARDENING
-	flags_hardening = pax_hardening_setup_flags(imgp, mode);
+	flags |= pax_hardening_setup_flags(imgp, mode);
 #endif
-
-	flags = flags_aslr | flags_mprotect | flags_pageexec | flags_segvuard | flags_hardening;
 
 	CTR3(KTR_PAX, "%s : flags = %x mode = %x",
 	    __func__, flags, mode);
+
+	/*
+	 * Recheck the flags after the parsing: prevent broken setups.
+	 */
+	if (pax_validate_flags(flags) != 0) {
+		pax_log_internal_imgp(imgp, PAX_LOG_DEFAULT,
+		    "unknown paxflags after the setup: %x", flags);
+		pax_ulog_internal("unknown paxflags after the setup: %x\n", flags);
+
+		return (ENOEXEC);
+	}
+
+	/*
+	 * Recheck the flags after the parsing: prevent conflicting setups.
+	 * This check should be always false.
+	 */
+	if (pax_check_conflicting_modes(flags) != 0) {
+		/*
+		 * indicate flags inconsistencies in dmesg and in user terminal
+		 */
+		pax_log_internal_imgp(imgp, PAX_LOG_DEFAULT,
+		    "inconsistent paxflags after the setup: %x", flags);
+		pax_ulog_internal("inconsistent paxflags after the setup: %x\n", flags);
+
+		return (ENOEXEC);
+	}
 
 	imgp->proc->p_pax = flags;
 
