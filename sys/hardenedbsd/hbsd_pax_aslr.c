@@ -244,6 +244,11 @@ static int pax_aslr_mmap_len = PAX_ASLR_DELTA_MMAP_DEF_LEN;
 static int pax_aslr_stack_len = PAX_ASLR_DELTA_STACK_DEF_LEN;
 static int pax_aslr_exec_len = PAX_ASLR_DELTA_EXEC_DEF_LEN;
 static int pax_aslr_vdso_len = PAX_ASLR_DELTA_VDSO_DEF_LEN;
+#ifdef PAX_HARDENING
+static int pax_disallow_map32bit_status_global = PAX_FEATURE_OPTOUT;
+#else
+static int pax_disallow_map32bit_status_global = PAX_FEATURE_OPTIN;
+#endif
 
 #ifdef COMPAT_FREEBSD32
 static int pax_aslr_compat_status = PAX_FEATURE_OPTOUT;
@@ -265,6 +270,7 @@ TUNABLE_INT("hardening.pax.aslr.compat.stack_len", &pax_aslr_compat_stack_len);
 TUNABLE_INT("hardening.pax.aslr.compat.exec_len", &pax_aslr_compat_exec_len);
 TUNABLE_INT("hardening.pax.aslr.compat.vdso_len", &pax_aslr_compat_vdso_len);
 #endif
+TUNABLE_INT("hardening.pax.disallow_map32bit.status", &pax_disallow_map32bit_status_global);
 
 #ifdef PAX_SYSCTLS
 SYSCTL_DECL(_hardening_pax);
@@ -277,6 +283,7 @@ static int sysctl_pax_aslr_mmap(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_stack(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_exec(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_vdso(SYSCTL_HANDLER_ARGS);
+static int sysctl_pax_disallow_map32bit(SYSCTL_HANDLER_ARGS);
 
 SYSCTL_NODE(_hardening_pax, OID_AUTO, aslr, CTLFLAG_RD, 0,
     "Address Space Layout Randomization.");
@@ -619,6 +626,51 @@ sysctl_pax_aslr_compat_vdso(SYSCTL_HANDLER_ARGS)
 }
 
 #endif /* COMPAT_FREEBSD32 */
+
+#ifdef MAP_32BIT
+SYSCTL_NODE(_hardening_pax, OID_AUTO, disallow_map32bit, CTLFLAG_RD, 0,
+    "Disallow MAP_32BIT mode mmap(2) calls.");
+
+SYSCTL_PROC(_hardening_pax_disallow_map32bit, OID_AUTO, status,
+    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
+    NULL, 0, sysctl_pax_disallow_map32bit, "I",
+    "Restriction status:"
+    "0 - disabled, "
+    "1 - opt-in, "
+    "2 - opt-out, "
+    "3 - force enabled.");
+
+static int
+sysctl_pax_disallow_map32bit(SYSCTL_HANDLER_ARGS)
+{
+	struct prison *pr;
+	int err, val;
+
+	pr = pax_get_prison_td(req->td);
+
+	val = pr->pr_hardening.hr_pax_disallow_map32bit_status;
+	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
+	if (err || (req->newptr == NULL))
+		return (err);
+
+	switch (val) {
+	case PAX_FEATURE_DISABLED:
+	case PAX_FEATURE_OPTIN:
+	case PAX_FEATURE_OPTOUT:
+	case PAX_FEATURE_FORCE_ENABLED:
+		if ((pr == NULL) || (pr == &prison0))
+			pax_disallow_map32bit_status_global = val;
+
+		pr->pr_hardening.hr_pax_disallow_map32bit_status = val;
+		break;
+	default:
+		return (EINVAL);
+	}
+
+	return (0);
+}
+#endif	/* MAP_32BIT */
+
 #endif /* PAX_SYSCTLS */
 
 
@@ -647,6 +699,21 @@ pax_aslr_sysinit(void)
 	printf("[PAX ASLR] exec base: %d bit\n", pax_aslr_exec_len);
 	printf("[PAX ASLR] stack: %d bit\n", pax_aslr_stack_len);
 	printf("[PAX ASLR] vdso: %d bit\n", pax_aslr_vdso_len);
+
+	switch (pax_disallow_map32bit_status_global) {
+	case PAX_FEATURE_DISABLED:
+	case PAX_FEATURE_OPTIN:
+	case PAX_FEATURE_OPTOUT:
+	case PAX_FEATURE_FORCE_ENABLED:
+		break;
+	default:
+		printf("[PAX ASLR] WARNING, invalid settings in loader.conf!"
+		    " (hardening.pax.disallow_map32bit.status = %d)\n",
+		    pax_disallow_map32bit_status_global);
+		pax_disallow_map32bit_status_global = PAX_FEATURE_FORCE_ENABLED;
+	}
+	printf("[PAX ASLR] disallow MAP_32BIT mode mmap: %s\n",
+	    pax_status_str[pax_disallow_map32bit_status_global]);
 }
 SYSINIT(pax_aslr, SI_SUB_PAX, SI_ORDER_SECOND, pax_aslr_sysinit, NULL);
 
@@ -789,7 +856,7 @@ pax_aslr_init_vmspace32(struct proc *p)
 	CTR2(KTR_PAX, "%s: vm_aslr_delta_vdso=%p\n",
 	    __func__, (void *)vm->vm_aslr_delta_vdso);
 }
-#endif
+#endif	/* COMPAT_FREEBSD32 */
 
 void
 pax_aslr_init(struct image_params *imgp)
@@ -825,6 +892,10 @@ pax_aslr_init_prison(struct prison *pr)
 		    pax_aslr_exec_len;
 		pr->pr_hardening.hr_pax_aslr_vdso_len =
 		    pax_aslr_vdso_len;
+#ifdef MAP_32BIT
+		pr->pr_hardening.hr_pax_disallow_map32bit_status =
+		    pax_disallow_map32bit_status_global;
+#endif
 	} else {
 		KASSERT(pr->pr_parent != NULL,
 		   ("%s: pr->pr_parent == NULL", __func__));
@@ -840,6 +911,10 @@ pax_aslr_init_prison(struct prison *pr)
 		    pr_p->pr_hardening.hr_pax_aslr_exec_len;
 		pr->pr_hardening.hr_pax_aslr_vdso_len =
 		    pr_p->pr_hardening.hr_pax_aslr_vdso_len;
+#ifdef MAP_32BIT
+		pr->pr_hardening.hr_pax_disallow_map32bit_status =
+		    pr_p->pr_hardening.hr_pax_disallow_map32bit_status;
+#endif
 	}
 }
 
@@ -924,54 +999,6 @@ pax_aslr_mmap(struct proc *p, vm_offset_t *addr, vm_offset_t orig_addr, int flag
 		CTR4(KTR_PAX, "%s: not applying to %p orig_addr=%p flags=%x\n",
 		    __func__, (void *)*addr, (void *)orig_addr, flags);
 }
-
-#ifdef MAP_32BIT
-void
-pax_aslr_mmap_map_32bit(struct proc *p, vm_offset_t *addr, vm_offset_t orig_addr, int flags)
-{
-	int len_32bit;
-
-	PROC_LOCK_ASSERT(p, MA_OWNED);
-
-	if (((flags & MAP_32BIT) != MAP_32BIT) || !pax_aslr_active(p))
-		return;
-
-	KASSERT((flags & MAP_32BIT) == MAP_32BIT,
-	    ("%s: we can't handle not MAP_32BIT mapping here", __func__));
-	KASSERT((flags & MAP_FIXED) != MAP_FIXED,
-	    ("%s: we can't randomize MAP_FIXED mapping", __func__));
-
-	/*
-	 * From original PaX doc:
-	 *
-	 * PaX applies randomization (delta_mmap) to TASK_UNMAPPED_BASE in bits 12-27
-	 * (16 bits) and ignores the hint for file mappings (unfortunately there is
-	 * a 'feature' in linuxthreads where the thread stack mappings do not specify
-	 * MAP_FIXED but still expect that behaviour so the hint cannot be overriden
-	 * for anonymous mappings).
-	 *
-	 * https://github.com/HardenedBSD/pax-docs-mirror/blob/master/randmmap.txt#L30
-	 */
-	if ((orig_addr == 0) || !(flags & MAP_ANON)) {
-		CTR4(KTR_PAX, "%s: applying to %p orig_addr=%p flags=%x\n",
-				__func__, (void *)*addr, (void *)orig_addr, flags);
-
-#ifdef COMPAT_FREEBSD32
-		len_32bit = pax_aslr_compat_mmap_len;
-#else
-		len_32bit = PAX_ASLR_COMPAT_DELTA_MMAP_MAX_LEN;
-#endif
-		/*
-		 * XXXOP - use proper pregenerated randoms here, rather than generate
-		 * every time new random. Currently in MAP_32bit case is an ASR, and
-		 * not ASLR.
-		 */
-		*addr += PAX_ASLR_DELTA(arc4random(), PAX_ASLR_COMPAT_DELTA_MMAP_LSB,
-		    len_32bit);
-		CTR2(KTR_PAX, "%s: result %p\n", __func__, (void *)*addr);
-	}
-}
-#endif
 
 void
 pax_aslr_rtld(struct proc *p, u_long *addr)
@@ -1124,7 +1151,7 @@ pax_aslr_setup_flags(struct image_params *imgp, uint32_t mode)
 	}
 
 	/*
-	 * unknown status, force ASLR
+	 * Unknown status, force ASLR.
 	 */
 	flags |= PAX_NOTE_ASLR;
 	flags &= ~PAX_NOTE_NOASLR;
@@ -1133,4 +1160,136 @@ pax_aslr_setup_flags(struct image_params *imgp, uint32_t mode)
 
 	return (flags);
 }
+
+#ifdef MAP_32BIT
+void
+pax_aslr_mmap_map_32bit(struct proc *p, vm_offset_t *addr, vm_offset_t orig_addr, int flags)
+{
+	int len_32bit;
+
+	PROC_LOCK_ASSERT(p, MA_OWNED);
+
+	if (((flags & MAP_32BIT) != MAP_32BIT) || !pax_aslr_active(p))
+		return;
+
+	KASSERT((flags & MAP_32BIT) == MAP_32BIT,
+	    ("%s: we can't handle not MAP_32BIT mapping here", __func__));
+	KASSERT((flags & MAP_FIXED) != MAP_FIXED,
+	    ("%s: we can't randomize MAP_FIXED mapping", __func__));
+
+	/*
+	 * From original PaX doc:
+	 *
+	 * PaX applies randomization (delta_mmap) to TASK_UNMAPPED_BASE in bits 12-27
+	 * (16 bits) and ignores the hint for file mappings (unfortunately there is
+	 * a 'feature' in linuxthreads where the thread stack mappings do not specify
+	 * MAP_FIXED but still expect that behaviour so the hint cannot be overriden
+	 * for anonymous mappings).
+	 *
+	 * https://github.com/HardenedBSD/pax-docs-mirror/blob/master/randmmap.txt#L30
+	 */
+	if ((orig_addr == 0) || !(flags & MAP_ANON)) {
+		CTR4(KTR_PAX, "%s: applying to %p orig_addr=%p flags=%x\n",
+				__func__, (void *)*addr, (void *)orig_addr, flags);
+
+#ifdef COMPAT_FREEBSD32
+		len_32bit = pax_aslr_compat_mmap_len;
+#else
+		len_32bit = PAX_ASLR_COMPAT_DELTA_MMAP_MAX_LEN;
+#endif
+		/*
+		 * XXXOP - use proper pregenerated randoms here, rather than generate
+		 * every time new random. Currently in MAP_32bit case is an ASR, and
+		 * not ASLR.
+		 */
+		*addr += PAX_ASLR_DELTA(arc4random(), PAX_ASLR_COMPAT_DELTA_MMAP_LSB,
+		    len_32bit);
+		CTR2(KTR_PAX, "%s: result %p\n", __func__, (void *)*addr);
+	}
+}
+
+int
+pax_disallow_map32bit_active(struct thread *td, int mmap_flags)
+{
+	uint32_t flags;
+
+	if ((mmap_flags & MAP_32BIT) != MAP_32BIT)
+		/*
+		 * Fast path, the mmap request does not
+		 * contains MAP_32BIT flag.
+		 */
+		return (false);
+
+	/* XXXOP: pax_get_flags_td(...) here? */
+	pax_get_flags(td->td_proc, &flags);
+
+	CTR3(KTR_PAX, "%S: pid = %d p_pax = %x",
+	    __func__, td->td_proc->p_pid, flags);
+
+	if ((flags & PAX_NOTE_DISALLOWMAP32BIT) == PAX_NOTE_DISALLOWMAP32BIT)
+		return (true);
+
+	if ((flags & PAX_NOTE_NODISALLOWMAP32BIT) == PAX_NOTE_NODISALLOWMAP32BIT)
+		return (false);
+
+	return (true);
+}
+
+uint32_t
+pax_disallow_map32bit_setup_flags(struct image_params *imgp, uint32_t mode)
+{
+	struct prison *pr;
+	uint32_t flags, status;
+
+	flags = 0;
+	status = 0;
+
+	pr = pax_get_prison(imgp->proc);
+	status = pr->pr_hardening.hr_pax_disallow_map32bit_status;
+
+	if (status == PAX_FEATURE_DISABLED) {
+		flags &= ~PAX_NOTE_DISALLOWMAP32BIT;
+		flags |= PAX_NOTE_NODISALLOWMAP32BIT;
+
+		return (flags);
+	}
+
+	if (status == PAX_FEATURE_FORCE_ENABLED) {
+		flags &= ~PAX_NOTE_NODISALLOWMAP32BIT;
+		flags |= PAX_NOTE_DISALLOWMAP32BIT;
+
+		return (flags);
+	}
+
+	if (status == PAX_FEATURE_OPTIN) {
+		if (mode & PAX_NOTE_DISALLOWMAP32BIT) {
+			flags |= PAX_NOTE_DISALLOWMAP32BIT;
+			flags &= ~PAX_NOTE_NODISALLOWMAP32BIT;
+		} else {
+			flags &= ~PAX_NOTE_DISALLOWMAP32BIT;
+			flags |= PAX_NOTE_NODISALLOWMAP32BIT;
+		}
+
+		return (flags);
+	}
+
+	if (status == PAX_FEATURE_OPTOUT) {
+		if (mode & PAX_NOTE_NODISALLOWMAP32BIT) {
+			flags |= PAX_NOTE_NODISALLOWMAP32BIT;
+			flags &= ~PAX_NOTE_DISALLOWMAP32BIT;
+		} else {
+			flags &= ~PAX_NOTE_NODISALLOWMAP32BIT;
+			flags |= PAX_NOTE_DISALLOWMAP32BIT;
+		}
+
+		return (flags);
+	}
+
+	/* Unknown status, force MAP32 restriction. */
+	flags |= PAX_NOTE_DISALLOWMAP32BIT;
+	flags &= ~PAX_NOTE_NODISALLOWMAP32BIT;
+
+	return (flags);
+}
+#endif	/* MAP_32BIT */
 

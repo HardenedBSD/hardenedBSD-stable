@@ -122,6 +122,7 @@ uint32_t pax_aslr_setup_flags(struct image_params *imgp, uint32_t mode);
 void pax_aslr_stack(struct proc *p, vm_offset_t *addr);
 void pax_aslr_stack_with_gap(struct proc *p, vm_offset_t *addr);
 void pax_aslr_vdso(struct proc *p, vm_offset_t *addr);
+uint32_t pax_disallow_map32bit_setup_flags(struct image_params *imgp, uint32_t mode);
 
 /*
  * Log related functions
