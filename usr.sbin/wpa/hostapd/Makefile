@@ -15,8 +15,8 @@ SRCS=	accounting.c aes-omac1.c ap_config.c ap_drv_ops.c ap_mlme.c authsrv.c \
 	eap_register.c eap_server.c eap_server_methods.c eap_user_db.c \
 	eapol_auth_dump.c eapol_auth_sm.c eloop.c gas.c gas_serv.c hostapd.c \
 	hs20.c http_client.c http_server.c httpread.c \
-	hw_features_common.c ieee802_11_auth.c \
-	ieee802_11_common.c ieee802_11_shared.c ieee802_1x.c ip_addr.c \
+	hw_features_common.c ieee802_11_auth.c ieee802_11_common.c \
+	ieee802_11_ht.c ieee802_11_shared.c ieee802_1x.c ip_addr.c \
 	main.c ms_funcs.c os_unix.c peerkey_auth.c pmksa_cache_auth.c \
 	preauth_auth.c radius.c radius_client.c radius_das.c sta_info.c \
 	tkip_countermeasures.c upnp_xml.c utils.c uuid.c vlan_init.c \
@@ -35,15 +35,16 @@ FILES=	hostapd.conf hostapd.eap_user hostapd.wpa_psk
 .endif
 
 CFLAGS+=-DCONFIG_DRIVER_BSD \
-	-DHOSTAPD \
 	-DCONFIG_DRIVER_RADIUS_ACL \
-	-DCONFIG_RSN_PREAUTH \
+	-DCONFIG_HS20 \
+	-DCONFIG_IEEE80211N \
+	-DCONFIG_INTERWORKING \
 	-DCONFIG_PEERKEY \
+	-DCONFIG_RSN_PREAUTH \
 	-DCONFIG_WPS \
 	-DCONFIG_WPS2 \
 	-DCONFIG_WPS_UPNP \
-	-DCONFIG_INTERWORKING \
-	-DCONFIG_HS20
+	-DHOSTAPD
 .if ${MK_INET6} != "no"
 CFLAGS+= -DCONFIG_IPV6
 .endif
@@ -65,8 +66,8 @@ CFLAGS+=-DDPKCS12_FUNCS \
 	-DEAP_SERVER_PEAP \
 	-DEAP_SERVER_TLS \
 	-DEAP_SERVER_TTLS \
-	-DEAP_TLS_FUNCS \
-	-DEAP_SERVER_WSC
+	-DEAP_SERVER_WSC \
+	-DEAP_TLS_FUNCS
 
 SRCS+=	eap_server_gtc.c \
 	eap_server_identity.c \
