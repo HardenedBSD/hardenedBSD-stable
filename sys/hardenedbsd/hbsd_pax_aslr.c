@@ -751,6 +751,7 @@ pax_aslr_init_vmspace(struct proc *p)
 	struct prison *pr;
 	struct vmspace *vm;
 	unsigned long rand_buf;
+	int try;
 
 	vm = p->p_vmspace;
 	KASSERT(vm != NULL, ("%s: vm is null", __func__));
@@ -762,31 +763,56 @@ pax_aslr_init_vmspace(struct proc *p)
 	    pr->pr_hardening.hr_pax_aslr_mmap_len);
 
 	arc4rand(&rand_buf, sizeof(rand_buf), 0);
+	vm->vm_aslr_delta_exec = PAX_ASLR_DELTA(rand_buf,
+	    PAX_ASLR_DELTA_EXEC_LSB,
+	    pr->pr_hardening.hr_pax_aslr_exec_len);
+
+	try = 3;
+try_again:
+	/*
+	 * In stack case we generate a bigger random, which consists
+	 * of two parts.
+	 * The first upper part [pax_aslr_stack_len .. PAGE_SHIFT+1]
+	 * applied to mapping, the second lower part [PAGE_SHIFT .. 3]
+	 * applied in the mapping as gap.
+	 */
+	arc4rand(&rand_buf, sizeof(rand_buf), 0);
 	vm->vm_aslr_delta_stack = PAX_ASLR_DELTA(rand_buf,
 	    PAX_ASLR_DELTA_STACK_WITH_GAP_LSB,
 	    pr->pr_hardening.hr_pax_aslr_stack_len);
 	vm->vm_aslr_delta_stack = ALIGN(vm->vm_aslr_delta_stack);
 
 	arc4rand(&rand_buf, sizeof(rand_buf), 0);
-	vm->vm_aslr_delta_exec = PAX_ASLR_DELTA(rand_buf,
-	    PAX_ASLR_DELTA_EXEC_LSB,
-	    pr->pr_hardening.hr_pax_aslr_exec_len);
-
-	arc4rand(&rand_buf, sizeof(rand_buf), 0);
 	rand_buf = PAX_ASLR_DELTA(rand_buf,
 	    PAX_ASLR_DELTA_VDSO_LSB,
 	    pr->pr_hardening.hr_pax_aslr_vdso_len);
+
 	/*
-	 * XXX Stability fix.
-	 *
 	 * Place the vdso between the stacktop and
 	 * vm_max_user-PAGE_SIZE.
+	 *
+	 * In future this will change, to place them between the 
+	 * stack and heap.
 	 */
-	if (rand_buf > vm->vm_aslr_delta_stack) {
-		rand_buf = rand_buf %
-		    ((unsigned long)vm->vm_aslr_delta_stack &
-		    (-1UL << PAX_ASLR_DELTA_STACK_LSB));
-		rand_buf &= (-1UL << PAX_ASLR_DELTA_VDSO_LSB);
+
+	/* 
+	 * This check required to handle the case 
+	 * when PAGE_ALIGN(vm->vm_aslr_delta_stack) == 0.
+	 */
+	if ((vm->vm_aslr_delta_stack & (-1UL << PAX_ASLR_DELTA_VDSO_LSB)) != 0) {
+		if (rand_buf > vm->vm_aslr_delta_stack) {
+			rand_buf = rand_buf %
+			    ((unsigned long)vm->vm_aslr_delta_stack &
+			    (-1UL << PAX_ASLR_DELTA_STACK_LSB));
+			rand_buf &= (-1UL << PAX_ASLR_DELTA_VDSO_LSB);
+		}
+	} else if (try > 0) {
+		try--;
+		goto try_again;
+	} else {
+		/* XXX: Instead of 0, should we place them at the end of heap? */
+		pax_log_aslr(p, PAX_LOG_DEFAULT, "%s check your /boot/loader.conf ...", __func__);
+		rand_buf = 0;
 	}
 	vm->vm_aslr_delta_vdso = rand_buf;
 
