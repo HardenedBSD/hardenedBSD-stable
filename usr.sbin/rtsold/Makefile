@@ -20,7 +20,11 @@ MLINKS=	rtsold.8 rtsol.8
 SRCS=	rtsold.c rtsol.c if.c probe.c dump.c rtsock.c
 
 WARNS?=	3
+<<<<<<< HEAD
 CFLAGS+= -DHAVE_ARC4RANDOM -DHAVE_POLL_H
 WANTS_PIE=	yes
+=======
+CFLAGS+= -DHAVE_ARC4RANDOM
+>>>>>>> origin/master
 
 .include <bsd.prog.mk>
