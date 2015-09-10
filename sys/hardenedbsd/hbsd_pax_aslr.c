@@ -782,11 +782,12 @@ pax_aslr_init_vmspace(struct proc *p)
 	 * Place the vdso between the stacktop and
 	 * vm_max_user-PAGE_SIZE.
 	 */
-	if (rand_buf >= vm->vm_aslr_delta_stack)
+	if (rand_buf > vm->vm_aslr_delta_stack) {
 		rand_buf = rand_buf %
 		    ((unsigned long)vm->vm_aslr_delta_stack &
 		    (-1UL << PAX_ASLR_DELTA_STACK_LSB));
-	rand_buf &= (-1UL << PAX_ASLR_DELTA_VDSO_LSB);
+		rand_buf &= (-1UL << PAX_ASLR_DELTA_VDSO_LSB);
+	}
 	vm->vm_aslr_delta_vdso = rand_buf;
 
 	CTR2(KTR_PAX, "%s: vm_aslr_delta_mmap=%p\n",
