@@ -8404,7 +8404,7 @@ ctl_hndl_per_res_out_on_other_sc(union ctl_ha_msg *msg)
 	struct ctl_lun *lun;
 	struct ctl_softc *softc;
 	int i;
-	uint32_t targ_lun;
+	uint32_t residx, targ_lun;
 
 	softc = control_softc;
 	targ_lun = msg->hdr.nexus.targ_mapped_lun;
@@ -8420,6 +8420,7 @@ ctl_hndl_per_res_out_on_other_sc(union ctl_ha_msg *msg)
 		mtx_unlock(&lun->lun_lock);
 		return;
 	}
+	residx = ctl_get_initindex(&msg->hdr.nexus);
 	switch(msg->pr.pr_info.action) {
 	case CTL_PR_REG_KEY:
 		ctl_alloc_prkey(lun, msg->pr.pr_info.residx);
@@ -8484,8 +8485,9 @@ ctl_hndl_per_res_out_on_other_sc(union ctl_ha_msg *msg)
 		if (lun->res_type != SPR_TYPE_EX_AC
 		 && lun->res_type != SPR_TYPE_WR_EX) {
 			for (i = softc->init_min; i < softc->init_max; i++)
-				if (ctl_get_prkey(lun, i) != 0)
-					ctl_est_ua(lun, i, CTL_UA_RES_RELEASE);
+				if (i == residx || ctl_get_prkey(lun, i) == 0)
+					continue;
+				ctl_est_ua(lun, i, CTL_UA_RES_RELEASE);
 		}
 
 		lun->flags &= ~CTL_LUN_PR_RESERVED;
@@ -11514,13 +11516,24 @@ ctl_i_t_nexus_reset(union ctl_io *io)
 	struct ctl_lun *lun;
 	uint32_t initidx;
 
+	if (!(io->io_hdr.flags & CTL_FLAG_FROM_OTHER_SC)) {
+		union ctl_ha_msg msg_info;
+
+		msg_info.hdr.nexus = io->io_hdr.nexus;
+		msg_info.task.task_action = CTL_TASK_I_T_NEXUS_RESET;
+		msg_info.hdr.msg_type = CTL_MSG_MANAGE_TASKS;
+		msg_info.hdr.original_sc = NULL;
+		msg_info.hdr.serializing_sc = NULL;
+		ctl_ha_msg_send(CTL_HA_CHAN_CTL, &msg_info,
+		    sizeof(msg_info.task), M_WAITOK);
+	}
+
 	initidx = ctl_get_initindex(&io->io_hdr.nexus);
 	mtx_lock(&softc->ctl_lock);
 	STAILQ_FOREACH(lun, &softc->lun_list, links) {
 		mtx_lock(&lun->lun_lock);
 		ctl_abort_tasks_lun(lun, io->io_hdr.nexus.targ_port,
-		    io->io_hdr.nexus.initid,
-		    (io->io_hdr.flags & CTL_FLAG_FROM_OTHER_SC) != 0);
+		    io->io_hdr.nexus.initid, 1);
 #ifdef CTL_WITH_CA
 		ctl_clear_mask(lun->have_ca, initidx);
 #endif
