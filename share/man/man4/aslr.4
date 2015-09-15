@@ -36,6 +36,7 @@
 .In sys/pax.h
 .Pp
 In the kernel configuration file:
+.Cd "options PAX"
 .Cd "options PAX_ASLR"
 .Sh DESCRIPTION
 .Ss Introduction
@@ -72,10 +73,10 @@ Another kernel option,
 exposes additional
 .Xr sysctl 8
 tunables, allowing ASLR behavior control without requiring a reboot.
-By default, the sysctl hardening.pax.aslr.status can only be changed
+By default, the tunable hardening.pax.aslr.status can only be changed
 at boot time via /boot/loader.conf.
 Enabling the PAX_SYSCTLS kernel option allows a root user to modify
-hardening.pax.aslr.status.
+hardening.pax.aslr.status at run time.
 See Appendix A for a list of all the tunables.
 .Pp
 ASLR tunables are per-jail and each jail inherits its parent jail's
@@ -126,7 +127,8 @@ randomized by applying the delta controlled by the
 hardening.pax.aslr.mmap_len tunable in
 .Fn sys_mmap
 .Ns .
-Stack randomization is implemented using a stack gap.
+Stack randomization is implemented using a small stack gap
+and a bigger random, which applies to the stack's mapping.
 On executable image activation, the stack delta is computed and
 subtracted from the top of the stack.
 .Ss APPENDIX A
@@ -169,10 +171,10 @@ execbase.
 .It
 Values:
 .br
-For 32-bit systems, minimum of 6, maximum of 11. For 64-bit systems,
-minimum of 12, maximum of 22.
+For 32-bit systems, minimum of 8, maximum of 21. For 64-bit systems,
+minimum of 16, maximum of 42.
 .It
-Default: For 32-bit systems: 6. For 64-bit systems: 21.
+Default: For 32-bit systems: 14. For 64-bit systems: 30.
 .El
 .It
 hardening.pax.aslr.mmap_len
@@ -186,10 +188,10 @@ calls.
 .It
 Values:
 .br
-For 32-bit systems, minimum of 8, maximum of 16. For 64-bit systems,
-minimum of 16, maximum of 32.
+For 32-bit systems, minimum of 8, maximum of 21. For 64-bit systems,
+minimum of 16, maximum of 42.
 .It
-Default: For 32-bit systems: 8. For 64-bit systems: 21.
+Default: For 32-bit systems: 14. For 64-bit systems: 30.
 .El
 .It
 hardening.pax.aslr.stack_len
@@ -201,10 +203,25 @@ Description: Set the number of bits to be randomized for the stack.
 .It
 Values:
 .br
-For 32-bit systems, minimum of 6, maximum of 11. For 64-bit systems,
-minimum of 12, maximum of 21.
+For 32-bit systems, minimum of 8, maximum of 21. For 64-bit systems,
+minimum of 16, maximum of 42.
 .It
-Default: For 32-bit systems: 6. For 64-bit systems: 16.
+Default: For 32-bit systems: 14. For 64-bit systems: 42.
+.El
+.It
+hardening.pax.aslr.vdso_len
+.Bl -dash -compact
+.It
+Type: integer
+.It
+Description: Set the number of bits to be randomized for the shared page (vdso).
+.It
+Values:
+.br
+For 32-bit systems, minimum of 8, maximum of 21. For 64-bit systems,
+minimum of 16, maximum of 38.
+.It
+Default: For 32-bit systems: 10. For 64-bit systems: 28.
 .El
 .El
 .Sh SEE ALSO
@@ -251,16 +268,7 @@ The ASLR implementation was written by
 .An Oliver Pinter and
 .An Shawn Webb .
 .Sh BUGS
-The existing gap-based stack randomization is not optimal.
-Mapping-base stack randomization is more robust, but hard-coded kernel
-structures and addresses, especially
-.Va PS_STRINGS
-, will need to be
-modified.
-The required changes to
-.Va PS_STRINGS
-are major and will likely touch
-userland along with the kernel.
+Currently the COMPAT_FREEBSD32 case is ASR instead of ASLR.
 
 The original PaX implementation, from which the
 .Fx
