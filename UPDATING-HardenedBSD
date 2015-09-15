@@ -1,3 +1,10 @@
+[20150915] ASLR changes
+__HardenedBSD_version = 32
+
+	Changed default VDSO randomization from 20 bits to 28 bits.
+	Fixed div by zero in rare cases in pax_aslr_init_vmspace.
+
+
 [20150907] Reworked DISALLOWMAP32BIT and changes some internal functions
 __HardenedBSD_version = 31
 
