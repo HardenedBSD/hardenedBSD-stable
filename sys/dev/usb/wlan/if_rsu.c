@@ -151,6 +151,7 @@ static device_attach_t  rsu_attach;
 static device_detach_t  rsu_detach;
 static usb_callback_t   rsu_bulk_tx_callback_be_bk;
 static usb_callback_t   rsu_bulk_tx_callback_vi_vo;
+static usb_callback_t   rsu_bulk_tx_callback_h2c;
 static usb_callback_t   rsu_bulk_rx_callback;
 static usb_error_t	rsu_do_request(struct rsu_softc *,
 			    struct usb_device_request *, void *);
@@ -214,7 +215,7 @@ static int	rsu_transmit(struct ieee80211com *, struct mbuf *);
 static void	rsu_start(struct rsu_softc *);
 static void	rsu_parent(struct ieee80211com *);
 static void	rsu_stop(struct rsu_softc *);
-static void	rsu_ms_delay(struct rsu_softc *);
+static void	rsu_ms_delay(struct rsu_softc *, int);
 
 static device_method_t rsu_methods[] = {
 	DEVMETHOD(device_probe,		rsu_match),
@@ -244,6 +245,9 @@ static uint8_t rsu_wme_ac_xfer_map[4] = {
 	[WME_AC_VI] = RSU_BULK_TX_VI_VO,
 	[WME_AC_VO] = RSU_BULK_TX_VI_VO,
 };
+
+/* XXX hard-coded */
+#define	RSU_H2C_ENDPOINT	3
 
 static const struct usb_config rsu_config[RSU_N_TRANSFER] = {
 	[RSU_BULK_RX] = {
@@ -283,6 +287,19 @@ static const struct usb_config rsu_config[RSU_N_TRANSFER] = {
 		.callback = rsu_bulk_tx_callback_vi_vo,
 		.timeout = RSU_TX_TIMEOUT
 	},
+	[RSU_BULK_TX_H2C] = {
+		.type = UE_BULK,
+		.endpoint = 0x0d,
+		.direction = UE_DIR_OUT,
+		.bufsize = RSU_TXBUFSZ,
+		.flags = {
+			.ext_buffer = 1,
+			.pipe_bof = 1,
+			.short_xfer_ok = 1
+		},
+		.callback = rsu_bulk_tx_callback_h2c,
+		.timeout = RSU_TX_TIMEOUT
+	},
 };
 
 static int
@@ -305,6 +322,28 @@ rsu_send_mgmt(struct ieee80211_node *ni, int type, int arg)
 	return (ENOTSUP);
 }
 
+static void
+rsu_update_chw(struct ieee80211com *ic)
+{
+
+}
+
+static int
+rsu_ampdu_enable(struct ieee80211_node *ni, struct ieee80211_tx_ampdu *tap)
+{
+
+	/* Firmware handles this; not our problem */
+	return (0);
+}
+
+static int
+rsu_wme_update(struct ieee80211com *ic)
+{
+
+	/* Firmware handles this; not our problem */
+	return (0);
+}
+
 static int
 rsu_attach(device_t self)
 {
@@ -313,10 +352,23 @@ rsu_attach(device_t self)
 	struct ieee80211com *ic = &sc->sc_ic;
 	int error;
 	uint8_t iface_index, bands;
+	struct usb_interface *iface;
 
 	device_set_usb_desc(self);
 	sc->sc_udev = uaa->device;
 	sc->sc_dev = self;
+	sc->sc_ht = !! (USB_GET_DRIVER_INFO(uaa) & RSU_HT_SUPPORTED);
+
+	/* Get number of endpoints */
+	iface = usbd_get_iface(sc->sc_udev, 0);
+	sc->sc_nendpoints = iface->idesc->bNumEndpoints;
+
+	/* Endpoints are hard-coded for now, so enforce 4-endpoint only */
+	if (sc->sc_nendpoints != 4) {
+		device_printf(sc->sc_dev,
+		    "the driver currently only supports 4-endpoint devices\n");
+		return (ENXIO);
+	}
 
 	mtx_init(&sc->sc_mtx, device_get_nameunit(self), MTX_NETWORK_LOCK,
 	    MTX_DEF);
@@ -406,6 +458,9 @@ rsu_attach(device_t self)
 	ic->ic_parent = rsu_parent;
 	ic->ic_transmit = rsu_transmit;
 	ic->ic_send_mgmt = rsu_send_mgmt;
+	ic->ic_update_chw = rsu_update_chw;
+	ic->ic_ampdu_enable = rsu_ampdu_enable;
+	ic->ic_wme.wme_update = rsu_wme_update;
 
 	ieee80211_radiotap_attach(ic, &sc->sc_txtap.wt_ihdr,
 	    sizeof(sc->sc_txtap), RSU_TX_RADIOTAP_PRESENT, 
@@ -464,7 +519,7 @@ rsu_do_request(struct rsu_softc *sc, struct usb_device_request *req,
 			break;
 		DPRINTFN(1, "Control request failed, %s (retrying)\n",
 		    usbd_errstr(err));
-		usb_pause_mtx(&sc->sc_mtx, hz / 100);
+		rsu_ms_delay(sc, 10);
         }
 
         return (err);
@@ -774,11 +829,11 @@ rsu_fw_iocmd(struct rsu_softc *sc, uint32_t iocmd)
 	int ntries;
 
 	rsu_write_4(sc, R92S_IOCMD_CTRL, iocmd);
-	rsu_ms_delay(sc);
+	rsu_ms_delay(sc, 1);
 	for (ntries = 0; ntries < 50; ntries++) {
 		if (rsu_read_4(sc, R92S_IOCMD_CTRL) == 0)
 			return (0);
-		rsu_ms_delay(sc);
+		rsu_ms_delay(sc, 1);
 	}
 	return (ETIMEDOUT);
 }
@@ -798,7 +853,7 @@ rsu_efuse_read_1(struct rsu_softc *sc, uint16_t addr)
 		reg = rsu_read_4(sc, R92S_EFUSE_CTRL);
 		if (reg & R92S_EFUSE_CTRL_VALID)
 			return (MS(reg, R92S_EFUSE_CTRL_DATA));
-		rsu_ms_delay(sc);
+		rsu_ms_delay(sc, 1);
 	}
 	device_printf(sc->sc_dev,
 	    "could not read efuse byte at address 0x%x\n", addr);
@@ -822,7 +877,7 @@ rsu_read_rom(struct rsu_softc *sc)
 	/* Turn on 2.5V to prevent eFuse leakage. */
 	reg = rsu_read_1(sc, R92S_EFUSE_TEST + 3);
 	rsu_write_1(sc, R92S_EFUSE_TEST + 3, reg | 0x80);
-	rsu_ms_delay(sc);
+	rsu_ms_delay(sc, 1);
 	rsu_write_1(sc, R92S_EFUSE_TEST + 3, reg & ~0x80);
 
 	/* Read full ROM image. */
@@ -860,7 +915,7 @@ rsu_read_rom(struct rsu_softc *sc)
 static int
 rsu_fw_cmd(struct rsu_softc *sc, uint8_t code, void *buf, int len)
 {
-	const uint8_t which = rsu_wme_ac_xfer_map[WME_AC_VO];
+	const uint8_t which = RSU_H2C_ENDPOINT;
 	struct rsu_data *data;
 	struct r92s_tx_desc *txd;
 	struct r92s_fw_cmd_hdr *cmd;
@@ -1681,6 +1736,12 @@ rsu_bulk_tx_callback_vi_vo(struct usb_xfer *xfer, usb_error_t error)
 	rsu_bulk_tx_callback_sub(xfer, error, RSU_BULK_TX_VI_VO);
 }
 
+static void
+rsu_bulk_tx_callback_h2c(struct usb_xfer *xfer, usb_error_t error)
+{
+	rsu_bulk_tx_callback_sub(xfer, error, RSU_BULK_TX_H2C);
+}
+
 static int
 rsu_tx_start(struct rsu_softc *sc, struct ieee80211_node *ni, 
     struct mbuf *m0, struct rsu_data *data)
@@ -1883,7 +1944,7 @@ rsu_power_on_acut(struct rsu_softc *sc)
 
 	rsu_write_1(sc, R92S_SPS1_CTRL,
 	    rsu_read_1(sc, R92S_SPS1_CTRL) | R92S_SPS1_LDEN);
-	usb_pause_mtx(&sc->sc_mtx, 2 * hz);
+	rsu_ms_delay(sc, 2000);
 	/* Enable switch regulator block. */
 	rsu_write_1(sc, R92S_SPS1_CTRL,
 	    rsu_read_1(sc, R92S_SPS1_CTRL) | R92S_SPS1_SWEN);
@@ -1955,7 +2016,7 @@ rsu_power_on_bcut(struct rsu_softc *sc)
 
 	/* Prevent eFuse leakage. */
 	rsu_write_1(sc, 0x37, 0xb0);
-	usb_pause_mtx(&sc->sc_mtx, hz / 100);
+	rsu_ms_delay(sc, 10);
 	rsu_write_1(sc, 0x37, 0x30);
 
 	/* Switch the control path to hardware. */
@@ -1966,7 +2027,7 @@ rsu_power_on_bcut(struct rsu_softc *sc)
 	}
 	rsu_write_1(sc, R92S_SYS_FUNC_EN + 1,
 	    rsu_read_1(sc, R92S_SYS_FUNC_EN + 1) & ~0x8c);
-	rsu_ms_delay(sc);
+	rsu_ms_delay(sc, 1);
 
 	rsu_write_1(sc, R92S_SPS0_CTRL + 1, 0x53);
 	rsu_write_1(sc, R92S_SPS0_CTRL + 0, 0x57);
@@ -1999,11 +2060,11 @@ rsu_power_on_bcut(struct rsu_softc *sc)
 	/* Enable AFE PLL macro block. */
 	reg = rsu_read_1(sc, R92S_AFE_PLL_CTRL);
 	rsu_write_1(sc, R92S_AFE_PLL_CTRL, reg | 0x11);
-	rsu_ms_delay(sc);
+	rsu_ms_delay(sc, 1);
 	rsu_write_1(sc, R92S_AFE_PLL_CTRL, reg | 0x51);
-	rsu_ms_delay(sc);
+	rsu_ms_delay(sc, 1);
 	rsu_write_1(sc, R92S_AFE_PLL_CTRL, reg | 0x11);
-	rsu_ms_delay(sc);
+	rsu_ms_delay(sc, 1);
 
 	/* Attach AFE PLL to MACTOP/BB. */
 	rsu_write_1(sc, R92S_SYS_ISO_CTRL,
@@ -2050,7 +2111,7 @@ rsu_power_on_bcut(struct rsu_softc *sc)
 		if ((reg & (R92S_TCR_IMEM_CHK_RPT | R92S_TCR_EMEM_CHK_RPT)) ==
 		    (R92S_TCR_IMEM_CHK_RPT | R92S_TCR_EMEM_CHK_RPT))
 			break;
-		rsu_ms_delay(sc);
+		rsu_ms_delay(sc, 1);
 	}
 	if (ntries == 20) {
 		RSU_DPRINTF(sc, RSU_DEBUG_RESET | RSU_DEBUG_TX,
@@ -2059,7 +2120,7 @@ rsu_power_on_bcut(struct rsu_softc *sc)
 		/* Reset TxDMA. */
 		reg = rsu_read_1(sc, R92S_CR);
 		rsu_write_1(sc, R92S_CR, reg & ~R92S_CR_TXDMA_EN);
-		rsu_ms_delay(sc);
+		rsu_ms_delay(sc, 1);
 		rsu_write_1(sc, R92S_CR, reg | R92S_CR_TXDMA_EN);
 	}
 }
@@ -2069,7 +2130,7 @@ rsu_power_off(struct rsu_softc *sc)
 {
 	/* Turn RF off. */
 	rsu_write_1(sc, R92S_RF_CTRL, 0x00);
-	usb_pause_mtx(&sc->sc_mtx, hz / 200);
+	rsu_ms_delay(sc, 5);
 
 	/* Turn MAC off. */
 	/* Switch control path. */
@@ -2202,7 +2263,7 @@ rsu_load_firmware(struct rsu_softc *sc)
 	}
 	/* Wait for load to complete. */
 	for (ntries = 0; ntries != 50; ntries++) {
-		usb_pause_mtx(&sc->sc_mtx, hz / 100);
+		rsu_ms_delay(sc, 10);
 		reg = rsu_read_1(sc, R92S_TCR);
 		if (reg & R92S_TCR_IMEM_CODE_DONE)
 			break;
@@ -2221,7 +2282,7 @@ rsu_load_firmware(struct rsu_softc *sc)
 	}
 	/* Wait for load to complete. */
 	for (ntries = 0; ntries != 50; ntries++) {
-		usb_pause_mtx(&sc->sc_mtx, hz / 100);
+		rsu_ms_delay(sc, 10);
 		reg = rsu_read_2(sc, R92S_TCR);
 		if (reg & R92S_TCR_EMEM_CODE_DONE)
 			break;
@@ -2251,7 +2312,7 @@ rsu_load_firmware(struct rsu_softc *sc)
 	for (ntries = 0; ntries < 100; ntries++) {
 		if (rsu_read_1(sc, R92S_TCR) & R92S_TCR_IMEM_RDY)
 			break;
-		rsu_ms_delay(sc);
+		rsu_ms_delay(sc, 1);
 	}
 	if (ntries == 100) {
 		device_printf(sc->sc_dev,
@@ -2264,14 +2325,15 @@ rsu_load_firmware(struct rsu_softc *sc)
 	dmem = __DECONST(struct r92s_fw_priv *, &hdr->priv);
 	memset(dmem, 0, sizeof(*dmem));
 	dmem->hci_sel = R92S_HCI_SEL_USB | R92S_HCI_SEL_8172;
-	dmem->nendpoints = 0;
-	dmem->rf_config = 0x12;	/* 1T2R */
+	dmem->nendpoints = sc->sc_nendpoints;
+	/* XXX TODO: rf_config should come from ROM */
+	dmem->rf_config = 0x11;	/* 1T1R */
 	dmem->vcs_type = R92S_VCS_TYPE_AUTO;
 	dmem->vcs_mode = R92S_VCS_MODE_RTS_CTS;
 #ifdef notyet
 	dmem->bw40_en = (ic->ic_htcaps & IEEE80211_HTCAP_CBW20_40) != 0;
 #endif
-	dmem->turbo_mode = 1;
+	dmem->turbo_mode = 0;
 	/* Load DMEM section. */
 	error = rsu_fw_loadsection(sc, (uint8_t *)dmem, sizeof(*dmem));
 	if (error != 0) {
@@ -2283,7 +2345,7 @@ rsu_load_firmware(struct rsu_softc *sc)
 	for (ntries = 0; ntries < 100; ntries++) {
 		if (rsu_read_1(sc, R92S_TCR) & R92S_TCR_DMEM_CODE_DONE)
 			break;
-		rsu_ms_delay(sc);
+		rsu_ms_delay(sc, 1);
 	}
 	if (ntries == 100) {
 		device_printf(sc->sc_dev, "timeout waiting for %s transfer\n",
@@ -2295,7 +2357,7 @@ rsu_load_firmware(struct rsu_softc *sc)
 	for (ntries = 0; ntries < 60; ntries++) {
 		if (!(rsu_read_1(sc, R92S_TCR) & R92S_TCR_FWRDY))
 			break;
-		rsu_ms_delay(sc);
+		rsu_ms_delay(sc, 1);
 	}
 	if (ntries == 60) {
 		device_printf(sc->sc_dev, 
@@ -2397,7 +2459,7 @@ rsu_init(struct rsu_softc *sc)
 	rsu_write_region_1(sc, R92S_MACID, macaddr, IEEE80211_ADDR_LEN);
 
 	/* It really takes 1.5 seconds for the firmware to boot: */
-	usb_pause_mtx(&sc->sc_mtx, (3 * hz) / 2);
+	rsu_ms_delay(sc, 2000);
 
 	RSU_DPRINTF(sc, RSU_DEBUG_RESET, "%s: setting MAC address to %s\n",
 	    __func__,
@@ -2468,8 +2530,14 @@ rsu_stop(struct rsu_softc *sc)
 		usbd_transfer_stop(sc->sc_xfer[i]);
 }
 
+/*
+ * Note: usb_pause_mtx() actually releases the mutex before calling pause(),
+ * which breaks any kind of driver serialisation.
+ */
 static void
-rsu_ms_delay(struct rsu_softc *sc)
+rsu_ms_delay(struct rsu_softc *sc, int ms)
 {
-	usb_pause_mtx(&sc->sc_mtx, hz / 1000);
+
+	//usb_pause_mtx(&sc->sc_mtx, hz / 1000);
+	DELAY(ms * 1000);
 }

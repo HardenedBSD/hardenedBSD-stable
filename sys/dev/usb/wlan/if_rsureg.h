@@ -597,7 +597,7 @@ struct r92s_tx_desc {
 /*
  * Driver definitions.
  */
-#define RSU_RX_LIST_COUNT	1
+#define RSU_RX_LIST_COUNT	100
 #define RSU_TX_LIST_COUNT	32
 
 #define RSU_HOST_CMD_RING_COUNT	32
@@ -700,6 +700,7 @@ enum {
 	RSU_BULK_RX,
 	RSU_BULK_TX_BE_BK,	/* = WME_AC_BE/BK */
 	RSU_BULK_TX_VI_VO,	/* = WME_AC_VI/VO */
+	RSU_BULK_TX_H2C,	/* H2C */
 	RSU_N_TRANSFER,
 };
 
@@ -736,6 +737,8 @@ struct rsu_softc {
 	struct timeout_task		calib_task;
 	const uint8_t			*qid2idx;
 	struct mtx			sc_mtx;
+	int				sc_ht;
+	int				sc_nendpoints;
 
 	u_int				sc_running:1,
 					sc_calibrating:1,
