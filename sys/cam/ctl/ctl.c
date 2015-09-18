@@ -1148,6 +1148,7 @@ ctl_isc_event_handler(ctl_ha_channel channel, ctl_ha_event event, int param)
 			 */
 			io = msg->hdr.serializing_sc;
 			io->io_hdr.msg_type = CTL_MSG_DATAMOVE_DONE;
+			io->io_hdr.flags &= ~CTL_FLAG_DMA_INPROG;
 			io->io_hdr.flags |= CTL_FLAG_IO_ACTIVE;
 			io->io_hdr.port_status = msg->scsi.fetd_status;
 			io->scsiio.residual = msg->scsi.residual;
@@ -10592,6 +10593,8 @@ ctl_extent_check(union ctl_io *io1, union ctl_io *io2, bool seq)
 	if (ctl_get_lba_len(io1, &lba1, &len1) != 0)
 		return (CTL_ACTION_ERROR);
 
+	if (io1->io_hdr.flags & CTL_FLAG_SERSEQ_DONE)
+		seq = FALSE;
 	return (ctl_extent_check_lba(lba1, len1, lba2, len2, seq));
 }
 
@@ -10601,6 +10604,8 @@ ctl_extent_check_seq(union ctl_io *io1, union ctl_io *io2)
 	uint64_t lba1, lba2;
 	uint64_t len1, len2;
 
+	if (io1->io_hdr.flags & CTL_FLAG_SERSEQ_DONE)
+		return (CTL_ACTION_PASS);
 	if (ctl_get_lba_len(io1, &lba1, &len1) != 0)
 		return (CTL_ACTION_ERROR);
 	if (ctl_get_lba_len(io2, &lba2, &len2) != 0)
@@ -11054,6 +11059,7 @@ ctl_failover_lun(struct ctl_lun *lun)
 					io->flags |= CTL_FLAG_FAILOVER;
 				} else { /* This can be only due to DATAMOVE */
 					io->msg_type = CTL_MSG_DATAMOVE_DONE;
+					io->flags &= ~CTL_FLAG_DMA_INPROG;
 					io->flags |= CTL_FLAG_IO_ACTIVE;
 					io->port_status = 31340;
 					ctl_enqueue_isc((union ctl_io *)io);
@@ -12439,6 +12445,7 @@ ctl_datamove(union ctl_io *io)
 			return;
 		}
 		io->io_hdr.flags &= ~CTL_FLAG_IO_ACTIVE;
+		io->io_hdr.flags |= CTL_FLAG_DMA_INPROG;
 		if (lun)
 			mtx_unlock(&lun->lun_lock);
 	} else {
@@ -13216,6 +13223,21 @@ ctl_done_timer_wakeup(void *arg)
 	ctl_done(io);
 }
 #endif /* CTL_IO_DELAY */
+
+void
+ctl_serseq_done(union ctl_io *io)
+{
+	struct ctl_lun *lun;
+
+	lun = (struct ctl_lun *)io->io_hdr.ctl_private[CTL_PRIV_LUN].ptr;
+	if (lun->be_lun == NULL ||
+	    lun->be_lun->serseq == CTL_LUN_SERSEQ_OFF)
+		return;
+	mtx_lock(&lun->lun_lock);
+	io->io_hdr.flags |= CTL_FLAG_SERSEQ_DONE;
+	ctl_check_blocked(lun);
+	mtx_unlock(&lun->lun_lock);
+}
 
 void
 ctl_done(union ctl_io *io)
