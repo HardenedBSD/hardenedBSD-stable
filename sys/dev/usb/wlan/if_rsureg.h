@@ -593,6 +593,11 @@ struct r92s_tx_desc {
 	uint16_t	reserved1;
 } __packed __aligned(4);
 
+struct r92s_add_ba_event {
+	uint8_t mac_addr[IEEE80211_ADDR_LEN];
+	uint16_t ssn;
+	uint8_t tid;
+};
 
 /*
  * Driver definitions.
@@ -742,6 +747,7 @@ struct rsu_softc {
 
 	u_int				sc_running:1,
 					sc_calibrating:1,
+					sc_scanning:1,
 					sc_scan_pass:1;
 	u_int				cut;
 	struct rsu_host_cmd_ring	cmdq;
