@@ -22,9 +22,11 @@ __FBSDID("$FreeBSD$");
  * Driver for Realtek RTL8188SU/RTL8191SU/RTL8192SU.
  *
  * TODO:
- *   o 11n support
+ *   o 11n HT40 support
  *   o h/w crypto
  *   o hostap / ibss / mesh
+ *   o sensible RSSI levels
+ *   o power-save operation
  */
 
 #include <sys/param.h>
@@ -84,7 +86,7 @@ SYSCTL_INT(_hw_usb_rsu, OID_AUTO, debug, CTLFLAG_RWTUN, &rsu_debug, 0,
 #define	RSU_DPRINTF(_sc, _flg, ...)
 #endif
 
-static int rsu_enable_11n = 0;
+static int rsu_enable_11n = 1;
 TUNABLE_INT("hw.usb.rsu.enable_11n", &rsu_enable_11n);
 
 #define	RSU_DEBUG_ANY		0xffffffff
@@ -190,6 +192,7 @@ static uint8_t	rsu_efuse_read_1(struct rsu_softc *, uint16_t);
 static int	rsu_read_rom(struct rsu_softc *);
 static int	rsu_fw_cmd(struct rsu_softc *, uint8_t, void *, int);
 static void	rsu_calib_task(void *, int);
+static void	rsu_tx_task(void *, int);
 static int	rsu_newstate(struct ieee80211vap *, enum ieee80211_state, int);
 #ifdef notyet
 static void	rsu_set_key(struct rsu_softc *, const struct ieee80211_key *);
@@ -217,6 +220,7 @@ static int	rsu_tx_start(struct rsu_softc *, struct ieee80211_node *,
 		    struct mbuf *, struct rsu_data *);
 static int	rsu_transmit(struct ieee80211com *, struct mbuf *);
 static void	rsu_start(struct rsu_softc *);
+static void	_rsu_start(struct rsu_softc *);
 static void	rsu_parent(struct ieee80211com *);
 static void	rsu_stop(struct rsu_softc *);
 static void	rsu_ms_delay(struct rsu_softc *, int);
@@ -379,6 +383,7 @@ rsu_attach(device_t self)
 	    MTX_DEF);
 	TIMEOUT_TASK_INIT(taskqueue_thread, &sc->calib_task, 0, 
 	    rsu_calib_task, sc);
+	TASK_INIT(&sc->tx_task, 0, rsu_tx_task, sc);
 	mbufq_init(&sc->sc_snd, ifqmaxlen);
 
 	/* Allocate Tx/Rx buffers. */
@@ -445,7 +450,13 @@ rsu_attach(device_t self)
 		    IEEE80211_HTCAP_MAXAMSDU_3839 |
 		    IEEE80211_HTCAP_SMPS_OFF;
 
+		/*
+		 * XXX HT40 isn't working in this driver yet - there's
+		 * something missing.  Disable it for now.
+		 */
+#if 0
 		ic->ic_htcaps |= IEEE80211_HTCAP_CHWIDTH40;
+#endif
 
 		/* set number of spatial streams */
 		ic->ic_txstream = 1;
@@ -502,15 +513,17 @@ rsu_detach(device_t self)
 	rsu_stop(sc);
 	RSU_UNLOCK(sc);
 	usbd_transfer_unsetup(sc->sc_xfer, RSU_N_TRANSFER);
+
+	/* Frames are freed; detach from net80211 */
 	ieee80211_ifdetach(ic);
 
 	taskqueue_drain_timeout(taskqueue_thread, &sc->calib_task);
+	taskqueue_drain(taskqueue_thread, &sc->tx_task);
 
 	/* Free Tx/Rx buffers. */
 	rsu_free_tx_list(sc);
 	rsu_free_rx_list(sc);
 
-	mbufq_drain(&sc->sc_snd);
 	mtx_destroy(&sc->sc_mtx);
 
 	return (0);
@@ -753,6 +766,9 @@ rsu_getbuf(struct rsu_softc *sc)
 	RSU_ASSERT_LOCKED(sc);
 
 	bf = _rsu_getbuf(sc);
+	if (bf == NULL) {
+		RSU_DPRINTF(sc, RSU_DEBUG_TX, "%s: no buffers\n", __func__);
+	}
 	return (bf);
 }
 
@@ -1016,6 +1032,16 @@ rsu_calib_task(void *arg, int pending __unused)
 	RSU_UNLOCK(sc);
 }
 
+static void
+rsu_tx_task(void *arg, int pending __unused)
+{
+	struct rsu_softc *sc = arg;
+
+	RSU_LOCK(sc);
+	_rsu_start(sc);
+	RSU_UNLOCK(sc);
+}
+
 static int
 rsu_newstate(struct ieee80211vap *vap, enum ieee80211_state nstate, int arg)
 {
@@ -1040,6 +1066,7 @@ rsu_newstate(struct ieee80211vap *vap, enum ieee80211_state nstate, int arg)
 		sc->sc_calibrating = 0;
 		RSU_UNLOCK(sc);
 		taskqueue_drain_timeout(taskqueue_thread, &sc->calib_task);
+		taskqueue_drain(taskqueue_thread, &sc->tx_task);
 		/* Disassociate from our current BSS. */
 		RSU_LOCK(sc);
 		rsu_disconnect(sc);
@@ -1828,19 +1855,34 @@ tr_setup:
 static void
 rsu_bulk_tx_callback_be_bk(struct usb_xfer *xfer, usb_error_t error)
 {
+	struct rsu_softc *sc = usbd_xfer_softc(xfer);
+
 	rsu_bulk_tx_callback_sub(xfer, error, RSU_BULK_TX_BE_BK);
+
+	/* This kicks the TX taskqueue */
+	rsu_start(sc);
 }
 
 static void
 rsu_bulk_tx_callback_vi_vo(struct usb_xfer *xfer, usb_error_t error)
 {
+	struct rsu_softc *sc = usbd_xfer_softc(xfer);
+
 	rsu_bulk_tx_callback_sub(xfer, error, RSU_BULK_TX_VI_VO);
+
+	/* This kicks the TX taskqueue */
+	rsu_start(sc);
 }
 
 static void
 rsu_bulk_tx_callback_h2c(struct usb_xfer *xfer, usb_error_t error)
 {
+	struct rsu_softc *sc = usbd_xfer_softc(xfer);
+
 	rsu_bulk_tx_callback_sub(xfer, error, RSU_BULK_TX_H2C);
+
+	/* This kicks the TX taskqueue */
+	rsu_start(sc);
 }
 
 static int
@@ -1991,17 +2033,38 @@ rsu_transmit(struct ieee80211com *ic, struct mbuf *m)
 	}
 	error = mbufq_enqueue(&sc->sc_snd, m);
 	if (error) {
+		RSU_DPRINTF(sc, RSU_DEBUG_TX,
+		    "%s: mbufq_enable: failed (%d)\n",
+		    __func__,
+		    error);
 		RSU_UNLOCK(sc);
 		return (error);
 	}
-	rsu_start(sc);
 	RSU_UNLOCK(sc);
+
+	/* This kicks the TX taskqueue */
+	rsu_start(sc);
 
 	return (0);
 }
 
 static void
-rsu_start(struct rsu_softc *sc)
+rsu_drain_mbufq(struct rsu_softc *sc)
+{
+	struct mbuf *m;
+	struct ieee80211_node *ni;
+
+	RSU_ASSERT_LOCKED(sc);
+	while ((m = mbufq_dequeue(&sc->sc_snd)) != NULL) {
+		ni = (struct ieee80211_node *)m->m_pkthdr.rcvif;
+		m->m_pkthdr.rcvif = NULL;
+		ieee80211_free_node(ni);
+		m_freem(m);
+	}
+}
+
+static void
+_rsu_start(struct rsu_softc *sc)
 {
 	struct ieee80211_node *ni;
 	struct rsu_data *bf;
@@ -2012,6 +2075,8 @@ rsu_start(struct rsu_softc *sc)
 	while ((m = mbufq_dequeue(&sc->sc_snd)) != NULL) {
 		bf = rsu_getbuf(sc);
 		if (bf == NULL) {
+			RSU_DPRINTF(sc, RSU_DEBUG_TX,
+			    "%s: failed to get buffer\n", __func__);
 			mbufq_prepend(&sc->sc_snd, m);
 			break;
 		}
@@ -2020,6 +2085,8 @@ rsu_start(struct rsu_softc *sc)
 		m->m_pkthdr.rcvif = NULL;
 
 		if (rsu_tx_start(sc, ni, m, bf) != 0) {
+			RSU_DPRINTF(sc, RSU_DEBUG_TX,
+			    "%s: failed to transmit\n", __func__);
 			if_inc_counter(ni->ni_vap->iv_ifp,
 			    IFCOUNTER_OERRORS, 1);
 			rsu_freebuf(sc, bf);
@@ -2027,6 +2094,13 @@ rsu_start(struct rsu_softc *sc)
 			break;
 		}
 	}
+}
+
+static void
+rsu_start(struct rsu_softc *sc)
+{
+
+	taskqueue_enqueue(taskqueue_thread, &sc->tx_task);
 }
 
 static void
@@ -2545,6 +2619,9 @@ rsu_init(struct rsu_softc *sc)
 
 	RSU_ASSERT_LOCKED(sc);
 
+	/* Ensure the mbuf queue is drained */
+	rsu_drain_mbufq(sc);
+
 	/* Init host async commands ring. */
 	sc->cmdq.cur = sc->cmdq.next = sc->cmdq.queued = 0;
 
@@ -2648,12 +2725,16 @@ rsu_stop(struct rsu_softc *sc)
 	sc->sc_running = 0;
 	sc->sc_calibrating = 0;
 	taskqueue_cancel_timeout(taskqueue_thread, &sc->calib_task, NULL);
+	taskqueue_cancel(taskqueue_thread, &sc->tx_task, NULL);
 
 	/* Power off adapter. */
 	rsu_power_off(sc);
 
 	for (i = 0; i < RSU_N_TRANSFER; i++)
 		usbd_transfer_stop(sc->sc_xfer[i]);
+
+	/* Ensure the mbuf queue is drained */
+	rsu_drain_mbufq(sc);
 }
 
 /*
