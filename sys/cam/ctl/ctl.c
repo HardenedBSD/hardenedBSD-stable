@@ -5808,9 +5808,8 @@ ctl_write_same(struct ctl_scsiio *ctsio)
 		break; /* NOTREACHED */
 	}
 
-	/* NDOB and ANCHOR flags can be used only together with UNMAP */
-	if ((byte2 & SWS_UNMAP) == 0 &&
-	    (byte2 & (SWS_NDOB | SWS_ANCHOR)) != 0) {
+	/* ANCHOR flag can be used only together with UNMAP */
+	if ((byte2 & SWS_UNMAP) == 0 && (byte2 & SWS_ANCHOR) != 0) {
 		ctl_set_invalid_field(ctsio, /*sks_valid*/ 1,
 		    /*command*/ 1, /*field*/ 1, /*bit_valid*/ 1, /*bit*/ 0);
 		ctl_done((union ctl_io *)ctsio);
@@ -9265,12 +9264,10 @@ ctl_report_luns(struct ctl_scsiio *ctsio)
 	struct ctl_port *port;
 	int num_luns, retval;
 	uint32_t alloc_len, lun_datalen;
-	int num_filled, well_known;
+	int num_filled;
 	uint32_t initidx, targ_lun_id, lun_id;
 
 	retval = CTL_RETVAL_COMPLETE;
-	well_known = 0;
-
 	cdb = (struct scsi_report_luns *)ctsio->cdb;
 	port = ctl_io_port(&ctsio->io_hdr);
 
@@ -9287,9 +9284,11 @@ ctl_report_luns(struct ctl_scsiio *ctsio)
 	switch (cdb->select_report) {
 	case RPL_REPORT_DEFAULT:
 	case RPL_REPORT_ALL:
+	case RPL_REPORT_NONSUBSID:
 		break;
 	case RPL_REPORT_WELLKNOWN:
-		well_known = 1;
+	case RPL_REPORT_ADMIN:
+	case RPL_REPORT_CONGLOM:
 		num_luns = 0;
 		break;
 	default:
