@@ -5610,20 +5610,43 @@ bailout:
 int
 ctl_read_buffer(struct ctl_scsiio *ctsio)
 {
-	struct scsi_read_buffer *cdb;
 	struct ctl_lun *lun;
-	int buffer_offset, len;
+	uint64_t buffer_offset;
+	uint32_t len;
+	uint8_t byte2;
 	static uint8_t descr[4];
 	static uint8_t echo_descr[4] = { 0 };
 
 	CTL_DEBUG_PRINT(("ctl_read_buffer\n"));
-
 	lun = (struct ctl_lun *)ctsio->io_hdr.ctl_private[CTL_PRIV_LUN].ptr;
-	cdb = (struct scsi_read_buffer *)ctsio->cdb;
+	switch (ctsio->cdb[0]) {
+	case READ_BUFFER: {
+		struct scsi_read_buffer *cdb;
 
-	if ((cdb->byte2 & RWB_MODE) != RWB_MODE_DATA &&
-	    (cdb->byte2 & RWB_MODE) != RWB_MODE_ECHO_DESCR &&
-	    (cdb->byte2 & RWB_MODE) != RWB_MODE_DESCR) {
+		cdb = (struct scsi_read_buffer *)ctsio->cdb;
+		buffer_offset = scsi_3btoul(cdb->offset);
+		len = scsi_3btoul(cdb->length);
+		byte2 = cdb->byte2;
+		break;
+	}
+	case READ_BUFFER_16: {
+		struct scsi_read_buffer_16 *cdb;
+
+		cdb = (struct scsi_read_buffer_16 *)ctsio->cdb;
+		buffer_offset = scsi_8btou64(cdb->offset);
+		len = scsi_4btoul(cdb->length);
+		byte2 = cdb->byte2;
+		break;
+	}
+	default: /* This shouldn't happen. */
+		ctl_set_invalid_opcode(ctsio);
+		ctl_done((union ctl_io *)ctsio);
+		return (CTL_RETVAL_COMPLETE);
+	}
+
+	if ((byte2 & RWB_MODE) != RWB_MODE_DATA &&
+	    (byte2 & RWB_MODE) != RWB_MODE_ECHO_DESCR &&
+	    (byte2 & RWB_MODE) != RWB_MODE_DESCR) {
 		ctl_set_invalid_field(ctsio,
 				      /*sks_valid*/ 1,
 				      /*command*/ 1,
@@ -5634,10 +5657,8 @@ ctl_read_buffer(struct ctl_scsiio *ctsio)
 		return (CTL_RETVAL_COMPLETE);
 	}
 
-	len = scsi_3btoul(cdb->length);
-	buffer_offset = scsi_3btoul(cdb->offset);
-
-	if (buffer_offset + len > CTL_WRITE_BUFFER_SIZE) {
+	if (buffer_offset > CTL_WRITE_BUFFER_SIZE ||
+	    buffer_offset + len > CTL_WRITE_BUFFER_SIZE) {
 		ctl_set_invalid_field(ctsio,
 				      /*sks_valid*/ 1,
 				      /*command*/ 1,
@@ -5648,12 +5669,12 @@ ctl_read_buffer(struct ctl_scsiio *ctsio)
 		return (CTL_RETVAL_COMPLETE);
 	}
 
-	if ((cdb->byte2 & RWB_MODE) == RWB_MODE_DESCR) {
+	if ((byte2 & RWB_MODE) == RWB_MODE_DESCR) {
 		descr[0] = 0;
 		scsi_ulto3b(CTL_WRITE_BUFFER_SIZE, &descr[1]);
 		ctsio->kern_data_ptr = descr;
 		len = min(len, sizeof(descr));
-	} else if ((cdb->byte2 & RWB_MODE) == RWB_MODE_ECHO_DESCR) {
+	} else if ((byte2 & RWB_MODE) == RWB_MODE_ECHO_DESCR) {
 		ctsio->kern_data_ptr = echo_descr;
 		len = min(len, sizeof(echo_descr));
 	} else {
@@ -8919,7 +8940,7 @@ ctl_read_write(struct ctl_scsiio *ctsio)
 		break;
 	}
 	case WRITE_ATOMIC_16: {
-		struct scsi_rw_16 *cdb;
+		struct scsi_write_atomic_16 *cdb;
 
 		if (lun->be_lun->atomicblock == 0) {
 			ctl_set_invalid_opcode(ctsio);
@@ -8927,13 +8948,13 @@ ctl_read_write(struct ctl_scsiio *ctsio)
 			return (CTL_RETVAL_COMPLETE);
 		}
 
-		cdb = (struct scsi_rw_16 *)ctsio->cdb;
+		cdb = (struct scsi_write_atomic_16 *)ctsio->cdb;
 		if (cdb->byte2 & SRW12_FUA)
 			flags |= CTL_LLF_FUA;
 		if (cdb->byte2 & SRW12_DPO)
 			flags |= CTL_LLF_DPO;
 		lba = scsi_8btou64(cdb->addr);
-		num_blocks = scsi_4btoul(cdb->length);
+		num_blocks = scsi_2btoul(cdb->length);
 		if (num_blocks > lun->be_lun->atomicblock) {
 			ctl_set_invalid_field(ctsio, /*sks_valid*/ 1,
 			    /*command*/ 1, /*field*/ 12, /*bit_valid*/ 0,
@@ -10127,6 +10148,8 @@ ctl_inquiry_evpd_block_limits(struct ctl_scsiio *ctsio, int alloc_len)
 		    bl_ptr->max_atomic_transfer_length);
 		scsi_ulto4b(0, bl_ptr->atomic_alignment);
 		scsi_ulto4b(0, bl_ptr->atomic_transfer_length_granularity);
+		scsi_ulto4b(0, bl_ptr->max_atomic_transfer_length_with_atomic_boundary);
+		scsi_ulto4b(0, bl_ptr->max_atomic_boundary_size);
 	}
 	scsi_u64to8b(UINT64_MAX, bl_ptr->max_write_same_length);
 
@@ -10626,14 +10649,22 @@ ctl_get_lba_len(union ctl_io *io, uint64_t *lba, uint64_t *len)
 		break;
 	}
 	case READ_16:
-	case WRITE_16:
-	case WRITE_ATOMIC_16: {
+	case WRITE_16: {
 		struct scsi_rw_16 *cdb;
 
 		cdb = (struct scsi_rw_16 *)io->scsiio.cdb;
 
 		*lba = scsi_8btou64(cdb->addr);
 		*len = scsi_4btoul(cdb->length);
+		break;
+	}
+	case WRITE_ATOMIC_16: {
+		struct scsi_write_atomic_16 *cdb;
+
+		cdb = (struct scsi_write_atomic_16 *)io->scsiio.cdb;
+
+		*lba = scsi_8btou64(cdb->addr);
+		*len = scsi_2btoul(cdb->length);
 		break;
 	}
 	case WRITE_VERIFY_16: {
