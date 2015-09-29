@@ -5129,30 +5129,43 @@ ctl_start_stop(struct ctl_scsiio *ctsio)
 	lun = (struct ctl_lun *)ctsio->io_hdr.ctl_private[CTL_PRIV_LUN].ptr;
 	cdb = (struct scsi_start_stop_unit *)ctsio->cdb;
 
-	if ((lun->flags & CTL_LUN_PR_RESERVED)
-	 && ((cdb->how & SSS_START)==0)) {
-		uint32_t residx;
+	if ((cdb->how & SSS_PC_MASK) == 0) {
+		if ((lun->flags & CTL_LUN_PR_RESERVED) &&
+		    (cdb->how & SSS_START) == 0) {
+			uint32_t residx;
 
-		residx = ctl_get_initindex(&ctsio->io_hdr.nexus);
-		if (ctl_get_prkey(lun, residx) == 0
-		 || (lun->pr_res_idx!=residx && lun->res_type < 4)) {
+			residx = ctl_get_initindex(&ctsio->io_hdr.nexus);
+			if (ctl_get_prkey(lun, residx) == 0 ||
+			    (lun->pr_res_idx != residx && lun->res_type < 4)) {
 
-			ctl_set_reservation_conflict(ctsio);
+				ctl_set_reservation_conflict(ctsio);
+				ctl_done((union ctl_io *)ctsio);
+				return (CTL_RETVAL_COMPLETE);
+			}
+		}
+
+		if ((cdb->how & SSS_LOEJ) &&
+		    (lun->flags & CTL_LUN_REMOVABLE) == 0) {
+			ctl_set_invalid_field(ctsio,
+					      /*sks_valid*/ 1,
+					      /*command*/ 1,
+					      /*field*/ 4,
+					      /*bit_valid*/ 1,
+					      /*bit*/ 1);
 			ctl_done((union ctl_io *)ctsio);
 			return (CTL_RETVAL_COMPLETE);
 		}
-	}
 
-	if ((cdb->how & SSS_LOEJ) &&
-	    (lun->flags & CTL_LUN_REMOVABLE) == 0) {
-		ctl_set_invalid_field(ctsio,
-				      /*sks_valid*/ 1,
-				      /*command*/ 1,
-				      /*field*/ 4,
-				      /*bit_valid*/ 1,
-				      /*bit*/ 1);
-		ctl_done((union ctl_io *)ctsio);
-		return (CTL_RETVAL_COMPLETE);
+		if ((cdb->how & SSS_START) == 0 && (cdb->how & SSS_LOEJ) &&
+		    lun->prevent_count > 0) {
+			/* "Medium removal prevented" */
+			ctl_set_sense(ctsio, /*current_error*/ 1,
+			    /*sense_key*/(lun->flags & CTL_LUN_NO_MEDIA) ?
+			     SSD_KEY_NOT_READY : SSD_KEY_ILLEGAL_REQUEST,
+			    /*asc*/ 0x53, /*ascq*/ 0x02, SSD_ELEM_NONE);
+			ctl_done((union ctl_io *)ctsio);
+			return (CTL_RETVAL_COMPLETE);
+		}
 	}
 
 	retval = lun->backend->config_write((union ctl_io *)ctsio);
@@ -5163,11 +5176,14 @@ int
 ctl_prevent_allow(struct ctl_scsiio *ctsio)
 {
 	struct ctl_lun *lun;
+	struct scsi_prevent *cdb;
 	int retval;
+	uint32_t initidx;
 
 	CTL_DEBUG_PRINT(("ctl_prevent_allow\n"));
 
 	lun = (struct ctl_lun *)ctsio->io_hdr.ctl_private[CTL_PRIV_LUN].ptr;
+	cdb = (struct scsi_prevent *)ctsio->cdb;
 
 	if ((lun->flags & CTL_LUN_REMOVABLE) == 0) {
 		ctl_set_invalid_opcode(ctsio);
@@ -5175,6 +5191,18 @@ ctl_prevent_allow(struct ctl_scsiio *ctsio)
 		return (CTL_RETVAL_COMPLETE);
 	}
 
+	initidx = ctl_get_initindex(&ctsio->io_hdr.nexus);
+	mtx_lock(&lun->lun_lock);
+	if ((cdb->how & PR_PREVENT) &&
+	    ctl_is_set(lun->prevent, initidx) == 0) {
+		ctl_set_mask(lun->prevent, initidx);
+		lun->prevent_count++;
+	} else if ((cdb->how & PR_PREVENT) == 0 &&
+	    ctl_is_set(lun->prevent, initidx)) {
+		ctl_clear_mask(lun->prevent, initidx);
+		lun->prevent_count--;
+	}
+	mtx_unlock(&lun->lun_lock);
 	retval = lun->backend->config_write((union ctl_io *)ctsio);
 	return (retval);
 }
@@ -10271,6 +10299,10 @@ ctl_get_config(struct ctl_scsiio *ctsio)
 	    sizeof(struct scsi_get_config_feature) + 8 +
 	    sizeof(struct scsi_get_config_feature) +
 	    sizeof(struct scsi_get_config_feature) + 4 +
+	    sizeof(struct scsi_get_config_feature) + 4 +
+	    sizeof(struct scsi_get_config_feature) + 4 +
+	    sizeof(struct scsi_get_config_feature) + 4 +
+	    sizeof(struct scsi_get_config_feature) + 4 +
 	    sizeof(struct scsi_get_config_feature) + 4;
 	ctsio->kern_data_ptr = malloc(data_len, M_CTL, M_WAITOK | M_ZERO);
 	ctsio->kern_sg_entries = 0;
@@ -10284,8 +10316,16 @@ ctl_get_config(struct ctl_scsiio *ctsio)
 		scsi_ulto2b(0x0010, hdr->current_profile);
 	feature = (struct scsi_get_config_feature *)(hdr + 1);
 
-	if (starting > 0x001f)
+	if (starting > 0x003b)
 		goto done;
+	if (starting > 0x003a)
+		goto f3b;
+	if (starting > 0x002b)
+		goto f3a;
+	if (starting > 0x002a)
+		goto f2b;
+	if (starting > 0x001f)
+		goto f2a;
 	if (starting > 0x001e)
 		goto f1f;
 	if (starting > 0x001d)
@@ -10379,6 +10419,48 @@ f1f:	/* DVD Read */
 	feature->add_length = 4;
 	feature->feature_data[0] = 0x01;
 	feature->feature_data[2] = 0x03;
+	feature = (struct scsi_get_config_feature *)
+	    &feature->feature_data[feature->add_length];
+
+f2a:	/* DVD+RW */
+	scsi_ulto2b(0x002A, feature->feature_code);
+	feature->flags = 0x04;
+	if ((lun->flags & CTL_LUN_NO_MEDIA) == 0)
+		feature->flags |= SGC_F_CURRENT;
+	feature->add_length = 4;
+	feature->feature_data[0] = 0x00;
+	feature->feature_data[1] = 0x00;
+	feature = (struct scsi_get_config_feature *)
+	    &feature->feature_data[feature->add_length];
+
+f2b:	/* DVD+R */
+	scsi_ulto2b(0x002B, feature->feature_code);
+	feature->flags = 0x00;
+	if ((lun->flags & CTL_LUN_NO_MEDIA) == 0)
+		feature->flags |= SGC_F_CURRENT;
+	feature->add_length = 4;
+	feature->feature_data[0] = 0x00;
+	feature = (struct scsi_get_config_feature *)
+	    &feature->feature_data[feature->add_length];
+
+f3a:	/* DVD+RW Dual Layer */
+	scsi_ulto2b(0x003A, feature->feature_code);
+	feature->flags = 0x00;
+	if ((lun->flags & CTL_LUN_NO_MEDIA) == 0)
+		feature->flags |= SGC_F_CURRENT;
+	feature->add_length = 4;
+	feature->feature_data[0] = 0x00;
+	feature->feature_data[1] = 0x00;
+	feature = (struct scsi_get_config_feature *)
+	    &feature->feature_data[feature->add_length];
+
+f3b:	/* DVD+R Dual Layer */
+	scsi_ulto2b(0x003B, feature->feature_code);
+	feature->flags = 0x00;
+	if ((lun->flags & CTL_LUN_NO_MEDIA) == 0)
+		feature->flags |= SGC_F_CURRENT;
+	feature->add_length = 4;
+	feature->feature_data[0] = 0x00;
 	feature = (struct scsi_get_config_feature *)
 	    &feature->feature_data[feature->add_length];
 
@@ -11751,9 +11833,7 @@ ctl_do_lun_reset(struct ctl_lun *lun, union ctl_io *io, ctl_ua_type ua_type)
 #if 0
 	uint32_t initidx;
 #endif
-#ifdef CTL_WITH_CA
 	int i;
-#endif
 
 	mtx_lock(&lun->lun_lock);
 	/*
@@ -11788,6 +11868,9 @@ ctl_do_lun_reset(struct ctl_lun *lun, union ctl_io *io, ctl_ua_type ua_type)
 	for (i = 0; i < CTL_MAX_INITIATORS; i++)
 		ctl_clear_mask(lun->have_ca, i);
 #endif
+	lun->prevent_count = 0;
+	for (i = 0; i < CTL_MAX_INITIATORS; i++)
+		ctl_clear_mask(lun->prevent, i);
 	mtx_unlock(&lun->lun_lock);
 
 	return (0);
@@ -11933,6 +12016,10 @@ ctl_i_t_nexus_reset(union ctl_io *io)
 #endif
 		if ((lun->flags & CTL_LUN_RESERVED) && (lun->res_idx == initidx))
 			lun->flags &= ~CTL_LUN_RESERVED;
+		if (ctl_is_set(lun->prevent, initidx)) {
+			ctl_clear_mask(lun->prevent, initidx);
+			lun->prevent_count--;
+		}
 		ctl_est_ua(lun, initidx, CTL_UA_I_T_NEXUS_LOSS);
 		mtx_unlock(&lun->lun_lock);
 	}

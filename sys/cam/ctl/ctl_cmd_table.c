@@ -658,7 +658,7 @@ const struct ctl_cmd_entry ctl_cmd_table[256] =
 				   CTL_CMD_FLAG_OK_ON_NO_MEDIA |
 				   CTL_FLAG_DATA_NONE |
 				   CTL_CMD_FLAG_ALLOW_ON_PR_RESV,
- CTL_LUN_PAT_NONE, 6, {0x01, 0, 0, 0x03, 0x07}},
+ CTL_LUN_PAT_NONE, 6, {0x01, 0, 0x0f, 0xf7, 0x07}},
 
 /* 1C RECEIVE DIAGNOSTIC RESULTS */
 {NULL, CTL_SERIDX_INVLD, CTL_CMD_FLAG_NONE, CTL_LUN_PAT_NONE},
@@ -760,7 +760,7 @@ const struct ctl_cmd_entry ctl_cmd_table[256] =
 {ctl_sync_cache, CTL_SERIDX_SYNC, CTL_CMD_FLAG_OK_ON_DIRECT |
 				  CTL_FLAG_DATA_NONE,
  CTL_LUN_PAT_WRITE,
- 10, {0x02, 0xff, 0xff, 0xff, 0xff, 0, 0xff, 0xff, 0x07}},
+ 10, {0x06, 0xff, 0xff, 0xff, 0xff, 0, 0xff, 0xff, 0x07}},
 
 /* 36 LOCK UNLOCK CACHE(10) */
 {NULL, CTL_SERIDX_INVLD, CTL_CMD_FLAG_NONE, CTL_LUN_PAT_NONE},
@@ -1119,7 +1119,7 @@ const struct ctl_cmd_entry ctl_cmd_table[256] =
 {ctl_sync_cache, CTL_SERIDX_SYNC, CTL_CMD_FLAG_OK_ON_DIRECT |
 				  CTL_FLAG_DATA_NONE,
  CTL_LUN_PAT_WRITE,
- 16, {0x02, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+ 16, {0x06, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
       0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 0x07}},
 
 /* 92 LOCK UNLOCK CACHE(16) */
