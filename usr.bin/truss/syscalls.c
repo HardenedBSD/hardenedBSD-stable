@@ -534,7 +534,9 @@ static struct xlat idtype_arg[] = {
 };
 
 static struct xlat procctl_arg[] = {
-	X(PROC_SPROTECT) XEND
+	X(PROC_SPROTECT) X(PROC_REAP_ACQUIRE) X(PROC_REAP_RELEASE)
+	X(PROC_REAP_STATUS) X(PROC_REAP_GETPIDS) X(PROC_REAP_KILL)
+	X(PROC_TRACE_CTL) X(PROC_TRACE_STATUS) XEND
 };
 
 static struct xlat umtx_ops[] = {
@@ -809,7 +811,7 @@ print_kevent(FILE *fp, struct kevent *ke, int input)
 		int ctrl, data;
 
 		ctrl = ke->fflags & NOTE_FFCTRLMASK;
-		data = ke->fflags & NOTE_FFLAGSMASK; 
+		data = ke->fflags & NOTE_FFLAGSMASK;
 		if (input) {
 			fputs(xlookup(kevent_user_ffctrl, ctrl), fp);
 			if (ke->fflags & NOTE_TRIGGER)
@@ -935,7 +937,7 @@ print_arg(struct syscall_args *sc, unsigned long *args, long retval,
 			fprintf(fp, "0x%lx", args[sc->offset]);
 			break;
 		}
-		    
+
 		/*
 		 * Read a page of pointers at a time.  Punt if the top-level
 		 * pointer is not aligned.  Note that the first read is of
