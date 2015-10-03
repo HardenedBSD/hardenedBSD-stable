@@ -206,6 +206,7 @@ static void		rum_set_chan(struct rum_softc *,
 static void		rum_enable_tsf_sync(struct rum_softc *);
 static void		rum_enable_tsf(struct rum_softc *);
 static void		rum_abort_tsf_sync(struct rum_softc *);
+static void		rum_get_tsf(struct rum_softc *, uint64_t *);
 static void		rum_update_slot(struct rum_softc *);
 static void		rum_set_bssid(struct rum_softc *, const uint8_t *);
 static void		rum_set_macaddr(struct rum_softc *, const uint8_t *);
@@ -857,6 +858,7 @@ tr_setup:
 
 				tap->wt_flags = 0;
 				tap->wt_rate = data->rate;
+				rum_get_tsf(sc, &tap->wt_tsf);
 				tap->wt_antenna = sc->tx_ant;
 
 				ieee80211_radiotap_tx(vap, m);
@@ -910,6 +912,7 @@ rum_bulk_read_callback(struct usb_xfer *xfer, usb_error_t error)
 {
 	struct rum_softc *sc = usbd_xfer_softc(xfer);
 	struct ieee80211com *ic = &sc->sc_ic;
+	struct ieee80211_frame_min *wh;
 	struct ieee80211_node *ni;
 	struct mbuf *m = NULL;
 	struct usb_page_cache *pc;
@@ -957,17 +960,19 @@ rum_bulk_read_callback(struct usb_xfer *xfer, usb_error_t error)
 		usbd_copy_out(pc, RT2573_RX_DESC_SIZE,
 		    mtod(m, uint8_t *), len);
 
+		wh = mtod(m, struct ieee80211_frame_min *);
+
 		/* finalize mbuf */
 		m->m_pkthdr.len = m->m_len = (flags >> 16) & 0xfff;
 
 		if (ieee80211_radiotap_active(ic)) {
 			struct rum_rx_radiotap_header *tap = &sc->sc_rxtap;
 
-			/* XXX read tsf */
 			tap->wr_flags = 0;
 			tap->wr_rate = ieee80211_plcp2rate(sc->sc_rx_desc.rate,
 			    (flags & RT2573_RX_OFDM) ?
 			    IEEE80211_T_OFDM : IEEE80211_T_CCK);
+			rum_get_tsf(sc, &tap->wr_tsf);
 			tap->wr_antsignal = RT2573_NOISE_FLOOR + rssi;
 			tap->wr_antnoise = RT2573_NOISE_FLOOR;
 			tap->wr_antenna = sc->rx_ant;
@@ -985,8 +990,11 @@ tr_setup:
 		 */
 		RUM_UNLOCK(sc);
 		if (m) {
-			ni = ieee80211_find_rxnode(ic,
-			    mtod(m, struct ieee80211_frame_min *));
+			if (m->m_len >= sizeof(struct ieee80211_frame_min))
+				ni = ieee80211_find_rxnode(ic, wh);
+			else
+				ni = NULL;
+
 			if (ni != NULL) {
 				(void) ieee80211_input(ni, m, rssi,
 				    RT2573_NOISE_FLOOR);
@@ -1149,10 +1157,9 @@ rum_tx_mgt(struct rum_softc *sc, struct mbuf *m0, struct ieee80211_node *ni)
 	wh = mtod(m0, struct ieee80211_frame *);
 	if (wh->i_fc[1] & IEEE80211_FC1_PROTECTED) {
 		k = ieee80211_crypto_encap(ni, m0);
-		if (k == NULL) {
-			m_freem(m0);
-			return ENOBUFS;
-		}
+		if (k == NULL)
+			return (ENOBUFS);
+
 		wh = mtod(m0, struct ieee80211_frame *);
 	}
 
@@ -1197,13 +1204,11 @@ rum_tx_raw(struct rum_softc *sc, struct mbuf *m0, struct ieee80211_node *ni,
 	int rate, error;
 
 	RUM_LOCK_ASSERT(sc);
-	KASSERT(params != NULL, ("no raw xmit params"));
 
 	rate = params->ibp_rate0;
-	if (!ieee80211_isratevalid(ic->ic_rt, rate)) {
-		m_freem(m0);
-		return EINVAL;
-	}
+	if (!ieee80211_isratevalid(ic->ic_rt, rate))
+		return (EINVAL);
+
 	flags = 0;
 	if ((params->ibp_flags & IEEE80211_BPF_NOACK) == 0)
 		flags |= RT2573_TX_NEED_ACK;
@@ -1212,10 +1217,9 @@ rum_tx_raw(struct rum_softc *sc, struct mbuf *m0, struct ieee80211_node *ni,
 		    params->ibp_flags & IEEE80211_BPF_RTS ?
 			 IEEE80211_PROT_RTSCTS : IEEE80211_PROT_CTSONLY,
 		    rate);
-		if (error || sc->tx_nfree == 0) {
-			m_freem(m0);
-			return ENOBUFS;
-		}
+		if (error || sc->tx_nfree == 0)
+			return (ENOBUFS);
+
 		flags |= RT2573_TX_LONG_RETRY | RT2573_TX_IFS_SIFS;
 	}
 
@@ -1836,6 +1840,12 @@ rum_abort_tsf_sync(struct rum_softc *sc)
 }
 
 static void
+rum_get_tsf(struct rum_softc *sc, uint64_t *buf)
+{
+	rum_read_multi(sc, RT2573_TXRX_CSR12, buf, sizeof (*buf));
+}
+
+static void
 rum_update_slot(struct rum_softc *sc)
 {
 	struct ieee80211com *ic = &sc->sc_ic;
@@ -2210,20 +2220,17 @@ rum_raw_xmit(struct ieee80211_node *ni, struct mbuf *m,
     const struct ieee80211_bpf_params *params)
 {
 	struct rum_softc *sc = ni->ni_ic->ic_softc;
+	int ret;
 
 	RUM_LOCK(sc);
 	/* prevent management frames from being sent if we're not ready */
 	if (!sc->sc_running) {
-		RUM_UNLOCK(sc);
-		m_freem(m);
-		ieee80211_free_node(ni);
-		return ENETDOWN;
+		ret = ENETDOWN;
+		goto bad;
 	}
 	if (sc->tx_nfree < RUM_TX_MINFREE) {
-		RUM_UNLOCK(sc);
-		m_freem(m);
-		ieee80211_free_node(ni);
-		return EIO;
+		ret = EIO;
+		goto bad;
 	}
 
 	if (params == NULL) {
@@ -2231,14 +2238,14 @@ rum_raw_xmit(struct ieee80211_node *ni, struct mbuf *m,
 		 * Legacy path; interpret frame contents to decide
 		 * precisely how to send the frame.
 		 */
-		if (rum_tx_mgt(sc, m, ni) != 0)
+		if ((ret = rum_tx_mgt(sc, m, ni)) != 0)
 			goto bad;
 	} else {
 		/*
 		 * Caller supplied explicit parameters to use in
 		 * sending the frame.
 		 */
-		if (rum_tx_raw(sc, m, ni, params) != 0)
+		if ((ret = rum_tx_raw(sc, m, ni, params)) != 0)
 			goto bad;
 	}
 	RUM_UNLOCK(sc);
@@ -2246,8 +2253,9 @@ rum_raw_xmit(struct ieee80211_node *ni, struct mbuf *m,
 	return 0;
 bad:
 	RUM_UNLOCK(sc);
+	m_freem(m);
 	ieee80211_free_node(ni);
-	return EIO;
+	return ret;
 }
 
 static void
