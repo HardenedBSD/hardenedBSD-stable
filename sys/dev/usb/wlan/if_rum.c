@@ -160,15 +160,19 @@ static struct ieee80211vap *rum_vap_create(struct ieee80211com *,
 static void		rum_vap_delete(struct ieee80211vap *);
 static void		rum_cmdq_cb(void *, int);
 static int		rum_cmd_sleepable(struct rum_softc *, const void *,
-			    size_t, uint8_t, uint8_t, CMD_FUNC_PROTO);
+			    size_t, uint8_t, CMD_FUNC_PROTO);
 static void		rum_tx_free(struct rum_tx_data *, int);
 static void		rum_setup_tx_list(struct rum_softc *);
 static void		rum_unsetup_tx_list(struct rum_softc *);
 static int		rum_newstate(struct ieee80211vap *,
 			    enum ieee80211_state, int);
+static uint8_t		rum_crypto_mode(struct rum_softc *, u_int, int);
 static void		rum_setup_tx_desc(struct rum_softc *,
-			    struct rum_tx_desc *, uint32_t, uint16_t, int,
-			    int);
+			    struct rum_tx_desc *, struct ieee80211_key *,
+			    uint32_t, uint8_t, int, int, int);
+static uint32_t		rum_tx_crypto_flags(struct rum_softc *,
+			    struct ieee80211_node *,
+			    const struct ieee80211_key *);
 static int		rum_tx_mgt(struct rum_softc *, struct mbuf *,
 			    struct ieee80211_node *);
 static int		rum_tx_raw(struct rum_softc *, struct mbuf *,
@@ -203,11 +207,13 @@ static void		rum_select_band(struct rum_softc *,
 			    struct ieee80211_channel *);
 static void		rum_set_chan(struct rum_softc *,
 			    struct ieee80211_channel *);
-static void		rum_enable_tsf_sync(struct rum_softc *);
+static int		rum_enable_tsf_sync(struct rum_softc *);
 static void		rum_enable_tsf(struct rum_softc *);
 static void		rum_abort_tsf_sync(struct rum_softc *);
 static void		rum_get_tsf(struct rum_softc *, uint64_t *);
-static void		rum_update_slot(struct rum_softc *);
+static void		rum_update_slot_cb(struct rum_softc *,
+			    union sec_param *, uint8_t);
+static void		rum_update_slot(struct ieee80211com *);
 static void		rum_set_bssid(struct rum_softc *, const uint8_t *);
 static void		rum_set_macaddr(struct rum_softc *, const uint8_t *);
 static void		rum_update_mcast(struct ieee80211com *);
@@ -215,13 +221,37 @@ static void		rum_update_promisc(struct ieee80211com *);
 static void		rum_setpromisc(struct rum_softc *);
 static const char	*rum_get_rf(int);
 static void		rum_read_eeprom(struct rum_softc *);
+static int		rum_bbp_wakeup(struct rum_softc *);
 static int		rum_bbp_init(struct rum_softc *);
-static void		rum_init(struct rum_softc *);
+static void		rum_clr_shkey_regs(struct rum_softc *);
+static int		rum_init(struct rum_softc *);
 static void		rum_stop(struct rum_softc *);
 static void		rum_load_microcode(struct rum_softc *, const uint8_t *,
 			    size_t);
-static void		rum_prepare_beacon(struct rum_softc *,
+static int		rum_set_beacon(struct rum_softc *,
 			    struct ieee80211vap *);
+static int		rum_alloc_beacon(struct rum_softc *,
+			    struct ieee80211vap *);
+static void		rum_update_beacon_cb(struct rum_softc *,
+			    union sec_param *, uint8_t);
+static void		rum_update_beacon(struct ieee80211vap *, int);
+static int		rum_common_key_set(struct rum_softc *,
+			    struct ieee80211_key *, uint16_t);
+static void		rum_group_key_set_cb(struct rum_softc *,
+			    union sec_param *, uint8_t);
+static void		rum_group_key_del_cb(struct rum_softc *,
+			    union sec_param *, uint8_t);
+static void		rum_pair_key_set_cb(struct rum_softc *,
+			    union sec_param *, uint8_t);
+static void		rum_pair_key_del_cb(struct rum_softc *,
+			    union sec_param *, uint8_t);
+static int		rum_key_alloc(struct ieee80211vap *,
+			    struct ieee80211_key *, ieee80211_keyix *,
+			    ieee80211_keyix *);
+static int		rum_key_set(struct ieee80211vap *,
+			    const struct ieee80211_key *);
+static int		rum_key_delete(struct ieee80211vap *,
+			    const struct ieee80211_key *);
 static int		rum_raw_xmit(struct ieee80211_node *, struct mbuf *,
 			    const struct ieee80211_bpf_params *);
 static void		rum_scan_start(struct ieee80211com *);
@@ -250,9 +280,9 @@ static const struct {
 	{ RT2573_MAC_CSR10,  0x00000718 },
 	{ RT2573_MAC_CSR12,  0x00000004 },
 	{ RT2573_MAC_CSR13,  0x00007f00 },
-	{ RT2573_SEC_CSR0,   0x00000000 },
-	{ RT2573_SEC_CSR1,   0x00000000 },
-	{ RT2573_SEC_CSR5,   0x00000000 },
+	{ RT2573_SEC_CSR2,   0x00000000 },
+	{ RT2573_SEC_CSR3,   0x00000000 },
+	{ RT2573_SEC_CSR4,   0x00000000 },
 	{ RT2573_PHY_CSR1,   0x000023b0 },
 	{ RT2573_PHY_CSR5,   0x00040a06 },
 	{ RT2573_PHY_CSR6,   0x00080606 },
@@ -488,12 +518,19 @@ rum_attach(device_t self)
 	    | IEEE80211_C_IBSS		/* IBSS mode supported */
 	    | IEEE80211_C_MONITOR	/* monitor mode supported */
 	    | IEEE80211_C_HOSTAP	/* HostAp mode supported */
+	    | IEEE80211_C_AHDEMO	/* adhoc demo mode */
 	    | IEEE80211_C_TXPMGT	/* tx power management */
 	    | IEEE80211_C_SHPREAMBLE	/* short preamble supported */
 	    | IEEE80211_C_SHSLOT	/* short slot time supported */
 	    | IEEE80211_C_BGSCAN	/* bg scanning supported */
 	    | IEEE80211_C_WPA		/* 802.11i */
 	    ;
+
+	ic->ic_cryptocaps =
+	    IEEE80211_CRYPTO_WEP |
+	    IEEE80211_CRYPTO_AES_CCM |
+	    IEEE80211_CRYPTO_TKIPMIC |
+	    IEEE80211_CRYPTO_TKIP;
 
 	bands = 0;
 	setbit(&bands, IEEE80211_MODE_11B);
@@ -512,6 +549,7 @@ rum_attach(device_t self)
 	ic->ic_parent = rum_parent;
 	ic->ic_vap_create = rum_vap_create;
 	ic->ic_vap_delete = rum_vap_delete;
+	ic->ic_updateslot = rum_update_slot;
 	ic->ic_update_mcast = rum_update_mcast;
 
 	ieee80211_radiotap_attach(ic,
@@ -610,6 +648,11 @@ rum_vap_create(struct ieee80211com *ic, const char name[IFNAMSIZ], int unit,
 	/* override state transition machine */
 	rvp->newstate = vap->iv_newstate;
 	vap->iv_newstate = rum_newstate;
+	vap->iv_key_alloc = rum_key_alloc;
+	vap->iv_key_set = rum_key_set;
+	vap->iv_key_delete = rum_key_delete;
+	vap->iv_update_beacon = rum_update_beacon;
+	vap->iv_max_aid = RT2573_ADDR_MAX;
 
 	usb_callout_init_mtx(&rvp->ratectl_ch, &sc->sc_mtx, 0);
 	TASK_INIT(&rvp->ratectl_task, 0, rum_ratectl_task, rvp);
@@ -628,6 +671,7 @@ rum_vap_delete(struct ieee80211vap *vap)
 	struct rum_vap *rvp = RUM_VAP(vap);
 	struct ieee80211com *ic = vap->iv_ic;
 
+	m_freem(rvp->bcn_mbuf);
 	usb_callout_drain(&rvp->ratectl_ch);
 	ieee80211_draintask(ic, &rvp->ratectl_task);
 	ieee80211_ratectl_deinit(vap);
@@ -647,7 +691,7 @@ rum_cmdq_cb(void *arg, int pending)
 		RUM_CMDQ_UNLOCK(sc);
 
 		RUM_LOCK(sc);
-		rc->func(sc, &rc->data, rc->rn_id, rc->rvp_id);
+		rc->func(sc, &rc->data, rc->rvp_id);
 		RUM_UNLOCK(sc);
 
 		RUM_CMDQ_LOCK(sc);
@@ -659,7 +703,7 @@ rum_cmdq_cb(void *arg, int pending)
 
 static int
 rum_cmd_sleepable(struct rum_softc *sc, const void *ptr, size_t len,
-    uint8_t rn_id, uint8_t rvp_id, CMD_FUNC_PROTO)
+    uint8_t rvp_id, CMD_FUNC_PROTO)
 {
 	struct ieee80211com *ic = &sc->sc_ic;
 
@@ -675,7 +719,6 @@ rum_cmd_sleepable(struct rum_softc *sc, const void *ptr, size_t len,
 
 	if (ptr != NULL)
 		memcpy(&sc->cmdq[sc->cmdq_last].data, ptr, len);
-	sc->cmdq[sc->cmdq_last].rn_id = rn_id;
 	sc->cmdq[sc->cmdq_last].rvp_id = rvp_id;
 	sc->cmdq[sc->cmdq_last].func = func;
 	sc->cmdq_last = (sc->cmdq_last + 1) % RUM_CMDQ_SIZE;
@@ -754,6 +797,7 @@ rum_newstate(struct ieee80211vap *vap, enum ieee80211_state nstate, int arg)
 	const struct ieee80211_txparam *tp;
 	enum ieee80211_state ostate;
 	struct ieee80211_node *ni;
+	int ret;
 
 	ostate = vap->iv_state;
 	DPRINTF("%s -> %s\n",
@@ -776,26 +820,28 @@ rum_newstate(struct ieee80211vap *vap, enum ieee80211_state nstate, int arg)
 
 		if (vap->iv_opmode != IEEE80211_M_MONITOR) {
 			if (ic->ic_bsschan == IEEE80211_CHAN_ANYC) {
-				RUM_UNLOCK(sc);
-				IEEE80211_LOCK(ic);
-				ieee80211_free_node(ni);
-				return (-1);
+				ret = EINVAL;
+				goto run_fail;
 			}
-			rum_update_slot(sc);
+			rum_update_slot_cb(sc, NULL, 0);
 			rum_enable_mrr(sc);
 			rum_set_txpreamble(sc);
 			rum_set_basicrates(sc);
-			IEEE80211_ADDR_COPY(ic->ic_macaddr, ni->ni_bssid);
-			rum_set_bssid(sc, ic->ic_macaddr);
+			IEEE80211_ADDR_COPY(sc->sc_bssid, ni->ni_bssid);
+			rum_set_bssid(sc, sc->sc_bssid);
 		}
 
 		if (vap->iv_opmode == IEEE80211_M_HOSTAP ||
-		    vap->iv_opmode == IEEE80211_M_IBSS)
-			rum_prepare_beacon(sc, vap);
+		    vap->iv_opmode == IEEE80211_M_IBSS) {
+			if ((ret = rum_alloc_beacon(sc, vap)) != 0)
+				goto run_fail;
+		}
 
-		if (vap->iv_opmode != IEEE80211_M_MONITOR)
-			rum_enable_tsf_sync(sc);
-		else
+		if (vap->iv_opmode != IEEE80211_M_MONITOR &&
+		    vap->iv_opmode != IEEE80211_M_AHDEMO) {
+			if ((ret = rum_enable_tsf_sync(sc)) != 0)
+				goto run_fail;
+		} else
 			rum_enable_tsf(sc);
 
 		/* enable automatic rate adaptation */
@@ -810,6 +856,12 @@ rum_newstate(struct ieee80211vap *vap, enum ieee80211_state nstate, int arg)
 	RUM_UNLOCK(sc);
 	IEEE80211_LOCK(ic);
 	return (rvp->newstate(vap, nstate, arg));
+
+run_fail:
+	RUM_UNLOCK(sc);
+	IEEE80211_LOCK(ic);
+	ieee80211_free_node(ni);
+	return ret;
 }
 
 static void
@@ -950,6 +1002,21 @@ rum_bulk_read_callback(struct usb_xfer *xfer, usb_error_t error)
 			counter_u64_add(ic->ic_ierrors, 1);
 			goto tr_setup;
 		}
+		if ((flags & RT2573_RX_DEC_MASK) != RT2573_RX_DEC_OK) {
+			switch (flags & RT2573_RX_DEC_MASK) {
+			case RT2573_RX_IV_ERROR:
+				DPRINTFN(5, "IV/EIV error\n");
+				break;
+			case RT2573_RX_MIC_ERROR:
+				DPRINTFN(5, "MIC error\n");
+				break;
+			case RT2573_RX_KEY_ERROR:
+				DPRINTFN(5, "Key error\n");
+				break;
+			}
+			counter_u64_add(ic->ic_ierrors, 1);
+			goto tr_setup;
+		}
 
 		m = m_getcl(M_NOWAIT, MT_DATA, M_PKTHDR);
 		if (m == NULL) {
@@ -961,6 +1028,13 @@ rum_bulk_read_callback(struct usb_xfer *xfer, usb_error_t error)
 		    mtod(m, uint8_t *), len);
 
 		wh = mtod(m, struct ieee80211_frame_min *);
+
+		if ((wh->i_fc[1] & IEEE80211_FC1_PROTECTED) &&
+		    (flags & RT2573_RX_CIP_MASK) !=
+		     RT2573_RX_CIP_MODE(RT2573_MODE_NOSEC)) {
+			wh->i_fc[1] &= ~IEEE80211_FC1_PROTECTED;
+			m->m_flags |= M_WEP;
+		}
 
 		/* finalize mbuf */
 		m->m_pkthdr.len = m->m_len = (flags >> 16) & 0xfff;
@@ -1040,22 +1114,45 @@ rum_plcp_signal(int rate)
 	return 0xff;		/* XXX unsupported/unknown rate */
 }
 
+/*
+ * Map net80211 cipher to RT2573 security mode.
+ */
+static uint8_t
+rum_crypto_mode(struct rum_softc *sc, u_int cipher, int keylen)
+{
+	switch (cipher) {
+	case IEEE80211_CIPHER_WEP:
+		return (keylen < 8 ? RT2573_MODE_WEP40 : RT2573_MODE_WEP104);
+	case IEEE80211_CIPHER_TKIP:
+		return RT2573_MODE_TKIP;
+	case IEEE80211_CIPHER_AES_CCM:
+		return RT2573_MODE_AES_CCMP;
+	default:
+		device_printf(sc->sc_dev, "unknown cipher %d\n", cipher);
+		return 0;
+	}
+}
+
 static void
 rum_setup_tx_desc(struct rum_softc *sc, struct rum_tx_desc *desc,
-    uint32_t flags, uint16_t xflags, int len, int rate)
+    struct ieee80211_key *k, uint32_t flags, uint8_t xflags, int hdrlen,
+    int len, int rate)
 {
 	struct ieee80211com *ic = &sc->sc_ic;
 	uint16_t plcp_length;
 	int remainder;
 
-	desc->flags = htole32(flags);
-	desc->flags |= htole32(RT2573_TX_VALID);
-	desc->flags |= htole32(len << 16);
+	flags |= RT2573_TX_VALID;
+	flags |= len << 16;
 
-	desc->xflags = htole16(xflags);
+	if (k != NULL && !(k->wk_flags & IEEE80211_KEY_SWCRYPT)) {
+		const struct ieee80211_cipher *cip = k->wk_cipher;
 
-	desc->wme = htole16(RT2573_QID(0) | RT2573_AIFSN(2) | 
-	    RT2573_LOGCWMIN(4) | RT2573_LOGCWMAX(10));
+		len += cip->ic_header + cip->ic_trailer + cip->ic_miclen;
+
+		desc->eiv = 0;		/* for WEP */
+		cip->ic_setiv(k, (uint8_t *)&desc->iv);
+	}
 
 	/* setup PLCP fields */
 	desc->plcp_signal  = rum_plcp_signal(rate);
@@ -1063,7 +1160,7 @@ rum_setup_tx_desc(struct rum_softc *sc, struct rum_tx_desc *desc,
 
 	len += IEEE80211_CRC_LEN;
 	if (ieee80211_rate2phytype(ic->ic_rt, rate) == IEEE80211_T_OFDM) {
-		desc->flags |= htole32(RT2573_TX_OFDM);
+		flags |= RT2573_TX_OFDM;
 
 		plcp_length = len & 0xfff;
 		desc->plcp_length_hi = plcp_length >> 6;
@@ -1083,6 +1180,13 @@ rum_setup_tx_desc(struct rum_softc *sc, struct rum_tx_desc *desc,
 		if (rate != 2 && (ic->ic_flags & IEEE80211_F_SHPREAMBLE))
 			desc->plcp_signal |= 0x08;
 	}
+
+	desc->flags = htole32(flags);
+	desc->hdrlen = hdrlen;
+	desc->xflags = xflags;
+
+	desc->wme = htole16(RT2573_QID(0) | RT2573_AIFSN(2) |
+	    RT2573_LOGCWMIN(4) | RT2573_LOGCWMAX(10));
 }
 
 static int
@@ -1128,12 +1232,47 @@ rum_sendprot(struct rum_softc *sc,
 	data->m = mprot;
 	data->ni = ieee80211_ref_node(ni);
 	data->rate = protrate;
-	rum_setup_tx_desc(sc, &data->desc, flags, 0, mprot->m_pkthdr.len, protrate);
+	rum_setup_tx_desc(sc, &data->desc, NULL, flags, 0, 0,
+	    mprot->m_pkthdr.len, protrate);
 
 	STAILQ_INSERT_TAIL(&sc->tx_q, data, next);
 	usbd_transfer_start(sc->sc_xfer[RUM_BULK_WR]);
 
 	return 0;
+}
+
+static uint32_t
+rum_tx_crypto_flags(struct rum_softc *sc, struct ieee80211_node *ni, 
+    const struct ieee80211_key *k)
+{
+	struct ieee80211vap *vap = ni->ni_vap;
+	u_int cipher;
+	uint32_t flags = 0;
+	uint8_t mode, pos;
+
+	if (!(k->wk_flags & IEEE80211_KEY_SWCRYPT)) {
+		cipher = k->wk_cipher->ic_cipher;
+		pos = k->wk_keyix;
+		mode = rum_crypto_mode(sc, cipher, k->wk_keylen);
+		if (mode == 0)
+			return 0;
+
+		flags |= RT2573_TX_CIP_MODE(mode);
+
+		/* Do not trust GROUP flag */
+		if (!(k >= &vap->iv_nw_keys[0] &&
+		      k < &vap->iv_nw_keys[IEEE80211_WEP_NKID]))
+			flags |= RT2573_TX_KEY_PAIR;
+		else
+			pos += 0 * RT2573_SKEY_MAX;	/* vap id */
+
+		flags |= RT2573_TX_KEY_ID(pos);
+
+		if (cipher == IEEE80211_CIPHER_TKIP)
+			flags |= RT2573_TX_TKIPMIC;
+	}
+
+	return flags;
 }
 
 static int
@@ -1144,9 +1283,10 @@ rum_tx_mgt(struct rum_softc *sc, struct mbuf *m0, struct ieee80211_node *ni)
 	struct rum_tx_data *data;
 	struct ieee80211_frame *wh;
 	const struct ieee80211_txparam *tp;
-	struct ieee80211_key *k;
+	struct ieee80211_key *k = NULL;
 	uint32_t flags = 0;
 	uint16_t dur;
+	int hdrlen;
 
 	RUM_LOCK_ASSERT(sc);
 
@@ -1155,9 +1295,15 @@ rum_tx_mgt(struct rum_softc *sc, struct mbuf *m0, struct ieee80211_node *ni)
 	sc->tx_nfree--;
 
 	wh = mtod(m0, struct ieee80211_frame *);
+	hdrlen = ieee80211_anyhdrsize(wh);
+
 	if (wh->i_fc[1] & IEEE80211_FC1_PROTECTED) {
-		k = ieee80211_crypto_encap(ni, m0);
+		k = ieee80211_crypto_get_txkey(ni, m0);
 		if (k == NULL)
+			return (ENOENT);
+
+		if ((k->wk_flags & IEEE80211_KEY_SWCRYPT) &&
+		    !k->wk_cipher->ic_encap(k, m0))
 			return (ENOBUFS);
 
 		wh = mtod(m0, struct ieee80211_frame *);
@@ -1179,11 +1325,15 @@ rum_tx_mgt(struct rum_softc *sc, struct mbuf *m0, struct ieee80211_node *ni)
 			flags |= RT2573_TX_TIMESTAMP;
 	}
 
+	if (k != NULL)
+		flags |= rum_tx_crypto_flags(sc, ni, k);
+
 	data->m = m0;
 	data->ni = ni;
 	data->rate = tp->mgmtrate;
 
-	rum_setup_tx_desc(sc, &data->desc, flags, 0, m0->m_pkthdr.len, tp->mgmtrate);
+	rum_setup_tx_desc(sc, &data->desc, k, flags, 0, hdrlen,
+	    m0->m_pkthdr.len, tp->mgmtrate);
 
 	DPRINTFN(10, "sending mgt frame len=%d rate=%d\n",
 	    m0->m_pkthdr.len + (int)RT2573_TX_DESC_SIZE, tp->mgmtrate);
@@ -1232,7 +1382,8 @@ rum_tx_raw(struct rum_softc *sc, struct mbuf *m0, struct ieee80211_node *ni,
 	data->rate = rate;
 
 	/* XXX need to setup descriptor ourself */
-	rum_setup_tx_desc(sc, &data->desc, flags, 0, m0->m_pkthdr.len, rate);
+	rum_setup_tx_desc(sc, &data->desc, NULL, flags, 0, 0, m0->m_pkthdr.len,
+	    rate);
 
 	DPRINTFN(10, "sending raw frame len=%u rate=%u\n",
 	    m0->m_pkthdr.len, rate);
@@ -1251,14 +1402,15 @@ rum_tx_data(struct rum_softc *sc, struct mbuf *m0, struct ieee80211_node *ni)
 	struct rum_tx_data *data;
 	struct ieee80211_frame *wh;
 	const struct ieee80211_txparam *tp;
-	struct ieee80211_key *k;
+	struct ieee80211_key *k = NULL;
 	uint32_t flags = 0;
 	uint16_t dur;
-	int error, rate;
+	int error, hdrlen, rate;
 
 	RUM_LOCK_ASSERT(sc);
 
 	wh = mtod(m0, struct ieee80211_frame *);
+	hdrlen = ieee80211_anyhdrsize(wh);
 
 	tp = &vap->iv_txparms[ieee80211_chan2mode(ni->ni_chan)];
 	if (IEEE80211_IS_MULTICAST(wh->i_addr1))
@@ -1269,10 +1421,15 @@ rum_tx_data(struct rum_softc *sc, struct mbuf *m0, struct ieee80211_node *ni)
 		rate = ni->ni_txrate;
 
 	if (wh->i_fc[1] & IEEE80211_FC1_PROTECTED) {
-		k = ieee80211_crypto_encap(ni, m0);
+		k = ieee80211_crypto_get_txkey(ni, m0);
 		if (k == NULL) {
 			m_freem(m0);
-			return ENOBUFS;
+			return (ENOENT);
+		}
+		if ((k->wk_flags & IEEE80211_KEY_SWCRYPT) &&
+		    !k->wk_cipher->ic_encap(k, m0)) {
+			m_freem(m0);
+			return (ENOBUFS);
 		}
 
 		/* packet header may have moved, reset our local pointer */
@@ -1296,6 +1453,9 @@ rum_tx_data(struct rum_softc *sc, struct mbuf *m0, struct ieee80211_node *ni)
 		}
 	}
 
+	if (k != NULL)
+		flags |= rum_tx_crypto_flags(sc, ni, k);
+
 	data = STAILQ_FIRST(&sc->tx_free);
 	STAILQ_REMOVE_HEAD(&sc->tx_free, next);
 	sc->tx_nfree--;
@@ -1313,7 +1473,8 @@ rum_tx_data(struct rum_softc *sc, struct mbuf *m0, struct ieee80211_node *ni)
 		USETW(wh->i_dur, dur);
 	}
 
-	rum_setup_tx_desc(sc, &data->desc, flags, 0, m0->m_pkthdr.len, rate);
+	rum_setup_tx_desc(sc, &data->desc, k, flags, 0, hdrlen,
+	    m0->m_pkthdr.len, rate);
 
 	DPRINTFN(10, "sending frame len=%d rate=%d\n",
 	    m0->m_pkthdr.len + (int)RT2573_TX_DESC_SIZE, rate);
@@ -1373,24 +1534,22 @@ static void
 rum_parent(struct ieee80211com *ic)
 {
 	struct rum_softc *sc = ic->ic_softc;
-	int startall = 0;
+	struct ieee80211vap *vap = TAILQ_FIRST(&ic->ic_vaps);
 
 	RUM_LOCK(sc);
 	if (sc->sc_detached) {
 		RUM_UNLOCK(sc);
 		return;
 	}
-	if (ic->ic_nrunning > 0) {
-		if (!sc->sc_running) {
-			rum_init(sc);
-			startall = 1;
-		} else
-			rum_setpromisc(sc);
-	} else if (sc->sc_running)
-		rum_stop(sc);
 	RUM_UNLOCK(sc);
-	if (startall)
-		ieee80211_start_all(ic);
+
+	if (ic->ic_nrunning > 0) {
+		if (rum_init(sc) == 0)
+			ieee80211_start_all(ic);
+		else
+			ieee80211_stop(vap);
+	} else
+		rum_stop(sc);
 }
 
 static void
@@ -1774,7 +1933,7 @@ rum_set_chan(struct rum_softc *sc, struct ieee80211_channel *c)
  * Enable TSF synchronization and tell h/w to start sending beacons for IBSS
  * and HostAP operating modes.
  */
-static void
+static int
 rum_enable_tsf_sync(struct rum_softc *sc)
 {
 	struct ieee80211com *ic = &sc->sc_ic;
@@ -1786,7 +1945,8 @@ rum_enable_tsf_sync(struct rum_softc *sc)
 		 * Change default 16ms TBTT adjustment to 8ms.
 		 * Must be done before enabling beacon generation.
 		 */
-		rum_write(sc, RT2573_TXRX_CSR10, 1 << 12 | 8);
+		if (rum_write(sc, RT2573_TXRX_CSR10, 1 << 12 | 8) != 0)
+			return EIO;
 	}
 
 	tmp = rum_read(sc, RT2573_TXRX_CSR9) & 0xff000000;
@@ -1820,10 +1980,13 @@ rum_enable_tsf_sync(struct rum_softc *sc)
 		device_printf(sc->sc_dev,
 		    "Enabling TSF failed. undefined opmode %d\n",
 		    vap->iv_opmode);
-		return;
+		return EINVAL;
 	}
 
-	rum_write(sc, RT2573_TXRX_CSR9, tmp);
+	if (rum_write(sc, RT2573_TXRX_CSR9, tmp) != 0)
+		return EIO;
+
+	return 0;
 }
 
 static void
@@ -1846,7 +2009,7 @@ rum_get_tsf(struct rum_softc *sc, uint64_t *buf)
 }
 
 static void
-rum_update_slot(struct rum_softc *sc)
+rum_update_slot_cb(struct rum_softc *sc, union sec_param *data, uint8_t rvp_id)
 {
 	struct ieee80211com *ic = &sc->sc_ic;
 	uint8_t slottime;
@@ -1859,27 +2022,29 @@ rum_update_slot(struct rum_softc *sc)
 }
 
 static void
+rum_update_slot(struct ieee80211com *ic)
+{
+	rum_cmd_sleepable(ic->ic_softc, NULL, 0, 0, rum_update_slot_cb);
+}
+
+static void
 rum_set_bssid(struct rum_softc *sc, const uint8_t *bssid)
 {
-	uint32_t tmp;
 
-	tmp = bssid[0] | bssid[1] << 8 | bssid[2] << 16 | bssid[3] << 24;
-	rum_write(sc, RT2573_MAC_CSR4, tmp);
-
-	tmp = bssid[4] | bssid[5] << 8 | RT2573_ONE_BSSID << 16;
-	rum_write(sc, RT2573_MAC_CSR5, tmp);
+	rum_write(sc, RT2573_MAC_CSR4,
+	    bssid[0] | bssid[1] << 8 | bssid[2] << 16 | bssid[3] << 24);
+	rum_write(sc, RT2573_MAC_CSR5,
+	    bssid[4] | bssid[5] << 8 | RT2573_NUM_BSSID_MSK(1));
 }
 
 static void
 rum_set_macaddr(struct rum_softc *sc, const uint8_t *addr)
 {
-	uint32_t tmp;
 
-	tmp = addr[0] | addr[1] << 8 | addr[2] << 16 | addr[3] << 24;
-	rum_write(sc, RT2573_MAC_CSR2, tmp);
-
-	tmp = addr[4] | addr[5] << 8 | 0xff << 16;
-	rum_write(sc, RT2573_MAC_CSR3, tmp);
+	rum_write(sc, RT2573_MAC_CSR2,
+	    addr[0] | addr[1] << 8 | addr[2] << 16 | addr[3] << 24);
+	rum_write(sc, RT2573_MAC_CSR3,
+	    addr[4] | addr[5] << 8 | 0xff << 16);
 }
 
 static void
@@ -1902,11 +2067,8 @@ rum_update_promisc(struct ieee80211com *ic)
 	struct rum_softc *sc = ic->ic_softc;
 
 	RUM_LOCK(sc);
-	if (!sc->sc_running) {
-		RUM_UNLOCK(sc);
-		return;
-	}
-	rum_setpromisc(sc);
+	if (sc->sc_running)
+		rum_setpromisc(sc);
 	RUM_UNLOCK(sc);
 }
 
@@ -2012,6 +2174,27 @@ rum_read_eeprom(struct rum_softc *sc)
 }
 
 static int
+rum_bbp_wakeup(struct rum_softc *sc)
+{
+	unsigned int ntries;
+
+	for (ntries = 0; ntries < 100; ntries++) {
+		if (rum_read(sc, RT2573_MAC_CSR12) & 8)
+			break;
+		rum_write(sc, RT2573_MAC_CSR12, 4);	/* force wakeup */
+		if (rum_pause(sc, hz / 100))
+			break;
+	}
+	if (ntries == 100) {
+		device_printf(sc->sc_dev,
+		    "timeout waiting for BBP/RF to wakeup\n");
+		return (ETIMEDOUT);
+	}
+
+	return (0);
+}
+
+static int
 rum_bbp_init(struct rum_softc *sc)
 {
 	int i, ntries;
@@ -2044,17 +2227,26 @@ rum_bbp_init(struct rum_softc *sc)
 }
 
 static void
+rum_clr_shkey_regs(struct rum_softc *sc)
+{
+	rum_write(sc, RT2573_SEC_CSR0, 0);
+	rum_write(sc, RT2573_SEC_CSR1, 0);
+	rum_write(sc, RT2573_SEC_CSR5, 0);
+}
+
+static int
 rum_init(struct rum_softc *sc)
 {
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ieee80211vap *vap = TAILQ_FIRST(&ic->ic_vaps);
 	uint32_t tmp;
-	usb_error_t error;
-	int i, ntries;
+	int i, ret;
 
-	RUM_LOCK_ASSERT(sc);
-
-	rum_stop(sc);
+	RUM_LOCK(sc);
+	if (sc->sc_running) {
+		ret = 0;
+		goto end;
+	}
 
 	/* initialize MAC registers to default values */
 	for (i = 0; i < nitems(rum_def_mac); i++)
@@ -2065,21 +2257,11 @@ rum_init(struct rum_softc *sc)
 	rum_write(sc, RT2573_MAC_CSR1, 0);
 
 	/* wait for BBP/RF to wakeup */
-	for (ntries = 0; ntries < 100; ntries++) {
-		if (rum_read(sc, RT2573_MAC_CSR12) & 8)
-			break;
-		rum_write(sc, RT2573_MAC_CSR12, 4);	/* force wakeup */
-		if (rum_pause(sc, hz / 100))
-			break;
-	}
-	if (ntries == 100) {
-		device_printf(sc->sc_dev,
-		    "timeout waiting for BBP/RF to wakeup\n");
-		goto fail;
-	}
+	if ((ret = rum_bbp_wakeup(sc)) != 0)
+		goto end;
 
-	if ((error = rum_bbp_init(sc)) != 0)
-		goto fail;
+	if ((ret = rum_bbp_init(sc)) != 0)
+		goto end;
 
 	/* select default channel */
 	rum_select_band(sc, ic->ic_curchan);
@@ -2088,6 +2270,12 @@ rum_init(struct rum_softc *sc)
 
 	/* clear STA registers */
 	rum_read_multi(sc, RT2573_STA_CSR0, sc->sta, sizeof sc->sta);
+
+	/* clear security registers (if required) */
+	if (sc->sc_clr_shkeys == 0) {
+		rum_clr_shkey_regs(sc);
+		sc->sc_clr_shkeys = 1;
+	}
 
 	rum_set_macaddr(sc, vap ? vap->iv_myaddr : ic->ic_macaddr);
 
@@ -2116,20 +2304,25 @@ rum_init(struct rum_softc *sc)
 	sc->sc_running = 1;
 	usbd_xfer_set_stall(sc->sc_xfer[RUM_BULK_WR]);
 	usbd_transfer_start(sc->sc_xfer[RUM_BULK_RD]);
-	return;
 
-fail:	rum_stop(sc);
-#undef N
+end:	RUM_UNLOCK(sc);
+
+	if (ret != 0)
+		rum_stop(sc);
+
+	return ret;
 }
 
 static void
 rum_stop(struct rum_softc *sc)
 {
 
-	RUM_LOCK_ASSERT(sc);
-
+	RUM_LOCK(sc);
+	if (!sc->sc_running) {
+		RUM_UNLOCK(sc);
+		return;
+	}
 	sc->sc_running = 0;
-
 	RUM_UNLOCK(sc);
 
 	/*
@@ -2139,7 +2332,6 @@ rum_stop(struct rum_softc *sc)
 	usbd_transfer_drain(sc->sc_xfer[RUM_BULK_RD]);
 
 	RUM_LOCK(sc);
-
 	rum_unsetup_tx_list(sc);
 
 	/* disable Rx */
@@ -2148,6 +2340,7 @@ rum_stop(struct rum_softc *sc)
 	/* reset ASIC */
 	rum_write(sc, RT2573_MAC_CSR1, RT2573_RESET_ASIC | RT2573_RESET_BBP);
 	rum_write(sc, RT2573_MAC_CSR1, 0);
+	RUM_UNLOCK(sc);
 }
 
 static void
@@ -2184,35 +2377,318 @@ rum_load_microcode(struct rum_softc *sc, const uint8_t *ucode, size_t size)
 	rum_pause(sc, hz / 8);
 }
 
-static void
-rum_prepare_beacon(struct rum_softc *sc, struct ieee80211vap *vap)
+static int
+rum_set_beacon(struct rum_softc *sc, struct ieee80211vap *vap)
 {
 	struct ieee80211com *ic = vap->iv_ic;
+	struct rum_vap *rvp = RUM_VAP(vap);
+	struct mbuf *m = rvp->bcn_mbuf;
 	const struct ieee80211_txparam *tp;
 	struct rum_tx_desc desc;
-	struct mbuf *m0;
 
-	if (vap->iv_bss->ni_chan == IEEE80211_CHAN_ANYC)
-		return;
+	RUM_LOCK_ASSERT(sc);
+
+	if (m == NULL)
+		return EINVAL;
 	if (ic->ic_bsschan == IEEE80211_CHAN_ANYC)
-		return;
-
-	m0 = ieee80211_beacon_alloc(vap->iv_bss, &vap->iv_bcn_off);
-	if (m0 == NULL)
-		return;
+		return EINVAL;
 
 	tp = &vap->iv_txparms[ieee80211_chan2mode(ic->ic_bsschan)];
-	rum_setup_tx_desc(sc, &desc, RT2573_TX_TIMESTAMP, RT2573_TX_HWSEQ,
-	    m0->m_pkthdr.len, tp->mgmtrate);
+	rum_setup_tx_desc(sc, &desc, NULL, RT2573_TX_TIMESTAMP,
+	    RT2573_TX_HWSEQ, 0, m->m_pkthdr.len, tp->mgmtrate);
 
-	/* copy the first 24 bytes of Tx descriptor into NIC memory */
-	rum_write_multi(sc, RT2573_HW_BEACON_BASE0, (uint8_t *)&desc, 24);
+	/* copy the Tx descriptor into NIC memory */
+	if (rum_write_multi(sc, RT2573_HW_BCN_BASE(0), (uint8_t *)&desc,
+	    RT2573_TX_DESC_SIZE) != 0)
+		return EIO;
 
 	/* copy beacon header and payload into NIC memory */
-	rum_write_multi(sc, RT2573_HW_BEACON_BASE0 + 24, mtod(m0, uint8_t *),
-	    m0->m_pkthdr.len);
+	if (rum_write_multi(sc, RT2573_HW_BCN_BASE(0) + RT2573_TX_DESC_SIZE,
+	    mtod(m, uint8_t *), m->m_pkthdr.len) != 0)
+		return EIO;
 
-	m_freem(m0);
+	return 0;
+}
+
+static int
+rum_alloc_beacon(struct rum_softc *sc, struct ieee80211vap *vap)
+{
+	struct rum_vap *rvp = RUM_VAP(vap);
+	struct ieee80211_node *ni = vap->iv_bss;
+	struct mbuf *m;
+
+	if (ni->ni_chan == IEEE80211_CHAN_ANYC)
+		return EINVAL;
+
+	m = ieee80211_beacon_alloc(ni, &vap->iv_bcn_off);
+	if (m == NULL)
+		return ENOMEM;
+
+	if (rvp->bcn_mbuf != NULL)
+		m_freem(rvp->bcn_mbuf);
+
+	rvp->bcn_mbuf = m;
+
+	return (rum_set_beacon(sc, vap));
+}
+
+static void
+rum_update_beacon_cb(struct rum_softc *sc, union sec_param *data,
+    uint8_t rvp_id)
+{
+	struct ieee80211vap *vap = data->vap;
+
+	rum_set_beacon(sc, vap);
+}
+
+static void
+rum_update_beacon(struct ieee80211vap *vap, int item)
+{
+	struct ieee80211com *ic = vap->iv_ic;
+	struct rum_softc *sc = ic->ic_softc;
+	struct rum_vap *rvp = RUM_VAP(vap);
+	struct ieee80211_beacon_offsets *bo = &vap->iv_bcn_off;
+	struct ieee80211_node *ni = vap->iv_bss;
+	struct mbuf *m = rvp->bcn_mbuf;
+	int mcast = 0;
+
+	RUM_LOCK(sc);
+	if (m == NULL) {
+		m = ieee80211_beacon_alloc(ni, bo);
+		if (m == NULL) {
+			device_printf(sc->sc_dev,
+			    "%s: could not allocate beacon frame\n", __func__);
+			RUM_UNLOCK(sc);
+			return;
+		}
+		rvp->bcn_mbuf = m;
+	}
+
+	switch (item) {
+	case IEEE80211_BEACON_ERP:
+		rum_update_slot(ic);
+		break;
+	case IEEE80211_BEACON_TIM:
+		mcast = 1;	/*TODO*/
+		break;
+	default:
+		break;
+	}
+	RUM_UNLOCK(sc);
+
+	setbit(bo->bo_flags, item);
+	ieee80211_beacon_update(ni, bo, m, mcast);
+
+	rum_cmd_sleepable(sc, &vap, sizeof(vap), 0, rum_update_beacon_cb);
+}
+
+static int
+rum_common_key_set(struct rum_softc *sc, struct ieee80211_key *k,
+    uint16_t base)
+{
+
+	if (rum_write_multi(sc, base, k->wk_key, k->wk_keylen))
+		return EIO;
+
+	if (k->wk_cipher->ic_cipher == IEEE80211_CIPHER_TKIP) {
+		if (rum_write_multi(sc, base + IEEE80211_KEYBUF_SIZE,
+		    k->wk_txmic, 8))
+			return EIO;
+		if (rum_write_multi(sc, base + IEEE80211_KEYBUF_SIZE + 8,
+		    k->wk_rxmic, 8))
+			return EIO;
+	}
+
+	return 0;
+}
+
+static void
+rum_group_key_set_cb(struct rum_softc *sc, union sec_param *data,
+    uint8_t rvp_id) 
+{
+	struct ieee80211_key *k = &data->key;
+	uint8_t mode;
+
+	if (sc->sc_clr_shkeys == 0) {
+		rum_clr_shkey_regs(sc);
+		sc->sc_clr_shkeys = 1;
+	}
+
+	mode = rum_crypto_mode(sc, k->wk_cipher->ic_cipher, k->wk_keylen);
+	if (mode == 0)
+		goto print_err;
+
+	DPRINTFN(1, "setting group key %d for vap %d, mode %d "
+	    "(tx %s, rx %s)\n", k->wk_keyix, rvp_id, mode,
+	    (k->wk_flags & IEEE80211_KEY_XMIT) ? "on" : "off",
+	    (k->wk_flags & IEEE80211_KEY_RECV) ? "on" : "off");
+
+	/* Install the key. */
+	if (rum_common_key_set(sc, k, RT2573_SKEY(rvp_id, k->wk_keyix)) != 0)
+		goto print_err;
+
+	/* Set cipher mode. */
+	if (rum_modbits(sc, rvp_id < 2 ? RT2573_SEC_CSR1 : RT2573_SEC_CSR5,
+	      mode << (rvp_id % 2 + k->wk_keyix) * RT2573_SKEY_MAX,
+	      RT2573_MODE_MASK << (rvp_id % 2 + k->wk_keyix) * RT2573_SKEY_MAX)
+	    != 0)
+		goto print_err;
+
+	/* Mark this key as valid. */
+	if (rum_setbits(sc, RT2573_SEC_CSR0,
+	      1 << (rvp_id * RT2573_SKEY_MAX + k->wk_keyix)) != 0)
+		goto print_err;
+
+	return;
+
+print_err:
+	device_printf(sc->sc_dev, "%s: cannot set group key %d for vap %d\n",
+	    __func__, k->wk_keyix, rvp_id);
+}
+
+static void
+rum_group_key_del_cb(struct rum_softc *sc, union sec_param *data,
+    uint8_t rvp_id)
+{
+	struct ieee80211_key *k = &data->key;
+
+	DPRINTF("%s: removing group key %d for vap %d\n", __func__,
+	    k->wk_keyix, rvp_id);
+	rum_clrbits(sc,
+	    rvp_id < 2 ? RT2573_SEC_CSR1 : RT2573_SEC_CSR5,
+	    RT2573_MODE_MASK << (rvp_id % 2 + k->wk_keyix) * RT2573_SKEY_MAX);
+	rum_clrbits(sc, RT2573_SEC_CSR0,
+	    rvp_id * RT2573_SKEY_MAX + k->wk_keyix);
+}
+
+static void
+rum_pair_key_set_cb(struct rum_softc *sc, union sec_param *data,
+    uint8_t rvp_id)
+{
+	struct ieee80211_key *k = &data->key;
+	uint8_t buf[IEEE80211_ADDR_LEN + 1];
+	uint8_t mode;
+
+	mode = rum_crypto_mode(sc, k->wk_cipher->ic_cipher, k->wk_keylen);
+	if (mode == 0)
+		goto print_err;
+
+	DPRINTFN(1, "setting pairwise key %d for vap %d, mode %d "
+	    "(tx %s, rx %s)\n", k->wk_keyix, rvp_id, mode,
+	    (k->wk_flags & IEEE80211_KEY_XMIT) ? "on" : "off",
+	    (k->wk_flags & IEEE80211_KEY_RECV) ? "on" : "off");
+
+	/* Install the key. */
+	if (rum_common_key_set(sc, k, RT2573_PKEY(k->wk_keyix)) != 0)
+		goto print_err;
+
+	IEEE80211_ADDR_COPY(buf, k->wk_macaddr);
+	buf[IEEE80211_ADDR_LEN] = mode;
+
+	/* Set transmitter address and cipher mode. */
+	if (rum_write_multi(sc, RT2573_ADDR_ENTRY(k->wk_keyix),
+	      buf, sizeof buf) != 0)
+		goto print_err;
+
+	/* Enable key table lookup for this vap. */
+	if (sc->vap_key_count[rvp_id]++ == 0)
+		if (rum_setbits(sc, RT2573_SEC_CSR4, 1 << rvp_id) != 0)
+			goto print_err;
+
+	/* Mark this key as valid. */
+	if (rum_setbits(sc,
+	      k->wk_keyix < 32 ? RT2573_SEC_CSR2 : RT2573_SEC_CSR3,
+	      1 << (k->wk_keyix % 32)) != 0)
+		goto print_err;
+
+	return;
+
+print_err:
+	device_printf(sc->sc_dev,
+	    "%s: cannot set pairwise key %d, vap %d\n", __func__, k->wk_keyix,
+	    rvp_id);
+}
+
+static void
+rum_pair_key_del_cb(struct rum_softc *sc, union sec_param *data,
+    uint8_t rvp_id)
+{
+	struct ieee80211_key *k = &data->key;
+
+	DPRINTF("%s: removing key %d\n", __func__, k->wk_keyix);
+	rum_clrbits(sc, (k->wk_keyix < 32) ? RT2573_SEC_CSR2 : RT2573_SEC_CSR3,
+	    1 << (k->wk_keyix % 32));
+	sc->keys_bmap &= ~(1 << k->wk_keyix);
+	if (--sc->vap_key_count[rvp_id] == 0)
+		rum_clrbits(sc, RT2573_SEC_CSR4, 1 << rvp_id);
+}
+
+static int
+rum_key_alloc(struct ieee80211vap *vap, struct ieee80211_key *k,
+    ieee80211_keyix *keyix, ieee80211_keyix *rxkeyix)
+{
+	struct rum_softc *sc = vap->iv_ic->ic_softc;
+	uint8_t i;
+
+	if (!(&vap->iv_nw_keys[0] <= k &&
+	     k < &vap->iv_nw_keys[IEEE80211_WEP_NKID])) {
+		if (!(k->wk_flags & IEEE80211_KEY_SWCRYPT)) {
+			RUM_LOCK(sc);
+			for (i = 0; i < RT2573_ADDR_MAX; i++) {
+				if ((sc->keys_bmap & (1 << i)) == 0) {
+					sc->keys_bmap |= 1 << i;
+					*keyix = i;
+					break;
+				}
+			}
+			RUM_UNLOCK(sc);
+			if (i == RT2573_ADDR_MAX) {
+				device_printf(sc->sc_dev,
+				    "%s: no free space in the key table\n",
+				    __func__);
+				return 0;
+			}
+		} else
+			*keyix = 0;
+	} else {
+		*keyix = k - vap->iv_nw_keys;
+	}
+	*rxkeyix = *keyix;
+	return 1;
+}
+
+static int
+rum_key_set(struct ieee80211vap *vap, const struct ieee80211_key *k)
+{
+	struct rum_softc *sc = vap->iv_ic->ic_softc;
+	int group;
+
+	if (k->wk_flags & IEEE80211_KEY_SWCRYPT) {
+		/* Not for us. */
+		return 1;
+	}
+
+	group = k >= &vap->iv_nw_keys[0] && k < &vap->iv_nw_keys[IEEE80211_WEP_NKID];
+
+	return !rum_cmd_sleepable(sc, k, sizeof(*k), 0,
+		   group ? rum_group_key_set_cb : rum_pair_key_set_cb);
+}
+
+static int
+rum_key_delete(struct ieee80211vap *vap, const struct ieee80211_key *k)
+{
+	struct rum_softc *sc = vap->iv_ic->ic_softc;
+	int group;
+
+	if (k->wk_flags & IEEE80211_KEY_SWCRYPT) {
+		/* Not for us. */
+		return 1;
+	}
+
+	group = k >= &vap->iv_nw_keys[0] && k < &vap->iv_nw_keys[IEEE80211_WEP_NKID];
+
+	return !rum_cmd_sleepable(sc, k, sizeof(*k), 0,
+		   group ? rum_group_key_del_cb : rum_pair_key_del_cb);
 }
 
 static int
@@ -2331,8 +2807,11 @@ rum_scan_end(struct ieee80211com *ic)
 	struct rum_softc *sc = ic->ic_softc;
 
 	RUM_LOCK(sc);
-	rum_enable_tsf_sync(sc);
-	rum_set_bssid(sc, ic->ic_macaddr);
+	if (ic->ic_opmode != IEEE80211_M_AHDEMO)
+		rum_enable_tsf_sync(sc);
+	else
+		rum_enable_tsf(sc);
+	rum_set_bssid(sc, sc->sc_bssid);
 	RUM_UNLOCK(sc);
 
 }

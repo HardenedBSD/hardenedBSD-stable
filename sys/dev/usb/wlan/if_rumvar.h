@@ -77,13 +77,10 @@ union sec_param {
 	struct ieee80211vap		*vap;
 };
 #define CMD_FUNC_PROTO			void (*func)(struct rum_softc *, \
-					    union sec_param *, uint8_t, \
-					    uint8_t)
+					    union sec_param *, uint8_t)
 
 struct rum_cmdq {
 	union sec_param			data;
-
-	uint8_t				rn_id;
 	uint8_t				rvp_id;
 
 	CMD_FUNC_PROTO;
@@ -92,6 +89,7 @@ struct rum_cmdq {
 
 struct rum_vap {
 	struct ieee80211vap		vap;
+	struct mbuf			*bcn_mbuf;
 	struct usb_callout		ratectl_ch;
 	struct task			ratectl_task;
 
@@ -135,7 +133,13 @@ struct rum_softc {
 	uint32_t			rf_regs[4];
 	uint8_t				txpow[44];
 	u_int				sc_detached:1,
-					sc_running:1;
+					sc_running:1,
+					sc_clr_shkeys:1;
+
+	uint8_t				sc_bssid[IEEE80211_ADDR_LEN];
+
+	uint8_t				vap_key_count[1];
+	uint64_t			keys_bmap;
 
 	struct {
 		uint8_t	val;
