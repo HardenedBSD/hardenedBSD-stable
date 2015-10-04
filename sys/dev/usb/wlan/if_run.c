@@ -831,6 +831,21 @@ detach:
 	return (ENXIO);
 }
 
+static void
+run_drain_mbufq(struct run_softc *sc)
+{
+	struct mbuf *m;
+	struct ieee80211_node *ni;
+
+	RUN_LOCK_ASSERT(sc, MA_OWNED);
+	while ((m = mbufq_dequeue(&sc->sc_snd)) != NULL) {
+		ni = (struct ieee80211_node *)m->m_pkthdr.rcvif;
+		m->m_pkthdr.rcvif = NULL;
+		ieee80211_free_node(ni);
+		m_freem(m);
+	}
+}
+
 static int
 run_detach(device_t self)
 {
@@ -852,6 +867,9 @@ run_detach(device_t self)
 	/* free TX list, if any */
 	for (i = 0; i != RUN_EP_QUEUES; i++)
 		run_unsetup_tx_list(sc, &sc->sc_epq[i]);
+
+	/* Free TX queue */
+	run_drain_mbufq(sc);
 	RUN_UNLOCK(sc);
 
 	if (sc->sc_ic.ic_softc == sc) {
@@ -862,7 +880,6 @@ run_detach(device_t self)
 		ieee80211_ifdetach(ic);
 	}
 
-	mbufq_drain(&sc->sc_snd);
 	mtx_destroy(&sc->sc_mtx);
 
 	return (0);
@@ -2162,8 +2179,8 @@ run_wme_update_cb(void *arg)
 {
 	struct ieee80211com *ic = arg;
 	struct run_softc *sc = ic->ic_softc;
-	const struct wmeParams (*ac)[WME_NUM_AC] =
-	    &ic->ic_wme.wme_chanParams.cap_wmeParams;
+	const struct wmeParams *ac =
+	    ic->ic_wme.wme_chanParams.cap_wmeParams;
 	int aci, error = 0;
 
 	RUN_LOCK_ASSERT(sc, MA_OWNED);
@@ -2171,39 +2188,39 @@ run_wme_update_cb(void *arg)
 	/* update MAC TX configuration registers */
 	for (aci = 0; aci < WME_NUM_AC; aci++) {
 		error = run_write(sc, RT2860_EDCA_AC_CFG(aci),
-		    ac[aci]->wmep_logcwmax << 16 |
-		    ac[aci]->wmep_logcwmin << 12 |
-		    ac[aci]->wmep_aifsn    <<  8 |
-		    ac[aci]->wmep_txopLimit);
+		    ac[aci].wmep_logcwmax << 16 |
+		    ac[aci].wmep_logcwmin << 12 |
+		    ac[aci].wmep_aifsn    <<  8 |
+		    ac[aci].wmep_txopLimit);
 		if (error) goto err;
 	}
 
 	/* update SCH/DMA registers too */
 	error = run_write(sc, RT2860_WMM_AIFSN_CFG,
-	    ac[WME_AC_VO]->wmep_aifsn  << 12 |
-	    ac[WME_AC_VI]->wmep_aifsn  <<  8 |
-	    ac[WME_AC_BK]->wmep_aifsn  <<  4 |
-	    ac[WME_AC_BE]->wmep_aifsn);
+	    ac[WME_AC_VO].wmep_aifsn  << 12 |
+	    ac[WME_AC_VI].wmep_aifsn  <<  8 |
+	    ac[WME_AC_BK].wmep_aifsn  <<  4 |
+	    ac[WME_AC_BE].wmep_aifsn);
 	if (error) goto err;
 	error = run_write(sc, RT2860_WMM_CWMIN_CFG,
-	    ac[WME_AC_VO]->wmep_logcwmin << 12 |
-	    ac[WME_AC_VI]->wmep_logcwmin <<  8 |
-	    ac[WME_AC_BK]->wmep_logcwmin <<  4 |
-	    ac[WME_AC_BE]->wmep_logcwmin);
+	    ac[WME_AC_VO].wmep_logcwmin << 12 |
+	    ac[WME_AC_VI].wmep_logcwmin <<  8 |
+	    ac[WME_AC_BK].wmep_logcwmin <<  4 |
+	    ac[WME_AC_BE].wmep_logcwmin);
 	if (error) goto err;
 	error = run_write(sc, RT2860_WMM_CWMAX_CFG,
-	    ac[WME_AC_VO]->wmep_logcwmax << 12 |
-	    ac[WME_AC_VI]->wmep_logcwmax <<  8 |
-	    ac[WME_AC_BK]->wmep_logcwmax <<  4 |
-	    ac[WME_AC_BE]->wmep_logcwmax);
+	    ac[WME_AC_VO].wmep_logcwmax << 12 |
+	    ac[WME_AC_VI].wmep_logcwmax <<  8 |
+	    ac[WME_AC_BK].wmep_logcwmax <<  4 |
+	    ac[WME_AC_BE].wmep_logcwmax);
 	if (error) goto err;
 	error = run_write(sc, RT2860_WMM_TXOP0_CFG,
-	    ac[WME_AC_BK]->wmep_txopLimit << 16 |
-	    ac[WME_AC_BE]->wmep_txopLimit);
+	    ac[WME_AC_BK].wmep_txopLimit << 16 |
+	    ac[WME_AC_BE].wmep_txopLimit);
 	if (error) goto err;
 	error = run_write(sc, RT2860_WMM_TXOP1_CFG,
-	    ac[WME_AC_VO]->wmep_txopLimit << 16 |
-	    ac[WME_AC_VI]->wmep_txopLimit);
+	    ac[WME_AC_VO].wmep_txopLimit << 16 |
+	    ac[WME_AC_VI].wmep_txopLimit);
 
 err:
 	if (error)
@@ -6171,6 +6188,8 @@ run_stop(void *arg)
 		usbd_transfer_drain(sc->sc_xfer[i]);
 
 	RUN_LOCK(sc);
+
+	run_drain_mbufq(sc);
 
 	if (sc->rx_m != NULL) {
 		m_free(sc->rx_m);
