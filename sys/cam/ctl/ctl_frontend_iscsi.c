@@ -171,7 +171,6 @@ static void	cfiscsi_target_release(struct cfiscsi_target *ct);
 static void	cfiscsi_session_delete(struct cfiscsi_session *cs);
 
 static struct cfiscsi_softc cfiscsi_softc;
-extern struct ctl_softc *control_softc;
 
 static struct ctl_frontend cfiscsi_frontend =
 {
@@ -459,6 +458,7 @@ cfiscsi_decode_lun(uint64_t encoded)
 			break;
 		}
 		result = (lun[1] << 16) + (lun[2] << 8) + lun[3];
+		break;
 	default:
 		CFISCSI_WARN("unsupported LUN format 0x%jx",
 		    (uintmax_t)encoded);
@@ -963,6 +963,7 @@ cfiscsi_pdu_handle_data_out(struct icl_pdu *request)
 		done = (io->scsiio.ext_data_filled != cdw->cdw_r2t_end ||
 		    io->scsiio.ext_data_filled == io->scsiio.kern_data_len);
 		uma_zfree(cfiscsi_data_wait_zone, cdw);
+		io->io_hdr.flags &= ~CTL_FLAG_DMA_INPROG;
 		if (done)
 			io->scsiio.be_move_done(io);
 		else
@@ -1136,6 +1137,7 @@ cfiscsi_session_terminate_tasks(struct cfiscsi_session *cs)
 		 * assuming that the data transfer actually succeeded
 		 * and writing uninitialized data to disk.
 		 */
+		cdw->cdw_ctl_io->io_hdr.flags &= ~CTL_FLAG_DMA_INPROG;
 		cdw->cdw_ctl_io->scsiio.io_hdr.port_status = 42;
 		cdw->cdw_ctl_io->scsiio.be_move_done(cdw->cdw_ctl_io);
 		uma_zfree(cfiscsi_data_wait_zone, cdw);
@@ -1330,10 +1332,8 @@ int
 cfiscsi_init(void)
 {
 	struct cfiscsi_softc *softc;
-	int retval;
 
 	softc = &cfiscsi_softc;
-	retval = 0;
 	bzero(softc, sizeof(*softc));
 	mtx_init(&softc->lock, "cfiscsi", NULL, MTX_DEF);
 
@@ -1563,6 +1563,16 @@ restart:
 			if (cs2 != cs && cs2->cs_tasks_aborted == false &&
 			    cs->cs_target == cs2->cs_target &&
 			    strcmp(cs->cs_initiator_id, cs2->cs_initiator_id) == 0) {
+				if (strcmp(cs->cs_initiator_addr,
+				    cs2->cs_initiator_addr) != 0) {
+					CFISCSI_SESSION_WARN(cs2,
+					    "session reinstatement from "
+					    "different address %s",
+					    cs->cs_initiator_addr);
+				} else {
+					CFISCSI_SESSION_DEBUG(cs2,
+					    "session reinstatement");
+				}
 				cfiscsi_session_terminate(cs2);
 				mtx_unlock(&softc->lock);
 				pause("cfiscsi_reinstate", 1);
@@ -2665,6 +2675,7 @@ cfiscsi_datamove_out(union ctl_io *io)
 		cfiscsi_session_terminate(cs);
 		return;
 	}
+	io->io_hdr.flags |= CTL_FLAG_DMA_INPROG;
 	bhsr2t = (struct iscsi_bhs_r2t *)response->ip_bhs;
 	bhsr2t->bhsr2t_opcode = ISCSI_BHS_OPCODE_R2T;
 	bhsr2t->bhsr2t_flags = 0x80;
@@ -2841,6 +2852,8 @@ cfiscsi_task_management_done(union ctl_io *io)
 #endif
 			TAILQ_REMOVE(&cs->cs_waiting_for_data_out,
 			    cdw, cdw_next);
+			io->io_hdr.flags &= ~CTL_FLAG_DMA_INPROG;
+			cdw->cdw_ctl_io->scsiio.io_hdr.port_status = 43;
 			cdw->cdw_ctl_io->scsiio.be_move_done(cdw->cdw_ctl_io);
 			uma_zfree(cfiscsi_data_wait_zone, cdw);
 		}

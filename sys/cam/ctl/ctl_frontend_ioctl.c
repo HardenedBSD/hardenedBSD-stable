@@ -56,6 +56,18 @@ __FBSDID("$FreeBSD$");
 #include <cam/ctl/ctl_debug.h>
 #include <cam/ctl/ctl_error.h>
 
+typedef enum {
+	CTL_IOCTL_INPROG,
+	CTL_IOCTL_DATAMOVE,
+	CTL_IOCTL_DONE
+} ctl_fe_ioctl_state;
+
+struct ctl_fe_ioctl_params {
+	struct cv		sem;
+	struct mtx		ioctl_mtx;
+	ctl_fe_ioctl_state	state;
+};
+
 struct cfi_softc {
 	uint32_t		cur_tag_num;
 	struct ctl_port		port;
@@ -149,7 +161,7 @@ ctl_ioctl_do_datamove(struct ctl_scsiio *ctsio)
 	 * To simplify things here, if we have a single buffer, stick it in
 	 * a S/G entry and just make it a single entry S/G list.
 	 */
-	if (ctsio->io_hdr.flags & CTL_FLAG_EDPTR_SGLIST) {
+	if (ctsio->ext_sg_entries > 0) {
 		int len_seen;
 
 		ext_sglen = ctsio->ext_sg_entries * sizeof(*ext_sglist);
@@ -307,10 +319,7 @@ cfi_submit_wait(union ctl_io *io)
 	ctl_fe_ioctl_state last_state;
 	int done, retval;
 
-	retval = 0;
-
 	bzero(&params, sizeof(params));
-
 	mtx_init(&params.ioctl_mtx, "ctliocmtx", NULL, MTX_DEF);
 	cv_init(&params.sem, "ctlioccv");
 	params.state = CTL_IOCTL_INPROG;

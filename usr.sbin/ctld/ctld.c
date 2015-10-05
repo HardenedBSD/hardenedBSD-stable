@@ -1439,6 +1439,13 @@ lun_set_blocksize(struct lun *lun, size_t value)
 }
 
 void
+lun_set_device_type(struct lun *lun, uint8_t value)
+{
+
+	lun->l_device_type = value;
+}
+
+void
 lun_set_device_id(struct lun *lun, const char *value)
 {
 	free(lun->l_device_id);
@@ -1637,7 +1644,10 @@ conf_verify_lun(struct lun *lun)
 		}
 	}
 	if (lun->l_blocksize == 0) {
-		lun_set_blocksize(lun, DEFAULT_BLOCKSIZE);
+		if (lun->l_device_type == 5)
+			lun_set_blocksize(lun, DEFAULT_CD_BLOCKSIZE);
+		else
+			lun_set_blocksize(lun, DEFAULT_BLOCKSIZE);
 	} else if (lun->l_blocksize < 0) {
 		log_warnx("invalid blocksize for lun \"%s\"; "
 		    "must be larger than 0", lun->l_name);
