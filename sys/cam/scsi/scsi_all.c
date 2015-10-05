@@ -509,7 +509,8 @@ static struct op_table_entry scsi_op_codes[] = {
 	/* 99 */
 	/* 9A */
 	/* 9B */
-	/* 9C */
+	/* 9C  O              WRITE ATOMIC(16) */
+	{ 0x9C, D, "WRITE ATOMIC(16)" },
 	/* 9D */
 	/* XXX KDM ALL for this?  op-num.txt defines it for none.. */
 	/* 9E                  SERVICE ACTION IN(16) */
@@ -6071,13 +6072,12 @@ scsi_parse_transportid_iscsi(char *id_str, struct scsi_transportid_header **hdr,
 			     char *error_str, int error_str_len)
 {
 	size_t id_len, sep_len, id_size, name_len;
-	int is_full_id, retval;
+	int retval;
 	unsigned int i, sep_pos, sep_found;
 	const char *sep_template = ",i,0x";
 	const char *iqn_prefix = "iqn.";
 	struct scsi_transportid_iscsi_device *iscsi;
 
-	is_full_id = 0;
 	retval = 0;
 	sep_found = 0;
 
