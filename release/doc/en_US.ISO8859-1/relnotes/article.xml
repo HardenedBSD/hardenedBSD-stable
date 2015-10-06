@@ -187,6 +187,10 @@
 	  role="package">misc/pciids</filename> package, if present,
 	falling back to the PCI ID database in the &os; base
 	system.</para>
+
+      <para revision="288710" contrib="sponsor" sponsor="&gandi;">A
+	new utility, &man.sesutil.8;, has been added, which is used
+	to manage &man.ses.4; devices.</para>
     </sect2>
 
     <sect2 xml:id="userland-contrib">
@@ -195,6 +199,9 @@
       <para revision="286082">The &man.libarchive.3; library has been
 	updated to properly skip a sparse file entry in a &man.tar.1;
 	file, which would previously produce errors.</para>
+
+      <para revision="286751">Timezone data files have been updated to
+	version 2015f.</para>
     </sect2>
 
     <sect2 xml:id="userland-installer">
