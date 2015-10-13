@@ -69,12 +69,15 @@ void *ntb_get_mw_vbase(struct ntb_softc *ntb, unsigned int mw);
 vm_paddr_t ntb_get_mw_pbase(struct ntb_softc *ntb, unsigned int mw);
 u_long ntb_get_mw_size(struct ntb_softc *ntb, unsigned int mw);
 void ntb_set_mw_addr(struct ntb_softc *ntb, unsigned int mw, uint64_t addr);
-void ntb_ring_sdb(struct ntb_softc *ntb, unsigned int db);
+void ntb_ring_doorbell(struct ntb_softc *ntb, unsigned int db);
 bool ntb_query_link_status(struct ntb_softc *ntb);
 device_t ntb_get_device(struct ntb_softc *ntb);
 
 #define NTB_BAR_SIZE_4K		(1 << 0)
+/* REGS_THRU_MW is the equivalent of Linux's NTB_HWERR_SDOORBELL_LOCKUP */
 #define NTB_REGS_THRU_MW	(1 << 1)
+#define NTB_SB01BASE_LOCKUP	(1 << 2)
+#define NTB_B2BDOORBELL_BIT14	(1 << 3)
 bool ntb_has_feature(struct ntb_softc *, uint64_t);
 
 #endif /* _NTB_HW_H_ */
