@@ -39,6 +39,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/queue.h>
 #include <sys/socket.h>
 #include <sys/sockio.h>
+#include <sys/sysctl.h>
 #include <sys/taskqueue.h>
 #include <net/if.h>
 #include <net/if_media.h>
@@ -77,6 +78,11 @@ __FBSDID("$FreeBSD$");
 #define	NTB_RXQ_SIZE		300
 
 static unsigned int transport_mtu = 0x4000 + ETHER_HDR_LEN + ETHER_CRC_LEN;
+
+/*
+ * This is an oversimplification to work around Xeon Errata.  The second client
+ * may be usable for unidirectional traffic.
+ */
 static unsigned int max_num_clients = 1;
 
 STAILQ_HEAD(ntb_queue_list, ntb_queue_entry);
@@ -301,7 +307,7 @@ DECLARE_MODULE(if_ntb, if_ntb_mod, SI_SUB_KLD, SI_ORDER_ANY);
 MODULE_DEPEND(if_ntb, ntb_hw, 1, 1, 1);
 
 static int
-ntb_setup_interface()
+ntb_setup_interface(void)
 {
 	struct ifnet *ifp;
 	struct ntb_queue_handlers handlers = { ntb_net_rx_handler,
@@ -344,7 +350,7 @@ ntb_setup_interface()
 }
 
 static int
-ntb_teardown_interface()
+ntb_teardown_interface(void)
 {
 
 	if (net_softc.qp != NULL)
@@ -521,7 +527,6 @@ ntb_transport_free(void *transport)
 	for (i = 0; i < nt->max_qps; i++)
 		if (!test_bit(i, &nt->qp_bitmap))
 			ntb_transport_free_queue(&nt->qps[i]);
-
 
 	ntb_unregister_event_callback(ntb);
 
@@ -1031,11 +1036,16 @@ ntb_transport_link_work(void *arg)
 	struct ntb_softc *ntb = nt->ntb;
 	struct ntb_transport_qp *qp;
 	uint64_t val64;
-	uint32_t val;
-	int rc, i;
+	uint32_t val, i, num_mw;
+	int rc;
+
+	if (ntb_has_feature(ntb, NTB_REGS_THRU_MW))
+		num_mw = NTB_NUM_MW - 1;
+	else
+		num_mw = NTB_NUM_MW;
 
 	/* send the local info, in the opposite order of the way we read it */
-	for (i = 0; i < NTB_NUM_MW; i++) {
+	for (i = 0; i < num_mw; i++) {
 		rc = ntb_write_remote_spad(ntb, IF_NTB_MW0_SZ_HIGH + (i * 2),
 		    ntb_get_mw_size(ntb, i) >> 32);
 		if (rc != 0)
@@ -1047,7 +1057,7 @@ ntb_transport_link_work(void *arg)
 			goto out;
 	}
 
-	rc = ntb_write_remote_spad(ntb, IF_NTB_NUM_MWS, NTB_NUM_MW);
+	rc = ntb_write_remote_spad(ntb, IF_NTB_NUM_MWS, num_mw);
 	if (rc != 0)
 		goto out;
 
@@ -1078,10 +1088,10 @@ ntb_transport_link_work(void *arg)
 	if (rc != 0)
 		goto out;
 
-	if (val != NTB_NUM_MW)
+	if (val != num_mw)
 		goto out;
 
-	for (i = 0; i < NTB_NUM_MW; i++) {
+	for (i = 0; i < num_mw; i++) {
 		rc = ntb_read_local_spad(ntb, IF_NTB_MW0_SZ_HIGH + (i * 2),
 		    &val);
 		if (rc != 0)
