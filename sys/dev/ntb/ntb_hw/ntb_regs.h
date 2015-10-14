@@ -38,6 +38,7 @@
 #define XEON_MAX_COMPAT_SPADS	16
 /* Reserve the uppermost bit for link interrupt */
 #define XEON_MAX_DB_BITS	15
+#define XEON_LINK_DB		15
 #define XEON_DB_BITS_PER_VEC	5
 
 #define XEON_DB_HW_LINK		0x8000
@@ -115,11 +116,13 @@
 #define SOC_LTSSMSTATEJMP_FORCEDETECT	(1 << 2)
 #define SOC_IBIST_ERR_OFLOW	0x7fff7fff
 
-#define NTB_CNTL_CFG_LOCK	(1 << 0)
-#define NTB_CNTL_LINK_DISABLE	(1 << 1)
-#define NTB_CNTL_BAR23_SNOOP	(1 << 2)
-#define NTB_CNTL_BAR45_SNOOP	(1 << 6)
-#define SOC_CNTL_LINK_DOWN	(1 << 16)
+#define NTB_CNTL_CFG_LOCK		(1 << 0)
+#define NTB_CNTL_LINK_DISABLE		(1 << 1)
+#define NTB_CNTL_S2P_BAR23_SNOOP	(1 << 2)
+#define NTB_CNTL_P2S_BAR23_SNOOP	(1 << 4)
+#define NTB_CNTL_S2P_BAR45_SNOOP	(1 << 6)
+#define NTB_CNTL_P2S_BAR45_SNOOP	(1 << 8)
+#define SOC_CNTL_LINK_DOWN		(1 << 16)
 
 #define XEON_PBAR23SZ_OFFSET	0x00d0
 #define XEON_PBAR45SZ_OFFSET	0x00d1

@@ -84,4 +84,7 @@ STAGE_TARGETS+= stage_config
 .endif
 .endif
 
-.endif # ${MK_TOOLCHAIN} != "no"
+config: buildconfig installconfig
+.ORDER: buildconfig installconfig
+
+.endif # ${MK_INCLUDES} != "no"
