@@ -116,7 +116,7 @@ struct ntb_transport_qp {
 	struct ntb_rx_info	*rx_info;
 	struct ntb_rx_info	*remote_rx_info;
 
-	void (*tx_handler) (struct ntb_transport_qp *qp, void *qp_data,
+	void (*tx_handler)(struct ntb_transport_qp *qp, void *qp_data,
 	    void *data, int len);
 	struct ntb_queue_list	tx_free_q;
 	struct mtx		ntb_tx_free_q_lock;
@@ -125,7 +125,7 @@ struct ntb_transport_qp {
 	uint64_t		tx_max_entry;
 	uint64_t		tx_max_frame;
 
-	void (*rx_handler) (struct ntb_transport_qp *qp, void *qp_data,
+	void (*rx_handler)(struct ntb_transport_qp *qp, void *qp_data,
 	    void *data, int len);
 	struct ntb_queue_list	rx_pend_q;
 	struct ntb_queue_list	rx_free_q;
@@ -137,7 +137,7 @@ struct ntb_transport_qp {
 	uint64_t		rx_max_entry;
 	uint64_t		rx_max_frame;
 
-	void (*event_handler) (void *data, int status);
+	void (*event_handler)(void *data, enum ntb_link_event status);
 	struct callout		link_work;
 	struct callout		queue_full;
 	struct callout		rx_full;
@@ -157,11 +157,11 @@ struct ntb_transport_qp {
 };
 
 struct ntb_queue_handlers {
-	void (*rx_handler) (struct ntb_transport_qp *qp, void *qp_data,
+	void (*rx_handler)(struct ntb_transport_qp *qp, void *qp_data,
 	    void *data, int len);
-	void (*tx_handler) (struct ntb_transport_qp *qp, void *qp_data,
+	void (*tx_handler)(struct ntb_transport_qp *qp, void *qp_data,
 	    void *data, int len);
-	void (*event_handler) (void *data, int status);
+	void (*event_handler)(void *data, enum ntb_link_event status);
 };
 
 
@@ -234,7 +234,7 @@ static void ntb_net_tx_handler(struct ntb_transport_qp *qp, void *qp_data,
     void *data, int len);
 static void ntb_net_rx_handler(struct ntb_transport_qp *qp, void *qp_data,
     void *data, int len);
-static void ntb_net_event_handler(void *data, int status);
+static void ntb_net_event_handler(void *data, enum ntb_link_event status);
 static int ntb_transport_init(struct ntb_softc *ntb);
 static void ntb_transport_free(void *transport);
 static void ntb_transport_init_queue(struct ntb_netdev *nt,
@@ -465,9 +465,23 @@ ntb_net_rx_handler(struct ntb_transport_qp *qp, void *qp_data, void *data,
 }
 
 static void
-ntb_net_event_handler(void *data, int status)
+ntb_net_event_handler(void *data, enum ntb_link_event status)
 {
+	struct ifnet *ifp;
 
+	ifp = data;
+	(void)ifp;
+
+	/* XXX The Linux driver munges with the carrier status here. */
+
+	switch (status) {
+	case NTB_LINK_DOWN:
+		break;
+	case NTB_LINK_UP:
+		break;
+	default:
+		panic("Bogus ntb_link_event %u\n", status);
+	}
 }
 
 /* Transport Init and teardown */
@@ -552,7 +566,7 @@ ntb_transport_init_queue(struct ntb_netdev *nt, unsigned int qp_num)
 	qp->client_ready = NTB_LINK_DOWN;
 	qp->event_handler = NULL;
 
-	if (nt->max_qps % NTB_NUM_MW && mw_num < nt->max_qps % NTB_NUM_MW)
+	if (nt->max_qps % NTB_NUM_MW && mw_num + 1 < nt->max_qps / NTB_NUM_MW)
 		num_qps_mw = nt->max_qps / NTB_NUM_MW + 1;
 	else
 		num_qps_mw = nt->max_qps / NTB_NUM_MW;
@@ -811,7 +825,7 @@ ntb_tx_copy_task(struct ntb_transport_qp *qp, struct ntb_queue_entry *entry,
 
 	ntb_ring_doorbell(qp->ntb, qp->qp_num);
 
-	/* 
+	/*
 	 * The entry length can only be zero if the packet is intended to be a
 	 * "link down" or similar.  Since no payload is being sent in these
 	 * cases, there is nothing to add to the completion queue.
@@ -854,7 +868,7 @@ ntb_transport_rxc_db(void *arg, int dummy __unused)
 	uint64_t i;
 	int rc;
 
-	/* 
+	/*
 	 * Limit the number of packets processed in a single interrupt to
 	 * provide fairness to others
 	 */
@@ -1149,12 +1163,25 @@ ntb_set_mw(struct ntb_netdev *nt, int num_mw, unsigned int size)
 	    BUS_SPACE_MAXADDR, mw->size, 0);
 	if (mw->virt_addr == NULL) {
 		mw->size = 0;
-		printf("ntb: Unable to allocate MW buffer of size %d\n",
-		    (int)mw->size);
+		printf("ntb: Unable to allocate MW buffer of size %zu\n",
+		    mw->size);
 		return (ENOMEM);
 	}
 	/* TODO: replace with bus_space_* functions */
 	mw->dma_addr = vtophys(mw->virt_addr);
+
+	/*
+	 * Ensure that the allocation from contigmalloc is aligned as
+	 * requested.  XXX: This may not be needed -- brought in for parity
+	 * with the Linux driver.
+	 */
+	if (mw->dma_addr % size != 0) {
+		device_printf(ntb_get_device(nt->ntb),
+		    "DMA memory 0x%jx not aligned to BAR size 0x%x\n",
+		    (uintmax_t)mw->dma_addr, size);
+		ntb_free_mw(nt, num_mw);
+		return (ENOMEM);
+	}
 
 	/* Notify HW the memory location of the receive buffer */
 	ntb_set_mw_addr(nt->ntb, num_mw, mw->dma_addr);
@@ -1183,7 +1210,7 @@ ntb_transport_setup_qp_mw(struct ntb_netdev *nt, unsigned int qp_num)
 	uint8_t mw_num = QP_TO_MW(qp_num);
 	unsigned int i;
 
-	if (nt->max_qps % NTB_NUM_MW && mw_num < nt->max_qps % NTB_NUM_MW)
+	if (nt->max_qps % NTB_NUM_MW && mw_num + 1 < nt->max_qps / NTB_NUM_MW)
 		num_qps_mw = nt->max_qps / NTB_NUM_MW + 1;
 	else
 		num_qps_mw = nt->max_qps / NTB_NUM_MW;
@@ -1262,7 +1289,7 @@ ntb_transport_link_cleanup(struct ntb_netdev *nt)
 	else
 		nt->transport_link = NTB_LINK_DOWN;
 
-	/* 
+	/*
 	 * The scratchpad registers keep the values if the remote side
 	 * goes down, blast them now to give them a sane value the next
 	 * time they are accessed
