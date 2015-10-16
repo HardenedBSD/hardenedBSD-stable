@@ -184,12 +184,6 @@
             atm
             ..
             legal
-                intel_ipw
-                ..
-                intel_iwi
-                ..
-                intel_wpi
-                ..
             ..
             llvm
                 clang
