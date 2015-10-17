@@ -360,6 +360,8 @@
         ..
     ..
     sys
+        acl
+        ..
         aio
         ..
         fifo
@@ -409,6 +411,8 @@
             ..
             unlink
             ..
+        ..
+        posixshm
         ..
         vfs
         ..
