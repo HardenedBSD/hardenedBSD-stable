@@ -1,3 +1,10 @@
+[20151018] disabled lib32 build by default
+__HardenedBSD_version = 34
+
+	Do not build lib32 and 32bit related stuffs on 64bit platforms
+	by default.
+
+
 [20150915] ASLR changes
 __HardenedBSD_version = 32
 
