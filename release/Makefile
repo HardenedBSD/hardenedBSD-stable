@@ -194,6 +194,8 @@ disc1: packagesystem
 	cp ${.CURDIR}/rc.local ${.TARGET}/etc
 	# XXXOP - try to work around installer lockup on random dev in a virtual machine
 	dd if=/dev/random of=${.TARGET}/boot/entropy bs=4k count=1
+	chown 0:0 ${.TARGET}/boot/entropy
+	chmod 0600 ${.TARGET}/boot/entropy
 	touch ${.TARGET}
 
 bootonly: packagesystem
@@ -222,6 +224,8 @@ bootonly: packagesystem
 	cp ${.CURDIR}/rc.local ${.TARGET}/etc
 	# XXXOP - try to work around installer lockup on random dev in a virtual machine
 	dd if=/dev/random of=${.TARGET}/boot/entropy bs=4k count=1
+	chown 0:0 ${.TARGET}/boot/entropy
+	chmod 0600 ${.TARGET}/boot/entropy
 
 dvd: packagesystem
 # Install system
@@ -247,6 +251,8 @@ dvd: packagesystem
 	cp ${.CURDIR}/rc.local ${.TARGET}/etc
 	# XXXOP - try to work around installer lockup on random dev in a virtual machine
 	dd if=/dev/random of=${.TARGET}/boot/entropy bs=4k count=1
+	chown 0:0 ${.TARGET}/boot/entropy
+	chmod 0600 ${.TARGET}/boot/entropy
 	touch ${.TARGET}
 
 release.iso: disc1.iso
