@@ -2117,6 +2117,23 @@ ntb_mw_set_trans(struct ntb_softc *ntb, unsigned idx, bus_addr_t addr,
 	return (0);
 }
 
+/*
+ * ntb_mw_clear_trans() - clear the translation of a memory window
+ * @ntb:	NTB device context
+ * @idx:	Memory window number
+ *
+ * Clear the translation of a memory window.  The peer may no longer access
+ * local memory through the window.
+ *
+ * Return: Zero on success, otherwise an error number.
+ */
+int
+ntb_mw_clear_trans(struct ntb_softc *ntb, unsigned mw_idx)
+{
+
+	return (ntb_mw_set_trans(ntb, mw_idx, 0, 0));
+}
+
 /**
  * ntb_peer_db_set() - Set the doorbell on the secondary/external side
  * @ntb: pointer to ntb_softc instance
@@ -2173,6 +2190,39 @@ ntb_get_peer_db_addr(struct ntb_softc *ntb, vm_size_t *sz_out)
 	*sz_out = ntb->reg->db_size;
 	/* HACK: Specific to current x86 bus implementation. */
 	return ((uint64_t)bar->pci_bus_handle + regoff);
+}
+
+/*
+ * ntb_db_valid_mask() - get a mask of doorbell bits supported by the ntb
+ * @ntb:	NTB device context
+ *
+ * Hardware may support different number or arrangement of doorbell bits.
+ *
+ * Return: A mask of doorbell bits supported by the ntb.
+ */
+uint64_t
+ntb_db_valid_mask(struct ntb_softc *ntb)
+{
+
+	return (ntb->db_valid_mask);
+}
+
+/*
+ * ntb_db_vector_mask() - get a mask of doorbell bits serviced by a vector
+ * @ntb:	NTB device context
+ * @vector:	Doorbell vector number
+ *
+ * Each interrupt vector may have a different number or arrangement of bits.
+ *
+ * Return: A mask of doorbell bits serviced by a vector.
+ */
+uint64_t
+ntb_db_vector_mask(struct ntb_softc *ntb, uint32_t vector)
+{
+
+	if (vector > ntb->db_vec_count)
+		return (0);
+	return (ntb->db_valid_mask & ntb_vec_mask(ntb, vector));
 }
 
 /**
