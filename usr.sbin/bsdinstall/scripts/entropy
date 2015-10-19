@@ -26,4 +26,8 @@
 #
 # $FreeBSD$
 
-dd if=/dev/random of=$BSDINSTALL_CHROOT/entropy bs=4096 count=1
+for i in "$BSDINSTALL_CHROOT/entropy" "$BSDINSTALL_CHROOT/boot/entropy"; do
+	dd if=/dev/random of="$i" bs=4096 count=1
+	chown 0:0 "$i"
+	chmod 600 "$i"
+done
