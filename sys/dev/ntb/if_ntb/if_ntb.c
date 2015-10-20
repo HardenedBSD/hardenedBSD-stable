@@ -90,7 +90,7 @@ enum ntb_link_event {
 	NTB_LINK_UP,
 };
 
-static unsigned int transport_mtu = 0x4000 + ETHER_HDR_LEN + ETHER_CRC_LEN;
+static unsigned int transport_mtu = 0x10000 + ETHER_HDR_LEN + ETHER_CRC_LEN;
 
 static uint64_t max_mw_size;
 SYSCTL_UQUAD(_hw_ntb, OID_AUTO, max_mw_size, CTLFLAG_RDTUN, &max_mw_size, 0,
@@ -300,6 +300,7 @@ static int ntb_transport_setup_qp_mw(struct ntb_transport_ctx *nt,
 static void ntb_qp_link_work(void *arg);
 static void ntb_transport_link_cleanup(struct ntb_transport_ctx *nt);
 static void ntb_qp_link_down(struct ntb_transport_qp *qp);
+static void ntb_qp_link_down_reset(struct ntb_transport_qp *qp);
 static void ntb_qp_link_cleanup(struct ntb_transport_qp *qp);
 static void ntb_transport_link_down(struct ntb_transport_qp *qp);
 static void ntb_send_link_down(struct ntb_transport_qp *qp);
@@ -642,9 +643,9 @@ ntb_transport_init_queue(struct ntb_transport_ctx *nt, unsigned int qp_num)
 	qp->qp_num = qp_num;
 	qp->transport = nt;
 	qp->ntb = nt->ntb;
-	qp->link_is_up = false;
 	qp->client_ready = false;
 	qp->event_handler = NULL;
+	ntb_qp_link_down_reset(qp);
 
 	if (nt->qp_count % mw_count && mw_num + 1 < nt->qp_count / mw_count)
 		num_qps_mw = nt->qp_count / mw_count + 1;
@@ -1380,14 +1381,14 @@ ntb_qp_link_work(void *arg)
 	struct ntb_transport_qp *qp = arg;
 	struct ntb_softc *ntb = qp->ntb;
 	struct ntb_transport_ctx *nt = qp->transport;
-	int val;
+	uint32_t val, dummy;
 
 	ntb_spad_read(ntb, IF_NTB_QP_LINKS, &val);
 
 	ntb_peer_spad_write(ntb, IF_NTB_QP_LINKS, val | (1ull << qp->qp_num));
 
 	/* query remote spad for qp ready bits */
-	ntb_peer_spad_read(ntb, IF_NTB_QP_LINKS, &val);
+	ntb_peer_spad_read(ntb, IF_NTB_QP_LINKS, &dummy);
 
 	/* See if the remote side is up */
 	if ((val & (1ull << qp->qp_num)) != 0) {
@@ -1444,16 +1445,28 @@ ntb_qp_link_down(struct ntb_transport_qp *qp)
 }
 
 static void
+ntb_qp_link_down_reset(struct ntb_transport_qp *qp)
+{
+
+	qp->link_is_up = false;
+
+	qp->tx_index = qp->rx_index = 0;
+	qp->tx_bytes = qp->rx_bytes = 0;
+	qp->tx_pkts = qp->rx_pkts = 0;
+
+	qp->rx_ring_empty = 0;
+	qp->tx_ring_full = 0;
+
+	qp->rx_err_no_buf = qp->rx_err_oflow = qp->rx_err_ver = 0;
+}
+
+static void
 ntb_qp_link_cleanup(struct ntb_transport_qp *qp)
 {
 	struct ntb_transport_ctx *nt = qp->transport;
 
-	if (!qp->link_is_up) {
-		callout_drain(&qp->link_work);
-		return;
-	}
-
-	qp->link_is_up = false;
+	callout_drain(&qp->link_work);
+	ntb_qp_link_down_reset(qp);
 
 	if (qp->event_handler != NULL)
 		qp->event_handler(qp->cb_data, NTB_LINK_DOWN);
@@ -1502,8 +1515,6 @@ ntb_send_link_down(struct ntb_transport_qp *qp)
 	if (!qp->link_is_up)
 		return;
 
-	qp->link_is_up = false;
-
 	for (i = 0; i < NTB_LINK_DOWN_TIMEOUT; i++) {
 		entry = ntb_list_rm(&qp->ntb_tx_free_q_lock, &qp->tx_free_q);
 		if (entry != NULL)
@@ -1524,6 +1535,8 @@ ntb_send_link_down(struct ntb_transport_qp *qp)
 	if (rc != 0)
 		printf("ntb: Failed to send link down\n");
 	mtx_unlock(&qp->transport->tx_lock);
+
+	ntb_qp_link_down_reset(qp);
 }
 
 
