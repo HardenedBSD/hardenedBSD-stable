@@ -37,12 +37,6 @@
             ..
         ..
     ..
-    lib32
-        dtrace
-        ..
-        i18n
-        ..
-    ..
     libdata
         gcc
         ..
