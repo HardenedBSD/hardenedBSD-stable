@@ -232,7 +232,7 @@ struct netfront_info {
 	int			xn_if_flags;
 	struct callout	        xn_stat_ch;
 
-	u_long			rx_pfn_array[NET_RX_RING_SIZE];
+	xen_pfn_t		rx_pfn_array[NET_RX_RING_SIZE];
 	struct ifmedia		sc_media;
 
 	bool			xn_resume;
@@ -842,8 +842,10 @@ static void
 xn_rxeof(struct netfront_info *np)
 {
 	struct ifnet *ifp;
+#if (defined(INET) || defined(INET6))
 	struct lro_ctrl *lro = &np->xn_lro;
 	struct lro_entry *queued;
+#endif
 	struct netfront_rx_info rinfo;
 	struct netif_rx_response *rx = &rinfo.rx;
 	struct netif_extra_info *extras = rinfo.extras;
