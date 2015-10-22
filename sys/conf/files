@@ -266,6 +266,7 @@ compat/cloudabi/cloudabi_random.c	optional compat_cloudabi64
 compat/cloudabi/cloudabi_sock.c		optional compat_cloudabi64
 compat/cloudabi/cloudabi_thread.c	optional compat_cloudabi64
 compat/cloudabi64/cloudabi64_fd.c	optional compat_cloudabi64
+compat/cloudabi64/cloudabi64_module.c	optional compat_cloudabi64
 compat/cloudabi64/cloudabi64_poll.c	optional compat_cloudabi64
 compat/cloudabi64/cloudabi64_sock.c	optional compat_cloudabi64
 compat/cloudabi64/cloudabi64_syscalls.c	optional compat_cloudabi64
@@ -3805,15 +3806,15 @@ nlm/nlm_prot_xdr.c		optional nfslockd | nfsd
 nlm/sm_inter_xdr.c		optional nfslockd | nfsd
 
 # Linux Kernel Compatibility API
-ofed/include/linux/linux_kmod.c			optional ofed | compat_linuxapi \
+ofed/include/linux/linux_kmod.c			optional ofed | compat_linuxkpi \
 	no-depend compile-with "${OFED_C}"
-ofed/include/linux/linux_compat.c		optional ofed | compat_linuxapi \
+ofed/include/linux/linux_compat.c		optional ofed | compat_linuxkpi \
 	no-depend compile-with "${OFED_C}"
-ofed/include/linux/linux_pci.c			optional ofed | compat_linuxapi \
+ofed/include/linux/linux_pci.c			optional ofed | compat_linuxkpi \
 	no-depend compile-with "${OFED_C}"
-ofed/include/linux/linux_idr.c			optional ofed | compat_linuxapi \
+ofed/include/linux/linux_idr.c			optional ofed | compat_linuxkpi \
 	no-depend compile-with "${OFED_C}"
-ofed/include/linux/linux_radix.c		optional ofed | compat_linuxapi \
+ofed/include/linux/linux_radix.c		optional ofed | compat_linuxkpi \
 	no-depend compile-with "${OFED_C}"
 # OpenFabrics Enterprise Distribution (Infiniband)
 ofed/drivers/infiniband/core/addr.c		optional ofed		\

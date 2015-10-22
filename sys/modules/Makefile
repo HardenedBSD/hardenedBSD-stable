@@ -200,7 +200,7 @@ SUBDIR=	\
 	${_linux} \
 	${_linux_common} \
 	${_linux64} \
-	${_linuxapi} \
+	${_linuxkpi} \
 	lmc \
 	lpt \
 	mac_biba \
@@ -528,7 +528,7 @@ _linprocfs=	linprocfs
 _linsysfs=	linsysfs
 _linux=		linux
 .if ${MK_OFED} != "no"
-_linuxapi=	linuxapi
+_linuxkpi=	linuxkpi
 .endif
 _ndis=		ndis
 .if ${MK_CDDL} != "no" || defined(ALL_MODULES)
@@ -627,7 +627,6 @@ _x86bios=	x86bios
 .endif
 
 .if ${MACHINE_CPUARCH} == "amd64"
-_cloudabi64=	cloudabi64
 _ioat=		ioat
 _ixl=		ixl
 _ixlv=		ixlv
@@ -737,6 +736,10 @@ _opensolaris=	opensolaris
 .if ${MK_ZFS} != "no" || defined(ALL_MODULES)
 _zfs=		zfs
 .endif
+.endif
+
+.if ${MACHINE_CPUARCH} == "aarch64" || ${MACHINE_CPUARCH} == "amd64"
+_cloudabi64=	cloudabi64
 .endif
 
 .endif
