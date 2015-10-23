@@ -419,7 +419,7 @@ do_execve(td, args, mac_p)
 		    | AUDITVNODE1, UIO_SYSSPACE, args->fname, td);
 	}
 
-	SDT_PROBE(proc, kernel, , exec, args->fname, 0, 0, 0, 0 );
+	SDT_PROBE1(proc, kernel, , exec, args->fname);
 
 interpret:
 	if (args->fname != NULL) {
@@ -857,7 +857,7 @@ interpret:
 
 	vfs_mark_atime(imgp->vp, td->td_ucred);
 
-	SDT_PROBE(proc, kernel, , exec__success, args->fname, 0, 0, 0, 0);
+	SDT_PROBE1(proc, kernel, , exec__success, args->fname);
 
 	VOP_UNLOCK(imgp->vp, 0);
 done1:
@@ -928,7 +928,7 @@ exec_fail:
 	p->p_flag &= ~P_INEXEC;
 	PROC_UNLOCK(p);
 
-	SDT_PROBE(proc, kernel, , exec__failure, error, 0, 0, 0, 0);
+	SDT_PROBE1(proc, kernel, , exec__failure, error);
 
 done2:
 #ifdef MAC
