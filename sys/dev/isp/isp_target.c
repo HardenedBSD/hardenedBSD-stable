@@ -1024,12 +1024,18 @@ isp_got_tmf_24xx(ispsoftc_t *isp, at7_entry_t *aep)
 	notify.nt_sid = sid;
 	notify.nt_did = did;
 	notify.nt_channel = chan;
-	if (aep->at_cmnd.fcp_cmnd_task_management & FCP_CMND_TMF_ABORT_TASK_SET) {
+	if (aep->at_cmnd.fcp_cmnd_task_management & FCP_CMND_TMF_QUERY_TASK_SET) {
+		isp_prt(isp, ISP_LOGINFO, f1, "QUERY TASK SET", sid, notify.nt_lun, aep->at_rxid);
+		notify.nt_ncode = NT_QUERY_TASK_SET;
+	} else if (aep->at_cmnd.fcp_cmnd_task_management & FCP_CMND_TMF_ABORT_TASK_SET) {
 		isp_prt(isp, ISP_LOGINFO, f1, "ABORT TASK SET", sid, notify.nt_lun, aep->at_rxid);
 		notify.nt_ncode = NT_ABORT_TASK_SET;
 	} else if (aep->at_cmnd.fcp_cmnd_task_management & FCP_CMND_TMF_CLEAR_TASK_SET) {
 		isp_prt(isp, ISP_LOGINFO, f1, "CLEAR TASK SET", sid, notify.nt_lun, aep->at_rxid);
 		notify.nt_ncode = NT_CLEAR_TASK_SET;
+	} else if (aep->at_cmnd.fcp_cmnd_task_management & FCP_CMND_TMF_QUERY_ASYNC_EVENT) {
+		isp_prt(isp, ISP_LOGINFO, f1, "QUERY ASYNC EVENT", sid, notify.nt_lun, aep->at_rxid);
+		notify.nt_ncode = NT_QUERY_ASYNC_EVENT;
 	} else if (aep->at_cmnd.fcp_cmnd_task_management & FCP_CMND_TMF_LUN_RESET) {
 		isp_prt(isp, ISP_LOGINFO, f1, "LUN RESET", sid, notify.nt_lun, aep->at_rxid);
 		notify.nt_ncode = NT_LUN_RESET;
@@ -1079,6 +1085,7 @@ isp_notify_ack(ispsoftc_t *isp, void *arg)
 			na->na_flags = in->in_flags;
 			na->na_status = in->in_status;
 			na->na_status_subcode = in->in_status_subcode;
+			na->na_fwhandle = in->in_fwhandle;
 			na->na_rxid = in->in_rxid;
 			na->na_oxid = in->in_oxid;
 			na->na_vpidx = in->in_vpidx;
