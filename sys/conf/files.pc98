@@ -156,8 +156,7 @@ i386/pci/pci_cfgreg.c		optional pci
 i386/pci/pci_pir.c		optional pci
 kern/kern_clocksource.c		standard
 libkern/divdi3.c		standard
-libkern/ffsl.c			standard
-libkern/flsl.c			standard
+libkern/flsll.c			standard
 libkern/memmove.c		standard
 libkern/memset.c		standard
 libkern/moddi3.c		standard
