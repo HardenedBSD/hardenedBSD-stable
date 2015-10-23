@@ -54,7 +54,6 @@ int isp_fabric_hysteresis = 5;
 int isp_loop_down_limit = 60;	/* default loop down limit */
 int isp_quickboot_time = 7;	/* don't wait more than N secs for loop up */
 int isp_gone_device_time = 30;	/* grace time before reporting device lost */
-int isp_autoconfig = 1;		/* automatically attach/detach devices */
 static const char prom3[] = "Chan %d [%u] PortID 0x%06x Departed because of %s";
 
 static void isp_freeze_loopdown(ispsoftc_t *, int, char *);
@@ -418,6 +417,9 @@ isp_freeze_loopdown(ispsoftc_t *isp, int chan, char *msg)
 		if (fc->simqfrozen == 0) {
 			isp_prt(isp, ISP_LOGDEBUG0, "%s: freeze simq (loopdown) chan %d", msg, chan);
 			fc->simqfrozen = SIMQFRZ_LOOPDOWN;
+#if __FreeBSD_version >= 1000039
+			xpt_hold_boot();
+#endif
 			xpt_freeze_simq(fc->sim, 1);
 		} else {
 			isp_prt(isp, ISP_LOGDEBUG0, "%s: mark frozen (loopdown) chan %d", msg, chan);
@@ -436,6 +438,9 @@ isp_unfreeze_loopdown(ispsoftc_t *isp, int chan)
 		if (wasfrozen && fc->simqfrozen == 0) {
 			isp_prt(isp, ISP_LOG_SANCFG|ISP_LOGDEBUG0, "%s: Chan %d releasing simq", __func__, chan);
 			xpt_release_simq(fc->sim, 1);
+#if __FreeBSD_version >= 1000039
+			xpt_release_boot();
+#endif
 		}
 	}
 }
@@ -4514,12 +4519,10 @@ static void
 isp_poll(struct cam_sim *sim)
 {
 	ispsoftc_t *isp = cam_sim_softc(sim);
-	uint32_t isr;
-	uint16_t sema, mbox;
+	uint16_t isr, sema, info;
 
-	if (ISP_READ_ISR(isp, &isr, &sema, &mbox)) {
-		isp_intr(isp, isr, sema, mbox);
-	}
+	if (ISP_READ_ISR(isp, &isr, &sema, &info))
+		isp_intr(isp, isr, sema, info);
 }
 
 
@@ -4538,11 +4541,9 @@ isp_watchdog(void *arg)
 	 * Hand crank the interrupt code just to be sure the command isn't stuck somewhere.
 	 */
 	if (handle != ISP_HANDLE_FREE) {
-		uint32_t isr;
-		uint16_t sema, mbox;
-		if (ISP_READ_ISR(isp, &isr, &sema, &mbox) != 0) {
-			isp_intr(isp, isr, sema, mbox);
-		}
+		uint16_t isr, sema, info;
+		if (ISP_READ_ISR(isp, &isr, &sema, &info) != 0)
+			isp_intr(isp, isr, sema, info);
 		ohandle = handle;
 		handle = isp_find_handle(isp, xs);
 	}
@@ -4600,10 +4601,6 @@ isp_make_here(ispsoftc_t *isp, fcportdb_t *fcp, int chan, int tgt)
 	union ccb *ccb;
 	struct isp_fc *fc = ISP_FC_PC(isp, chan);
 
-	if (isp_autoconfig == 0) {
-		return;
-	}
-
 	/*
 	 * Allocate a CCB, create a wildcard path for this target and schedule a rescan.
 	 */
@@ -4627,9 +4624,6 @@ isp_make_gone(ispsoftc_t *isp, fcportdb_t *fcp, int chan, int tgt)
 	struct cam_path *tp;
 	struct isp_fc *fc = ISP_FC_PC(isp, chan);
 
-	if (isp_autoconfig == 0) {
-		return;
-	}
 	if (xpt_create_path(&tp, NULL, cam_sim_path(fc->sim), tgt, CAM_LUN_WILDCARD) == CAM_REQ_CMP) {
 		xpt_async(AC_LOST_DEVICE, tp, NULL);
 		xpt_free_path(tp);
@@ -5514,6 +5508,9 @@ isp_action(struct cam_sim *sim, union ccb *ccb)
 			fcparam *fcp = FCPARAM(isp, bus);
 
 			cpi->hba_misc = PIM_NOBUSRESET | PIM_UNMAPPED;
+#if __FreeBSD_version >= 1000039
+			cpi->hba_misc |= PIM_NOSCAN;
+#endif
 
 			/*
 			 * Because our loop ID can shift from time to time,
@@ -6269,13 +6266,12 @@ isp_mbox_wait_complete(ispsoftc_t *isp, mbreg_t *mbp)
 	} else {
 		for (olim = 0; olim < max; olim++) {
 			for (ilim = 0; ilim < usecs; ilim += 100) {
-				uint32_t isr;
-				uint16_t sema, mbox;
+				uint16_t isr, sema, info;
 				if (isp->isp_osinfo.mboxcmd_done) {
 					break;
 				}
-				if (ISP_READ_ISR(isp, &isr, &sema, &mbox)) {
-					isp_intr(isp, isr, sema, mbox);
+				if (ISP_READ_ISR(isp, &isr, &sema, &info)) {
+					isp_intr(isp, isr, sema, info);
 					if (isp->isp_osinfo.mboxcmd_done) {
 						break;
 					}
@@ -6343,16 +6339,14 @@ void
 isp_platform_intr(void *arg)
 {
 	ispsoftc_t *isp = arg;
-	uint32_t isr;
-	uint16_t sema, mbox;
+	uint16_t isr, sema, info;
 
 	ISP_LOCK(isp);
 	isp->isp_intcnt++;
-	if (ISP_READ_ISR(isp, &isr, &sema, &mbox) == 0) {
+	if (ISP_READ_ISR(isp, &isr, &sema, &info))
+		isp_intr(isp, isr, sema, info);
+	else
 		isp->isp_intbogus++;
-	} else {
-		isp_intr(isp, isr, sema, mbox);
-	}
 	ISP_UNLOCK(isp);
 }
 
