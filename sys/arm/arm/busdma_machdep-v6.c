@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2012-2014 Ian Lepore
+ * Copyright (c) 2012-2015 Ian Lepore
  * Copyright (c) 2010 Mark Tinguely
  * Copyright (c) 2004 Olivier Houchard
  * Copyright (c) 2002 Peter Grehan
@@ -35,9 +35,6 @@ __FBSDID("$FreeBSD$");
 
 #define _ARM32_BUS_DMA_PRIVATE
 #include <sys/param.h>
-#include <sys/kdb.h>
-#include <ddb/ddb.h>
-#include <ddb/db_output.h>
 #include <sys/systm.h>
 #include <sys/malloc.h>
 #include <sys/bus.h>
@@ -76,7 +73,7 @@ struct bounce_zone;
 struct bus_dma_tag {
 	bus_dma_tag_t		parent;
 	bus_size_t		alignment;
-	bus_size_t		boundary;
+	bus_addr_t		boundary;
 	bus_addr_t		lowaddr;
 	bus_addr_t		highaddr;
 	bus_dma_filter_t	*filter;
@@ -217,6 +214,10 @@ static void dma_dcache_sync(struct sync_list *sl, bus_dmasync_op_t op);
 
 static busdma_bufalloc_t coherent_allocator;	/* Cache of coherent buffers */
 static busdma_bufalloc_t standard_allocator;	/* Cache of standard buffers */
+
+MALLOC_DEFINE(M_BUSDMA, "busdma", "busdma metadata");
+MALLOC_DEFINE(M_BOUNCE, "bounce", "busdma bounce pages");
+
 static void
 busdma_init(void *dummy)
 {
@@ -260,7 +261,7 @@ busdma_init(void *dummy)
 
 /*
  * This init historically used SI_SUB_VM, but now the init code requires
- * malloc(9) using M_DEVBUF memory and the pcpu zones for counter(9), which get
+ * malloc(9) using M_BUSDMA memory and the pcpu zones for counter(9), which get
  * set up by SI_SUB_KMEM and SI_ORDER_LAST, so we'll go right after that by
  * using SI_SUB_KMEM+1.
  */
@@ -456,7 +457,7 @@ dflt_lock(void *arg, bus_dma_lock_op_t op)
  */
 int
 bus_dma_tag_create(bus_dma_tag_t parent, bus_size_t alignment,
-    bus_size_t boundary, bus_addr_t lowaddr, bus_addr_t highaddr,
+    bus_addr_t boundary, bus_addr_t lowaddr, bus_addr_t highaddr,
     bus_dma_filter_t *filter, void *filterarg, bus_size_t maxsize,
     int nsegments, bus_size_t maxsegsz, int flags, bus_dma_lock_t *lockfunc,
     void *lockfuncarg, bus_dma_tag_t *dmat)
@@ -481,7 +482,7 @@ bus_dma_tag_create(bus_dma_tag_t parent, bus_size_t alignment,
 	/* Return a NULL tag on failure */
 	*dmat = NULL;
 
-	newtag = (bus_dma_tag_t)malloc(sizeof(*newtag), M_DEVBUF,
+	newtag = (bus_dma_tag_t)malloc(sizeof(*newtag), M_BUSDMA,
 	    M_ZERO | M_NOWAIT);
 	if (newtag == NULL) {
 		CTR4(KTR_BUSDMA, "%s returned tag %p tag flags 0x%x error %d",
@@ -557,7 +558,7 @@ bus_dma_tag_create(bus_dma_tag_t parent, bus_size_t alignment,
 		maxsize = roundup2(maxsize, PAGE_SIZE) + PAGE_SIZE;
 
 		if ((error = alloc_bounce_zone(newtag)) != 0) {
-			free(newtag, M_DEVBUF);
+			free(newtag, M_BUSDMA);
 			return (error);
 		}
 		bz = newtag->bounce_zone;
@@ -577,7 +578,7 @@ bus_dma_tag_create(bus_dma_tag_t parent, bus_size_t alignment,
 		newtag->bounce_zone = NULL;
 
 	if (error != 0) {
-		free(newtag, M_DEVBUF);
+		free(newtag, M_BUSDMA);
 	} else {
 		atomic_add_32(&tags_total, 1);
 		*dmat = newtag;
@@ -610,7 +611,7 @@ bus_dma_tag_destroy(bus_dma_tag_t dmat)
 			atomic_subtract_int(&dmat->ref_count, 1);
 			if (dmat->ref_count == 0) {
 				atomic_subtract_32(&tags_total, 1);
-				free(dmat, M_DEVBUF);
+				free(dmat, M_BUSDMA);
 				/*
 				 * Last reference count, so
 				 * release our reference
@@ -683,7 +684,7 @@ allocate_map(bus_dma_tag_t dmat, int mflags)
 	    dmat->nsegments, MAX_DMA_SEGMENTS));
 	segsize = sizeof(struct bus_dma_segment) * dmat->nsegments;
 	mapsize = sizeof(*map) + sizeof(struct sync_list) * dmat->nsegments;
-	map = malloc(mapsize + segsize, M_DEVBUF, mflags | M_ZERO);
+	map = malloc(mapsize + segsize, M_BUSDMA, mflags | M_ZERO);
 	if (map == NULL) {
 		CTR3(KTR_BUSDMA, "%s: tag %p error %d", __func__, dmat, ENOMEM);
 		return (NULL);
@@ -717,7 +718,7 @@ bus_dmamap_create(bus_dma_tag_t dmat, int flags, bus_dmamap_t *mapp)
 	 */
 	error = allocate_bz_and_pages(dmat, map);
 	if (error != 0) {
-		free(map, M_DEVBUF);
+		free(map, M_BUSDMA);
 		*mapp = NULL;
 		return (error);
 	}
@@ -736,6 +737,7 @@ bus_dmamap_create(bus_dma_tag_t dmat, int flags, bus_dmamap_t *mapp)
 int
 bus_dmamap_destroy(bus_dma_tag_t dmat, bus_dmamap_t map)
 {
+
 	if (STAILQ_FIRST(&map->bpages) != NULL || map->sync_count != 0) {
 		CTR3(KTR_BUSDMA, "%s: tag %p error %d",
 		    __func__, dmat, EBUSY);
@@ -746,20 +748,19 @@ bus_dmamap_destroy(bus_dma_tag_t dmat, bus_dmamap_t map)
 	if (map->flags & DMAMAP_COHERENT)
 		atomic_subtract_32(&maps_coherent, 1);
 	atomic_subtract_32(&maps_total, 1);
-	free(map, M_DEVBUF);
+	free(map, M_BUSDMA);
 	dmat->map_count--;
 	CTR2(KTR_BUSDMA, "%s: tag %p error 0", __func__, dmat);
 	return (0);
 }
 
-
 /*
- * Allocate a piece of memory that can be efficiently mapped into
- * bus device space based on the constraints lited in the dma tag.
- * A dmamap to for use with dmamap_load is also allocated.
+ * Allocate a piece of memory that can be efficiently mapped into bus device
+ * space based on the constraints listed in the dma tag.  Returns a pointer to
+ * the allocated memory, and a pointer to an associated bus_dmamap.
  */
 int
-bus_dmamem_alloc(bus_dma_tag_t dmat, void** vaddr, int flags,
+bus_dmamem_alloc(bus_dma_tag_t dmat, void **vaddr, int flags,
     bus_dmamap_t *mapp)
 {
 	busdma_bufalloc_t ba;
@@ -825,12 +826,10 @@ bus_dmamem_alloc(bus_dma_tag_t dmat, void** vaddr, int flags,
 		    mflags, 0, dmat->lowaddr, dmat->alignment, dmat->boundary,
 		    memattr);
 	}
-
-
 	if (*vaddr == NULL) {
 		CTR4(KTR_BUSDMA, "%s: tag %p tag flags 0x%x error %d",
 		    __func__, dmat, dmat->flags, ENOMEM);
-		free(map, M_DEVBUF);
+		free(map, M_BUSDMA);
 		*mapp = NULL;
 		return (ENOMEM);
 	}
@@ -846,8 +845,8 @@ bus_dmamem_alloc(bus_dma_tag_t dmat, void** vaddr, int flags,
 }
 
 /*
- * Free a piece of memory and it's allociated dmamap, that was allocated
- * via bus_dmamem_alloc.  Make the same choice for free/contigfree.
+ * Free a piece of memory that was allocated via bus_dmamem_alloc, along with
+ * its associated map.
  */
 void
 bus_dmamem_free(bus_dma_tag_t dmat, void *vaddr, bus_dmamap_t map)
@@ -873,7 +872,7 @@ bus_dmamem_free(bus_dma_tag_t dmat, void *vaddr, bus_dmamap_t map)
 		atomic_subtract_32(&maps_coherent, 1);
 	atomic_subtract_32(&maps_total, 1);
 	atomic_subtract_32(&maps_dmamem, 1);
-	free(map, M_DEVBUF);
+	free(map, M_BUSDMA);
 	CTR3(KTR_BUSDMA, "%s: tag %p flags 0x%x", __func__, dmat, dmat->flags);
 }
 
@@ -1071,7 +1070,7 @@ _bus_dmamap_load_phys(bus_dma_tag_t dmat, bus_dmamap_t map, vm_paddr_t buf,
 		    sgsize)) {
 			sgsize = MIN(sgsize, PAGE_SIZE - (curaddr & PAGE_MASK));
 			curaddr = add_bounce_page(dmat, map, 0, curaddr,
-						  sgsize);
+			    sgsize);
 		} else {
 			if (map->sync_count > 0)
 				sl_end = VM_PAGE_TO_PHYS(sl->pages) +
@@ -1183,7 +1182,7 @@ _bus_dmamap_load_buffer(bus_dma_tag_t dmat, bus_dmamap_t map, void *buf,
 		if (map->pagesneeded != 0 && must_bounce(dmat, map, curaddr,
 		    sgsize)) {
 			curaddr = add_bounce_page(dmat, map, kvaddr, curaddr,
-						  sgsize);
+			    sgsize);
 		} else {
 			if (map->sync_count > 0) {
 				sl_pend = VM_PAGE_TO_PHYS(sl->pages) +
@@ -1517,7 +1516,7 @@ alloc_bounce_zone(bus_dma_tag_t dmat)
 		}
 	}
 
-	if ((bz = (struct bounce_zone *)malloc(sizeof(*bz), M_DEVBUF,
+	if ((bz = (struct bounce_zone *)malloc(sizeof(*bz), M_BUSDMA,
 	    M_NOWAIT | M_ZERO)) == NULL)
 		return (ENOMEM);
 
@@ -1588,15 +1587,15 @@ alloc_bounce_pages(bus_dma_tag_t dmat, u_int numpages)
 	while (numpages > 0) {
 		struct bounce_page *bpage;
 
-		bpage = (struct bounce_page *)malloc(sizeof(*bpage), M_DEVBUF,
+		bpage = (struct bounce_page *)malloc(sizeof(*bpage), M_BUSDMA,
 		    M_NOWAIT | M_ZERO);
 
 		if (bpage == NULL)
 			break;
-		bpage->vaddr = (vm_offset_t)contigmalloc(PAGE_SIZE, M_DEVBUF,
+		bpage->vaddr = (vm_offset_t)contigmalloc(PAGE_SIZE, M_BOUNCE,
 		    M_NOWAIT, 0ul, bz->lowaddr, PAGE_SIZE, 0);
 		if (bpage->vaddr == 0) {
-			free(bpage, M_DEVBUF);
+			free(bpage, M_BUSDMA);
 			break;
 		}
 		bpage->busaddr = pmap_kextract(bpage->vaddr);
