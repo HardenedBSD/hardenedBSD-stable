@@ -1368,6 +1368,8 @@ isp_scsi_init(ispsoftc_t *isp)
 	sdparam *sdp_chan0, *sdp_chan1;
 	mbreg_t mbs;
 
+	isp->isp_state = ISP_INITSTATE;
+
 	sdp_chan0 = SDPARAM(isp, 0);
 	sdp_chan1 = sdp_chan0;
 	if (IS_DUALBUS(isp)) {
@@ -1543,7 +1545,7 @@ isp_scsi_init(ispsoftc_t *isp)
 		}
 	}
 
-	isp->isp_state = ISP_INITSTATE;
+	isp->isp_state = ISP_RUNSTATE;
 }
 
 static void
@@ -1673,11 +1675,10 @@ isp_fibre_init(ispsoftc_t *isp)
 	 * We only support one channel on non-24XX cards
 	 */
 	fcp = FCPARAM(isp, 0);
-	if (fcp->role == ISP_ROLE_NONE) {
-		isp->isp_state = ISP_INITSTATE;
+	if (fcp->role == ISP_ROLE_NONE)
 		return;
-	}
 
+	isp->isp_state = ISP_INITSTATE;
 	ISP_MEMZERO(icbp, sizeof (*icbp));
 	icbp->icb_version = ICB_VERSION1;
 	icbp->icb_fwoptions = fcp->isp_fwoptions;
@@ -1978,7 +1979,7 @@ isp_fibre_init(ispsoftc_t *isp)
 	/*
 	 * Whatever happens, we're now committed to being here.
 	 */
-	isp->isp_state = ISP_INITSTATE;
+	isp->isp_state = ISP_RUNSTATE;
 }
 
 static void
@@ -2001,9 +2002,10 @@ isp_fibre_init_2400(ispsoftc_t *isp)
 	}
 	if (chan == isp->isp_nchan) {
 		isp_prt(isp, ISP_LOG_WARN1, "all %d channels with role 'none'", chan);
-		isp->isp_state = ISP_INITSTATE;
 		return;
 	}
+
+	isp->isp_state = ISP_INITSTATE;
 
 	/*
 	 * Start with channel 0.
@@ -2285,7 +2287,7 @@ isp_fibre_init_2400(ispsoftc_t *isp)
 	/*
 	 * Whatever happens, we're now committed to being here.
 	 */
-	isp->isp_state = ISP_INITSTATE;
+	isp->isp_state = ISP_RUNSTATE;
 }
 
 static void
@@ -4349,16 +4351,6 @@ isp_start(XS_T *xs)
 	isp = XS_ISP(xs);
 
 	/*
-	 * Now make sure we're running.
-	 */
-
-	if (isp->isp_state != ISP_RUNSTATE) {
-		isp_prt(isp, ISP_LOGERR, "Adapter not at RUNSTATE");
-		XS_SETERR(xs, HBA_BOTCH);
-		return (CMD_COMPLETE);
-	}
-
-	/*
 	 * Check command CDB length, etc.. We really are limited to 16 bytes
 	 * for Fibre Channel, but can do up to 44 bytes in parallel SCSI,
 	 * but probably only if we're running fairly new firmware (we'll
@@ -4384,6 +4376,12 @@ isp_start(XS_T *xs)
 			    "%d.%d.%jx I am not an initiator",
 			    XS_CHANNEL(xs), target, (uintmax_t)XS_LUN(xs));
 			XS_SETERR(xs, HBA_SELTIMEOUT);
+			return (CMD_COMPLETE);
+		}
+
+		if (isp->isp_state != ISP_RUNSTATE) {
+			isp_prt(isp, ISP_LOGERR, "Adapter not at RUNSTATE");
+			XS_SETERR(xs, HBA_BOTCH);
 			return (CMD_COMPLETE);
 		}
 
@@ -4423,6 +4421,13 @@ isp_start(XS_T *xs)
 			XS_SETERR(xs, HBA_SELTIMEOUT);
 			return (CMD_COMPLETE);
 		}
+
+		if (isp->isp_state != ISP_RUNSTATE) {
+			isp_prt(isp, ISP_LOGERR, "Adapter not at RUNSTATE");
+			XS_SETERR(xs, HBA_BOTCH);
+			return (CMD_COMPLETE);
+		}
+
 		if (sdp->update) {
 			isp_spi_update(isp, XS_CHANNEL(xs));
 		}
@@ -6069,21 +6074,22 @@ isp_parse_async_fc(ispsoftc_t *isp, uint16_t mbox)
 
 	case ASYNC_PDB_CHANGED:
 	{
-		int nphdl, nlstate, reason;
-		/*
-		 * We *should* get a channel out of the 24XX, but we don't seem
-		 * to get more than a PDB CHANGED on channel 0, so turn it into
-		 * a broadcast event.
-		 */
+		int echan, nphdl, nlstate, reason;
+
 		if (IS_24XX(isp)) {
 			nphdl = ISP_READ(isp, OUTMAILBOX1);
 			nlstate = ISP_READ(isp, OUTMAILBOX2);
-			reason = ISP_READ(isp, OUTMAILBOX3) >> 8;
+			reason = ISP_READ(isp, OUTMAILBOX3);
+			chan = reason & 0xff;
+			echan = (nphdl == NIL_HANDLE) ?
+			    isp->isp_nchan - 1 : chan;
+			reason = reason >> 8;
 		} else {
 			nphdl = NIL_HANDLE;
 			nlstate = reason = 0;
+			chan = echan = 0;
 		}
-		for (chan = 0; chan < isp->isp_nchan; chan++) {
+		for (; chan <= echan; chan++) {
 			fcparam *fcp = FCPARAM(isp, chan);
 
 			if (fcp->role == ISP_ROLE_NONE) {
@@ -7915,7 +7921,8 @@ isp_reinit(ispsoftc_t *isp, int do_load_defaults)
 {
 	int i, res = 0;
 
-	isp_reset(isp, do_load_defaults);
+	if (isp->isp_state != ISP_RESETSTATE)
+		isp_reset(isp, do_load_defaults);
 	if (isp->isp_state != ISP_RESETSTATE) {
 		res = EIO;
 		isp_prt(isp, ISP_LOGERR, "%s: cannot reset card", __func__);
@@ -7924,15 +7931,10 @@ isp_reinit(ispsoftc_t *isp, int do_load_defaults)
 	}
 
 	isp_init(isp);
-	if (isp->isp_state == ISP_INITSTATE) {
-		isp->isp_state = ISP_RUNSTATE;
-	}
-
-	if (isp->isp_state != ISP_RUNSTATE) {
+	if (isp->isp_state > ISP_RESETSTATE &&
+	    isp->isp_state != ISP_RUNSTATE) {
 		res = EIO;
-#ifndef	ISP_TARGET_MODE
-		isp_prt(isp, ISP_LOGWARN, "%s: not at runstate", __func__);
-#endif
+		isp_prt(isp, ISP_LOGERR, "%s: cannot init card", __func__);
 		ISP_DISABLE_INTS(isp);
 		if (IS_FC(isp)) {
 			/*
