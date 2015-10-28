@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2014 Andrew Turner
+ * Copyright (c) 2015 George V. Neville-Neil
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,46 +26,61 @@
  * $FreeBSD$
  */
 
-#ifndef _MACHINE_ASM_H_
-#define	_MACHINE_ASM_H_
+#include <err.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <strings.h>
+#include <sysexits.h>
+#include <unistd.h>
 
-#undef __FBSDID
-#if !defined(lint) && !defined(STRIP_FBSDID)
-#define	__FBSDID(s)     .ident s
-#else
-#define	__FBSDID(s)     /* nothing */
-#endif
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
 
-#define	_C_LABEL(x)	x
+#define PORT 6969 /* Default port */
+#define RECV_LIMIT 64 /* When do we move listen to 0? */
 
-#define	ENTRY(sym)						\
-	.text; .globl sym; .align 2; .type sym,#function; sym:
-#define	EENTRY(sym)						\
-	.globl	sym; sym:
-#define	END(sym) .size sym, . - sym
-#define	EEND(sym)
+void usage(void);
 
-#define	WEAK_REFERENCE(sym, alias)				\
-	.weak alias;						\
-	.set alias,sym
+void usage()
+{
+	err(EX_USAGE, "connect [-p port]\n");
+}
 
-#define	UINT64_C(x)	(x)
+int main(int argc, char **argv)
+{
 
-#if defined(PIC)
-#define	PIC_SYM(x,y)	x ## @ ## y
-#else
-#define	PIC_SYM(x,y)	x
-#endif
+	int ch, cli_sock, count = 0;
+	int port = PORT;
+	struct sockaddr_in remoteaddr;
 
-/*
- * Sets the trap fault handler. The exception handler will return to the
- * address in the handler register on a data abort or the xzr register to
- * clear the handler. The tmp parameter should be a register able to hold
- * the temporary data.
- */
-#define	SET_FAULT_HANDLER(handler, tmp)					\
-	ldr	tmp, [x18, #PC_CURTHREAD];	/* Load curthread */	\
-	ldr	tmp, [tmp, #TD_PCB];		/* Load the pcb */	\
-	str	handler, [tmp, #PCB_ONFAULT]	/* Set the handler */
+	while ((ch = getopt(argc, argv, "p:")) != -1) {
+		switch (ch) {
+		case 'p':
+			port = atoi(optarg);
+			break;
+		case 'h':
+		default:
+			usage();
+		}
+	}
 
-#endif /* _MACHINE_ASM_H_ */
+	bzero(&remoteaddr, sizeof(remoteaddr));
+	remoteaddr.sin_len = sizeof(remoteaddr);
+	remoteaddr.sin_family = AF_INET;
+	remoteaddr.sin_port = htons(port);
+	remoteaddr.sin_addr.s_addr = INADDR_ANY;
+
+	cli_sock = socket(AF_INET, SOCK_STREAM, 0);
+
+	while ((cli_sock = connect(cli_sock, (struct sockaddr *)&remoteaddr,
+				   sizeof(remoteaddr))) >= 0) {
+		count++;
+		close(cli_sock);
+		cli_sock = socket(AF_INET, SOCK_STREAM, 0);
+	}
+
+	printf("Exiting at %d with errno %d\n", count, errno);
+
+}
