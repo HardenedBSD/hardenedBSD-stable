@@ -118,7 +118,13 @@ _ftello(FILE *fp, fpos_t *offset)
 		}
 		if (HASUB(fp))
 			pos -= fp->_r;  /* Can be negative at this point. */
-	} else if ((fp->_flags & __SWR) && fp->_p != NULL) {
+	} else if ((fp->_flags & __SWR) && fp->_p != NULL &&
+	    (n = fp->_p - fp->_bf._base) > 0) {
+		/*
+		 * Writing.  Any buffered characters cause the
+		 * position to be greater than that in the
+		 * underlying object.
+		 */
 		if ((fp->_flags & __SAPP) || (fp->_flags2 & __S2OAP)) {
 			int serrno = errno;
 
@@ -136,13 +142,9 @@ _ftello(FILE *fp, fpos_t *offset)
 				}
 			}
 			errno = serrno;
+			/* fp->_p can be changed in _sseek(), recalculate. */
+			n = fp->_p - fp->_bf._base;
 		}
-		/*
-		 * Writing.  Any buffered characters cause the
-		 * position to be greater than that in the
-		 * underlying object.
-		 */
-		n = fp->_p - fp->_bf._base;
 		if (pos > OFF_MAX - n) {
 			errno = EOVERFLOW;
 			return (1);
