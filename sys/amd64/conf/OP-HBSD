@@ -24,7 +24,7 @@ ident		OP-HARDENEDBSD-11
 options		HZ=100
 
 makeoptions	DEBUG=-gdwarf-2		# Build kernel with gdb(1) debug symbols
-makeoptions	MODULES_OVERRIDE="usb/umodem usb/u3g usb/umass usb/ucom usb/uplcom drm2 i2c vmm nmdm"
+makeoptions	MODULES_OVERRIDE="usb/umodem usb/u3g usb/umass usb/ucom usb/uplcom drm2 i2c vmm nmdm msdosfs"
 #makeoptions	WITH_CTF=1		# Run ctfconvert(1) for DTrace support
 
 options 	SCHED_ULE		# ULE scheduler
@@ -185,6 +185,7 @@ device		pass			# Passthrough device (direct ATA/SCSI access)
 #device		mfi			# LSI MegaRAID SAS
 #device		mlx			# Mylex DAC960 family
 #device		mrsas			# LSI/Avago MegaRAID SAS/SATA, 6Gb/s and 12Gb/s
+#device		pmspcv			# PMC-Sierra SAS/SATA Controller driver
 #XXX pointer/int warnings
 #device		pst			# Promise Supertrak SX6000
 #device		twe			# 3ware ATA RAID
@@ -388,10 +389,12 @@ device		snd_hda			# Intel High Definition Audio
 # Netmap provides direct access to TX/RX rings on supported NICs
 #device		netmap			# netmap(4) support
 
+# The crypto framework is required by IPSEC
+device		crypto			# Required by IPSEC
+
 # Additonal devices
 device		coretemp
 device		cpuctl
-device		crypto			# core crypto support
 device		cryptodev		# /dev/crypto for access to h/w
 device		aesni
 
