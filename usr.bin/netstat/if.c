@@ -271,7 +271,8 @@ intpr(void (*pfunc)(char *), int af)
 {
 	struct ifaddrs *ifap, *ifa;
 	struct ifmaddrs *ifmap, *ifma;
-	
+	u_int ifn_len_max = 5, ifn_len;
+
 	if (interval)
 		return sidewaysintpr();
 
@@ -280,12 +281,23 @@ intpr(void (*pfunc)(char *), int af)
 	if (aflag && getifmaddrs(&ifmap) != 0)
 		err(EX_OSERR, "getifmaddrs");
 
+	if (Wflag) {
+		for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
+			if (interface != NULL &&
+			    strcmp(ifa->ifa_name, interface) != 0)
+				continue;
+			if (af != AF_UNSPEC && ifa->ifa_addr->sa_family != af)
+				continue;
+			ifn_len = strlen(ifa->ifa_name);
+			if ((ifa->ifa_flags & IFF_UP) == 0)
+				++ifn_len;
+			ifn_len_max = MAX(ifn_len_max, ifn_len);
+		}
+	}
+
 	xo_open_list("interface");
 	if (!pfunc) {
-		if (Wflag)
-			xo_emit("{T:/%-7.7s}", "Name");
-		else
-			xo_emit("{T:/%-5.5s}", "Name");
+		xo_emit("{T:/%-*.*s}", ifn_len_max, ifn_len_max, "Name");
 		xo_emit(" {T:/%5.5s} {T:/%-13.13s} {T:/%-17.17s} {T:/%8.8s} "
 		    "{T:/%5.5s} {T:/%5.5s}",
 		    "Mtu", "Network", "Address", "Ipkts", "Ierrs", "Idrop");
@@ -336,12 +348,8 @@ intpr(void (*pfunc)(char *), int af)
 		} else
 			xname = name;
 
-		if (Wflag)
-			xo_emit("{etk:name/%s}{e:flags/0x%x}{d:/%7.7s}",
-			    name, ifa->ifa_flags, xname);
-		else
-			xo_emit("{etk:name/%s}{e:flags/0x%x}{d:/%5.5s}",
-			    name, ifa->ifa_flags, xname);
+		xo_emit("{etk:name/%s}{e:flags/0x%x}{d:/%-*.*s}",
+		    name, ifa->ifa_flags, ifn_len_max, ifn_len_max, xname);
 
 #define IFA_MTU(ifa)	(((struct if_data *)(ifa)->ifa_data)->ifi_mtu)
 		show_stat("lu", 6, "mtu", IFA_MTU(ifa), IFA_MTU(ifa), 0);
@@ -353,22 +361,9 @@ intpr(void (*pfunc)(char *), int af)
 			xo_emit("{:address/%-15.15s} ", "none");
 			break;
 		case AF_INET:
-			if (Wflag) {
-				xo_emit("{t:network/%-13s} ",
-				    netname(ifa->ifa_addr, ifa->ifa_netmask));
-				xo_emit("{t:address/%-17s} ",
-				    routename(ifa->ifa_addr, numeric_addr));
-			} else {
-				xo_emit("{t:network/%-13.13s} ",
-				    netname(ifa->ifa_addr, ifa->ifa_netmask));
-				xo_emit("{t:address/%-17.17s} ",
-				    routename(ifa->ifa_addr, numeric_addr));
-			}
-
-			network = true;
-			break;
 #ifdef INET6
 		case AF_INET6:
+#endif /* INET6 */
 			if (Wflag) {
 				xo_emit("{t:network/%-13s} ",
 				    netname(ifa->ifa_addr, ifa->ifa_netmask));
@@ -383,7 +378,6 @@ intpr(void (*pfunc)(char *), int af)
 
 			network = true;
 			break;
-#endif /* INET6 */
 		case AF_LINK:
 		    {
 			struct sockaddr_dl *sdl;
@@ -397,8 +391,7 @@ intpr(void (*pfunc)(char *), int af)
 			    sdl->sdl_slen == 0)
 				xo_emit("{P:                  }");
 			else
-				xo_emit("{:address/%*s}",
-				    32 - 3 * sdl->sdl_alen,
+				xo_emit("{:address/%-17.17s} ",
 				    routename(ifa->ifa_addr, 1));
 			link = true;
 			break;
