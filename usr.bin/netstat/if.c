@@ -37,7 +37,7 @@ static char sccsid[] = "@(#)if.c	8.3 (Berkeley) 4/28/95";
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
-#include <sys/types.h>
+#include <sys/param.h>
 #include <sys/protosw.h>
 #include <sys/socket.h>
 #include <sys/socketvar.h>
@@ -272,6 +272,7 @@ intpr(void (*pfunc)(char *), int af)
 	struct ifaddrs *ifap, *ifa;
 	struct ifmaddrs *ifmap, *ifma;
 	u_int ifn_len_max = 5, ifn_len;
+	u_int has_ipv6 = 0, net_len = 13, addr_len = 17;
 
 	if (interval)
 		return sidewaysintpr();
@@ -292,15 +293,23 @@ intpr(void (*pfunc)(char *), int af)
 			if ((ifa->ifa_flags & IFF_UP) == 0)
 				++ifn_len;
 			ifn_len_max = MAX(ifn_len_max, ifn_len);
+			if (ifa->ifa_addr->sa_family == AF_INET6)
+				has_ipv6 = 1;
 		}
+		if (has_ipv6) {
+			net_len = 24;
+			addr_len = 39;
+		} else
+			net_len = 18;
 	}
 
 	xo_open_list("interface");
 	if (!pfunc) {
 		xo_emit("{T:/%-*.*s}", ifn_len_max, ifn_len_max, "Name");
-		xo_emit(" {T:/%5.5s} {T:/%-13.13s} {T:/%-17.17s} {T:/%8.8s} "
+		xo_emit(" {T:/%5.5s} {T:/%-*.*s} {T:/%-*.*s} {T:/%8.8s} "
 		    "{T:/%5.5s} {T:/%5.5s}",
-		    "Mtu", "Network", "Address", "Ipkts", "Ierrs", "Idrop");
+		    "Mtu", net_len, net_len, "Network", addr_len, addr_len,
+		    "Address", "Ipkts", "Ierrs", "Idrop");
 		if (bflag)
 			xo_emit(" {T:/%10.10s}","Ibytes");
 		xo_emit(" {T:/%8.8s} {T:/%5.5s}", "Opkts", "Oerrs");
@@ -308,13 +317,14 @@ intpr(void (*pfunc)(char *), int af)
 			xo_emit(" {T:/%10.10s}","Obytes");
 		xo_emit(" {T:/%5s}", "Coll");
 		if (dflag)
-			xo_emit(" {T:/%s}", "Drop");
+			xo_emit(" {T:/%5.5s}", "Drop");
 		xo_emit("\n");
 	}
 
 	for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
 		bool network = false, link = false;
 		char *name, *xname, buf[IFNAMSIZ+1];
+		const char *nn, *rn;
 
 		if (interface != NULL && strcmp(ifa->ifa_name, interface) != 0)
 			continue;
@@ -357,23 +367,27 @@ intpr(void (*pfunc)(char *), int af)
 
 		switch (ifa->ifa_addr->sa_family) {
 		case AF_UNSPEC:
-			xo_emit("{:network/%-13.13s} ", "none");
-			xo_emit("{:address/%-15.15s} ", "none");
+			xo_emit("{:network/%-*.*s} ", net_len, net_len,
+			    "none");
+			xo_emit("{:address/%-*.*s} ", addr_len, addr_len,
+			    "none");
 			break;
 		case AF_INET:
 #ifdef INET6
 		case AF_INET6:
 #endif /* INET6 */
+			nn = netname(ifa->ifa_addr, ifa->ifa_netmask);
+			rn = routename(ifa->ifa_addr, numeric_addr);
 			if (Wflag) {
-				xo_emit("{t:network/%-13s} ",
-				    netname(ifa->ifa_addr, ifa->ifa_netmask));
-				xo_emit("{t:address/%-17s} ",
-				    routename(ifa->ifa_addr, numeric_addr));
+				xo_emit("{et:network/%s}{d:/%-*s} ",
+				    nn, net_len, nn);
+				xo_emit("{et:address/%s}{d:/%-*s} ",
+				    rn, addr_len, rn);
 			} else {
-				xo_emit("{t:network/%-13.13s} ",
-				    netname(ifa->ifa_addr, ifa->ifa_netmask));
-				xo_emit("{t:address/%-17.17s} ",
-				    routename(ifa->ifa_addr, numeric_addr));
+				xo_emit("{et:network/%s}{d:/%-*.*s} ",
+				    nn, net_len, net_len, nn);
+				xo_emit("{et:address/%s}{d:/%-*.*s} ",
+				    rn, addr_len, addr_len, rn);
 			}
 
 			network = true;
@@ -385,14 +399,15 @@ intpr(void (*pfunc)(char *), int af)
 
 			sdl = (struct sockaddr_dl *)ifa->ifa_addr;
 			sprintf(linknum, "<Link#%d>", sdl->sdl_index);
-			xo_emit("{t:network/%-13.13s} ", linknum);
+			xo_emit("{t:network/%-*.*s} ", net_len, net_len,
+			    linknum);
 			if (sdl->sdl_nlen == 0 &&
 			    sdl->sdl_alen == 0 &&
 			    sdl->sdl_slen == 0)
-				xo_emit("{P:                  }");
+				xo_emit("{P:/%*s} ", addr_len, "");
 			else
-				xo_emit("{:address/%-17.17s} ",
-				    routename(ifa->ifa_addr, 1));
+				xo_emit("{t:address/%-*.*s} ", addr_len,
+				    addr_len, routename(ifa->ifa_addr, 1));
 			link = true;
 			break;
 		    }

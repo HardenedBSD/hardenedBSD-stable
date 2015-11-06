@@ -527,10 +527,6 @@ routename(struct sockaddr *sa, int flags)
 	static char line[NI_MAXHOST];
 	int error, f;
 
-	/* XXX: sa->sa_len doesn't match sizeof(struct sockaddr_dl) */
-	if (sa->sa_family == AF_LINK)
-		sa->sa_len = sizeof(struct sockaddr_dl);
-
 	f = (flags) ? NI_NUMERICHOST : 0;
 	error = getnameinfo(sa, sa->sa_len, line, sizeof(line),
 	    NULL, 0, f);
@@ -641,14 +637,13 @@ netname4(in_addr_t in, in_addr_t mask)
 			trimdomain(cp, strlen(cp));
 		}
 	}
-	inet_ntop(AF_INET, &in, nline, sizeof(line));
-	if (cp != NULL) {
-		if (strcpy(cp, nline) != 0)
-			return (line);
+	if (cp != NULL)
 		strlcpy(line, cp, sizeof(line));
-	} else
+	else {
+		inet_ntop(AF_INET, &in, nline, sizeof(nline));
 		strlcpy(line, nline, sizeof(line));
-	domask(line + strlen(line), i, ntohl(mask));
+		domask(line + strlen(line), i, ntohl(mask));
+	}
 
 	return (line);
 }
