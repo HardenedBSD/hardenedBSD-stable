@@ -1083,6 +1083,8 @@ exec_new_vmspace(imgp, sv)
 	vm_offset_t sv_minuser, stack_addr;
 	vm_map_t map;
 	u_long ssiz;
+	vm_prot_t stackprot;
+	vm_prot_t stackmaxprot;
 
 	imgp->vmspace_destroyed = 1;
 	imgp->sysent = sv;
@@ -1177,10 +1179,12 @@ exec_new_vmspace(imgp, sv)
 	p->p_usrstack = stack_addr;
 	/* Calculate the stack's mapping address.  */
 	stack_addr -= ssiz;
-	error = vm_map_stack(map, stack_addr, (vm_size_t)ssiz,
-	    obj != NULL && imgp->stack_prot != 0 ? imgp->stack_prot :
-		sv->sv_stackprot,
-	    VM_PROT_ALL, MAP_STACK_GROWS_DOWN);
+	stackprot = obj != NULL && imgp->stack_prot != 0 ? imgp->stack_prot : sv->sv_stackprot;
+	stackmaxprot = VM_PROT_ALL;
+#ifdef PAX_NOEXEC
+	pax_noexec_nx(p, &stackprot, &stackmaxprot);
+#endif
+	error = vm_map_stack(map, stack_addr, (vm_size_t)ssiz, stackprot, stackmaxprot, MAP_STACK_GROWS_DOWN);
 	if (error) {
 #ifdef PAX_ASLR
 		pax_log_aslr(p, PAX_LOG_DEFAULT,
