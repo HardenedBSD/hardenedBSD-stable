@@ -1063,6 +1063,8 @@ exec_new_vmspace(imgp, sv)
 #ifdef __ia64__
 	vm_offset_t ia64backingstore_addr;
 #endif
+	vm_prot_t stackprot;
+	vm_prot_t stackmaxprot;
 
 	imgp->vmspace_destroyed = 1;
 	imgp->sysent = sv;
@@ -1149,10 +1151,12 @@ exec_new_vmspace(imgp, sv)
 	p->p_usrstack = stack_addr;
 	/* Calculate the stack's mapping address.  */
 	stack_addr -= ssiz;
-	error = vm_map_stack(map, stack_addr, (vm_size_t)ssiz,
-	    obj != NULL && imgp->stack_prot != 0 ? imgp->stack_prot :
-		sv->sv_stackprot,
-	    VM_PROT_ALL, MAP_STACK_GROWS_DOWN);
+	stackprot = obj != NULL && imgp->stack_prot != 0 ? imgp->stack_prot : sv->sv_stackprot;
+	stackmaxprot = VM_PROT_ALL;
+#ifdef PAX_NOEXEC
+	pax_noexec_nx(p, &stackprot, &stackmaxprot);
+#endif
+	error = vm_map_stack(map, stack_addr, (vm_size_t)ssiz, stackprot, stackmaxprot, MAP_STACK_GROWS_DOWN);
 	if (error) {
 #ifdef PAX_ASLR
 		pax_log_aslr(p, PAX_LOG_DEFAULT,
@@ -1164,12 +1168,17 @@ exec_new_vmspace(imgp, sv)
 
 #ifdef __ia64__
 	ia64backingstore_addr = IA64_BACKINGSTORE;
+	stackprot = sv->sv_stackprot;
+	stackmaxprot = VM_PROT_ALL;
 #ifdef PAX_ASLR
 	pax_aslr_stack(p, &ia64backingstore_addr);
 #endif
+#ifdef PAX_NOEXEC
+	pax_noexec_nx(p, &stackprot, &stackmaxprot);
+#endif
 	/* Allocate a new register stack */
 	error = vm_map_stack(map, ia64backingstore_addr, (vm_size_t)ssiz,
-	    sv->sv_stackprot, VM_PROT_ALL, MAP_STACK_GROWS_UP);
+	    stackprot, stackmaxprot, MAP_STACK_GROWS_UP);
 	if (error)
 		return (error);
 #endif
