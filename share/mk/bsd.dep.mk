@@ -48,21 +48,25 @@ CTAGSFLAGS?=
 GTAGSFLAGS?=	-o
 HTAGSFLAGS?=
 
-.if ${CC} != "cc"
-MKDEPCMD?=	CC='${CC} ${DEPFLAGS}' mkdep
-.else
-MKDEPCMD?=	mkdep
+_MKDEPCC:=	${CC:N${CCACHE_BIN}}
+# XXX: DEPFLAGS can come out once Makefile.inc1 properly passes down
+# CXXFLAGS.
+.if !empty(DEPFLAGS)
+_MKDEPCC+=	${DEPFLAGS}
 .endif
+MKDEPCMD?=	CC='${_MKDEPCC}' mkdep
 DEPENDFILE?=	.depend
 DEPENDFILES=	${DEPENDFILE}
-.if ${MK_FAST_DEPEND} == "yes"
+.if ${MK_FAST_DEPEND} == "yes" && ${.MAKE.MODE:Unormal:Mmeta*} == ""
 DEPENDFILES+=	${DEPENDFILE}.*
 DEPEND_CFLAGS+=	-MD -MP -MF${DEPENDFILE}.${.TARGET}
 DEPEND_CFLAGS+=	-MT${.TARGET}
 CFLAGS+=	${DEPEND_CFLAGS}
 DEPENDOBJS+=	${OBJS} ${POBJS} ${SOBJS}
 .for __obj in ${DEPENDOBJS:O:u}
+.if ${.MAKEFLAGS:M-V} == ""
 .sinclude "${DEPENDFILE}.${__obj}"
+.endif
 DEPENDFILES_OBJS+=	${DEPENDFILE}.${__obj}
 .endfor
 .endif	# ${MK_FAST_DEPEND} == "yes"

@@ -195,18 +195,21 @@ SFILES_CDDL=	${SFILES:M*/cddl/*}
 kernel-depend: .depend
 # The argument list can be very long, so use make -V and xargs to
 # pass it to mkdep.
+_MKDEPCC:= ${CC:N${CCACHE_BIN}}
 SRCS=	assym.s vnode_if.h ${BEFORE_DEPEND} ${CFILES} \
 	${SYSTEM_CFILES} ${GEN_CFILES} ${SFILES} \
 	${MFILES:T:S/.m$/.h/}
 DEPENDFILES=	.depend
-.if ${MK_FAST_DEPEND} == "yes"
+.if ${MK_FAST_DEPEND} == "yes" && ${.MAKE.MODE:Unormal:Mmeta*} == ""
 DEPENDFILES+=	.depend.*
 DEPEND_CFLAGS+=	-MD -MP -MF.depend.${.TARGET}
 DEPEND_CFLAGS+=	-MT${.TARGET}
 CFLAGS+=	${DEPEND_CFLAGS}
 DEPENDOBJS+=	${SYSTEM_OBJS}
 .for __obj in ${DEPENDOBJS:O:u}
+.if ${.MAKEFLAGS:M-V} == ""
 .sinclude ".depend.${__obj}"
+.endif
 DEPENDFILES_OBJS+=	.depend.${__obj}
 .endfor
 .endif	# ${MK_FAST_DEPEND} == "yes"
@@ -217,14 +220,14 @@ DEPENDFILES_OBJS+=	.depend.${__obj}
 .if ${MK_FAST_DEPEND} == "no"
 	rm -f ${.TARGET}.tmp
 	${MAKE} -V CFILES_NOCDDL -V SYSTEM_CFILES -V GEN_CFILES | \
-	    CC="${CC}" xargs mkdep -a -f ${.TARGET}.tmp ${CFLAGS}
+	    CC="${_MKDEPCC}" xargs mkdep -a -f ${.TARGET}.tmp ${CFLAGS}
 	${MAKE} -V CFILES_CDDL | \
-	    CC="${CC}" xargs mkdep -a -f ${.TARGET}.tmp ${ZFS_CFLAGS} \
+	    CC="${_MKDEPCC}" xargs mkdep -a -f ${.TARGET}.tmp ${ZFS_CFLAGS} \
 	    ${FBT_CFLAGS} ${DTRACE_CFLAGS}
 	${MAKE} -V SFILES_NOCDDL | \
-	    CC="${CC}" xargs mkdep -a -f ${.TARGET}.tmp ${ASM_CFLAGS}
+	    CC="${_MKDEPCC}" xargs mkdep -a -f ${.TARGET}.tmp ${ASM_CFLAGS}
 	${MAKE} -V SFILES_CDDL | \
-	    CC="${CC}" xargs mkdep -a -f ${.TARGET}.tmp ${ZFS_ASM_CFLAGS}
+	    CC="${_MKDEPCC}" xargs mkdep -a -f ${.TARGET}.tmp ${ZFS_ASM_CFLAGS}
 	mv ${.TARGET}.tmp ${.TARGET}
 .else
 	: > ${.TARGET}
