@@ -45,8 +45,8 @@ isci(4)		jimharris	Pre-commit review requested.
 nvme(4)		jimharris	Pre-commit review requested.
 nvd(4)		jimharris	Pre-commit review requested.
 nvmecontrol(8)	jimharris	Pre-commit review requested.
-libfetch	des	Advance notification requested.
-fetch		des	Advance notification requested.
+libfetch	des	Pre-commit review requested.
+fetch		des	Pre-commit review requested.
 libpam		des	Pre-commit review requested.
 openssh		des	Pre-commit review requested.
 pseudofs	des	Pre-commit review requested.
@@ -57,6 +57,14 @@ contrib/libc++		dim	Pre-commit review preferred.
 contrib/libcxxrt	dim	Pre-commit review preferred.
 contrib/llvm		dim	Pre-commit review preferred.
 contrib/llvm/tools/lldb	emaste	Pre-commit review preferred.
+atf			freebsd-testing,jmmv,ngie	Pre-commit review requested.
+contrib/netbsd-tests	freebsd-testing,ngie	Pre-commit review requested.
+contrib/pjdfstest	freebsd-testing,ngie,pjd	Pre-commit review requested.
+share/mk/*.test.mk	freebsd-testing,ngie (same list as share/mk too)	Pre-commit review requested.
+tests			freebsd-testing,ngie	Pre-commit review requested.
+sys/dev/usb	hselasky	If in doubt, ask.
+sys/dev/sound/usb	hselasky	If in doubt, ask.
+sys/compat/linuxkpi	hselasky	If in doubt, ask.
 ---- OLD ----
 libc/posix1e	rwatson	Pre-commit review requested.
 POSIX.1e ACLs	rwatson	Pre-commit review requested.
@@ -103,8 +111,6 @@ contrib/pf	glebius	Pre-commit review recommended.
 file		obrien	Insists to keep file blocked from other's unapproved
 			commits
 contrib/bzip2	obrien	Pre-commit review required.
-contrib/netbsd-tests	freebsd-testing,ngie	Pre-commit review requested.
-contrib/pjdfstest	freebsd-testing,ngie	Pre-commit review requested.
 geom		freebsd-geom@FreeBSD.org
 geom_concat	pjd	Pre-commit review preferred.
 geom_eli	pjd	Pre-commit review preferred.
@@ -123,9 +129,6 @@ linux emul	emulation	Please discuss changes here.
 bs{diff,patch}	cperciva	Pre-commit review requested.
 portsnap	cperciva	Pre-commit review requested.
 freebsd-update	cperciva	Pre-commit review requested.
-sys/dev/usb	hselasky	If in doubt, ask.
-sys/dev/sound/usb	hselasky	If in doubt, ask.
-sys/compat/linuxkpi	hselasky	If in doubt, ask.
 sys/netgraph/bluetooth	emax	Pre-commit review preferred.
 lib/libbluetooth	emax	Pre-commit review preferred.
 lib/libsdp		emax	Pre-commit review preferred.
