@@ -69,6 +69,7 @@ struct prison;
 struct thread;
 struct proc;
 struct vnode;
+struct vm_map_t;
 struct vm_offset_t;
 
 /*
@@ -187,7 +188,7 @@ u_int pax_pageexec_setup_flags(struct image_params *imgp, u_int mode);
 u_int pax_mprotect_setup_flags(struct image_params *imgp, u_int mode);
 void pax_pageexec(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot);
 void pax_mprotect(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot);
-int pax_mprotect_enforce(struct proc *p, vm_prot_t old_prot, vm_prot_t new_prot);
+int pax_mprotect_enforce(struct proc *p, vm_map_t map, vm_prot_t old_prot, vm_prot_t new_prot);
 
 /*
  * Hardening related functions

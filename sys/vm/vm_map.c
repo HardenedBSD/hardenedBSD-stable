@@ -2026,11 +2026,8 @@ vm_map_protect(vm_map_t map, vm_offset_t start, vm_offset_t end,
 	while ((current != &map->header) && (current->start < end)) {
 		old_prot = current->protection;
 #ifdef PAX_NOEXEC
-		ret = pax_mprotect_enforce(curthread->td_proc, old_prot, new_prot);
+		ret = pax_mprotect_enforce(curthread->td_proc, map, old_prot, new_prot);
 		if (ret != 0) {
-			pax_log_mprotect(curthread->td_proc, PAX_LOG_P_COMM,
-			    "prevented to introduce new RWX page...");
-			vm_map_unlock(map);
 			return (ret);
 		}
 #endif

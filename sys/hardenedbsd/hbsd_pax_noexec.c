@@ -419,29 +419,30 @@ void
 pax_mprotect(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot)
 {
 
-	if (!pax_mprotect_active(p)) {
+	if (!pax_mprotect_active(p))
 		return;
-	}
 
 	CTR3(KTR_PAX, "%s: pid = %d maxprot = %x",
 	    __func__, p->p_pid, *maxprot);
 
-	if ((*maxprot & (VM_PROT_WRITE|VM_PROT_EXECUTE)) != VM_PROT_EXECUTE) {
+	if ((*maxprot & (VM_PROT_WRITE|VM_PROT_EXECUTE)) != VM_PROT_EXECUTE)
 		*maxprot &= ~VM_PROT_EXECUTE;
-	} else {
+	else
 		*maxprot &= ~VM_PROT_WRITE;
-	}
 }
 
 int
-pax_mprotect_enforce(struct proc *p, vm_prot_t old_prot, vm_prot_t new_prot)
+pax_mprotect_enforce(struct proc *p, vm_map_t map, vm_prot_t old_prot, vm_prot_t new_prot)
 {
+
 	if (!pax_mprotect_active(p))
 		return (0);
 
 	if ((new_prot & VM_PROT_EXECUTE) == VM_PROT_EXECUTE &&
 	    ((old_prot & VM_PROT_EXECUTE) != VM_PROT_EXECUTE)) {
-
+		pax_log_mprotect(p, PAX_LOG_P_COMM,
+		    "prevented to introduce new RWX page...");
+		vm_map_unlock(map);
 		return (KERN_PROTECTION_FAILURE);
 	}
 
@@ -467,12 +468,11 @@ pax_noexec_nx(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot)
 	CTR4(KTR_PAX, "%s: before - pid = %d prot = %x maxprot = %x",
 	    __func__, p->p_pid, *prot, *maxprot);
 
-	if (!pax_pageexec_active(p)) {
+	if (pax_pageexec_active(p)) {
 		*prot &= ~VM_PROT_EXECUTE;
 
-		if (!pax_mprotect_active(p)) {
+		if (pax_mprotect_active(p))
 			*maxprot &= ~VM_PROT_EXECUTE;
-		}
 	}
 
 	CTR4(KTR_PAX, "%s: after - pid = %d prot = %x maxprot = %x",
@@ -497,12 +497,11 @@ pax_noexec_nw(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot)
 	CTR4(KTR_PAX, "%s: before - pid = %d prot = %x maxprot = %x",
 	    __func__, p->p_pid, *prot, *maxprot);
 
-	if (!pax_pageexec_active(p)) {
+	if (pax_pageexec_active(p)) {
 		*prot &= ~VM_PROT_WRITE;
 
-		if (!pax_mprotect_active(p)) {
+		if (pax_mprotect_active(p))
 			*maxprot &= ~VM_PROT_WRITE;
-		}
 	}
 
 	CTR4(KTR_PAX, "%s: after - pid = %d prot = %x maxprot = %x",
