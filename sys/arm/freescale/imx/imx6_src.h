@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2015 Oleksandr Tymoshenko
+ * Copyright (c) 2015 Oleksandr Tymoshenko <gonzo@freebsd.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -23,16 +23,12 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *	$FreeBSD$
+ * $FreeBSD$
  */
 
-#ifndef _HDMI_H_
-#define _HDMI_H_
+#ifndef	__IMX6_SRC_H__
+#define	__IMX6_SRC_H__
 
-#include <sys/eventhandler.h>
+int src_reset_ipu(void);
 
-typedef void (*hdmi_event_hook)(void *, int);
-EVENTHANDLER_DECLARE(hdmi_event, hdmi_event_hook);
-
-#endif	/* !_HDMI_H_ */
-
+#endif	/* __IMX6_SRC_H__ */
