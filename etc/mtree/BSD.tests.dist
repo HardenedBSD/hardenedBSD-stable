@@ -80,6 +80,8 @@
             test-programs
             ..
         ..
+        libarchive
+        ..
         libc
             c063
             ..
@@ -186,6 +188,8 @@
         ..
     ..
     sys
+        acl
+        ..
         aio
         ..
         fifo
@@ -348,6 +352,8 @@
         ..
         cmp
         ..
+        cpio
+        ..
         col
         ..
         comm
@@ -368,6 +374,8 @@
         ..
         lastcomm
         ..
+        limits
+        ..
         m4
         ..
         ncal
@@ -379,6 +387,8 @@
         sed
             regress.multitest.out
             ..
+        ..
+        tar
         ..
         timeout
         ..
