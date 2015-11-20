@@ -38,6 +38,8 @@
 #   xargs -n1 | sort | uniq -d;
 # done
 
+# 20151120: remove unused pkg repo public key
+OLD_FILES+=usr/share/keys/pkg/trusted/hardenedbsd.crt.2014-09-04
 # 20151115: Fox bad upgrade scheme
 OLD_FILES+=usr/share/locale/zh_CN.GB18030/zh_Hans_CN.GB18030
 OLD_FILES+=usr/share/locale/zh_CN.GB2312/zh_Hans_CN.GB2312
