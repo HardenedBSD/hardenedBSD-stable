@@ -1243,7 +1243,7 @@ _vtfontcvt=	usr.bin/vtfontcvt
 _ar=		usr.bin/ar
 .endif
 
-.if ${BOOTSTRAPPING} < 800013
+.if ${BOOTSTRAPPING} < 800013 || ${BOOTSTRAPPING} > 1100087
 _mklocale=	usr.bin/mklocale
 .endif
 
@@ -1260,6 +1260,10 @@ _yacc=		lib/liby \
 		usr.bin/yacc
 
 ${_bt}-usr.bin/yacc: ${_bt}-lib/liby
+.endif
+
+.if ${BOOTSTRAPPING} > 1100087
+_colldef=	usr.bin/colldef
 .endif
 
 # crunchgen broken on head with STRIP= for a while, even
@@ -1352,6 +1356,7 @@ bootstrap-tools: .PHONY
 #	FreeBSD versions that need the tool built at this stage of the build.
 .for _tool in \
     ${_clang_tblgen} \
+    ${_colldef} \
     ${_kerberos5_bootstrap_tools} \
     ${_dtrace_tools} \
     ${_strfile} \
