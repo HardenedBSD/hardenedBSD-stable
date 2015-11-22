@@ -1338,11 +1338,32 @@ isp_reset(ispsoftc_t *isp, int do_load_defaults)
 }
 
 /*
+ * Clean firmware shutdown.
+ */
+static int
+isp_deinit(ispsoftc_t *isp)
+{
+	mbreg_t mbs;
+
+	isp->isp_state = ISP_NILSTATE;
+	MBSINIT(&mbs, MBOX_STOP_FIRMWARE, MBLOGALL, 500000);
+	mbs.param[1] = 0;
+	mbs.param[2] = 0;
+	mbs.param[3] = 0;
+	mbs.param[4] = 0;
+	mbs.param[5] = 0;
+	mbs.param[6] = 0;
+	mbs.param[7] = 0;
+	mbs.param[8] = 0;
+	isp_mboxcmd(isp, &mbs);
+	return (mbs.param[0] == MBOX_COMMAND_COMPLETE ? 0 : mbs.param[0]);
+}
+
+/*
  * Initialize Parameters of Hardware to a known state.
  *
  * Locks are held before coming here.
  */
-
 void
 isp_init(ispsoftc_t *isp)
 {
@@ -5800,7 +5821,10 @@ isp_parse_async_fc(ispsoftc_t *isp, uint16_t mbox)
 		    ISPASYNC_CHANGE_SNS, portid);
 		break;
 	}
-
+	case ASYNC_ERR_LOGGING_DISABLED:
+		isp_prt(isp, ISP_LOGWARN, "Error logging disabled (reason 0x%x)",
+		    ISP_READ(isp, OUTMAILBOX1));
+		break;
 	case ASYNC_CONNMODE:
 		/*
 		 * This only applies to 2100 amd 2200 cards
@@ -5843,7 +5867,10 @@ isp_parse_async_fc(ispsoftc_t *isp, uint16_t mbox)
 		FCPARAM(isp, chan)->isp_loopstate = LOOP_NIL;
 		isp_async(isp, ISPASYNC_CHANGE_NOTIFY, chan, ISPASYNC_CHANGE_OTHER);
 		break;
-
+	case ASYNC_P2P_INIT_ERR:
+		isp_prt(isp, ISP_LOGWARN, "P2P init error (reason 0x%x)",
+		    ISP_READ(isp, OUTMAILBOX1));
+		break;
 	case ASYNC_RCV_ERR:
 		if (IS_24XX(isp)) {
 			isp_prt(isp, ISP_LOGWARN, "Receive Error");
@@ -5855,11 +5882,23 @@ isp_parse_async_fc(ispsoftc_t *isp, uint16_t mbox)
 		if (IS_24XX(isp)) {
 			isp_prt(isp, ISP_LOGTDEBUG0, "LS_RJT sent");
 			break;
-		} else if (IS_2200(isp)) {
+		} else {
 			isp_prt(isp, ISP_LOGTDEBUG0, "QFULL sent");
 			break;
 		}
-		/* FALLTHROUGH */
+	case ASYNC_FW_RESTART_COMPLETE:
+		isp_prt(isp, ISP_LOGDEBUG0, "FW restart complete");
+		break;
+	case ASYNC_TEMPERATURE_ALERT:
+		isp_prt(isp, ISP_LOGERR, "Temperature alert (subcode 0x%x)",
+		    ISP_READ(isp, OUTMAILBOX1));
+		break;
+	case ASYNC_AUTOLOAD_FW_COMPLETE:
+		isp_prt(isp, ISP_LOGDEBUG0, "Autoload FW init complete");
+		break;
+	case ASYNC_AUTOLOAD_FW_FAILURE:
+		isp_prt(isp, ISP_LOGERR, "Autoload FW init failure");
+		break;
 	default:
 		isp_prt(isp, ISP_LOGWARN, "Unknown Async Code 0x%x", mbox);
 		break;
@@ -6781,7 +6820,7 @@ static const uint32_t mbpfc[] = {
 	ISP_FC_OPMAP(0x2f, 0x21),	/* 0x11: MBOX_INIT_RES_QUEUE */
 	ISP_FC_OPMAP(0x0f, 0x01),	/* 0x12: MBOX_EXECUTE_IOCB */
 	ISP_FC_OPMAP(0x03, 0x03),	/* 0x13: MBOX_WAKE_UP	*/
-	ISP_FC_OPMAP(0x01, 0xff),	/* 0x14: MBOX_STOP_FIRMWARE */
+	ISP_FC_OPMAP_HALF(0x1, 0xff, 0x0, 0x03),	/* 0x14: MBOX_STOP_FIRMWARE */
 	ISP_FC_OPMAP(0x4f, 0x01),	/* 0x15: MBOX_ABORT */
 	ISP_FC_OPMAP(0x07, 0x01),	/* 0x16: MBOX_ABORT_DEVICE */
 	ISP_FC_OPMAP(0x07, 0x01),	/* 0x17: MBOX_ABORT_TARGET */
@@ -6900,7 +6939,7 @@ static const uint32_t mbpfc[] = {
  */
 
 static const char *fc_mbcmd_names[] = {
-	"NO-OP",
+	"NO-OP",			/* 00h */
 	"LOAD RAM",
 	"EXEC FIRMWARE",
 	"DUMP RAM",
@@ -6912,11 +6951,11 @@ static const char *fc_mbcmd_names[] = {
 	"LOAD RAM (2100)",
 	"DUMP RAM",
 	"LOAD RISC RAM",
-	NULL,
+	"DUMP RISC RAM",
 	"WRITE RAM WORD EXTENDED",
 	"CHECK FIRMWARE",
 	"READ RAM WORD EXTENDED",
-	"INIT REQUEST QUEUE",
+	"INIT REQUEST QUEUE",		/* 10h */
 	"INIT RESULT QUEUE",
 	"EXECUTE IOCB",
 	"WAKE UP",
@@ -6932,9 +6971,9 @@ static const char *fc_mbcmd_names[] = {
 	"GET DEV QUEUE STATUS",
 	NULL,
 	"GET FIRMWARE STATUS",
-	"GET LOOP ID",
+	"GET LOOP ID",			/* 20h */
 	NULL,
-	"GET RETRY COUNT",
+	"GET TIMEOUT PARAMS",
 	NULL,
 	NULL,
 	NULL,
@@ -6942,15 +6981,15 @@ static const char *fc_mbcmd_names[] = {
 	NULL,
 	"GET FIRMWARE OPTIONS",
 	"GET PORT QUEUE PARAMS",
+	"GENERATE SYSTEM ERROR",
 	NULL,
 	NULL,
 	NULL,
 	NULL,
 	NULL,
-	NULL,
-	NULL,
-	NULL,
-	"SET RETRY COUNT",
+	"WRITE SFP",			/* 30h */
+	"READ SFP",
+	"SET TIMEOUT PARAMS",
 	NULL,
 	NULL,
 	NULL,
@@ -6959,17 +6998,17 @@ static const char *fc_mbcmd_names[] = {
 	"SET FIRMWARE OPTIONS",
 	"SET PORT QUEUE PARAMS",
 	NULL,
+	"SET FC LED CONF",
 	NULL,
+	"RESTART NIC FIRMWARE",
+	"ACCESS CONTROL",
 	NULL,
-	NULL,
-	NULL,
-	NULL,
-	"LOOP PORT BYPASS",
+	"LOOP PORT BYPASS",		/* 40h */
 	"LOOP PORT ENABLE",
 	"GET RESOURCE COUNT",
 	"REQUEST NON PARTICIPATING MODE",
-	NULL,
-	NULL,
+	"DIAGNOSTIC ECHO TEST",
+	"DIAGNOSTIC LOOPBACK",
 	NULL,
 	"GET PORT DATABASE ENHANCED",
 	"INIT FIRMWARE MULTI ID",
@@ -6980,24 +7019,24 @@ static const char *fc_mbcmd_names[] = {
 	NULL,
 	NULL,
 	NULL,
+	"GET FCF LIST",			/* 50h */
+	"GET DCBX PARAMETERS",
 	NULL,
-	NULL,
-	NULL,
-	NULL,
+	"HOST MEMORY COPY",
 	"EXECUTE IOCB A64",
 	NULL,
 	NULL,
+	"SEND RNID",
 	NULL,
-	NULL,
-	NULL,
-	NULL,
+	"SET PARAMETERS",
+	"GET PARAMETERS",
 	"DRIVER HEARTBEAT",
-	NULL,
+	"FIRMWARE HEARTBEAT",
 	"GET/SET DATA RATE",
+	"SEND RNFT",
 	NULL,
-	NULL,
-	"INIT FIRMWARE",
-	NULL,
+	"INIT FIRMWARE",		/* 60h */
+	"GET INIT CONTROL BLOCK",
 	"INIT LIP",
 	"GET FC-AL POSITION MAP",
 	"GET PORT DATABASE",
@@ -7009,10 +7048,10 @@ static const char *fc_mbcmd_names[] = {
 	"GET PORT NAME",
 	"GET LINK STATUS",
 	"INIT LIP RESET",
-	NULL,
+	"GET LINK STATS & PRIVATE DATA CNTS",
 	"SEND SNS",
 	"FABRIC LOGIN",
-	"SEND CHANGE REQUEST",
+	"SEND CHANGE REQUEST",		/* 70h */
 	"FABRIC LOGOUT",
 	"INIT LIP LOGIN",
 	NULL,
@@ -7022,11 +7061,11 @@ static const char *fc_mbcmd_names[] = {
 	"INITIALIZE IP MAILBOX",
 	NULL,
 	NULL,
+	"GET XGMAC STATS",
 	NULL,
-	NULL,
-	"Get ID List",
+	"GET ID LIST",
 	"SEND LFA",
-	"Lun RESET"
+	"LUN RESET"
 };
 
 static void
@@ -7603,6 +7642,8 @@ isp_reinit(ispsoftc_t *isp, int do_load_defaults)
 {
 	int i, res = 0;
 
+	if (isp->isp_state == ISP_RUNSTATE)
+		isp_deinit(isp);
 	if (isp->isp_state != ISP_RESETSTATE)
 		isp_reset(isp, do_load_defaults);
 	if (isp->isp_state != ISP_RESETSTATE) {
