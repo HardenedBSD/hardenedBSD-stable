@@ -1126,6 +1126,14 @@ exec_new_vmspace(imgp, sv)
 #endif
 			return (error);
 		}
+
+		p->p_timekeep_base = sv->sv_timekeep_base;
+#ifdef PAX_ASLR
+		PROC_LOCK(imgp->proc);
+		if (p->p_timekeep_base != 0)
+			pax_aslr_vdso(p, &(p->p_timekeep_base));
+		PROC_UNLOCK(imgp->proc);
+#endif
 	}
 
 	/* Allocate a new stack */
