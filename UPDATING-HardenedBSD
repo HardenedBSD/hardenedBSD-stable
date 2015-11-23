@@ -1,3 +1,10 @@
+[20151123] changed proc structure : added p_timekeep_base
+__HardenedBSD_version = 35
+
+	Follow the recent VDSO changes from kib@.
+	This required to introduce new field to struct proc.
+
+
 [20151018] disabled lib32 build by default
 __HardenedBSD_version = 34
 
