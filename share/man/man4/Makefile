@@ -275,6 +275,7 @@ MAN=	aac.4 \
 	mk48txx.4 \
 	mld.4 \
 	mlx.4 \
+	mlx5en.4 \
 	mly.4 \
 	mmc.4 \
 	mmcsd.4 \
@@ -653,6 +654,7 @@ MLINKS+=lp.4 plip.4
 MLINKS+=malo.4 if_malo.4
 MLINKS+=md.4 vn.4
 MLINKS+=mem.4 kmem.4
+MLINKS+=mlx5en.4 mce.4
 MLINKS+=mn.4 if_mn.4
 MLINKS+=mos.4 if_mos.4
 MLINKS+=msk.4 if_msk.4
@@ -850,12 +852,6 @@ _dtrace_udp.4=	dtrace_udp.4
 MAN+=		iscsi.4
 MAN+=		iscsi_initiator.4
 
-.endif
-
-.if ${MK_OFED} != "no"
-MAN+=		mlx5en.4
-
-MLINKS+=mlx5en.4 mce.4
 .endif
 
 .if ${MK_TESTS} != "no"
