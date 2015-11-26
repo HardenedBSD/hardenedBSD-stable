@@ -59,7 +59,6 @@ FILES=	\
 	sys.dependfile.mk \
 	version_gen.awk
 
-NO_OBJ=
 FILESDIR=	${BINDIR}/mk
 
 .if ${MK_TESTS} != "no"

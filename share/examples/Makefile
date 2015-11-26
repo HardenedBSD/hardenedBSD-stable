@@ -184,8 +184,6 @@ XFILES=	BSD_daemon/FreeBSD.pfa \
 
 BINDIR= ${SHAREDIR}/examples
 
-NO_OBJ=
-
 .if ${MK_HAST} != "no"
 LDIRS+=		hast
 XFILES+=	hast/ucarp.sh \
