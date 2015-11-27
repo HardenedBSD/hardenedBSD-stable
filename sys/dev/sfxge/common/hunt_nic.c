@@ -948,19 +948,27 @@ static struct {
 	{
 		EFX_FAMILY_HUNTINGTON,
 		(1 << TLV_PORT_MODE_10G) |
-		(1 << TLV_PORT_MODE_40G) |
 		(1 << TLV_PORT_MODE_10G_10G) |
-		(1 << TLV_PORT_MODE_40G_40G),
+		(1 << TLV_PORT_MODE_10G_10G_10G_10G),
 		1
 	},
 	/* Supported modes requiring 2 outputs per port */
 	{
 		EFX_FAMILY_HUNTINGTON,
-		(1 << TLV_PORT_MODE_10G_10G_10G_10G) |
+		(1 << TLV_PORT_MODE_40G) |
+		(1 << TLV_PORT_MODE_40G_40G) |
 		(1 << TLV_PORT_MODE_40G_10G_10G) |
 		(1 << TLV_PORT_MODE_10G_10G_40G),
 		2
 	}
+	/*
+	 * NOTE: Medford modes will require 4 outputs per port:
+	 *	TLV_PORT_MODE_10G_10G_10G_10G_Q
+	 *	TLV_PORT_MODE_10G_10G_10G_10G_Q2
+	 * The Q2 mode routes outputs to external port 2. Support for this
+	 * will require a new field specifying the number to add after
+	 * scaling by stride. This is fixed at 1 currently.
+	 */
 };
 
 static	__checkReturn	int
@@ -1701,10 +1709,22 @@ fail1:
 hunt_nic_fini(
 	__in		efx_nic_t *enp)
 {
+	uint32_t i;
+	int rc;
+
 	(void) efx_mcdi_vadaptor_free(enp, enp->en_vport_id);
 	enp->en_vport_id = 0;
 
-	/* FIXME: do we need to unlink piobufs ? */
+	/* Unlink piobufs from extra VIs in WC mapping */
+	if (enp->en_u.hunt.enu_piobuf_count > 0) {
+		for (i = 0; i < enp->en_u.hunt.enu_piobuf_count; i++) {
+			rc = efx_mcdi_unlink_piobuf(enp,
+			    enp->en_u.hunt.enu_pio_write_vi_base + i);
+			if (rc != 0)
+				break;
+		}
+	}
+
 	hunt_nic_free_piobufs(enp);
 
 	(void) efx_mcdi_free_vis(enp);
