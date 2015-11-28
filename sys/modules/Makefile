@@ -675,10 +675,6 @@ _cp=		cp
 _elink=		elink
 _glxiic=	glxiic
 _glxsb=		glxsb
-<<<<<<< HEAD
-=======
-#_ibcs2=		ibcs2
->>>>>>> origin/master
 _ie=		ie
 _mse=		mse
 _ncr=		ncr
