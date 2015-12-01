@@ -39,13 +39,9 @@
 # done
 
 # 20151130: libelf moved from /usr/lib to /lib (libkvm dependency in r291406)
-<<<<<<< HEAD
-OLD_FILES+=usr/lib/libelf.so.2
+OLD_LIBS+=usr/lib/libelf.so.2
 # 20151120: remove unused pkg repo public key
 OLD_FILES+=usr/share/keys/pkg/trusted/hardenedbsd.crt.2014-09-04
-=======
-OLD_LIBS+=usr/lib/libelf.so.2
->>>>>>> origin/master
 # 20151115: Fox bad upgrade scheme
 OLD_FILES+=usr/share/locale/zh_CN.GB18030/zh_Hans_CN.GB18030
 OLD_FILES+=usr/share/locale/zh_CN.GB2312/zh_Hans_CN.GB2312
