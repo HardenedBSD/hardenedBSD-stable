@@ -163,21 +163,21 @@ pax_ptrace_hardening_sysinit(void)
 	case PAX_FEATURE_SIMPLE_ENABLED:
 		break;
 	default:
-		printf("[PAX HARDENING] WARNING, invalid settings in loader.conf!"
+		printf("[HBSD HARDENING] WARNING, invalid settings in loader.conf!"
 		    " (hardening.ptrace_hardening.status= %d)\n",
 		    pax_ptrace_hardening_status);
 		pax_ptrace_hardening_status = PAX_FEATURE_SIMPLE_ENABLED;
 	}
-	printf("[PAX HARDENING] ptrace hardening status: %s\n",
+	printf("[HBSD HARDENING] ptrace hardening status: %s\n",
 	    pax_status_simple_str[pax_ptrace_hardening_status]);
 
 #ifdef PAX_PTRACE_HARDENING_GRP
 	if (pax_ptrace_hardening_gid < 0 ||
 	    pax_ptrace_hardening_gid > GID_MAX) {
-		panic("[PAX HARDENING] ptrace hardening\n"
+		panic("[HBSD HARDENING] ptrace hardening\n"
 		    "hardening.ptrace_hardening.gid not in range!\n");
 	}
-	printf("[PAX HARDENING] ptrace hardening allowed gid : %d\n",
+	printf("[HBSD HARDENING] ptrace hardening allowed gid : %d\n",
 	    pax_ptrace_hardening_gid);
 #endif
 }

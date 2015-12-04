@@ -152,11 +152,11 @@ hardening_log_sysinit(void)
 	case PAX_FEATURE_SIMPLE_ENABLED:
 		break;
 	default:
-		printf("[PAX LOG] WARNING, invalid settings in loader.conf!"
+		printf("[HBSD LOG] WARNING, invalid settings in loader.conf!"
 		    " (hardening.log.log = %d)\n", hardening_log_log);
 		hardening_log_log = PAX_FEATURE_SIMPLE_ENABLED;
 	}
-	printf("[PAX LOG] logging to system: %s\n",
+	printf("[HBSD LOG] logging to system: %s\n",
 	    pax_status_simple_str[hardening_log_log]);
 
 	switch (hardening_log_ulog) {
@@ -164,11 +164,11 @@ hardening_log_sysinit(void)
 	case PAX_FEATURE_SIMPLE_ENABLED:
 		break;
 	default:
-		printf("[PAX LOG] WARNING, invalid settings in loader.conf!"
+		printf("[HBSD LOG] WARNING, invalid settings in loader.conf!"
 		    " (hardening.log.ulog = %d)\n", hardening_log_ulog);
 		hardening_log_ulog = PAX_FEATURE_SIMPLE_ENABLED;
 	}
-	printf("[PAX LOG] logging to user: %s\n",
+	printf("[HBSD LOG] logging to user: %s\n",
 	    pax_status_simple_str[hardening_log_ulog]);
 }
 SYSINIT(hardening_log, SI_SUB_PAX, SI_ORDER_SECOND, hardening_log_sysinit, NULL);
@@ -375,18 +375,17 @@ pax_db_printf_flags_td(struct thread *td, uint64_t flags)
 }
 #endif
 
-__HARDENING_LOG_TEMPLATE(PAX, INTERNAL, pax, internal);
-__HARDENING_LOG_TEMPLATE(PAX, ASLR, pax, aslr);
-__HARDENING_LOG_TEMPLATE(PAX, PAGEEXEC, pax, pageexec);
-__HARDENING_LOG_TEMPLATE(PAX, MPROTECT, pax, mprotect);
-__HARDENING_LOG_TEMPLATE(PAX, SEGVGUARD, pax, segvguard);
-__HARDENING_LOG_TEMPLATE(PAX, PTRACE_HARDENING, pax, ptrace_hardening);
-
+__HARDENING_LOG_TEMPLATE(HBSD, INTERNAL, pax, internal);
+__HARDENING_LOG_TEMPLATE(HBSD, ASLR, pax, aslr);
+__HARDENING_LOG_TEMPLATE(HBSD, PAGEEXEC, pax, pageexec);
+__HARDENING_LOG_TEMPLATE(HBSD, MPROTECT, pax, mprotect);
+__HARDENING_LOG_TEMPLATE(HBSD, SEGVGUARD, pax, segvguard);
+__HARDENING_LOG_TEMPLATE(HBSD, PTRACE_HARDENING, pax, ptrace_hardening);
 
 void
 pax_log_internal_imgp(struct image_params *imgp, uint64_t flags, const char* fmt, ...)
 {
-	const char *prefix = "[PAX INTERNAL]";
+	const char *prefix = "[HBSD INTERNAL]";
 	struct sbuf *sb;
 	va_list args;
 

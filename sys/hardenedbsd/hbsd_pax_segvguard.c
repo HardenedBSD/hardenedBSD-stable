@@ -611,15 +611,15 @@ pax_segvguard_sysinit(void)
 	case PAX_FEATURE_FORCE_ENABLED:
 		break;
 	default:
-		printf("[PAX SEGVGUARD] WARNING, invalid PAX settings in loader.conf!"
+		printf("[HBSD SEGVGUARD] WARNING, invalid PAX settings in loader.conf!"
 		    " (pax_segvguard_status = %d)\n", pax_segvguard_status);
 		pax_segvguard_status = PAX_FEATURE_FORCE_ENABLED;
 		break;
 	}
-	printf("[PAX SEGVGUARD] status: %s\n", pax_status_str[pax_segvguard_status]);
-	printf("[PAX SEGVGUARD] expiry: %d sec\n", pax_segvguard_expiry);
-	printf("[PAX SEGVGUARD] suspension: %d sec\n", pax_segvguard_suspension);
-	printf("[PAX SEGVGUARD] maxcrahes: %d\n", pax_segvguard_maxcrashes);
+	printf("[HBSD SEGVGUARD] status: %s\n", pax_status_str[pax_segvguard_status]);
+	printf("[HBSD SEGVGUARD] expiry: %d sec\n", pax_segvguard_expiry);
+	printf("[HBSD SEGVGUARD] suspension: %d sec\n", pax_segvguard_suspension);
+	printf("[HBSD SEGVGUARD] maxcrahes: %d\n", pax_segvguard_maxcrashes);
 
 	pax_segvguard_hashtbl =
 		malloc(pax_segvguard_hashsize * sizeof(struct pax_segvguard_entryhead),
