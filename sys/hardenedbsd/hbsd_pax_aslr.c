@@ -43,27 +43,17 @@ __FBSDID("$FreeBSD$");
 #include <sys/imgact.h>
 #include <sys/imgact_elf.h>
 #include <sys/jail.h>
-#include <sys/kthread.h>
 #include <sys/ktr.h>
 #include <sys/libkern.h>
-#include <sys/libkern.h>
 #include <sys/mman.h>
-#include <sys/mount.h>
 #include <sys/pax.h>
 #include <sys/proc.h>
-#include <sys/queue.h>
-#include <sys/resourcevar.h>
-#include <sys/stat.h>
-#include <sys/syscallsubr.h>
 #include <sys/sysctl.h>
 #include <sys/sysent.h>
-#include <sys/vnode.h>
 
 #include <vm/pmap.h>
 #include <vm/vm_map.h>
 #include <vm/vm_extern.h>
-
-#include <machine/elf.h>
 
 #ifndef PAX_ASLR_DELTA
 #define	PAX_ASLR_DELTA(delta, lsb, len)	\
