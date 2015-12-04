@@ -39,33 +39,19 @@ __FBSDID("$FreeBSD$");
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/kernel.h>
+#include <sys/fnv_hash.h>
 #include <sys/imgact.h>
 #include <sys/imgact_elf.h>
-#include <sys/sysent.h>
-#include <sys/stat.h>
-#include <sys/proc.h>
-#include <sys/elf_common.h>
+#include <sys/jail.h>
+#include <sys/libkern.h>
 #include <sys/mount.h>
 #include <sys/pax.h>
-#include <sys/sysctl.h>
-#include <sys/vnode.h>
+#include <sys/proc.h>
 #include <sys/queue.h>
-#include <sys/libkern.h>
-#include <sys/jail.h>
-#include <sys/priv.h>
-#include <sys/fnv_hash.h>
+#include <sys/stat.h>
+#include <sys/sysctl.h>
+#include <sys/sysent.h>
 #include <sys/vnode.h>
-
-#include <sys/mman.h>
-#include <sys/libkern.h>
-#include <sys/exec.h>
-#include <sys/kthread.h>
-
-#include <vm/pmap.h>
-#include <vm/vm_map.h>
-#include <vm/vm_extern.h>
-
-#include <machine/elf.h>
 
 #define PAX_SEGVGUARD_EXPIRY		(2 * 60)
 #define PAX_SEGVGUARD_SUSPENSION	(10 * 60)
