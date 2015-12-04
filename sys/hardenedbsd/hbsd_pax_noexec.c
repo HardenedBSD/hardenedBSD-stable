@@ -186,12 +186,12 @@ pax_noexec_sysinit(void)
 	case PAX_FEATURE_FORCE_ENABLED:
 		break;
 	default:
-		printf("[PAX PAGEEXEC] WARNING, invalid PAX settings in loader.conf!"
+		printf("[HBSD PAGEEXEC] WARNING, invalid PAX settings in loader.conf!"
 		    " (hardening.pax.pageexec.status = %d)\n", pax_pageexec_status);
 		pax_pageexec_status = PAX_FEATURE_FORCE_ENABLED;
 		break;
 	}
-	printf("[PAX PAGEEXEC] status: %s\n", pax_status_str[pax_pageexec_status]);
+	printf("[HBSD PAGEEXEC] status: %s\n", pax_status_str[pax_pageexec_status]);
 
 	switch (pax_mprotect_status) {
 	case PAX_FEATURE_DISABLED:
@@ -200,12 +200,12 @@ pax_noexec_sysinit(void)
 	case PAX_FEATURE_FORCE_ENABLED:
 		break;
 	default:
-		printf("[PAX MPROTECT] WARNING, invalid PAX settings in loader.conf!"
+		printf("[HBSD MPROTECT] WARNING, invalid PAX settings in loader.conf!"
 		    " (hardening.pax.mprotect.status = %d)\n", pax_mprotect_status);
 		pax_mprotect_status = PAX_FEATURE_FORCE_ENABLED;
 		break;
 	}
-	printf("[PAX MPROTECT] status: %s\n", pax_status_str[pax_mprotect_status]);
+	printf("[HBSD MPROTECT] status: %s\n", pax_status_str[pax_mprotect_status]);
 }
 SYSINIT(pax_noexec, SI_SUB_PAX, SI_ORDER_SECOND, pax_noexec_sysinit, NULL);
 

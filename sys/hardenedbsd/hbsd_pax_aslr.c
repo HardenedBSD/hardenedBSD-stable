@@ -688,16 +688,16 @@ pax_aslr_sysinit(void)
 	case PAX_FEATURE_FORCE_ENABLED:
 		break;
 	default:
-		printf("[PAX ASLR] WARNING, invalid PAX settings in loader.conf!"
+		printf("[HBSD ASLR] WARNING, invalid PAX settings in loader.conf!"
 		    " (pax_aslr_status = %d)\n", pax_aslr_status);
 		pax_aslr_status = PAX_FEATURE_FORCE_ENABLED;
 		break;
 	}
-	printf("[PAX ASLR] status: %s\n", pax_status_str[pax_aslr_status]);
-	printf("[PAX ASLR] mmap: %d bit\n", pax_aslr_mmap_len);
-	printf("[PAX ASLR] exec base: %d bit\n", pax_aslr_exec_len);
-	printf("[PAX ASLR] stack: %d bit\n", pax_aslr_stack_len);
-	printf("[PAX ASLR] vdso: %d bit\n", pax_aslr_vdso_len);
+	printf("[HBSD ASLR] status: %s\n", pax_status_str[pax_aslr_status]);
+	printf("[HBSD ASLR] mmap: %d bit\n", pax_aslr_mmap_len);
+	printf("[HBSD ASLR] exec base: %d bit\n", pax_aslr_exec_len);
+	printf("[HBSD ASLR] stack: %d bit\n", pax_aslr_stack_len);
+	printf("[HBSD ASLR] vdso: %d bit\n", pax_aslr_vdso_len);
 
 	switch (pax_disallow_map32bit_status_global) {
 	case PAX_FEATURE_DISABLED:
@@ -706,12 +706,12 @@ pax_aslr_sysinit(void)
 	case PAX_FEATURE_FORCE_ENABLED:
 		break;
 	default:
-		printf("[PAX ASLR] WARNING, invalid settings in loader.conf!"
+		printf("[HBSD ASLR] WARNING, invalid settings in loader.conf!"
 		    " (hardening.pax.disallow_map32bit.status = %d)\n",
 		    pax_disallow_map32bit_status_global);
 		pax_disallow_map32bit_status_global = PAX_FEATURE_FORCE_ENABLED;
 	}
-	printf("[PAX ASLR] disallow MAP_32BIT mode mmap: %s\n",
+	printf("[HBSD ASLR] disallow MAP_32BIT mode mmap: %s\n",
 	    pax_status_str[pax_disallow_map32bit_status_global]);
 }
 SYSINIT(pax_aslr, SI_SUB_PAX, SI_ORDER_SECOND, pax_aslr_sysinit, NULL);
@@ -828,16 +828,16 @@ pax_compat_aslr_sysinit(void)
 	case PAX_FEATURE_FORCE_ENABLED:
 		break;
 	default:
-		printf("[PAX ASLR (compat)] WARNING, invalid PAX settings in loader.conf! "
+		printf("[HBSD ASLR (compat)] WARNING, invalid PAX settings in loader.conf! "
 		    "(pax_aslr_compat_status = %d)\n", pax_aslr_compat_status);
 		pax_aslr_compat_status = PAX_FEATURE_FORCE_ENABLED;
 		break;
 	}
-	printf("[PAX ASLR (compat)] status: %s\n", pax_status_str[pax_aslr_compat_status]);
-	printf("[PAX ASLR (compat)] mmap: %d bit\n", pax_aslr_compat_mmap_len);
-	printf("[PAX ASLR (compat)] exec base: %d bit\n", pax_aslr_compat_exec_len);
-	printf("[PAX ASLR (compat)] stack: %d bit\n", pax_aslr_compat_stack_len);
-	printf("[PAX ASLR (compat)] vdso: %d bit\n", pax_aslr_compat_vdso_len);
+	printf("[HBSD ASLR (compat)] status: %s\n", pax_status_str[pax_aslr_compat_status]);
+	printf("[HBSD ASLR (compat)] mmap: %d bit\n", pax_aslr_compat_mmap_len);
+	printf("[HBSD ASLR (compat)] exec base: %d bit\n", pax_aslr_compat_exec_len);
+	printf("[HBSD ASLR (compat)] stack: %d bit\n", pax_aslr_compat_stack_len);
+	printf("[HBSD ASLR (compat)] vdso: %d bit\n", pax_aslr_compat_vdso_len);
 }
 SYSINIT(pax_compat_aslr, SI_SUB_PAX, SI_ORDER_SECOND, pax_compat_aslr_sysinit, NULL);
 
