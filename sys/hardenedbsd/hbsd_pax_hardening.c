@@ -39,30 +39,16 @@ __FBSDID("$FreeBSD$");
 #include <sys/kernel.h>
 #include <sys/imgact.h>
 #include <sys/imgact_elf.h>
+#include <sys/jail.h>
+#include <sys/ktr.h>
+#include <sys/libkern.h>
 #include <sys/lock.h>
-#include <sys/mutex.h>
-#include <sys/sysent.h>
-#include <sys/syslimits.h>
-#include <sys/stat.h>
+#include <sys/sx.h>
 #include <sys/pax.h>
 #include <sys/proc.h>
-#include <sys/elf_common.h>
-#include <sys/mount.h>
+#include <sys/stat.h>
 #include <sys/sysctl.h>
-#include <sys/vnode.h>
-#include <sys/queue.h>
-#include <sys/libkern.h>
-#include <sys/jail.h>
-#include <sys/mman.h>
-#include <sys/libkern.h>
-#include <sys/exec.h>
-#include <sys/kthread.h>
 
-#include <vm/pmap.h>
-#include <vm/vm_map.h>
-#include <vm/vm_extern.h>
-
-#include <machine/elf.h>
 
 FEATURE(pax_hardening, "Various hardening features.");
 
