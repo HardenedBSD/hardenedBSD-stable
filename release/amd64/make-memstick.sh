@@ -29,7 +29,7 @@ if [ -e ${2} ]; then
 fi
 
 echo '/dev/ufs/HardenedBSD_Install / ufs ro,noatime 1 1' > ${1}/etc/fstab
-makefs -B little -o label=HardenedBSD_Install ${2}.part ${1}
+makefs -B little -o label=HardenedBSD_Install,version=2 ${2}.part ${1}
 if [ $? -ne 0 ]; then
 	echo "makefs failed"
 	exit 1
