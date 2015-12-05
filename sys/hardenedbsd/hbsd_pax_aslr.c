@@ -1116,8 +1116,10 @@ pax_aslr_setup_flags(struct image_params *imgp, uint32_t mode)
 	flags = 0;
 	status = 0;
 
+	PROC_LOCK(imgp->proc);
 	pr = pax_get_prison(imgp->proc);
 	status = pr->pr_hardening.hr_pax_aslr_status;
+	PROC_UNLOCK(imgp->proc);
 
 	if (status == PAX_FEATURE_DISABLED) {
 		flags &= ~PAX_NOTE_ASLR;
@@ -1270,8 +1272,10 @@ pax_disallow_map32bit_setup_flags(struct image_params *imgp, uint32_t mode)
 	flags = 0;
 	status = 0;
 
+	PROC_LOCK(imgp->proc);
 	pr = pax_get_prison(imgp->proc);
 	status = pr->pr_hardening.hr_pax_disallow_map32bit_status;
+	PROC_UNLOCK(imgp->proc);
 
 	if (status == PAX_FEATURE_DISABLED) {
 		flags &= ~PAX_NOTE_DISALLOWMAP32BIT;
