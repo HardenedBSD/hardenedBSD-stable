@@ -242,8 +242,10 @@ pax_pageexec_setup_flags(struct image_params *imgp, u_int mode)
 	flags = 0;
 	status = 0;
 
+	PROC_LOCK(imgp->proc);
 	pr = pax_get_prison(imgp->proc);
 	status = pr->pr_hardening.hr_pax_pageexec_status;
+	PROC_UNLOCK(imgp->proc);
 
 	if (status == PAX_FEATURE_DISABLED) {
 		flags &= ~PAX_NOTE_PAGEEXEC;
@@ -365,8 +367,10 @@ pax_mprotect_setup_flags(struct image_params *imgp, u_int mode)
 	flags = 0;
 	status = 0;
 
+	PROC_LOCK(imgp->proc);
 	pr = pax_get_prison(imgp->proc);
 	status = pr->pr_hardening.hr_pax_mprotect_status;
+	PROC_UNLOCK(imgp->proc);
 
 	if (status == PAX_FEATURE_DISABLED) {
 		flags &= ~PAX_NOTE_MPROTECT;

@@ -181,15 +181,19 @@ pax_procfs_harden(struct thread *td)
 uint32_t
 pax_hardening_setup_flags(struct image_params *imgp, uint32_t mode)
 {
+#if 0
 	struct prison *pr;
+#endif
 	uint32_t flags, status;
 
 	flags = 0;
 	status = 0;
 
-	pr = pax_get_prison(imgp->proc);
 #if 0
+	PROC_LOCK(imgp->proc);
+	pr = pax_get_prison(imgp->proc);
 	status = pr->pr_hardening.hr_pax_FOO_status;
+	PROC_UNLOCK(imgp->proc);
 
 	if (status == PAX_FEATURE_DISABLED) {
 		flags &= ~PAX_NOTE_FOO;

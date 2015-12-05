@@ -290,8 +290,10 @@ pax_segvguard_setup_flags(struct image_params *imgp, uint32_t mode)
 	flags = 0;
 	status = 0;
 
+	PROC_LOCK(imgp->proc);
 	pr = pax_get_prison(imgp->proc);
 	status = pr->pr_hardening.hr_pax_segvguard_status;
+	PROC_UNLOCK(imgp->proc);
 
 	if (status == PAX_FEATURE_DISABLED) {
 		flags &= ~PAX_NOTE_SEGVGUARD;
@@ -349,8 +351,10 @@ pax_segvguard_update_flags_if_setuid(struct image_params *imgp, struct vnode *vn
 
 	ret = 0;
 
+	PROC_LOCK(imgp->proc);
 	pr = pax_get_prison(imgp->proc);
 	status = pr->pr_hardening.hr_pax_segvguard_status;
+	PROC_UNLOCK(imgp->proc);
 
 	if (status == PAX_FEATURE_OPTIN) {
 		uint32_t flags;
