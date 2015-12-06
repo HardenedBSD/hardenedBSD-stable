@@ -1,3 +1,13 @@
+[20151206] rework internal structures
+__HardenedBSD_version = 36
+
+	Change pax_get_prison(...) to pax_get_prison_td(...) where possible.
+	Change noexec's sysctl handlers.
+	Fix one segvguard related issue.
+	Fix randompid related issue.
+	Changed pax_elf signature.
+
+
 [20151123] changed proc structure : added p_timekeep_base
 __HardenedBSD_version = 35
 
