@@ -511,11 +511,6 @@ interpret:
 		error = (*execsw[i]->ex_imgact)(imgp);
 	}
 
-#ifdef PAX_SEGVGUARD
-	if (!error)
-		error = pax_segvguard_check(td, imgp->vp, args->fname);
-#endif
-
 	if (error) {
 		if (error == -1) {
 			if (textset == 0)
@@ -524,6 +519,12 @@ interpret:
 		}
 		goto exec_fail_dealloc;
 	}
+
+#ifdef PAX_SEGVGUARD
+	error = pax_segvguard_check(td, imgp->vp, args->fname);
+	if (error)
+		goto exec_fail_dealloc;
+#endif
 
 	/*
 	 * Special interpreter operation, cleanup and loop up to try to
