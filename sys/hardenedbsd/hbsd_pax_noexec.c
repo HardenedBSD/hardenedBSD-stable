@@ -97,7 +97,7 @@ sysctl_pax_pageexec_status(SYSCTL_HANDLER_ARGS)
 	struct prison *pr;
 	int err, val;
 
-	pr = pax_get_prison(req->td->td_proc);
+	pr = pax_get_prison_td(req->td);
 
 	val = pr->pr_hardening.hr_pax_pageexec_status;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
@@ -145,7 +145,7 @@ sysctl_pax_mprotect_status(SYSCTL_HANDLER_ARGS)
 	struct prison *pr;
 	int err, val;
 
-	pr = pax_get_prison(req->td->td_proc);
+	pr = pax_get_prison_td(req->td);
 
 	val = pr->pr_hardening.hr_pax_mprotect_status;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
