@@ -167,8 +167,6 @@ int pax_segvguard_check(struct thread *, struct vnode *, const char *);
 int pax_segvguard_segfault(struct thread *, const char *);
 void pax_segvguard_remove(struct thread *td, struct vnode *vn);
 uint32_t pax_segvguard_setup_flags(struct image_params *imgp, uint32_t mode);
-int pax_segvguard_update_flags_if_setuid(struct image_params *imgp,
-    struct vnode *vn);
 
 /*
  * PAX PAGEEXEC and MPROTECT hardening
