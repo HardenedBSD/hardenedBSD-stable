@@ -168,7 +168,7 @@ pax_check_conflicting_modes(uint32_t mode)
  * 			0 on success
  */
 int
-pax_elf(struct image_params *imgp, uint32_t mode)
+pax_elf(struct image_params *imgp, struct thread *td, uint32_t mode)
 {
 	uint32_t flags;
 
@@ -194,23 +194,23 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 	flags = 0;
 
 #ifdef PAX_ASLR
-	flags |= pax_aslr_setup_flags(imgp, mode);
+	flags |= pax_aslr_setup_flags(imgp, td, mode);
 #ifdef MAP_32BIT
-	flags |= pax_disallow_map32bit_setup_flags(imgp, mode);
+	flags |= pax_disallow_map32bit_setup_flags(imgp, td, mode);
 #endif
 #endif
 
 #ifdef PAX_NOEXEC
-	flags |= pax_pageexec_setup_flags(imgp, mode);
-	flags |= pax_mprotect_setup_flags(imgp, mode);
+	flags |= pax_pageexec_setup_flags(imgp, td, mode);
+	flags |= pax_mprotect_setup_flags(imgp, td, mode);
 #endif
 
 #ifdef PAX_SEGVGUARD
-	flags |= pax_segvguard_setup_flags(imgp, mode);
+	flags |= pax_segvguard_setup_flags(imgp, td, mode);
 #endif
 
 #ifdef PAX_HARDENING
-	flags |= pax_hardening_setup_flags(imgp, mode);
+	flags |= pax_hardening_setup_flags(imgp, td, mode);
 #endif
 
 	CTR3(KTR_PAX, "%s : flags = %x mode = %x",

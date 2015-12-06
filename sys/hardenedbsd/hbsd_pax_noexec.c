@@ -234,18 +234,19 @@ pax_noexec_init_prison(struct prison *pr)
 }
 
 u_int
-pax_pageexec_setup_flags(struct image_params *imgp, u_int mode)
+pax_pageexec_setup_flags(struct image_params *imgp, struct thread *td, uint32_t mode)
 {
 	struct prison *pr;
 	u_int flags, status;
 
+	KASSERT(imgp->proc == td->td_proc,
+	    ("%s: imgp->proc != td->td_proc", __func__));
+
 	flags = 0;
 	status = 0;
 
-	PROC_LOCK(imgp->proc);
-	pr = pax_get_prison(imgp->proc);
+	pr = pax_get_prison_td(td);
 	status = pr->pr_hardening.hr_pax_pageexec_status;
-	PROC_UNLOCK(imgp->proc);
 
 	if (status == PAX_FEATURE_DISABLED) {
 		flags &= ~PAX_NOTE_PAGEEXEC;
@@ -359,7 +360,7 @@ pax_mprotect_active(struct proc *p)
 }
 
 u_int
-pax_mprotect_setup_flags(struct image_params *imgp, u_int mode)
+pax_mprotect_setup_flags(struct image_params *imgp, struct thread *td, uint32_t mode)
 {
 	struct prison *pr;
 	u_int flags, status;
@@ -367,10 +368,8 @@ pax_mprotect_setup_flags(struct image_params *imgp, u_int mode)
 	flags = 0;
 	status = 0;
 
-	PROC_LOCK(imgp->proc);
-	pr = pax_get_prison(imgp->proc);
+	pr = pax_get_prison_td(td);
 	status = pr->pr_hardening.hr_pax_mprotect_status;
-	PROC_UNLOCK(imgp->proc);
 
 	if (status == PAX_FEATURE_DISABLED) {
 		flags &= ~PAX_NOTE_MPROTECT;
