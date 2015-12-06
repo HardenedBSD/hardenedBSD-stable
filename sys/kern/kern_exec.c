@@ -455,13 +455,6 @@ interpret:
 		goto exec_fail_dealloc;
 #endif
 
-#ifdef PAX_SEGVGUARD
-	/*
-	 * XXXOP: check return value
-	 */
-	(void)pax_segvguard_update_flags_if_setuid(imgp, imgp->vp);
-#endif
-
 	/*
 	 * Check file permissions (also 'opens' file)
 	 */
