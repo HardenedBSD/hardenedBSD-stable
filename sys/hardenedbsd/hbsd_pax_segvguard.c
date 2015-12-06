@@ -317,9 +317,7 @@ pax_segvguard_setup_flags(struct image_params *imgp, struct thread *td, uint32_t
 		 * If the program has setuid, enforce the
 		 * segvguard.
 		 */
-		PROC_LOCK(imgp->proc);
 		ret = VOP_GETATTR(imgp->vp, &vap, imgp->proc->p_ucred);
-		PROC_UNLOCK(imgp->proc);
 		if (ret != 0 ||
 		    (vap.va_mode & (S_ISUID | S_ISGID)) != 0 ||
 		    (mode & PAX_NOTE_SEGVGUARD)) {
