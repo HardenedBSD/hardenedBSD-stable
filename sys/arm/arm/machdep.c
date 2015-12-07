@@ -84,6 +84,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/sysent.h>
 #include <sys/sysproto.h>
 #include <sys/uio.h>
+#include <sys/vdso.h>
 
 #include <vm/vm.h>
 #include <vm/pmap.h>
@@ -273,6 +274,7 @@ sendsig(catcher, ksi, mask)
 	struct trapframe *tf;
 	struct sigframe *fp, frame;
 	struct sigacts *psp;
+	struct sysentvec *sysent;
 	int onstack;
 	int sig;
 	int code;
@@ -339,8 +341,17 @@ sendsig(catcher, ksi, mask)
 	tf->tf_r5 = (register_t)&fp->sf_uc;
 	tf->tf_pc = (register_t)catcher;
 	tf->tf_usr_sp = (register_t)fp;
+<<<<<<< HEAD
 	tf->tf_usr_lr = (register_t)(p->p_psstrings -
 	    *(p->p_sysent->sv_szsigcode));
+=======
+	sysent = p->p_sysent;
+	if (sysent->sv_sigcode_base != 0)
+		tf->tf_usr_lr = (register_t)sysent->sv_sigcode_base;
+	else
+		tf->tf_usr_lr = (register_t)(sysent->sv_psstrings -
+		    *(sysent->sv_szsigcode));
+>>>>>>> origin/master
 	/* Set the mode to enter in the signal handler */
 #if __ARM_ARCH >= 7
 	if ((register_t)catcher & 1)
@@ -1913,3 +1924,14 @@ initarm(struct arm_boot_params *abp)
 
 #endif /* !ARM_NEW_PMAP */
 #endif /* FDT */
+
+uint32_t (*arm_cpu_fill_vdso_timehands)(struct vdso_timehands *,
+    struct timecounter *);
+
+uint32_t
+cpu_fill_vdso_timehands(struct vdso_timehands *vdso_th, struct timecounter *tc)
+{
+
+	return (arm_cpu_fill_vdso_timehands != NULL ?
+	    arm_cpu_fill_vdso_timehands(vdso_th, tc) : 0);
+}

@@ -1,6 +1,5 @@
 /*-
- * Copyright (c) 1995 Bruce D. Evans.
- * All rights reserved.
+ * Copyright (c) 2013-2015, Mellanox Technologies, Ltd.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,14 +9,11 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. Neither the name of the author nor the names of contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+ * THIS SOFTWARE IS PROVIDED BY AUTHOR AND CONTRIBUTORS `AS IS' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL AUTHOR OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
  * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
@@ -26,29 +22,25 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *	from: FreeBSD: src/sys/i386/include/md_var.h,v 1.40 2001/07/12
  * $FreeBSD$
  */
 
-#ifndef	_MACHINE_MD_VAR_H_
-#define	_MACHINE_MD_VAR_H_
+#ifndef MLX5_ESWITCH_VACL_TABLE_H
+#define MLX5_ESWITCH_VACL_TABLE_H
 
-extern long Maxmem;
-extern char sigcode[];
-extern int szsigcode;
-extern uint64_t *vm_page_dump;
-extern int vm_page_dump_size;
+#include <dev/mlx5/driver.h>
 
-struct dumperinfo;
+void *mlx5_vacl_table_create(struct mlx5_core_dev *dev,
+			     u16 vport, bool is_egress);
+void mlx5_vacl_table_cleanup(void *acl_t);
+int mlx5_vacl_table_add_vlan(void *acl_t, u16 vlan);
+void mlx5_vacl_table_del_vlan(void *acl_t, u16 vlan);
+int mlx5_vacl_table_enable_vlan_filter(void *acl_t);
+void mlx5_vacl_table_disable_vlan_filter(void *acl_t);
+int mlx5_vacl_table_drop_untagged(void *acl_t);
+int mlx5_vacl_table_allow_untagged(void *acl_t);
+int mlx5_vacl_table_drop_unknown_vlan(void *acl_t);
+int mlx5_vacl_table_allow_unknown_vlan(void *acl_t);
+int mlx5_vacl_table_set_spoofchk(void *acl_t, bool spoofchk, u8 *vport_mac);
 
-void busdma_swi(void);
-void dump_add_page(vm_paddr_t);
-void dump_drop_page(vm_paddr_t);
-int minidumpsys(struct dumperinfo *);
-
-struct vdso_timehands;
-struct timecounter;
-extern uint32_t (*arm_cpu_fill_vdso_timehands)(struct vdso_timehands *,
-    struct timecounter *);
-
-#endif /* !_MACHINE_MD_VAR_H_ */
+#endif /* MLX5_ESWITCH_VACL_TABLE_H */
