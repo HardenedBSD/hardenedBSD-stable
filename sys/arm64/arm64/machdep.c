@@ -566,16 +566,12 @@ sendsig(sig_t catcher, ksiginfo_t *ksi, sigset_t *mask)
 
 	tf->tf_elr = (register_t)catcher;
 	tf->tf_sp = (register_t)fp;
-<<<<<<< HEAD
-	tf->tf_lr = (register_t)(p->p_psstrings - *(p->p_sysent->sv_szsigcode));
-=======
 	sysent = p->p_sysent;
 	if (sysent->sv_sigcode_base != 0)
-		tf->tf_lr = (register_t)sysent->sv_sigcode_base;
+		tf->tf_lr = (register_t)p->p_sigcode_base;
 	else
-		tf->tf_lr = (register_t)(sysent->sv_psstrings -
+		tf->tf_lr = (register_t)(p->p_psstrings -
 		    *(sysent->sv_szsigcode));
->>>>>>> origin/master
 
 	CTR3(KTR_SIG, "sendsig: return td=%p pc=%#x sp=%#x", td, tf->tf_elr,
 	    tf->tf_sp);
