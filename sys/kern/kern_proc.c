@@ -1563,17 +1563,10 @@ get_proc_vector32(struct thread *td, struct proc *p, char ***proc_vectorp,
 	size_t vsize, size;
 	int i, error;
 
-<<<<<<< HEAD
-	error = proc_read_mem(td, p, (vm_offset_t)(p->p_psstrings),
-	    &pss, sizeof(pss));
-	if (error != 0)
-		return (error);
-=======
 	error = 0;
-	if (proc_readmem(td, p, (vm_offset_t)p->p_sysent->sv_psstrings, &pss,
+	if (proc_readmem(td, p, (vm_offset_t)p->p_psstrings, &pss,
 	    sizeof(pss)) != sizeof(pss))
 		return (ENOMEM);
->>>>>>> origin/master
 	switch (type) {
 	case PROC_ARG:
 		vptr = (vm_offset_t)PTRIN(pss.ps_argvstr);
@@ -1647,16 +1640,9 @@ get_proc_vector(struct thread *td, struct proc *p, char ***proc_vectorp,
 	if (SV_PROC_FLAG(p, SV_ILP32) != 0)
 		return (get_proc_vector32(td, p, proc_vectorp, vsizep, type));
 #endif
-<<<<<<< HEAD
-	error = proc_read_mem(td, p, (vm_offset_t)(p->p_psstrings),
-	    &pss, sizeof(pss));
-	if (error != 0)
-		return (error);
-=======
-	if (proc_readmem(td, p, (vm_offset_t)p->p_sysent->sv_psstrings, &pss,
+	if (proc_readmem(td, p, (vm_offset_t)p->p_psstrings, &pss,
 	    sizeof(pss)) != sizeof(pss))
 		return (ENOMEM);
->>>>>>> origin/master
 	switch (type) {
 	case PROC_ARG:
 		vptr = (vm_offset_t)pss.ps_argvstr;
