@@ -50,6 +50,9 @@ __FBSDID("$FreeBSD$");
 #include <sys/stat.h>
 #include <sys/sysctl.h>
 
+
+static void pax_set_flags(struct proc *p, const uint32_t flags);
+static void pax_set_flags_td(struct thread *td, const uint32_t flags);
 static int pax_validate_flags(uint32_t flags);
 static int pax_check_conflicting_modes(uint32_t mode);
 
@@ -136,6 +139,23 @@ pax_get_flags_td(struct thread *td, uint32_t *flags)
 {
 
 	*flags = td->td_pax;
+}
+
+void
+pax_set_flags(struct proc *p, const uint32_t flags)
+{
+
+	KASSERT(curthread->td_proc == p,
+	    ("%s: curthread->td_proc != p", __func__));
+
+	p->p_pax = flags;
+}
+
+void
+pax_set_flags_td(struct thread *td, const uint32_t flags)
+{
+
+	td->td_pax = flags;
 }
 
 static int
@@ -242,7 +262,8 @@ pax_elf(struct image_params *imgp, struct thread *td, uint32_t mode)
 		return (ENOEXEC);
 	}
 
-	imgp->proc->p_pax = flags;
+	pax_set_flags(imgp->proc, flags);
+	pax_set_flags_td(curthread, flags);
 
 	/*
 	 * if we enable/disable features with secadm, print out a warning
