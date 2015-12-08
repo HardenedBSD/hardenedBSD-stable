@@ -403,6 +403,16 @@ do_execve(td, args, mac_p)
 	imgp->attr = &attr;
 	imgp->args = args;
 
+#ifdef PAX
+	PROC_LOCK(imgp->proc);
+	error = pax_elf(imgp, 0);
+	if (error) {
+		PROC_UNLOCK(imgp->proc);
+		goto exec_fail;
+	}
+	PROC_UNLOCK(imgp->proc);
+#endif
+
 #ifdef MAC
 	error = mac_execve_enter(imgp, mac_p);
 	if (error)
@@ -457,10 +467,15 @@ interpret:
 		imgp->vp = newtextvp;
 	}
 
-#ifdef PAX
-	error = pax_elf(imgp, td, 0);
+#ifdef PAX_SEGVGUARD
+	/*
+	 * XXXOP: check return value
+	 */
+	(void)pax_segvguard_update_flags_if_setuid(imgp, imgp->vp);
+#if 0
 	if (error)
 		goto exec_fail_dealloc;
+#endif
 #endif
 
 	/*
