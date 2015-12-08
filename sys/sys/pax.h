@@ -89,7 +89,7 @@ extern const char *pax_status_simple_str[];
 /*
  * generic pax functions
  */
-int pax_elf(struct image_params *imgp, struct thread *td, uint32_t mode);
+int pax_elf(struct image_params *, uint32_t);
 void pax_get_flags(struct proc *p, uint32_t *flags);
 void pax_get_flags_td(struct thread *td, uint32_t *flags);
 struct prison *pax_get_prison(struct proc *p);
@@ -118,11 +118,11 @@ void pax_aslr_mmap(struct proc *p, vm_offset_t *addr,
 void pax_aslr_mmap_map_32bit(struct proc *p, vm_offset_t *addr, 
     vm_offset_t orig_addr, int flags);
 void pax_aslr_rtld(struct proc *p, vm_offset_t *addr);
-uint32_t pax_aslr_setup_flags(struct image_params *imgp, struct thread *td, uint32_t mode);
+uint32_t pax_aslr_setup_flags(struct image_params *imgp, uint32_t mode);
 void pax_aslr_stack(struct proc *p, vm_offset_t *addr);
 void pax_aslr_stack_with_gap(struct proc *p, vm_offset_t *addr);
 void pax_aslr_vdso(struct proc *p, vm_offset_t *addr);
-uint32_t pax_disallow_map32bit_setup_flags(struct image_params *imgp, struct thread *td, uint32_t mode);
+uint32_t pax_disallow_map32bit_setup_flags(struct image_params *imgp, uint32_t mode);
 
 /*
  * Log related functions
@@ -166,7 +166,9 @@ void pax_segvguard_init_prison(struct prison *pr);
 int pax_segvguard_check(struct thread *, struct vnode *, const char *);
 int pax_segvguard_segfault(struct thread *, const char *);
 void pax_segvguard_remove(struct thread *td, struct vnode *vn);
-uint32_t pax_segvguard_setup_flags(struct image_params *imgp, struct thread *td, uint32_t mode);
+uint32_t pax_segvguard_setup_flags(struct image_params *imgp, uint32_t mode);
+int pax_segvguard_update_flags_if_setuid(struct image_params *imgp,
+    struct vnode *vn);
 
 /*
  * PAX PAGEEXEC and MPROTECT hardening
@@ -180,8 +182,8 @@ void pax_noexec_nw(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot);
 void pax_noexec_nx(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot);
 int pax_pageexec_active(struct proc *p);
 int pax_mprotect_active(struct proc *p);
-u_int pax_pageexec_setup_flags(struct image_params *imgp, struct thread *td, uint32_t mode);
-u_int pax_mprotect_setup_flags(struct image_params *imgp, struct thread *td, uint32_t mode);
+u_int pax_pageexec_setup_flags(struct image_params *imgp, u_int mode);
+u_int pax_mprotect_setup_flags(struct image_params *imgp, u_int mode);
 void pax_pageexec(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot);
 void pax_mprotect(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot);
 int pax_mprotect_enforce(struct proc *p, vm_prot_t old_prot, vm_prot_t new_prot);
@@ -197,7 +199,8 @@ void pax_hardening_init_prison(struct prison *pr);
 int pax_disallow_map32bit_active(struct thread *td, int flags);
 int pax_mprotect_exec_harden(struct thread *td);
 int pax_procfs_harden(struct thread *td);
-uint32_t pax_hardening_setup_flags(struct image_params *imgp, struct thread *td, uint32_t mode);
+uint32_t pax_hardening_setup_flags(struct image_params *imgp,
+    uint32_t mode);
 
 /*
  * ptrace hardening related functions
