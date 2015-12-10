@@ -50,12 +50,7 @@ static efx_mcdi_ops_t	__efx_mcdi_siena_ops = {
 	siena_mcdi_request_copyout,	/* emco_request_copyout */
 	siena_mcdi_poll_reboot,		/* emco_poll_reboot */
 	siena_mcdi_fini,		/* emco_fini */
-	siena_mcdi_fw_update_supported,	/* emco_fw_update_supported */
-	siena_mcdi_macaddr_change_supported,
-					/* emco_macaddr_change_supported */
-	siena_mcdi_link_control_supported,
-					/* emco_link_control_supported */
-	NULL,				/* emco_mac_spoofing_supported */
+	siena_mcdi_feature_supported,	/* emco_feature_supported */
 	siena_mcdi_read_response,	/* emco_read_response */
 };
 
@@ -70,13 +65,7 @@ static efx_mcdi_ops_t	__efx_mcdi_hunt_ops = {
 	hunt_mcdi_request_copyout,	/* emco_request_copyout */
 	hunt_mcdi_poll_reboot,		/* emco_poll_reboot */
 	hunt_mcdi_fini,			/* emco_fini */
-	hunt_mcdi_fw_update_supported,	/* emco_fw_update_supported */
-	hunt_mcdi_macaddr_change_supported,
-					/* emco_macaddr_change_supported */
-	hunt_mcdi_link_control_supported,
-					/* emco_link_control_supported */
-	hunt_mcdi_mac_spoofing_supported,
-					/* emco_mac_spoofing_supported */
+	hunt_mcdi_feature_supported,	/* emco_feature_supported */
 	hunt_mcdi_read_response,	/* emco_read_response */
 };
 
@@ -302,6 +291,21 @@ efx_mcdi_read_response_header(
 		emrp->emr_err_code = err_code;
 		emrp->emr_err_arg = err_arg;
 
+#if EFSYS_OPT_MCDI_PROXY_AUTH
+		if ((err_code == MC_CMD_ERR_PROXY_PENDING) &&
+		    (err_len == sizeof (err))) {
+			/*
+			 * The MCDI request would normally fail with EPERM, but
+			 * firmware has forwarded it to an authorization agent
+			 * attached to a privileged PF.
+			 *
+			 * Save the authorization request handle. The client
+			 * must wait for a PROXY_RESPONSE event, or timeout.
+			 */
+			emrp->emr_proxy_handle = err_arg;
+		}
+#endif /* EFSYS_OPT_MCDI_PROXY_AUTH */
+
 #if EFSYS_OPT_MCDI_LOGGING
 		if (emtp->emt_logger != NULL) {
 			emtp->emt_logger(emtp->emt_context,
@@ -322,6 +326,9 @@ efx_mcdi_read_response_header(
 
 	emrp->emr_rc = 0;
 	emrp->emr_out_length_used = data_len;
+#if EFSYS_OPT_MCDI_PROXY_AUTH
+	emrp->emr_proxy_handle = 0;
+#endif /* EFSYS_OPT_MCDI_PROXY_AUTH */
 	return;
 
 fail3:
@@ -463,6 +470,9 @@ efx_mcdi_request_errcode(
 	case MC_CMD_ERR_MAC_EXIST:
 		return (EEXIST);
 
+	case MC_CMD_ERR_PROXY_PENDING:
+		return (EAGAIN);
+
 	default:
 		EFSYS_PROBE1(mc_pcol_error, int, err);
 		return (EIO);
@@ -543,6 +553,7 @@ efx_mcdi_ev_cpl(
 	efx_mcdi_iface_t *emip = &(enp->en_mcdi.em_emip);
 	const efx_mcdi_transport_t *emtp = enp->en_mcdi.em_emtp;
 	efx_mcdi_ops_t *emcop = enp->en_mcdi.em_emcop;
+	efx_nic_cfg_t *encp = &enp->en_nic_cfg;
 	efx_mcdi_req_t *emrp;
 	int state;
 
@@ -567,25 +578,85 @@ efx_mcdi_ev_cpl(
 	emip->emi_pending_req = NULL;
 	EFSYS_UNLOCK(enp->en_eslp, state);
 
-	/*
-	 * Fill out the remaining hdr fields, and copyout the payload
-	 * if the user supplied an output buffer.
-	 */
-	if (errcode != 0) {
-		if (!emrp->emr_quiet) {
-			EFSYS_PROBE2(mcdi_err, int, emrp->emr_cmd,
-			    int, errcode);
-		}
-		emrp->emr_out_length_used = 0;
-		emrp->emr_rc = efx_mcdi_request_errcode(errcode);
+	if (encp->enc_mcdi_max_payload_length > MCDI_CTL_SDU_LEN_MAX_V1) {
+		/* MCDIv2 response details do not fit into an event. */
+		efx_mcdi_read_response_header(enp, emrp);
 	} else {
-		emrp->emr_out_length_used = outlen;
-		emrp->emr_rc = 0;
+		if (errcode != 0) {
+			if (!emrp->emr_quiet) {
+				EFSYS_PROBE2(mcdi_err, int, emrp->emr_cmd,
+				    int, errcode);
+			}
+			emrp->emr_out_length_used = 0;
+			emrp->emr_rc = efx_mcdi_request_errcode(errcode);
+		} else {
+			emrp->emr_out_length_used = outlen;
+			emrp->emr_rc = 0;
+		}
 	}
-	emcop->emco_request_copyout(enp, emrp);
+	if (errcode == 0) {
+		emcop->emco_request_copyout(enp, emrp);
+	}
 
 	emtp->emt_ev_cpl(emtp->emt_context);
 }
+
+#if EFSYS_OPT_MCDI_PROXY_AUTH
+
+	__checkReturn	efx_rc_t
+efx_mcdi_get_proxy_handle(
+	__in		efx_nic_t *enp,
+	__in		efx_mcdi_req_t *emrp,
+	__out		uint32_t *handlep)
+{
+	efx_mcdi_iface_t *emip = &(enp->en_mcdi.em_emip);
+	efx_rc_t rc;
+
+	/*
+	 * Return proxy handle from MCDI request that returned with error
+	 * MC_MCD_ERR_PROXY_PENDING. This handle is used to wait for a matching
+	 * PROXY_RESPONSE event.
+	 */
+	if ((emrp == NULL) || (handlep == NULL)) {
+		rc = EINVAL;
+		goto fail1;
+	}
+	if ((emrp->emr_rc != 0) &&
+	    (emrp->emr_err_code == MC_CMD_ERR_PROXY_PENDING)) {
+		*handlep = emrp->emr_proxy_handle;
+		rc = 0;
+	} else {
+		*handlep = 0;
+		rc = ENOENT;
+	}
+	return (rc);
+
+fail1:
+	EFSYS_PROBE1(fail1, efx_rc_t, rc);
+	return (rc);
+}
+
+			void
+efx_mcdi_ev_proxy_response(
+	__in		efx_nic_t *enp,
+	__in		unsigned int handle,
+	__in		unsigned int status)
+{
+	const efx_mcdi_transport_t *emtp = enp->en_mcdi.em_emtp;
+	efx_rc_t rc;
+
+	/*
+	 * Handle results of an authorization request for a privileged MCDI
+	 * command. If authorization was granted then we must re-issue the
+	 * original MCDI request. If authorization failed or timed out,
+	 * then the original MCDI request should be completed with the
+	 * result code from this event.
+	 */
+	rc = (status == 0) ? 0 : efx_mcdi_request_errcode(status);
+
+	emtp->emt_ev_proxy_response(emtp->emt_context, handle, rc);
+}
+#endif /* EFSYS_OPT_MCDI_PROXY_AUTH */
 
 			void
 efx_mcdi_ev_death(
@@ -1234,7 +1305,6 @@ fail1:
 	return (rc);
 }
 
-
 	__checkReturn		efx_rc_t
 efx_mcdi_firmware_update_supported(
 	__in			efx_nic_t *enp,
@@ -1243,9 +1313,9 @@ efx_mcdi_firmware_update_supported(
 	efx_mcdi_ops_t *emcop = enp->en_mcdi.em_emcop;
 	efx_rc_t rc;
 
-	if (emcop != NULL && emcop->emco_fw_update_supported != NULL) {
-		if ((rc = emcop->emco_fw_update_supported(enp, supportedp))
-		    != 0)
+	if (emcop != NULL) {
+		if ((rc = emcop->emco_feature_supported(enp,
+			    EFX_MCDI_FEATURE_FW_UPDATE, supportedp)) != 0)
 			goto fail1;
 	} else {
 		/* Earlier devices always supported updates */
@@ -1268,9 +1338,9 @@ efx_mcdi_macaddr_change_supported(
 	efx_mcdi_ops_t *emcop = enp->en_mcdi.em_emcop;
 	efx_rc_t rc;
 
-	if (emcop != NULL && emcop->emco_macaddr_change_supported != NULL) {
-		if ((rc = emcop->emco_macaddr_change_supported(enp, supportedp))
-		    != 0)
+	if (emcop != NULL) {
+		if ((rc = emcop->emco_feature_supported(enp,
+			    EFX_MCDI_FEATURE_MACADDR_CHANGE, supportedp)) != 0)
 			goto fail1;
 	} else {
 		/* Earlier devices always supported MAC changes */
@@ -1293,9 +1363,9 @@ efx_mcdi_link_control_supported(
 	efx_mcdi_ops_t *emcop = enp->en_mcdi.em_emcop;
 	efx_rc_t rc;
 
-	if (emcop != NULL && emcop->emco_link_control_supported != NULL) {
-		if ((rc = emcop->emco_link_control_supported(enp, supportedp))
-		    != 0)
+	if (emcop != NULL) {
+		if ((rc = emcop->emco_feature_supported(enp,
+			    EFX_MCDI_FEATURE_LINK_CONTROL, supportedp)) != 0)
 			goto fail1;
 	} else {
 		/* Earlier devices always supported link control */
@@ -1318,9 +1388,9 @@ efx_mcdi_mac_spoofing_supported(
 	efx_mcdi_ops_t *emcop = enp->en_mcdi.em_emcop;
 	efx_rc_t rc;
 
-	if (emcop != NULL && emcop->emco_mac_spoofing_supported != NULL) {
-		if ((rc = emcop->emco_mac_spoofing_supported(enp, supportedp))
-		    != 0)
+	if (emcop != NULL) {
+		if ((rc = emcop->emco_feature_supported(enp,
+			    EFX_MCDI_FEATURE_MAC_SPOOFING, supportedp)) != 0)
 			goto fail1;
 	} else {
 		/* Earlier devices always supported MAC spoofing */
