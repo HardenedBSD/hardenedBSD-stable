@@ -1,3 +1,10 @@
+[20151208] revert the reworked internal structures
+__HardenedBSD_version = 37
+
+	revert: Change pax_get_prison(...) to pax_get_prison_td(...) where possible.
+	revert: Changed pax_elf signature.
+
+
 [20151206] rework internal structures
 __HardenedBSD_version = 36
 
