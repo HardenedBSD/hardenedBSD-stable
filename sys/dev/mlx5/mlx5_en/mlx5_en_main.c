@@ -1324,13 +1324,25 @@ static int
 mlx5e_open_tx_cqs(struct mlx5e_channel *c,
     struct mlx5e_channel_param *cparam)
 {
+	u8 tx_moderation_mode;
 	int err;
 	int tc;
 
+	switch (c->priv->params.tx_cq_moderation_mode) {
+	case 0:
+		tx_moderation_mode = MLX5_CQ_PERIOD_MODE_START_FROM_EQE;
+		break;
+	default:
+		if (MLX5_CAP_GEN(c->priv->mdev, cq_period_start_from_cqe))
+			tx_moderation_mode = MLX5_CQ_PERIOD_MODE_START_FROM_CQE;
+		else
+			tx_moderation_mode = MLX5_CQ_PERIOD_MODE_START_FROM_EQE;
+		break;
+	}
 	for (tc = 0; tc < c->num_tc; tc++) {
 		/* open completion queue */
 		err = mlx5e_open_cq(c, &cparam->tx_cq, &c->sq[tc].cq,
-		    &mlx5e_tx_cq_comp, MLX5_CQ_PERIOD_MODE_START_FROM_EQE);
+		    &mlx5e_tx_cq_comp, tx_moderation_mode);
 		if (err)
 			goto err_close_tx_cqs;
 	}
@@ -2005,32 +2017,15 @@ mlx5e_set_dev_port_mtu(struct ifnet *ifp, int sw_mtu)
 	struct mlx5e_priv *priv = ifp->if_softc;
 	struct mlx5_core_dev *mdev = priv->mdev;
 	int hw_mtu;
-	int min_mtu;
 	int err;
 
-	/*
-	 * Trying to set MTU to zero, in order
-	 * to find out the FW's minimal MTU
-	 */
-	err = mlx5_set_port_mtu(mdev, 0);
-	if (err)
-		return (err);
-
-	err = mlx5_query_port_oper_mtu(mdev, &min_mtu);
-	if (err) {
-		if_printf(ifp, "Query port minimal MTU failed\n");
-		return (err);
-	}
-
-	if (sw_mtu < MLX5E_HW2SW_MTU(min_mtu)) {
-		ifp->if_mtu = sw_mtu;
-		return (0);
-	}
 
 	err = mlx5_set_port_mtu(mdev, MLX5E_SW2HW_MTU(sw_mtu));
-	if (err)
+	if (err) {
+		if_printf(ifp, "%s: mlx5_set_port_mtu failed setting %d, err=%d\n",
+		    __func__, sw_mtu, err);
 		return (err);
-
+	}
 	err = mlx5_query_port_oper_mtu(mdev, &hw_mtu);
 	if (!err) {
 		ifp->if_mtu = MLX5E_HW2SW_MTU(hw_mtu);
