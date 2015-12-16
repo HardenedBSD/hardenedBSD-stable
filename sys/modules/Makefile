@@ -341,6 +341,7 @@ SUBDIR=	\
 	${_syscons} \
 	sysvipc \
 	${_ti} \
+	tcp/fastpath \
 	tests/framework \
 	tests/callout_test \
 	tl \
