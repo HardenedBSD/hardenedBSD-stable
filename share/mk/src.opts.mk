@@ -179,8 +179,11 @@ __DEFAULT_NO_OPTIONS = \
     EISA \
     FREEBSD_UPDATE \
     HESIOD \
+<<<<<<< HEAD
     LIB32 \
     LLDB \
+=======
+>>>>>>> origin/master
     NAND \
     OFED \
     OPENLDAP \
@@ -239,6 +242,11 @@ __DEFAULT_NO_OPTIONS+=ELFCOPY_AS_OBJCOPY
 BROKEN_OPTIONS+=PROFILE # "sorry, unimplemented: profiler support for RISC-V"
 BROKEN_OPTIONS+=TESTS   # "undefined reference to `_Unwind_Resume'"
 BROKEN_OPTIONS+=CXX     # "libcxxrt.so: undefined reference to `_Unwind_Resume_or_Rethrow'"
+.endif
+.if ${__T} == "aarch64" || ${__T} == "amd64"
+__DEFAULT_YES_OPTIONS+=LLDB
+.else
+__DEFAULT_NO_OPTIONS+=LLDB
 .endif
 # LLVM lacks support for FreeBSD 64-bit atomic operations for ARMv4/ARMv5
 .if ${__T} == "arm" || ${__T} == "armeb"
