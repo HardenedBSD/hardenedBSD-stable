@@ -38,16 +38,13 @@ struct rlimit;
 struct sysent;
 struct thread;
 struct ksiginfo;
-<<<<<<< HEAD
 struct proc;
-=======
 struct syscall_args;
 
 enum systrace_probe_t {
 	SYSTRACE_ENTRY,
 	SYSTRACE_RETURN,
 };
->>>>>>> origin/master
 
 typedef	int	sy_call_t(struct thread *, void *);
 
