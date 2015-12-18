@@ -99,6 +99,15 @@ __FBSDID("$FreeBSD$");
  * 	| MAX   | 21 bit | 42 bit | 21 bit |
  * 	+-------+--------+--------+--------+
  *
+ *  	MAP32BIT| 32 bit | 64 bit | compat |
+ * 	+-------+--------+--------+--------+
+ * 	| MIN	|  N.A.  |  8 bit |  N.A.  |
+ * 	+-------+--------+--------+--------+
+ * 	| DEF	|  N.A.  | 24 bit |  N.A.  |
+ * 	+-------+--------+--------+--------+
+ * 	| MAX   |  N.A.  | 27 bit |  N.A.  |
+ * 	+-------+--------+--------+--------+
+ *
  */
 #ifndef PAX_ASLR_DELTA_MMAP_LSB
 #define PAX_ASLR_DELTA_MMAP_LSB		PAGE_SHIFT
@@ -136,6 +145,12 @@ __FBSDID("$FreeBSD$");
 #define PAX_ASLR_DELTA_VDSO_LSB		PAGE_SHIFT
 #endif /* PAX_ASLR_DELTA_VDSO_LSB */
 
+#ifdef MAP_32BIT
+#ifndef PAX_ASLR_DELTA_MAP32BIT_LSB
+#define	PAX_ASLR_DELTA_MAP32BIT_LSB	PAGE_SHIFT
+#endif /* PAX_ASLR_DELTA_MAP32BIT_LSB */
+#endif /* MAP_32BIT */
+
 #ifndef PAX_ASLR_DELTA_EXEC_MIN_LEN
 #define PAX_ASLR_DELTA_EXEC_MIN_LEN	((sizeof(void *) * NBBY) / 4)
 #endif /* PAX_ASLR_DELTA_EXEC_MIN_LEN */
@@ -151,6 +166,16 @@ __FBSDID("$FreeBSD$");
 #ifndef PAX_ASLR_DELTA_VDSO_MAX_LEN
 #define PAX_ASLR_DELTA_VDSO_MAX_LEN	(((sizeof(void *) * NBBY) * 2) / 3)
 #endif /* PAX_ASLR_DELTA_VDSO_MAX_LEN */
+
+#ifdef MAP_32BIT
+#ifndef PAX_ASLR_DELTA_MAP32BIT_MIN_LEN
+#define PAX_ASLR_DELTA_MAP32BIT_MIN_LEN	((sizeof(int) * NBBY) / 4)
+#endif /* PAX_ASLR_DELTA_MAP32BIT_MIN_LEN */
+
+#ifndef PAX_ASLR_DELTA_MAP32BIT_MAX_LEN
+#define PAX_ASLR_DELTA_MAP32BIT_MAX_LEN	(((sizeof(int) * NBBY) * 6) / 7)
+#endif /* PAX_ASLR_DELTA_VDSO_MAX_LEN */
+#endif /* MAP_32BIT */
 
 /*
  * ASLR default values for native host
@@ -168,6 +193,11 @@ __FBSDID("$FreeBSD$");
 #ifndef PAX_ASLR_DELTA_VDSO_DEF_LEN
 #define PAX_ASLR_DELTA_VDSO_DEF_LEN	28
 #endif /* PAX_ASLR_DELTA_VDSO_DEF_LEN */
+#ifdef MAP_32BIT
+#ifndef	PAX_ASLR_DELTA_MAP32BIT_DEF_LEN
+#define	PAX_ASLR_DELTA_MAP32BIT_DEF_LEN	24
+#endif /* PAX_ASLR_DELTA_MAP32BIT_DEF_LEN */
+#endif /* MAP_32BIT */
 #else /* ! __LP64__ */
 #ifndef PAX_ASLR_DELTA_MMAP_DEF_LEN
 #define PAX_ASLR_DELTA_MMAP_DEF_LEN	14
@@ -243,10 +273,13 @@ static int pax_aslr_mmap_len = PAX_ASLR_DELTA_MMAP_DEF_LEN;
 static int pax_aslr_stack_len = PAX_ASLR_DELTA_STACK_DEF_LEN;
 static int pax_aslr_exec_len = PAX_ASLR_DELTA_EXEC_DEF_LEN;
 static int pax_aslr_vdso_len = PAX_ASLR_DELTA_VDSO_DEF_LEN;
+#ifdef MAP_32BIT
+static int pax_aslr_map32bit_len = PAX_ASLR_DELTA_MAP32BIT_DEF_LEN;
 #ifdef PAX_HARDENING
 static int pax_disallow_map32bit_status_global = PAX_FEATURE_OPTOUT;
 #else
 static int pax_disallow_map32bit_status_global = PAX_FEATURE_OPTIN;
+#endif
 #endif
 
 #ifdef COMPAT_FREEBSD32
@@ -262,6 +295,10 @@ TUNABLE_INT("hardening.pax.aslr.mmap_len", &pax_aslr_mmap_len);
 TUNABLE_INT("hardening.pax.aslr.stack_len", &pax_aslr_stack_len);
 TUNABLE_INT("hardening.pax.aslr.exec_len", &pax_aslr_exec_len);
 TUNABLE_INT("hardening.pax.aslr.vdso_len", &pax_aslr_vdso_len);
+#ifdef MAP_32BIT
+TUNABLE_INT("hardening.pax.aslr.map32bit_len", &pax_aslr_map32bit_len);
+TUNABLE_INT("hardening.pax.disallow_map32bit.status", &pax_disallow_map32bit_status_global);
+#endif
 #ifdef COMPAT_FREEBSD32
 TUNABLE_INT("hardening.pax.aslr.compat.status", &pax_aslr_compat_status);
 TUNABLE_INT("hardening.pax.aslr.compat.mmap_len", &pax_aslr_compat_mmap_len);
@@ -269,7 +306,6 @@ TUNABLE_INT("hardening.pax.aslr.compat.stack_len", &pax_aslr_compat_stack_len);
 TUNABLE_INT("hardening.pax.aslr.compat.exec_len", &pax_aslr_compat_exec_len);
 TUNABLE_INT("hardening.pax.aslr.compat.vdso_len", &pax_aslr_compat_vdso_len);
 #endif
-TUNABLE_INT("hardening.pax.disallow_map32bit.status", &pax_disallow_map32bit_status_global);
 
 #ifdef PAX_SYSCTLS
 SYSCTL_DECL(_hardening_pax);
@@ -282,7 +318,10 @@ static int sysctl_pax_aslr_mmap(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_stack(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_exec(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_aslr_vdso(SYSCTL_HANDLER_ARGS);
+#ifdef MAP_32BIT
+static int sysctl_pax_aslr_map32bit(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_disallow_map32bit(SYSCTL_HANDLER_ARGS);
+#endif
 
 SYSCTL_NODE(_hardening_pax, OID_AUTO, aslr, CTLFLAG_RD, 0,
     "Address Space Layout Randomization.");
@@ -319,6 +358,14 @@ SYSCTL_PROC(_hardening_pax_aslr, OID_AUTO, vdso_len,
     NULL, 0, sysctl_pax_aslr_vdso, "I",
     "Number of bits randomized for the VDSO base. "
     "32 bit: [8,21] 64 bit: [16,42]");
+
+#ifdef MAP_32BIT
+SYSCTL_PROC(_hardening_pax_aslr, OID_AUTO, map32bit_len,
+    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
+    NULL, 0, sysctl_pax_aslr_map32bit, "I",
+    "Number of bits randomized for the MAP_32BIT mmap. "
+    "32 bit: not exists 64 bit: [8,27]");
+#endif
 
 static int
 sysctl_pax_aslr_status(SYSCTL_HANDLER_ARGS)
@@ -449,6 +496,33 @@ sysctl_pax_aslr_vdso(SYSCTL_HANDLER_ARGS)
 
 	return (0);
 }
+
+#ifdef MAP_32BIT
+static int
+sysctl_pax_aslr_map32bit(SYSCTL_HANDLER_ARGS)
+{
+	struct prison *pr;
+	int err, val;
+
+	pr = pax_get_prison_td(req->td);
+
+	val = pr->pr_hardening.hr_pax_aslr_map32bit_len;
+	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
+	if (err || (req->newptr == NULL))
+		return (err);
+
+	if (val < PAX_ASLR_DELTA_MAP32BIT_MIN_LEN ||
+	    val > PAX_ASLR_DELTA_MAP32BIT_MAX_LEN)
+		return (EINVAL);
+
+	if (pr == &prison0)
+		pax_aslr_map32bit_len = val;
+
+	pr->pr_hardening.hr_pax_aslr_map32bit_len = val;
+
+	return (0);
+}
+#endif /* MAP_32BIT */
 
 /* COMPAT_FREEBSD32 and linuxulator. */
 #ifdef COMPAT_FREEBSD32
@@ -698,6 +772,9 @@ pax_aslr_sysinit(void)
 	printf("[HBSD ASLR] exec base: %d bit\n", pax_aslr_exec_len);
 	printf("[HBSD ASLR] stack: %d bit\n", pax_aslr_stack_len);
 	printf("[HBSD ASLR] vdso: %d bit\n", pax_aslr_vdso_len);
+#ifdef MAP_32BIT
+	printf("[HBSD ASLR] map32bit: %d bit\n", pax_aslr_map32bit_len);
+#endif
 
 	switch (pax_disallow_map32bit_status_global) {
 	case PAX_FEATURE_DISABLED:
@@ -806,6 +883,13 @@ try_again:
 	}
 	vm->vm_aslr_delta_vdso = rand_buf;
 
+#ifdef MAP_32BIT
+	arc4rand(&rand_buf, sizeof(rand_buf), 0);
+	vm->vm_aslr_delta_map32bit = PAX_ASLR_DELTA(rand_buf,
+	    PAX_ASLR_DELTA_MAP32BIT_LSB,
+	    pr->pr_hardening.hr_pax_aslr_map32bit_len);
+#endif
+
 	CTR2(KTR_PAX, "%s: vm_aslr_delta_mmap=%p\n",
 	    __func__, (void *)vm->vm_aslr_delta_mmap);
 	CTR2(KTR_PAX, "%s: vm_aslr_delta_stack=%p\n",
@@ -814,6 +898,10 @@ try_again:
 	    __func__, (void *)vm->vm_aslr_delta_exec);
 	CTR2(KTR_PAX, "%s: vm_aslr_delta_vdso=%p\n",
 	    __func__, (void *)vm->vm_aslr_delta_vdso);
+#ifdef MAP_32BIT
+	CTR2(KTR_PAX, "%s: vm_aslr_delta_map32bit=%p\n",
+	    __func__, (void *)vm->vm_aslr_delta_map32bit);
+#endif
 }
 
 #ifdef COMPAT_FREEBSD32
@@ -919,6 +1007,8 @@ pax_aslr_init_prison(struct prison *pr)
 		pr->pr_hardening.hr_pax_aslr_vdso_len =
 		    pax_aslr_vdso_len;
 #ifdef MAP_32BIT
+		pr->pr_hardening.hr_pax_aslr_map32bit_len =
+		    pax_aslr_map32bit_len;
 		pr->pr_hardening.hr_pax_disallow_map32bit_status =
 		    pax_disallow_map32bit_status_global;
 #endif
@@ -938,6 +1028,8 @@ pax_aslr_init_prison(struct prison *pr)
 		pr->pr_hardening.hr_pax_aslr_vdso_len =
 		    pr_p->pr_hardening.hr_pax_aslr_vdso_len;
 #ifdef MAP_32BIT
+		pr->pr_hardening.hr_pax_aslr_map32bit_len =
+		    pr_p->pr_hardening.hr_pax_aslr_map32bit_len;
 		pr->pr_hardening.hr_pax_disallow_map32bit_status =
 		    pr_p->pr_hardening.hr_pax_disallow_map32bit_status;
 #endif
@@ -1191,7 +1283,6 @@ pax_aslr_setup_flags(struct image_params *imgp, uint32_t mode)
 void
 pax_aslr_mmap_map_32bit(struct proc *p, vm_offset_t *addr, vm_offset_t orig_addr, int flags)
 {
-	int len_32bit;
 
 	PROC_LOCK_ASSERT(p, MA_OWNED);
 
@@ -1218,18 +1309,7 @@ pax_aslr_mmap_map_32bit(struct proc *p, vm_offset_t *addr, vm_offset_t orig_addr
 		CTR4(KTR_PAX, "%s: applying to %p orig_addr=%p flags=%x\n",
 				__func__, (void *)*addr, (void *)orig_addr, flags);
 
-#ifdef COMPAT_FREEBSD32
-		len_32bit = pax_aslr_compat_mmap_len;
-#else
-		len_32bit = PAX_ASLR_COMPAT_DELTA_MMAP_MAX_LEN;
-#endif
-		/*
-		 * XXXOP - use proper pregenerated randoms here, rather than generate
-		 * every time new random. Currently in MAP_32bit case is an ASR, and
-		 * not ASLR.
-		 */
-		*addr += PAX_ASLR_DELTA(arc4random(), PAX_ASLR_COMPAT_DELTA_MMAP_LSB,
-		    len_32bit);
+		*addr += p->p_vmspace->vm_aslr_delta_map32bit;
 		CTR2(KTR_PAX, "%s: result %p\n", __func__, (void *)*addr);
 	}
 }
