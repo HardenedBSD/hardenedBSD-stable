@@ -114,35 +114,35 @@ __FBSDID("$FreeBSD$");
 #endif /* PAX_ASLR_DELTA_MMAP_LSB */
 
 #ifndef PAX_ASLR_DELTA_MMAP_MIN_LEN
-#define PAX_ASLR_DELTA_MMAP_MIN_LEN	((sizeof(void *) * NBBY) / 4)
+#define	PAX_ASLR_DELTA_MMAP_MIN_LEN	((sizeof(void *) * NBBY) / 4)
 #endif /* PAX_ASLR_DELTA_MMAP_MAX_LEN */
 
 #ifndef PAX_ASLR_DELTA_MMAP_MAX_LEN
-#define PAX_ASLR_DELTA_MMAP_MAX_LEN	(((sizeof(void *) * NBBY) * 2) / 3)
+#define	PAX_ASLR_DELTA_MMAP_MAX_LEN	(((sizeof(void *) * NBBY) * 2) / 3)
 #endif /* PAX_ASLR_DELTA_MMAP_MAX_LEN */
 
 #ifndef PAX_ASLR_DELTA_STACK_LSB
-#define PAX_ASLR_DELTA_STACK_LSB	PAGE_SHIFT
+#define	PAX_ASLR_DELTA_STACK_LSB	PAGE_SHIFT
 #endif /* PAX_ASLR_DELTA_STACK_LSB */
 
 #ifndef PAX_ASLR_DELTA_STACK_WITH_GAP_LSB
-#define PAX_ASLR_DELTA_STACK_WITH_GAP_LSB	3
+#define	PAX_ASLR_DELTA_STACK_WITH_GAP_LSB	3
 #endif /* PAX_ASLR_DELTA_STACK_WITH_GAP_LSB */
 
 #ifndef PAX_ASLR_DELTA_STACK_MIN_LEN
-#define PAX_ASLR_DELTA_STACK_MIN_LEN	((sizeof(void *) * NBBY) / 4)
+#define	PAX_ASLR_DELTA_STACK_MIN_LEN	((sizeof(void *) * NBBY) / 4)
 #endif /* PAX_ASLR_DELTA_STACK_MAX_LEN */
 
 #ifndef PAX_ASLR_DELTA_STACK_MAX_LEN
-#define PAX_ASLR_DELTA_STACK_MAX_LEN	(((sizeof(void *) * NBBY) * 2) / 3)
+#define	PAX_ASLR_DELTA_STACK_MAX_LEN	(((sizeof(void *) * NBBY) * 2) / 3)
 #endif /* PAX_ASLR_DELTA_STACK_MAX_LEN */
 
 #ifndef PAX_ASLR_DELTA_EXEC_LSB
-#define PAX_ASLR_DELTA_EXEC_LSB		PAGE_SHIFT
+#define	PAX_ASLR_DELTA_EXEC_LSB		PAGE_SHIFT
 #endif /* PAX_ASLR_DELTA_EXEC_LSB */
 
 #ifndef PAX_ASLR_DELTA_VDSO_LSB
-#define PAX_ASLR_DELTA_VDSO_LSB		PAGE_SHIFT
+#define	PAX_ASLR_DELTA_VDSO_LSB		PAGE_SHIFT
 #endif /* PAX_ASLR_DELTA_VDSO_LSB */
 
 #ifdef MAP_32BIT
@@ -152,28 +152,28 @@ __FBSDID("$FreeBSD$");
 #endif /* MAP_32BIT */
 
 #ifndef PAX_ASLR_DELTA_EXEC_MIN_LEN
-#define PAX_ASLR_DELTA_EXEC_MIN_LEN	((sizeof(void *) * NBBY) / 4)
+#define	PAX_ASLR_DELTA_EXEC_MIN_LEN	((sizeof(void *) * NBBY) / 4)
 #endif /* PAX_ASLR_DELTA_EXEC_MIN_LEN */
 
 #ifndef PAX_ASLR_DELTA_EXEC_MAX_LEN
-#define PAX_ASLR_DELTA_EXEC_MAX_LEN	(((sizeof(void *) * NBBY) * 2) / 3)
+#define	PAX_ASLR_DELTA_EXEC_MAX_LEN	(((sizeof(void *) * NBBY) * 2) / 3)
 #endif /* PAX_ASLR_DELTA_EXEC_MAX_LEN */
 
 #ifndef PAX_ASLR_DELTA_VDSO_MIN_LEN
-#define PAX_ASLR_DELTA_VDSO_MIN_LEN	((sizeof(void *) * NBBY) / 4)
+#define	PAX_ASLR_DELTA_VDSO_MIN_LEN	((sizeof(void *) * NBBY) / 4)
 #endif /* PAX_ASLR_DELTA_VDSO_MIN_LEN */
 
 #ifndef PAX_ASLR_DELTA_VDSO_MAX_LEN
-#define PAX_ASLR_DELTA_VDSO_MAX_LEN	(((sizeof(void *) * NBBY) * 2) / 3)
+#define	PAX_ASLR_DELTA_VDSO_MAX_LEN	(((sizeof(void *) * NBBY) * 2) / 3)
 #endif /* PAX_ASLR_DELTA_VDSO_MAX_LEN */
 
 #ifdef MAP_32BIT
 #ifndef PAX_ASLR_DELTA_MAP32BIT_MIN_LEN
-#define PAX_ASLR_DELTA_MAP32BIT_MIN_LEN	((sizeof(int) * NBBY) / 4)
+#define	PAX_ASLR_DELTA_MAP32BIT_MIN_LEN	((sizeof(int) * NBBY) / 4)
 #endif /* PAX_ASLR_DELTA_MAP32BIT_MIN_LEN */
 
 #ifndef PAX_ASLR_DELTA_MAP32BIT_MAX_LEN
-#define PAX_ASLR_DELTA_MAP32BIT_MAX_LEN	(((sizeof(int) * NBBY) * 6) / 7)
+#define	PAX_ASLR_DELTA_MAP32BIT_MAX_LEN	(((sizeof(int) * NBBY) * 6) / 7)
 #endif /* PAX_ASLR_DELTA_VDSO_MAX_LEN */
 #endif /* MAP_32BIT */
 
@@ -182,34 +182,34 @@ __FBSDID("$FreeBSD$");
  */
 #ifdef __LP64__
 #ifndef PAX_ASLR_DELTA_MMAP_DEF_LEN
-#define PAX_ASLR_DELTA_MMAP_DEF_LEN	30
+#define	PAX_ASLR_DELTA_MMAP_DEF_LEN	30
 #endif /* PAX_ASLR_DELTA_MMAP_DEF_LEN */
 #ifndef PAX_ASLR_DELTA_STACK_DEF_LEN
-#define PAX_ASLR_DELTA_STACK_DEF_LEN	42
+#define	PAX_ASLR_DELTA_STACK_DEF_LEN	42
 #endif /* PAX_ASLR_DELTA_STACK_DEF_LEN */
 #ifndef PAX_ASLR_DELTA_EXEC_DEF_LEN
-#define PAX_ASLR_DELTA_EXEC_DEF_LEN	30
+#define	PAX_ASLR_DELTA_EXEC_DEF_LEN	30
 #endif /* PAX_ASLR_DELTA_EXEC_DEF_LEN */
 #ifndef PAX_ASLR_DELTA_VDSO_DEF_LEN
-#define PAX_ASLR_DELTA_VDSO_DEF_LEN	28
+#define	PAX_ASLR_DELTA_VDSO_DEF_LEN	28
 #endif /* PAX_ASLR_DELTA_VDSO_DEF_LEN */
 #ifdef MAP_32BIT
-#ifndef	PAX_ASLR_DELTA_MAP32BIT_DEF_LEN
+#ifndef PAX_ASLR_DELTA_MAP32BIT_DEF_LEN
 #define	PAX_ASLR_DELTA_MAP32BIT_DEF_LEN	24
 #endif /* PAX_ASLR_DELTA_MAP32BIT_DEF_LEN */
 #endif /* MAP_32BIT */
 #else /* ! __LP64__ */
 #ifndef PAX_ASLR_DELTA_MMAP_DEF_LEN
-#define PAX_ASLR_DELTA_MMAP_DEF_LEN	14
+#define	PAX_ASLR_DELTA_MMAP_DEF_LEN	14
 #endif /* PAX_ASLR_DELTA_MMAP_DEF_LEN */
 #ifndef PAX_ASLR_DELTA_STACK_DEF_LEN
-#define PAX_ASLR_DELTA_STACK_DEF_LEN	14
+#define	PAX_ASLR_DELTA_STACK_DEF_LEN	14
 #endif /* PAX_ASLR_DELTA_STACK_DEF_LEN */
 #ifndef PAX_ASLR_DELTA_EXEC_DEF_LEN
-#define PAX_ASLR_DELTA_EXEC_DEF_LEN	14
+#define	PAX_ASLR_DELTA_EXEC_DEF_LEN	14
 #endif /* PAX_ASLR_DELTA_EXEC_DEF_LEN */
 #ifndef PAX_ASLR_DELTA_VDSO_DEF_LEN
-#define PAX_ASLR_DELTA_VDSO_DEF_LEN	10
+#define	PAX_ASLR_DELTA_VDSO_DEF_LEN	10
 #endif /* PAX_ASLR_DELTA_VDSO_DEF_LEN */
 #endif /* __LP64__ */
 
@@ -774,7 +774,6 @@ pax_aslr_sysinit(void)
 	printf("[HBSD ASLR] vdso: %d bit\n", pax_aslr_vdso_len);
 #ifdef MAP_32BIT
 	printf("[HBSD ASLR] map32bit: %d bit\n", pax_aslr_map32bit_len);
-#endif
 
 	switch (pax_disallow_map32bit_status_global) {
 	case PAX_FEATURE_DISABLED:
@@ -790,6 +789,7 @@ pax_aslr_sysinit(void)
 	}
 	printf("[HBSD ASLR] disallow MAP_32BIT mode mmap: %s\n",
 	    pax_status_str[pax_disallow_map32bit_status_global]);
+#endif
 }
 SYSINIT(pax_aslr, SI_SUB_PAX, SI_ORDER_SECOND, pax_aslr_sysinit, NULL);
 
