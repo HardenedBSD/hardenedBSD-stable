@@ -1,3 +1,13 @@
+[20151218] reworked MAP_32BIT mmap randomization
+__HardenedBSD_version = 38
+
+	Previously the MAP_32BIT case mmap randomization was an ASR,
+	to fix this and some other issue with the MAP_32BIT related
+	mmap, implement a proper ASLR.
+
+	Upstream fixed stability issues with higher order PID randomization
+
+
 [20151208] revert the reworked internal structures
 __HardenedBSD_version = 37
 
