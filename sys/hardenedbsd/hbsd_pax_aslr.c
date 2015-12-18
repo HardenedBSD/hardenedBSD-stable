@@ -1200,15 +1200,18 @@ pax_aslr_vdso(struct proc *p, vm_offset_t *addr)
 }
 
 uint32_t
-pax_aslr_setup_flags(struct image_params *imgp, uint32_t mode)
+pax_aslr_setup_flags(struct image_params *imgp, struct thread *td, uint32_t mode)
 {
 	struct prison *pr;
 	uint32_t flags, status;
 
+	KASSERT(imgp->proc == td->td_proc,
+	    ("%s: imgp->proc != td->td_proc", __func__));
+
 	flags = 0;
 	status = 0;
 
-	pr = pax_get_prison(imgp->proc);
+	pr = pax_get_prison_td(td);
 	status = pr->pr_hardening.hr_pax_aslr_status;
 
 	if (status == PAX_FEATURE_DISABLED) {
@@ -1244,7 +1247,6 @@ pax_aslr_setup_flags(struct image_params *imgp, uint32_t mode)
 			flags &= ~PAX_NOTE_SHLIBRANDOM;
 			flags |= PAX_NOTE_NOSHLIBRANDOM;
 		}
-
 
 		return (flags);
 	}
@@ -1326,8 +1328,7 @@ pax_disallow_map32bit_active(struct thread *td, int mmap_flags)
 		 */
 		return (false);
 
-	/* XXXOP: pax_get_flags_td(...) here? */
-	pax_get_flags(td->td_proc, &flags);
+	pax_get_flags_td(td, &flags);
 
 	CTR3(KTR_PAX, "%S: pid = %d p_pax = %x",
 	    __func__, td->td_proc->p_pid, flags);
@@ -1342,15 +1343,18 @@ pax_disallow_map32bit_active(struct thread *td, int mmap_flags)
 }
 
 uint32_t
-pax_disallow_map32bit_setup_flags(struct image_params *imgp, uint32_t mode)
+pax_disallow_map32bit_setup_flags(struct image_params *imgp, struct thread *td, uint32_t mode)
 {
 	struct prison *pr;
 	uint32_t flags, status;
 
+	KASSERT(imgp->proc == td->td_proc,
+	    ("%s: imgp->proc != td->td_proc", __func__));
+
 	flags = 0;
 	status = 0;
 
-	pr = pax_get_prison(imgp->proc);
+	pr = pax_get_prison_td(td);
 	status = pr->pr_hardening.hr_pax_disallow_map32bit_status;
 
 	if (status == PAX_FEATURE_DISABLED) {

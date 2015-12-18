@@ -50,6 +50,9 @@ __FBSDID("$FreeBSD$");
 #include <sys/stat.h>
 #include <sys/sysctl.h>
 
+
+static void pax_set_flags(struct proc *p, const uint32_t flags);
+static void pax_set_flags_td(struct thread *td, const uint32_t flags);
 static int pax_validate_flags(uint32_t flags);
 static int pax_check_conflicting_modes(uint32_t mode);
 
@@ -96,13 +99,12 @@ struct prison *
 pax_get_prison(struct proc *p)
 {
 
-	/* p can be NULL with kernel threads, so use prison0. */
-	if (p == NULL || p->p_ucred == NULL)
-		return (&prison0);
+	KASSERT(p != NULL, ("%s: p == NULL", __func__));
 
-#if 0
 	PROC_LOCK_ASSERT(p, MA_OWNED);
-#endif
+
+	if (p->p_ucred == NULL)
+		return (&prison0);
 
 	return (p->p_ucred->cr_prison);
 }
@@ -139,6 +141,23 @@ pax_get_flags_td(struct thread *td, uint32_t *flags)
 	*flags = td->td_pax;
 }
 
+void
+pax_set_flags(struct proc *p, const uint32_t flags)
+{
+
+	KASSERT(curthread->td_proc == p,
+	    ("%s: curthread->td_proc != p", __func__));
+
+	p->p_pax = flags;
+}
+
+void
+pax_set_flags_td(struct thread *td, const uint32_t flags)
+{
+
+	td->td_pax = flags;
+}
+
 static int
 pax_validate_flags(uint32_t flags)
 {
@@ -169,7 +188,7 @@ pax_check_conflicting_modes(uint32_t mode)
  * 			0 on success
  */
 int
-pax_elf(struct image_params *imgp, uint32_t mode)
+pax_elf(struct image_params *imgp, struct thread *td, uint32_t mode)
 {
 	uint32_t flags;
 
@@ -195,23 +214,23 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 	flags = 0;
 
 #ifdef PAX_ASLR
-	flags |= pax_aslr_setup_flags(imgp, mode);
+	flags |= pax_aslr_setup_flags(imgp, td, mode);
 #ifdef MAP_32BIT
-	flags |= pax_disallow_map32bit_setup_flags(imgp, mode);
+	flags |= pax_disallow_map32bit_setup_flags(imgp, td, mode);
 #endif
 #endif
 
 #ifdef PAX_NOEXEC
-	flags |= pax_pageexec_setup_flags(imgp, mode);
-	flags |= pax_mprotect_setup_flags(imgp, mode);
+	flags |= pax_pageexec_setup_flags(imgp, td, mode);
+	flags |= pax_mprotect_setup_flags(imgp, td, mode);
 #endif
 
 #ifdef PAX_SEGVGUARD
-	flags |= pax_segvguard_setup_flags(imgp, mode);
+	flags |= pax_segvguard_setup_flags(imgp, td, mode);
 #endif
 
 #ifdef PAX_HARDENING
-	flags |= pax_hardening_setup_flags(imgp, mode);
+	flags |= pax_hardening_setup_flags(imgp, td, mode);
 #endif
 
 	CTR3(KTR_PAX, "%s : flags = %x mode = %x",
@@ -243,7 +262,8 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 		return (ENOEXEC);
 	}
 
-	imgp->proc->p_pax = flags;
+	pax_set_flags(imgp->proc, flags);
+	pax_set_flags_td(curthread, flags);
 
 	/*
 	 * if we enable/disable features with secadm, print out a warning
