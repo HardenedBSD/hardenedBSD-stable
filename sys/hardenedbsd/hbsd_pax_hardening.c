@@ -251,7 +251,7 @@ pax_randomize_pids(void *dummy __unused)
 	if (pax_randomize_pids_global == PAX_FEATURE_SIMPLE_DISABLED)
 		return;
 
-	modulus = maxproc - 200;
+	modulus = pid_max - 200;
 
 	sx_xlock(&allproc_lock);
 	randompid = arc4random() % modulus + 100;
