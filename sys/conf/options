@@ -959,6 +959,7 @@ PAX_SEGVGUARD	opt_pax.h
 PAX_HARDENING	opt_pax.h
 PAX_NOEXEC	opt_pax.h
 PAX_INSECURE_MODE	opt_pax.h
+HBSD_DEBUG	opt_pax.h
 
 PAX_PTRACE_HARDENING	opt_pax.h
 PAX_PTRACE_HARDENING_GRP	opt_pax.h
