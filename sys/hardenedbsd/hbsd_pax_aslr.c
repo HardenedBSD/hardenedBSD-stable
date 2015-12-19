@@ -103,7 +103,7 @@ __FBSDID("$FreeBSD$");
  * 	+-------+--------+--------+--------+
  * 	| MIN	|  N.A.  |  8 bit |  N.A.  |
  * 	+-------+--------+--------+--------+
- * 	| DEF	|  N.A.  | 24 bit |  N.A.  |
+ * 	| DEF	|  N.A.  | 18 bit |  N.A.  |
  * 	+-------+--------+--------+--------+
  * 	| MAX   |  N.A.  | 27 bit |  N.A.  |
  * 	+-------+--------+--------+--------+
@@ -195,7 +195,7 @@ __FBSDID("$FreeBSD$");
 #endif /* PAX_ASLR_DELTA_VDSO_DEF_LEN */
 #ifdef MAP_32BIT
 #ifndef PAX_ASLR_DELTA_MAP32BIT_DEF_LEN
-#define	PAX_ASLR_DELTA_MAP32BIT_DEF_LEN	24
+#define	PAX_ASLR_DELTA_MAP32BIT_DEF_LEN	18
 #endif /* PAX_ASLR_DELTA_MAP32BIT_DEF_LEN */
 #endif /* MAP_32BIT */
 #else /* ! __LP64__ */
