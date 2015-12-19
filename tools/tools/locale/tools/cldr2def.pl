@@ -796,7 +796,7 @@ sub make_makefile {
 	print "Creating Makefile for $TYPE\n";
 	my $SRCOUT;
 	my $SRCOUT2;
-	my $SRCOUT3;
+	my $SRCOUT3 = "";
 	my $MAPLOC;
 	if ($TYPE eq "colldef") {
 		$SRCOUT = "localedef -D -U -i \${.IMPSRC} \\\n" .
@@ -808,7 +808,7 @@ sub make_makefile {
 	}
 	elsif ($TYPE eq "ctypedef") {
 		$SRCOUT = "localedef -D -U -c -w \${MAPLOC}/widths.txt \\\n" .
-			"\t-f \${MAPLOC}/map.\${.IMPSRC:T:R:C/^.*\\.//} " .
+			"\t-f \${MAPLOC}/map.\${.IMPSRC:T:R:E} " .
 			"\\\n\t-i \${.IMPSRC} \${.OBJDIR}/\${.IMPSRC:T:R} " .
 			" || true";
 		$SRCOUT2 = "LC_CTYPE";
