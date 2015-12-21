@@ -1,9 +1,6 @@
 /*-
- * Copyright (c) 2009 The FreeBSD Foundation
+ * Copyright (c) 2015 Oleksandr Tymoshenko <gonzo@freebsd.org>
  * All rights reserved.
- *
- * This software was developed by Semihalf under sponsorship from
- * the FreeBSD Foundation.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -17,7 +14,7 @@
  * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
  * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
@@ -29,19 +26,17 @@
  * $FreeBSD$
  */
 
-#ifndef _MACHINE_OFW_MACHDEP_H_
-#define _MACHINE_OFW_MACHDEP_H_
+#ifndef	IMX_IOMUXREG_H
+#define	IMX_IOMUXREG_H
 
-#include <sys/types.h>
-#include <sys/bus.h>
-#include <sys/rman.h>
-#include <vm/vm.h>
+#define	IOMUXC_GPR0	0x00
+#define	IOMUXC_GPR1	0x04
+#define	IOMUXC_GPR2	0x08
+#define	IOMUXC_GPR3	0x0C
+#define		IOMUXC_GPR3_HDMI_MASK		(3 << 2)
+#define		IOMUXC_GPR3_HDMI_IPU1_DI0	(0 << 2)
+#define		IOMUXC_GPR3_HDMI_IPU1_DI1	(1 << 2)
+#define		IOMUXC_GPR3_HDMI_IPU2_DI0	(2 << 2)
+#define		IOMUXC_GPR3_HDMI_IPU2_DI1	(3 << 2)
 
-typedef	uint32_t	cell_t;
-
-struct mem_region {
-	vm_offset_t	mr_start;
-	vm_size_t	mr_size;
-};
-
-#endif /* _MACHINE_OFW_MACHDEP_H_ */
+#endif
