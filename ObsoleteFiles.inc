@@ -38,13 +38,10 @@
 #   xargs -n1 | sort | uniq -d;
 # done
 
-<<<<<<< HEAD
-# 20151120: remove unused pkg repo public key
-OLD_FILES+=usr/share/keys/pkg/trusted/hardenedbsd.crt.2014-09-04
-=======
 # 20151222: liblzma header
 OLD_FILES+=usr/include/lzma/lzma.h
->>>>>>> origin/stable/10
+# 20151120: remove unused pkg repo public key
+OLD_FILES+=usr/share/keys/pkg/trusted/hardenedbsd.crt.2014-09-04
 # 20151115: added missing _test suffix on multiple tests in lib/libc
 OLD_FILES+=usr/tests/lib/libc/c063/faccessat
 OLD_FILES+=usr/tests/lib/libc/c063/fchmodat
