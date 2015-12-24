@@ -59,50 +59,71 @@ __FBSDID("$FreeBSD$");
 #include <dev/usb/usb_controller.h>
 #include <dev/usb/usb_bus.h>
 
-#include <dev/usb/controller/dwc_otg.h>
+#include <dev/usb/controller/ohci.h>
+
 #include <mips/rt305x/rt305xreg.h>
 #include <mips/rt305x/rt305x_sysctlvar.h>
 
-#define	MEM_RID	0
+#define OHCI_HC_DEVSTR	"Ralink integrated USB controller"
 
-static device_probe_t dotg_obio_probe;
-static device_attach_t dotg_obio_attach;
-static device_detach_t dotg_obio_detach;
+static device_probe_t ohci_obio_probe;
+static device_attach_t ohci_obio_attach;
+static device_detach_t ohci_obio_detach;
 
 static int
-dotg_obio_probe(device_t dev)
+ohci_obio_probe(device_t self)
 {
-	device_set_desc(dev, "DWC like USB OTG controller");
-	return (0);
+	device_set_desc(self, OHCI_HC_DEVSTR);
+
+	return (BUS_PROBE_DEFAULT);
 }
 
 static int
-dotg_obio_attach(device_t dev)
+ohci_obio_attach(device_t self)
 {
-	struct dwc_otg_softc *sc = device_get_softc(dev);
-	uint32_t tmp;
-	int err, rid;
+	ohci_softc_t *sc = device_get_softc(self);
+	uint32_t reg;
+	int err;
+	int rid;
 
 	/* setup controller interface softc */
+	reg = rt305x_sysctl_get(SYSCTL_SYSCFG1);
+	reg |= SYSCTL_SYSCFG1_USB0_HOST_MODE;
+	rt305x_sysctl_set(SYSCTL_SYSCFG1, reg);
+
+	reg = rt305x_sysctl_get(SYSCTL_CLKCFG1);
+	reg |= SYSCTL_CLKCFG1_UPHY0_CLK_EN;
+#ifdef MT7620
+	reg |= SYSCTL_CLKCFG1_UPHY1_CLK_EN;
+#endif
+	rt305x_sysctl_set(SYSCTL_CLKCFG1, reg);
+
+	reg = rt305x_sysctl_get(SYSCTL_RSTCTRL);
+	reg |= SYSCTL_RSTCTRL_UPHY0 | SYSCTL_RSTCTRL_UPHY1;
+	rt305x_sysctl_set(SYSCTL_RSTCTRL, reg);
+	reg &= ~(SYSCTL_RSTCTRL_UPHY0 | SYSCTL_RSTCTRL_UPHY1);
+	DELAY(100000);
+	rt305x_sysctl_set(SYSCTL_RSTCTRL, reg);
+	DELAY(100000);
 
 	/* initialise some bus fields */
-	sc->sc_mode = DWC_MODE_HOST;
-	sc->sc_bus.parent = dev;
+	sc->sc_bus.parent = self;
 	sc->sc_bus.devices = sc->sc_devices;
-	sc->sc_bus.devices_max = DWC_OTG_MAX_DEVICES;
+	sc->sc_bus.devices_max = OHCI_MAX_DEVICES;
 	sc->sc_bus.dma_bits = 32;
 
 	/* get all DMA memory */
 	if (usb_bus_mem_alloc_all(&sc->sc_bus,
-	    USB_GET_DMA_TAG(dev), NULL)) {
+	    USB_GET_DMA_TAG(self), &ohci_iterate_hw_softc)) {
 		printf("No mem\n");
 		return (ENOMEM);
 	}
+
 	rid = 0;
-	sc->sc_io_res =
-	    bus_alloc_resource_any(dev, SYS_RES_MEMORY, &rid, RF_ACTIVE);
-	if (!(sc->sc_io_res)) {
-		printf("Can`t alloc MEM\n");
+	sc->sc_io_res = bus_alloc_resource_any(self, SYS_RES_MEMORY, &rid,
+				RF_ACTIVE);
+	if (!sc->sc_io_res) {
+		device_printf(self, "Could not map memory\n");
 		goto error;
 	}
 	sc->sc_io_tag = rman_get_bustag(sc->sc_io_res);
@@ -110,115 +131,102 @@ dotg_obio_attach(device_t dev)
 	sc->sc_io_size = rman_get_size(sc->sc_io_res);
 
 	rid = 0;
-	sc->sc_irq_res = bus_alloc_resource_any(dev, SYS_RES_IRQ, 
-	    &rid, RF_ACTIVE);
-	if (!(sc->sc_irq_res)) {
-		printf("Can`t alloc IRQ\n");
+	sc->sc_irq_res = bus_alloc_resource_any(self, SYS_RES_IRQ, &rid,
+		RF_SHAREABLE | RF_ACTIVE);
+	if (sc->sc_irq_res == NULL) {
+		device_printf(self, "Could not allocate irq\n");
 		goto error;
 	}
 
-	sc->sc_bus.bdev = device_add_child(dev, "usbus", -1);
+	sc->sc_bus.bdev = device_add_child(self, "usbus", -1);
 	if (!(sc->sc_bus.bdev)) {
-		printf("Can`t add usbus\n");
+		device_printf(self, "Could not add USB device\n");
 		goto error;
 	}
 	device_set_ivars(sc->sc_bus.bdev, &sc->sc_bus);
+	device_set_desc(sc->sc_bus.bdev, OHCI_HC_DEVSTR);
 
-#if (__FreeBSD_version >= 700031)
-	err = bus_setup_intr(dev, sc->sc_irq_res,
-	    INTR_TYPE_TTY | INTR_MPSAFE, dwc_otg_filter_interrupt,
-	    dwc_otg_interrupt, sc, &sc->sc_intr_hdl);
-#else
-	#error error
-	err = bus_setup_intr(dev, sc->sc_irq_res,
-	    INTR_TYPE_BIO | INTR_MPSAFE,(driver_intr_t*)dwc_otg_interrupt,
-	    sc, &sc->sc_intr_hdl);
-#endif
+	sprintf(sc->sc_vendor, "Ralink");
+
+	err = bus_setup_intr(self, sc->sc_irq_res, INTR_TYPE_BIO | INTR_MPSAFE,
+		NULL, (driver_intr_t *)ohci_interrupt, sc, &sc->sc_intr_hdl);
 	if (err) {
+		device_printf(self, "Could not setup irq, %d\n", err);
 		sc->sc_intr_hdl = NULL;
-		printf("Can`t set IRQ handle\n");
 		goto error;
 	}
 
-	/* Run clock for OTG core */
-	rt305x_sysctl_set(SYSCTL_CLKCFG1, rt305x_sysctl_get(SYSCTL_CLKCFG1) | 
-	    SYSCTL_CLKCFG1_OTG_CLK_EN);
-	tmp = rt305x_sysctl_get(SYSCTL_RSTCTRL);
-	rt305x_sysctl_set(SYSCTL_RSTCTRL, tmp | SYSCTL_RSTCTRL_OTG);
-	DELAY(100);
-	/*
-	 * Docs say that RSTCTRL bits for RT305x are W1C, so there should
-	 * be no need for the below, but who really knows?
-	 */
-//	rt305x_sysctl_set(SYSCTL_RSTCTRL, tmp & ~SYSCTL_RSTCTRL_OTG);
-//	DELAY(100);
-
-	err = dwc_otg_init(sc);
-	if (err) printf("dotg_init fail\n");
+	err = ohci_init(sc);
 	if (!err) {
 		err = device_probe_and_attach(sc->sc_bus.bdev);
-		if (err) printf("device_probe_and_attach fail %d\n", err);
 	}
 	if (err) {
+		device_printf(self, "USB init failed err=%d\n", err);
 		goto error;
 	}
 	return (0);
 
 error:
-	dotg_obio_detach(dev);
+	ohci_obio_detach(self);
 	return (ENXIO);
 }
 
 static int
-dotg_obio_detach(device_t dev)
+ohci_obio_detach(device_t self)
 {
-	struct dwc_otg_softc *sc = device_get_softc(dev);
+	ohci_softc_t *sc = device_get_softc(self);
 	device_t bdev;
 	int err;
 
 	if (sc->sc_bus.bdev) {
 		bdev = sc->sc_bus.bdev;
 		device_detach(bdev);
-		device_delete_child(dev, bdev);
+		device_delete_child(self, bdev);
 	}
 	/* during module unload there are lots of children leftover */
-	device_delete_children(dev);
+	device_delete_children(self);
 
 	if (sc->sc_irq_res && sc->sc_intr_hdl) {
 		/*
-		 * only call dotg_obio_uninit() after dotg_obio_init()
+		 * only call ohci_detach() after ohci_init()
 		 */
-		dwc_otg_uninit(sc);
+		ohci_detach(sc);
 
-		/* Stop OTG clock */
+		/* Stop OHCI clock */
 		rt305x_sysctl_set(SYSCTL_CLKCFG1, 
-		    rt305x_sysctl_get(SYSCTL_CLKCFG1) & 
-		    ~SYSCTL_CLKCFG1_OTG_CLK_EN);
+		  rt305x_sysctl_get(SYSCTL_CLKCFG1) & 
+		  ~(SYSCTL_CLKCFG1_UPHY0_CLK_EN
+#ifdef MT7620
+		    | SYSCTL_CLKCFG1_UPHY1_CLK_EN
+#endif
+		));
 
-		err = bus_teardown_intr(dev, sc->sc_irq_res,
-		    sc->sc_intr_hdl);
+		err = bus_teardown_intr(self, sc->sc_irq_res, sc->sc_intr_hdl);
+		if (err)
+			device_printf(self, "Could not tear down irq, %d\n",
+				err);
 		sc->sc_intr_hdl = NULL;
 	}
 	if (sc->sc_irq_res) {
-		bus_release_resource(dev, SYS_RES_IRQ, 0,
+		bus_release_resource(self, SYS_RES_IRQ, 0,
 		    sc->sc_irq_res);
 		sc->sc_irq_res = NULL;
 	}
 	if (sc->sc_io_res) {
-		bus_release_resource(dev, SYS_RES_MEMORY, 0,
+		bus_release_resource(self, SYS_RES_MEMORY, 0,
 		    sc->sc_io_res);
 		sc->sc_io_res = NULL;
 	}
-	usb_bus_mem_free_all(&sc->sc_bus, NULL);
+	usb_bus_mem_free_all(&sc->sc_bus, &ohci_iterate_hw_softc);
 
 	return (0);
 }
 
-static device_method_t dotg_obio_methods[] = {
+static device_method_t ohci_obio_methods[] = {
 	/* Device interface */
-	DEVMETHOD(device_probe, dotg_obio_probe),
-	DEVMETHOD(device_attach, dotg_obio_attach),
-	DEVMETHOD(device_detach, dotg_obio_detach),
+	DEVMETHOD(device_probe, ohci_obio_probe),
+	DEVMETHOD(device_attach, ohci_obio_attach),
+	DEVMETHOD(device_detach, ohci_obio_detach),
 	DEVMETHOD(device_suspend, bus_generic_suspend),
 	DEVMETHOD(device_resume, bus_generic_resume),
 	DEVMETHOD(device_shutdown, bus_generic_shutdown),
@@ -226,12 +234,12 @@ static device_method_t dotg_obio_methods[] = {
 	DEVMETHOD_END
 };
 
-static driver_t dotg_obio_driver = {
-	.name = "dwcotg",
-	.methods = dotg_obio_methods,
-	.size = sizeof(struct dwc_otg_softc),
+static driver_t ohci_obio_driver = {
+	.name = "ohci",
+	.methods = ohci_obio_methods,
+	.size = sizeof(ohci_softc_t),
 };
 
-static devclass_t dotg_obio_devclass;
+static devclass_t ohci_obio_devclass;
 
-DRIVER_MODULE(dwcotg, obio, dotg_obio_driver, dotg_obio_devclass, 0, 0);
+DRIVER_MODULE(ohci, obio, ohci_obio_driver, ohci_obio_devclass, 0, 0);
