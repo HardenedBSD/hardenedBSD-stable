@@ -108,7 +108,7 @@ static void isp_fibre_init(ispsoftc_t *);
 static void isp_fibre_init_2400(ispsoftc_t *);
 static void isp_clear_portdb(ispsoftc_t *, int);
 static void isp_mark_portdb(ispsoftc_t *, int);
-static int isp_plogx(ispsoftc_t *, int, uint16_t, uint32_t, int, int);
+static int isp_plogx(ispsoftc_t *, int, uint16_t, uint32_t, int);
 static int isp_port_login(ispsoftc_t *, uint16_t, uint32_t);
 static int isp_port_logout(ispsoftc_t *, uint16_t, uint32_t);
 static int isp_getpdb(ispsoftc_t *, int, uint16_t, isp_pdb_t *, int);
@@ -2348,64 +2348,64 @@ static int
 isp_fc_enable_vp(ispsoftc_t *isp, int chan)
 {
 	fcparam *fcp = FCPARAM(isp, chan);
-	mbreg_t mbs;
-	vp_modify_t *vp;
-	uint8_t qe[QENTRY_LEN], *scp;
-
-	ISP_MEMZERO(qe, QENTRY_LEN);
-	if (FC_SCRATCH_ACQUIRE(isp, chan)) {
-		return (EBUSY);
-	}
-	scp = fcp->isp_scratch;
+	vp_modify_t vp;
+	void *reqp;
+	uint8_t resp[QENTRY_LEN];
 
 	/* Build a VP MODIFY command in memory */
-	vp = (vp_modify_t *) qe;
-	vp->vp_mod_hdr.rqs_entry_type = RQSTYPE_VP_MODIFY;
-	vp->vp_mod_hdr.rqs_entry_count = 1;
-	vp->vp_mod_cnt = 1;
-	vp->vp_mod_idx0 = chan;
-	vp->vp_mod_cmd = VP_MODIFY_ENA;
-	vp->vp_mod_ports[0].options = ICB2400_VPOPT_ENABLED |
+	ISP_MEMZERO(&vp, sizeof(vp));
+	vp.vp_mod_hdr.rqs_entry_type = RQSTYPE_VP_MODIFY;
+	vp.vp_mod_hdr.rqs_entry_count = 1;
+	vp.vp_mod_cnt = 1;
+	vp.vp_mod_idx0 = chan;
+	vp.vp_mod_cmd = VP_MODIFY_ENA;
+	vp.vp_mod_ports[0].options = ICB2400_VPOPT_ENABLED |
 	    ICB2400_VPOPT_ENA_SNSLOGIN;
-	if (fcp->role & ISP_ROLE_INITIATOR) {
-		vp->vp_mod_ports[0].options |= ICB2400_VPOPT_INI_ENABLE;
-	}
-	if ((fcp->role & ISP_ROLE_TARGET) == 0) {
-		vp->vp_mod_ports[0].options |= ICB2400_VPOPT_TGT_DISABLE;
-	}
+	if (fcp->role & ISP_ROLE_INITIATOR)
+		vp.vp_mod_ports[0].options |= ICB2400_VPOPT_INI_ENABLE;
+	if ((fcp->role & ISP_ROLE_TARGET) == 0)
+		vp.vp_mod_ports[0].options |= ICB2400_VPOPT_TGT_DISABLE;
 	if (fcp->isp_loopid < LOCAL_LOOP_LIM) {
-		vp->vp_mod_ports[0].loopid = fcp->isp_loopid;
+		vp.vp_mod_ports[0].loopid = fcp->isp_loopid;
 		if (isp->isp_confopts & ISP_CFG_OWNLOOPID)
-			vp->vp_mod_ports[0].options |=
-			    ICB2400_VPOPT_HARD_ADDRESS;
+			vp.vp_mod_ports[0].options |= ICB2400_VPOPT_HARD_ADDRESS;
 		else
-			vp->vp_mod_ports[0].options |=
-			    ICB2400_VPOPT_PREV_ADDRESS;
+			vp.vp_mod_ports[0].options |= ICB2400_VPOPT_PREV_ADDRESS;
 	}
-	MAKE_NODE_NAME_FROM_WWN(vp->vp_mod_ports[0].wwpn, fcp->isp_wwpn);
-	MAKE_NODE_NAME_FROM_WWN(vp->vp_mod_ports[0].wwnn, fcp->isp_wwnn);
-	isp_put_vp_modify(isp, vp, (vp_modify_t *) scp);
+	MAKE_NODE_NAME_FROM_WWN(vp.vp_mod_ports[0].wwpn, fcp->isp_wwpn);
+	MAKE_NODE_NAME_FROM_WWN(vp.vp_mod_ports[0].wwnn, fcp->isp_wwnn);
 
-	/* Build a EXEC IOCB A64 command that points to the VP MODIFY command */
-	MBSINIT(&mbs, MBOX_EXEC_COMMAND_IOCB_A64, MBLOGALL, 0);
-	mbs.param[1] = QENTRY_LEN;
-	mbs.param[2] = DMA_WD1(fcp->isp_scdma);
-	mbs.param[3] = DMA_WD0(fcp->isp_scdma);
-	mbs.param[6] = DMA_WD3(fcp->isp_scdma);
-	mbs.param[7] = DMA_WD2(fcp->isp_scdma);
-	MEMORYBARRIER(isp, SYNC_SFORDEV, 0, 2 * QENTRY_LEN, chan);
-	isp_control(isp, ISPCTL_RUN_MBOXCMD, &mbs);
-	if (mbs.param[0] != MBOX_COMMAND_COMPLETE) {
-		FC_SCRATCH_RELEASE(isp, chan);
+	/* Prepare space for response in memory */
+	memset(resp, 0xff, sizeof(resp));
+	vp.vp_mod_hdl = isp_allocate_handle(isp, resp, ISP_HANDLE_CTRL);
+	if (vp.vp_mod_hdl == 0) {
+		isp_prt(isp, ISP_LOGERR,
+		    "%s: VP_MODIFY of Chan %d out of handles", __func__, chan);
 		return (EIO);
 	}
-	MEMORYBARRIER(isp, SYNC_SFORCPU, QENTRY_LEN, QENTRY_LEN, chan);
-	isp_get_vp_modify(isp, (vp_modify_t *)&scp[QENTRY_LEN], vp);
 
-	FC_SCRATCH_RELEASE(isp, chan);
+	/* Send request and wait for response. */
+	reqp = isp_getrqentry(isp);
+	if (reqp == NULL) {
+		isp_prt(isp, ISP_LOGERR,
+		    "%s: VP_MODIFY of Chan %d out of rqent", __func__, chan);
+		isp_destroy_handle(isp, vp.vp_mod_hdl);
+		return (EIO);
+	}
+	isp_put_vp_modify(isp, &vp, (vp_modify_t *)reqp);
+	ISP_SYNC_REQUEST(isp);
+	if (msleep(resp, &isp->isp_lock, 0, "VP_MODIFY", 5*hz) == EWOULDBLOCK) {
+		isp_prt(isp, ISP_LOGERR,
+		    "%s: VP_MODIFY of Chan %d timed out", __func__, chan);
+		isp_destroy_handle(isp, vp.vp_mod_hdl);
+		return (EIO);
+	}
+	isp_get_vp_modify(isp, (vp_modify_t *)resp, &vp);
 
-	if (vp->vp_mod_status != VP_STS_OK) {
-		isp_prt(isp, ISP_LOGERR, "%s: VP_MODIFY of Chan %d failed with status %d", __func__, chan, vp->vp_mod_status);
+	if (vp.vp_mod_hdr.rqs_flags != 0 || vp.vp_mod_status != VP_STS_OK) {
+		isp_prt(isp, ISP_LOGERR,
+		    "%s: VP_MODIFY of Chan %d failed with flags %x status %d",
+		    __func__, chan, vp.vp_mod_hdr.rqs_flags, vp.vp_mod_status);
 		return (EIO);
 	}
 	return (0);
@@ -2414,54 +2414,56 @@ isp_fc_enable_vp(ispsoftc_t *isp, int chan)
 static int
 isp_fc_disable_vp(ispsoftc_t *isp, int chan)
 {
-	fcparam *fcp = FCPARAM(isp, chan);
-	mbreg_t mbs;
-	vp_ctrl_info_t *vp;
-	uint8_t qe[QENTRY_LEN], *scp;
-
-	ISP_MEMZERO(qe, QENTRY_LEN);
-	if (FC_SCRATCH_ACQUIRE(isp, chan)) {
-		return (EBUSY);
-	}
-	scp = fcp->isp_scratch;
+	vp_ctrl_info_t vp;
+	void *reqp;
+	uint8_t resp[QENTRY_LEN];
 
 	/* Build a VP CTRL command in memory */
-	vp = (vp_ctrl_info_t *) qe;
-	vp->vp_ctrl_hdr.rqs_entry_type = RQSTYPE_VP_CTRL;
-	vp->vp_ctrl_hdr.rqs_entry_count = 1;
+	ISP_MEMZERO(&vp, sizeof(vp));
+	vp.vp_ctrl_hdr.rqs_entry_type = RQSTYPE_VP_CTRL;
+	vp.vp_ctrl_hdr.rqs_entry_count = 1;
 	if (ISP_CAP_VP0(isp)) {
-		vp->vp_ctrl_status = 1;
+		vp.vp_ctrl_status = 1;
 	} else {
-		vp->vp_ctrl_status = 0;
+		vp.vp_ctrl_status = 0;
 		chan--;	/* VP0 can not be controlled in this case. */
 	}
-	vp->vp_ctrl_command = VP_CTRL_CMD_DISABLE_VP_LOGO_ALL;
-	vp->vp_ctrl_vp_count = 1;
-	vp->vp_ctrl_idmap[chan / 16] |= (1 << chan % 16);
-	isp_put_vp_ctrl_info(isp, vp, (vp_ctrl_info_t *) scp);
+	vp.vp_ctrl_command = VP_CTRL_CMD_DISABLE_VP_LOGO_ALL;
+	vp.vp_ctrl_vp_count = 1;
+	vp.vp_ctrl_idmap[chan / 16] |= (1 << chan % 16);
 
-	/* Build a EXEC IOCB A64 command that points to the VP CTRL command */
-	MBSINIT(&mbs, MBOX_EXEC_COMMAND_IOCB_A64, MBLOGALL, 0);
-	mbs.param[1] = QENTRY_LEN;
-	mbs.param[2] = DMA_WD1(fcp->isp_scdma);
-	mbs.param[3] = DMA_WD0(fcp->isp_scdma);
-	mbs.param[6] = DMA_WD3(fcp->isp_scdma);
-	mbs.param[7] = DMA_WD2(fcp->isp_scdma);
-	MEMORYBARRIER(isp, SYNC_SFORDEV, 0, 2 * QENTRY_LEN, chan);
-	isp_control(isp, ISPCTL_RUN_MBOXCMD, &mbs);
-	if (mbs.param[0] != MBOX_COMMAND_COMPLETE) {
-		FC_SCRATCH_RELEASE(isp, chan);
+	/* Prepare space for response in memory */
+	memset(resp, 0xff, sizeof(resp));
+	vp.vp_ctrl_handle = isp_allocate_handle(isp, resp, ISP_HANDLE_CTRL);
+	if (vp.vp_ctrl_handle == 0) {
+		isp_prt(isp, ISP_LOGERR,
+		    "%s: VP_CTRL of Chan %d out of handles", __func__, chan);
 		return (EIO);
 	}
-	MEMORYBARRIER(isp, SYNC_SFORCPU, QENTRY_LEN, QENTRY_LEN, chan);
-	isp_get_vp_ctrl_info(isp, (vp_ctrl_info_t *)&scp[QENTRY_LEN], vp);
 
-	FC_SCRATCH_RELEASE(isp, chan);
-
-	if (vp->vp_ctrl_status != 0) {
+	/* Send request and wait for response. */
+	reqp = isp_getrqentry(isp);
+	if (reqp == NULL) {
 		isp_prt(isp, ISP_LOGERR,
-		    "%s: VP_CTRL of Chan %d failed with status %d %d",
-		    __func__, chan, vp->vp_ctrl_status, vp->vp_ctrl_index_fail);
+		    "%s: VP_CTRL of Chan %d out of rqent", __func__, chan);
+		isp_destroy_handle(isp, vp.vp_ctrl_handle);
+		return (EIO);
+	}
+	isp_put_vp_ctrl_info(isp, &vp, (vp_ctrl_info_t *)reqp);
+	ISP_SYNC_REQUEST(isp);
+	if (msleep(resp, &isp->isp_lock, 0, "VP_CTRL", 5*hz) == EWOULDBLOCK) {
+		isp_prt(isp, ISP_LOGERR,
+		    "%s: VP_CTRL of Chan %d timed out", __func__, chan);
+		isp_destroy_handle(isp, vp.vp_ctrl_handle);
+		return (EIO);
+	}
+	isp_get_vp_ctrl_info(isp, (vp_ctrl_info_t *)resp, &vp);
+
+	if (vp.vp_ctrl_hdr.rqs_flags != 0 || vp.vp_ctrl_status != 0) {
+		isp_prt(isp, ISP_LOGERR,
+		    "%s: VP_CTRL of Chan %d failed with flags %x status %d %d",
+		    __func__, chan, vp.vp_ctrl_hdr.rqs_flags,
+		    vp.vp_ctrl_status, vp.vp_ctrl_index_fail);
 		return (EIO);
 	}
 	return (0);
@@ -2548,13 +2550,11 @@ isp_mark_portdb(ispsoftc_t *isp, int chan)
  * or via FABRIC LOGIN/FABRIC LOGOUT for other cards.
  */
 static int
-isp_plogx(ispsoftc_t *isp, int chan, uint16_t handle, uint32_t portid, int flags, int gs)
+isp_plogx(ispsoftc_t *isp, int chan, uint16_t handle, uint32_t portid, int flags)
 {
-	mbreg_t mbs;
-	uint8_t q[QENTRY_LEN];
-	isp_plogx_t *plp;
-	fcparam *fcp;
-	uint8_t *scp;
+	isp_plogx_t pl;
+	void *reqp;
+	uint8_t resp[QENTRY_LEN];
 	uint32_t sst, parm1;
 	int rval, lev;
 	const char *msg;
@@ -2574,64 +2574,58 @@ isp_plogx(ispsoftc_t *isp, int chan, uint16_t handle, uint32_t portid, int flags
 		}
 	}
 
-	ISP_MEMZERO(q, QENTRY_LEN);
-	plp = (isp_plogx_t *) q;
-	plp->plogx_header.rqs_entry_count = 1;
-	plp->plogx_header.rqs_entry_type = RQSTYPE_LOGIN;
-	plp->plogx_handle = 0xffffffff;
-	plp->plogx_nphdl = handle;
-	plp->plogx_vphdl = chan;
-	plp->plogx_portlo = portid;
-	plp->plogx_rspsz_porthi = (portid >> 16) & 0xff;
-	plp->plogx_flags = flags;
+	ISP_MEMZERO(&pl, sizeof(pl));
+	pl.plogx_header.rqs_entry_count = 1;
+	pl.plogx_header.rqs_entry_type = RQSTYPE_LOGIN;
+	pl.plogx_nphdl = handle;
+	pl.plogx_vphdl = chan;
+	pl.plogx_portlo = portid;
+	pl.plogx_rspsz_porthi = (portid >> 16) & 0xff;
+	pl.plogx_flags = flags;
 
-	if (isp->isp_dblev & ISP_LOGDEBUG1) {
-		isp_print_bytes(isp, "IOCB LOGX", QENTRY_LEN, plp);
+	/* Prepare space for response in memory */
+	memset(resp, 0xff, sizeof(resp));
+	pl.plogx_handle = isp_allocate_handle(isp, resp, ISP_HANDLE_CTRL);
+	if (pl.plogx_handle == 0) {
+		isp_prt(isp, ISP_LOGERR,
+		    "%s: PLOGX of Chan %d out of handles", __func__, chan);
+		return (-1);
 	}
 
-	if (gs == 0) {
-		if (FC_SCRATCH_ACQUIRE(isp, chan)) {
-			isp_prt(isp, ISP_LOGERR, sacq);
-			return (-1);
-		}
+	/* Send request and wait for response. */
+	reqp = isp_getrqentry(isp);
+	if (reqp == NULL) {
+		isp_prt(isp, ISP_LOGERR,
+		    "%s: PLOGX of Chan %d out of rqent", __func__, chan);
+		isp_destroy_handle(isp, pl.plogx_handle);
+		return (-1);
 	}
-	fcp = FCPARAM(isp, chan);
-	scp = fcp->isp_scratch;
-	isp_put_plogx(isp, plp, (isp_plogx_t *) scp);
+	if (isp->isp_dblev & ISP_LOGDEBUG1)
+		isp_print_bytes(isp, "IOCB LOGX", QENTRY_LEN, &pl);
+	isp_put_plogx(isp, &pl, (isp_plogx_t *)reqp);
+	ISP_SYNC_REQUEST(isp);
+	if (msleep(resp, &isp->isp_lock, 0, "PLOGX", 3 * ICB_LOGIN_TOV * hz)
+	    == EWOULDBLOCK) {
+		isp_prt(isp, ISP_LOGERR,
+		    "%s: PLOGX of Chan %d timed out", __func__, chan);
+		isp_destroy_handle(isp, pl.plogx_handle);
+		return (-1);
+	}
+	isp_get_plogx(isp, (isp_plogx_t *)resp, &pl);
+	if (isp->isp_dblev & ISP_LOGDEBUG1)
+		isp_print_bytes(isp, "IOCB LOGX response", QENTRY_LEN, &pl);
 
-	MBSINIT(&mbs, MBOX_EXEC_COMMAND_IOCB_A64, MBLOGALL,
-	    MBCMD_DEFAULT_TIMEOUT + ICB_LOGIN_TOV * 1000000);
-	mbs.param[1] = QENTRY_LEN;
-	mbs.param[2] = DMA_WD1(fcp->isp_scdma);
-	mbs.param[3] = DMA_WD0(fcp->isp_scdma);
-	mbs.param[6] = DMA_WD3(fcp->isp_scdma);
-	mbs.param[7] = DMA_WD2(fcp->isp_scdma);
-	MEMORYBARRIER(isp, SYNC_SFORDEV, 0, QENTRY_LEN, chan);
-	isp_mboxcmd(isp, &mbs);
-	if (mbs.param[0] != MBOX_COMMAND_COMPLETE) {
-		rval = mbs.param[0];
-		goto out;
-	}
-	MEMORYBARRIER(isp, SYNC_SFORCPU, QENTRY_LEN, QENTRY_LEN, chan);
-	scp += QENTRY_LEN;
-	isp_get_plogx(isp, (isp_plogx_t *) scp, plp);
-	if (isp->isp_dblev & ISP_LOGDEBUG1) {
-		isp_print_bytes(isp, "IOCB LOGX response", QENTRY_LEN, plp);
-	}
-
-	if (plp->plogx_status == PLOGX_STATUS_OK) {
-		rval = 0;
-		goto out;
-	} else if (plp->plogx_status != PLOGX_STATUS_IOCBERR) {
+	if (pl.plogx_status == PLOGX_STATUS_OK) {
+		return (0);
+	} else if (pl.plogx_status != PLOGX_STATUS_IOCBERR) {
 		isp_prt(isp, ISP_LOGWARN,
 		    "status 0x%x on port login IOCB channel %d",
-		    plp->plogx_status, chan);
-		rval = -1;
-		goto out;
+		    pl.plogx_status, chan);
+		return (-1);
 	}
 
-	sst = plp->plogx_ioparm[0].lo16 | (plp->plogx_ioparm[0].hi16 << 16);
-	parm1 = plp->plogx_ioparm[1].lo16 | (plp->plogx_ioparm[1].hi16 << 16);
+	sst = pl.plogx_ioparm[0].lo16 | (pl.plogx_ioparm[0].hi16 << 16);
+	parm1 = pl.plogx_ioparm[1].lo16 | (pl.plogx_ioparm[1].hi16 << 16);
 
 	rval = -1;
 	lev = ISP_LOGERR;
@@ -2692,16 +2686,12 @@ isp_plogx(ispsoftc_t *isp, int chan, uint16_t handle, uint32_t portid, int flags
 		msg = "no FLOGI_ACC";
 		break;
 	default:
-		ISP_SNPRINTF(buf, sizeof (buf), "status %x from %x", plp->plogx_status, flags);
+		ISP_SNPRINTF(buf, sizeof (buf), "status %x from %x", pl.plogx_status, flags);
 		msg = buf;
 		break;
 	}
 	if (msg) {
 		isp_prt(isp, ISP_LOGERR, "Chan %d PLOGX PortID 0x%06x to N-Port handle 0x%x: %s", chan, portid, handle, msg);
-	}
-out:
-	if (gs == 0) {
-		FC_SCRATCH_RELEASE(isp, chan);
 	}
 	return (rval);
 }
@@ -3194,7 +3184,7 @@ isp_pdb_sync(ispsoftc_t *isp, int chan)
 				    lp->portid,
 				    PLOGX_FLG_CMD_LOGO |
 				    PLOGX_FLG_IMPLICIT |
-				    PLOGX_FLG_FREE_NPHDL, 0);
+				    PLOGX_FLG_FREE_NPHDL);
 			}
 			/*
 			 * Note that we might come out of this with our state
@@ -3881,7 +3871,7 @@ isp_login_device(ispsoftc_t *isp, int chan, uint32_t portid, isp_pdb_t *p, uint1
 		/*
 		 * Now try and log into the device
 		 */
-		r = isp_plogx(isp, chan, handle, portid, PLOGX_FLG_CMD_PLOGI, 1);
+		r = isp_plogx(isp, chan, handle, portid, PLOGX_FLG_CMD_PLOGI);
 		if (r == 0) {
 			break;
 		} else if ((r & 0xffff) == MBOX_PORT_ID_USED) {
@@ -3890,12 +3880,12 @@ isp_login_device(ispsoftc_t *isp, int chan, uint32_t portid, isp_pdb_t *p, uint1
 			 * handle. We need to break that association. We used to try and just substitute the handle, but then
 			 * failed to get any data via isp_getpdb (below).
 			 */
-			if (isp_plogx(isp, chan, r >> 16, portid, PLOGX_FLG_CMD_LOGO | PLOGX_FLG_IMPLICIT | PLOGX_FLG_FREE_NPHDL, 1)) {
+			if (isp_plogx(isp, chan, r >> 16, portid, PLOGX_FLG_CMD_LOGO | PLOGX_FLG_IMPLICIT | PLOGX_FLG_FREE_NPHDL)) {
 				isp_prt(isp, ISP_LOGERR, "baw... logout of %x failed", r >> 16);
 			}
 			if (FCPARAM(isp, chan)->isp_loopstate != LOOP_SCANNING_FABRIC)
 				return (-1);
-			r = isp_plogx(isp, chan, handle, portid, PLOGX_FLG_CMD_PLOGI, 1);
+			r = isp_plogx(isp, chan, handle, portid, PLOGX_FLG_CMD_PLOGI);
 			if (r != 0)
 				i = lim;
 			break;
@@ -4935,11 +4925,11 @@ isp_control(ispsoftc_t *isp, ispctl_t ctl, ...)
 		va_end(ap);
 
 		if ((p->flags & PLOGX_FLG_CMD_MASK) != PLOGX_FLG_CMD_PLOGI || (p->handle != NIL_HANDLE)) {
-			return (isp_plogx(isp, p->channel, p->handle, p->portid, p->flags, 0));
+			return (isp_plogx(isp, p->channel, p->handle, p->portid, p->flags));
 		}
 		do {
 			isp_next_handle(isp, &p->handle);
-			r = isp_plogx(isp, p->channel, p->handle, p->portid, p->flags, 0);
+			r = isp_plogx(isp, p->channel, p->handle, p->portid, p->flags);
 			if ((r & 0xffff) == MBOX_PORT_ID_USED) {
 				p->handle = r >> 16;
 				r = 0;
@@ -6123,6 +6113,8 @@ isp_handle_other_response(ispsoftc_t *isp, int type, isphdr_t *hp, uint32_t *opt
 {
 	isp_ridacq_t rid;
 	int chan, c;
+	uint32_t hdl;
+	void *ptr;
 
 	switch (type) {
 	case RQSTYPE_STATUS_CONT:
@@ -6162,6 +6154,17 @@ isp_handle_other_response(ispsoftc_t *isp, int type, isphdr_t *hp, uint32_t *opt
 				isp_async(isp, ISPASYNC_LOOP_DOWN,
 				    rid.ridacq_vp_index);
 			}
+		}
+		return (1);
+	case RQSTYPE_VP_MODIFY:
+	case RQSTYPE_VP_CTRL:
+	case RQSTYPE_LOGIN:
+		ISP_IOXGET_32(isp, (uint32_t *)(hp + 1), hdl);
+		ptr = isp_find_xs(isp, hdl);
+		if (ptr != NULL) {
+			isp_destroy_handle(isp, hdl);
+			memcpy(ptr, hp, QENTRY_LEN);
+			wakeup(ptr);
 		}
 		return (1);
 	case RQSTYPE_ATIO:
