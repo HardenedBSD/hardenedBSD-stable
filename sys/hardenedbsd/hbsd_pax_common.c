@@ -322,7 +322,8 @@ static void
 pax_sysinit(void)
 {
 
-	printf("HBSD: initialize and check HardenedBSD features.\n");
+	printf("HBSD: initialize and check HardenedBSD features (version %d).\n".
+	    __HardenedBSD_version);
 }
 SYSINIT(pax, SI_SUB_PAX, SI_ORDER_FIRST, pax_sysinit, NULL);
 
