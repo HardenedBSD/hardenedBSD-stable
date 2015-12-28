@@ -778,10 +778,9 @@ match_addrselectpolicy(struct sockaddr *addr, struct policyhead *head)
 		memset(&key, 0, sizeof(key));
 		key.sin6_family = AF_INET6;
 		key.sin6_len = sizeof(key);
-		key.sin6_addr.s6_addr[10] = 0xff;
-		key.sin6_addr.s6_addr[11] = 0xff;
-		memcpy(&key.sin6_addr.s6_addr[12],
-		       &((struct sockaddr_in *)addr)->sin_addr, 4);
+		_map_v4v6_address(
+		    (char *)&((struct sockaddr_in *)addr)->sin_addr,
+		    (char *)&key.sin6_addr);
 		break;
 	default:
 		return(NULL);
@@ -2166,7 +2165,11 @@ getanswer(const querybuf *answer, int anslen, const char *qname, int qtype,
 		return sentinel.ai_next;
 	}
 
-	RES_SET_H_ERRNO(res, NO_RECOVERY);
+	/*
+	 * We could have walked a CNAME chain, but the ultimate target
+	 * may not have what we looked for.
+	 */
+	RES_SET_H_ERRNO(res, ntohs(hp->ancount) > 0 ? NO_DATA : NO_RECOVERY);
 	return NULL;
 }
 
@@ -2343,6 +2346,7 @@ _dns_getaddrinfo(void *rv, void *cb_data, va_list ap)
 	if (sentinel.ai_next == NULL)
 		switch (res->res_h_errno) {
 		case HOST_NOT_FOUND:
+		case NO_DATA:
 			return NS_NOTFOUND;
 		case TRY_AGAIN:
 			return NS_TRYAGAIN;
