@@ -40,11 +40,7 @@ WORLDDIR?=	${.CURDIR}/..
 PORTSDIR?=	/usr/ports
 DOCDIR?=	/usr/doc
 RELNOTES_LANG?= en_US.ISO8859-1
-<<<<<<< HEAD
-XZCMD?=		/usr/bin/xz
 KERNCONF?=	GENERIC
-=======
->>>>>>> origin/stable/10
 
 .if !defined(TARGET) || empty(TARGET)
 TARGET=		${MACHINE}
