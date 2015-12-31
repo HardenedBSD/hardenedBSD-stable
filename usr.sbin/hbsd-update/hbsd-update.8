@@ -1,0 +1,110 @@
+.\"-
+.\" Copyright 2015 Shawn webb <shawn.webb@hardenedbsd.org>
+.\" All rights reserved
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted providing that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+.\" IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+.\" WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+.\" DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+.\" STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+.\" IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+.\" POSSIBILITY OF SUCH DAMAGE.
+.\"
+.\" $FreeBSD$
+.\"
+.Dd December 30, 2015
+.Dt HBSD-UPDATE 8
+.Os FreeBSD
+.Sh NAME
+.Nm hbsd-update
+.Nd fetch and install binary updates to HardenedBSD
+.Sh SYNOPSIS
+.Nm
+.Op Fl b Ar BEname
+.Op Fl c Ar config
+.Op Fl h
+.Op Fl j Ar jail
+.Op Fl K Ar backupkern
+.Op Fl t Ar tmpdir
+.Op Fl U
+.Op Fl v Ar version
+.Op Fl V
+.Sh DESCRIPTION
+The
+.Nm
+tool is used to download and install binary updates to the HardenedBSD
+base system.
+.Sh OPTIONS
+The following options are supported:
+.Bl -tag -width "-v version"
+.It Fl b Ar BEname
+Create a new ZFS Boot Environment named
+.Ar BEname ,
+install the update into that, and
+activate it upon successfull installation.
+.It Fl c Ar config
+Read configuration options from
+.Ar config .
+(default:
+.Pa /etc/hbsd-update.conf )
+.It Fl h
+Show the help menu.
+.It Fl j Ar jail
+Install the update into jail
+.Ar jail .
+.It Fl K Ar backupkern
+Name of the kernel directory to backup the currently-installed kernel
+to.
+(Default:
+.Dq kernel.old )
+.It Fl t Ar tempdir
+Specify a custom temporary directory for downloading and parsing
+the update.
+.It Fl U
+Allow unsigned updates. Do not check digital signatures. Usage of this
+option is discouraged.
+.It Fl v Ar version
+Download and install a specific update package of version
+.Ar version .
+.It Fl V
+Use verbose output.
+.El
+.Sh EXAMPLES
+Some examples are listed here.
+.Pp
+Download and install the latest update onto the running system:
+.Dl % hbsd-update
+.Pp
+Download and install the latest update into a new ZFS Boot
+Environment called 
+.Pa my_new_be :
+.Dl % hbsd-update -b my_new_be
+.Pp
+Download and install a specific update package into a new ZFS Boot
+Environment:
+.Dl % hbsd-update -v 50a244ee32f96aa5aee62b05af8ce4507a608b06 \(rs
+.Dl -b my_new_be
+.Sh FILES
+.Bl -tag -width "/etc/hbsd-update.conf"
+.It Pa /etc/hbsd-update.conf
+Default location of the
+.Nm
+configuration file.
+.El
+.Sh SEE ALSO
+.Xr hbsd-update.conf 5
+.Sh AUTHORS
+.An Shawn Webb Aq Mt shawn.webb@hardenedbsd.org

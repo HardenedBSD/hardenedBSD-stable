@@ -1,0 +1,571 @@
+#!/bin/sh
+#-
+# Copyright (c) 2015 HardenedBSD
+# Author: Shawn Webb <shawn.webb@hardenedbsd.org>
+#
+# This work originally sponsored by G2, Inc
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+# OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+# SUCH DAMAGE.
+
+buildver=""
+jailname=""
+tmpdir=""
+zfsbe=""
+
+backupkern="kernel.old"
+configfile="/etc/hbsd-update.conf"
+mountpoint="/"
+
+ignorever=0
+unsigned=0
+verbose=0
+
+AWK="/usr/bin/awk"
+BEADM="/usr/local/sbin/beadm"
+CHFLAGS="/bin/chflags"
+DRILL="/usr/bin/drill"
+ETCUPDATE="/usr/sbin/etcupdate"
+FETCH="/usr/bin/fetch"
+GREP="/usr/bin/grep"
+JLS="/usr/bin/jls"
+KLDXREF="/usr/sbin/kldxref"
+MKTEMP="/usr/bin/mktemp"
+OPENSSL="/usr/bin/openssl"
+SED="/usr/bin/sed"
+TAR="/usr/bin/tar"
+
+debug_print() {
+	echo -e "${1}" >&2
+}
+
+usage() {
+	debug_print "USAGE: ${0} OPTIONS"
+	debug_print "OPTIONS:"
+	debug_print "\t-b BEname\tInstall updates to ZFS Boot Environment <BEname>"
+	debug_print "\t-c config\tUse a non-default config file"
+	debug_print "\t-h\t\tShow this help screen"
+	debug_print "\t-j jailname\tInstall updates to jail <jailname>"
+	debug_print "\t-K backupkern\tBackup the previous kernel to <backupkern>"
+	debug_print "\t-t tmpdir\tTemporary directory"
+	debug_print "\t-U\t\tAllow unsigned updates"
+	debug_print "\t-v version\tUse a different version"
+	debug_print "\t-V\t\tVerbose output"
+	exit 1
+}
+
+get_tmpdir() {
+	if [ -z "${tmpdir}" ]; then
+		tmpdir=$(${MKTEMP} -d)
+	fi
+
+	echo ${tmpdir}
+
+	return 0
+}
+
+get_version() {
+	if [ ! -z "${buildver}" ]; then
+		# User-specified version
+		echo ${buildver}
+		return 0
+	fi
+
+	if [ ! -z "${dnsrec}" ]; then
+		# Prefer DNS, fallback to HTTP
+		res=$(${DRILL} ${dnsrec} txt | \
+			${GREP} -F TXT | \
+			${GREP} -vF ';;' | \
+			${AWK} '{print $5;}' | \
+			${SED} 's,",,g')
+		buildver=$(echo ${res} | ${SED} 's,|, ,g' | ${AWK} '{print $2;}')
+	fi
+
+	if [ -z "${buildver}" ]; then
+		# Attempt to grab the version from HTTP
+		buildver=$(${FETCH} -o - ${baseurl}/update-latest.txt | \
+			${SED} 's,|, ,g' | \
+			${AWK} '{print $2;}')
+		if [ -z "${buildver}" ]; then
+			return 1
+		fi
+	fi
+
+	echo ${buildver}
+
+	if [ ${verbose} -gt 0 ]; then
+		debug_print "[*] Latest build: ${buildver}"
+	fi
+
+	return 0
+}
+
+check_version() {
+	local testversion
+
+	if [ ${ignorever} -eq 1 ]; then
+		return 0
+	fi
+
+	if [ ! -f ${mountpoint}/var/db/hbsd-update/version ]; then
+		return 0
+	fi
+
+	testversion=$(cat ${mountpoint}/var/db/hbsd-update/version)
+	if [ "${buildver}" = "${testversion}" ]; then
+		return 1
+	fi
+
+	return 0
+}
+
+check_jailname() {
+	if [ -z "${jailname}" ]; then
+		return 0
+	fi
+
+	mountpoint=$(${JLS} -j ${jailname} path 2>/dev/null)
+	if [ -z "${mountpoint}" ]; then
+		debug_print "[-] Jail ${jailname} not found"
+		return 1
+	fi
+
+	return 0
+}
+
+fetch_update() {
+	${FETCH} -o ${tmpdir}/update.tar \
+		${baseurl}/update-$(get_version).tar
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		return ${res}
+	fi
+
+	${TAR} -xf ${tmpdir}/update.tar \
+		-C ${tmpdir}
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		return ${res}
+	fi
+
+	return 0
+}
+
+check_pubkey_validity() {
+	if [ ${verbose} -gt 0 ]; then
+		debug_print "[*] Checking validity of the public key"
+	fi
+
+	caopt="-CApath"
+	if [ -f ${capath} ]; then
+		caopt="-CAfile"
+	fi
+
+	${OPENSSL} verify \
+		${caopt} ${capath} \
+		${tmpdir}/pubkey.pem \
+		> /dev/null 2>&1
+	res=${?}
+	return ${res}
+}
+
+check_set_validity() {
+	checkfiles="base.txz kernel-${kernel}.txz etcupdate.tbz skip.txt"
+
+	${OPENSSL} x509 \
+		-in ${tmpdir}/pubkey.pem \
+		-pubkey \
+		-noout \
+		> ${tmpdir}/pubkey.rsa.pem
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		debug_print "[-] Could not extract public key"
+		return 1
+	fi
+
+	for file in ${checkfiles}; do
+		if [ ${verbose} -gt 0 ]; then
+			debug_print "[*] Checking the validity of ${file}"
+		fi
+
+		signedhash=$(${OPENSSL} rsautl \
+			-verify \
+			-in ${tmpdir}/${file}.sig \
+			-pubin \
+			-inkey ${tmpdir}/pubkey.rsa.pem)
+
+		computedhash=$(sha512 -q ${tmpdir}/${file})
+		res=${?}
+		if [ ${res} -gt 0 ]; then
+			return 1
+		fi
+
+		if [ ! "${signedhash}" = "${computedhash}" ]; then
+			debug_print "[-] Hashes don't match for ${file}. Signed: ${signedhash}. Computed ${computedhash}."
+			return 1
+		fi
+	done
+
+	return 0
+}
+
+apply_base() {
+	local needsresolve=0
+
+	if [ ${verbose} -gt 0 ]; then
+		debug_print "[*] Applying base"
+	fi
+
+	${CHFLAGS} -R noschg \
+		${mountpoint}/bin \
+		${mountpoint}/sbin \
+		${mountpoint}/lib \
+		${mountpoint}/libexec \
+		${mountpoint}/usr/bin \
+		${mountpoint}/usr/sbin \
+		${mountpoint}/usr/lib
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		return ${res}
+	fi
+
+	${TAR} -xpf ${tmpdir}/base.txz \
+		-X ${tmpdir}/skip.txt \
+		-C ${mountpoint}
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		return 1
+	fi
+
+	if [ ${verbose} -gt 0 ]; then
+		debug_print "[*] Updating /etc"
+	fi
+
+	${ETCUPDATE} -t ${tmpdir}/${ETCUPDATE}.tbz \
+	    -D ${mountpoint} \
+	    -I /etc/passwd \
+	    -I /etc/group \
+	    -I /etc/master.passwd \
+	    -I /etc/pwd.db \
+	    -I /etc/spwd.db | while read line; do
+		res=$(echo ${line} | ${AWK} '{print $1;}')
+		if [ "${res}" = "C" ]; then
+			needsresolve=1
+		fi
+	done
+
+	while [ ${needsresolve} -gt 0 ]; do
+		debug_print "[*] Manual merges need to be done."
+		${ETCUPDATE} resolve -D ${mountpoint}
+		res=${?}
+		if [ ${res} -gt 0 ]; then
+			return 1
+		fi
+
+		needsresolve=$(${ETCUPDATE} status -D \
+			${mountpoint} | \
+			wc -l | \
+			${AWK} '{print $1;}')
+	done
+
+	return 0
+}
+
+apply_kernel() {
+	if [ ${verbose} -gt 0 ]; then
+		debug_print "[*] Applying kernel ${kernel}"
+	fi
+
+	if [ ! -z "${backupkern}" ]; then
+		rm -rf ${mountpoint}/boot/${backupkern}
+		cp -pR ${mountpoint}/boot/kernel \
+			${mountpoint}/boot/${backupkern}
+		res=${?}
+		if [ ${res} -gt 0 ]; then
+			return ${res}
+		fi
+
+		if [ -d ${mountpoint}/usr/lib/debug/boot/kernel ]; then
+			rm -rf ${mountpoint}/usr/lib/debug/boot/${backupkern}
+			cp -pR ${mountpoint}/usr/lib/debug/boot/kernel \
+				${mountpoint}/usr/lib/debug/boot/${backupkern}
+			res=${?}
+			if [ ${res} -gt 0 ]; then
+				return ${res}
+			fi
+		fi
+	fi
+
+	${TAR} -xpf ${tmpdir}/kernel-${kernel}.txz \
+		-X ${tmpdir}/skip.txt \
+		-C ${mountpoint}
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		return 1
+	fi
+
+	${KLDXREF} /boot/kernel
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		return 1
+	fi
+
+	return 0
+}
+
+create_be() {
+	if [ -z "${zfsbe}" ]; then
+		return 0
+	fi
+
+	${BEADM} create ${zfsbe}
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		return ${res}
+	fi
+
+	mountpoint=$(${MKTEMP} -d)
+	${BEADM} mount ${zfsbe} ${mountpoint}
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		return ${res}
+	fi
+
+	return 0
+}
+
+cache_version() {
+	# Cache the version number so that we can verify it against
+	# future update requests.
+	if [ ! -d ${mountpoint}/var/db/hbsd-update ]; then
+		mkdir -p ${mountpoint}/var/db/hbsd-update
+		res=${?}
+		if [ ${res} -gt 0 ]; then
+			return ${res}
+		fi
+	fi
+
+	echo ${buildver} > ${mountpoint}/var/db/hbsd-update/version
+}
+
+activate_be() {
+	if [ -z "${zfsbe}" ]; then
+		return 0
+	fi
+
+	${BEADM} umount ${zfsbe}
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		return ${res}
+	fi
+
+	${BEADM} activate ${zfsbe}
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		return ${res}
+	fi
+
+	return 0
+}
+
+destroy_be() {
+	if [ -z "${zfsbe}" ]; then
+		return 0
+	fi
+
+	${BEADM} umount ${zfsbe}
+	${BEADM} destroy -F ${zfsbe}
+	return ${?}
+}
+
+cleanup() {
+	rm -rf ${tmpdir}
+}
+
+check_sanity() {
+	if [ ! -f ${configfile} ]; then
+		debug_print "[-] Configuration file missing"
+		exit 1
+	fi
+
+	. ${configfile}
+
+	if [ -z "${baseurl}" ]; then
+		debug_print "[-] Missing setting: baseurl"
+		exit 1
+	fi
+
+	if [ ${unsigned} -eq 0 ] && [ -z "${capath}" ]; then
+		debug_print "[-] Missing setting: capath"
+		exit 1
+	fi
+
+	if [ -z "${kernel}" ]; then
+		debug_print "[-] Missing setting: kernel"
+		exit 1
+	fi
+
+	if [ ! -z "${zfsbe}" ] && [ ! -z "${jailname}" ]; then
+		debug_print "[-] ZFS BE and Jail options are mutually exclusive"
+		exit 1
+	fi
+}
+
+main() {
+	while getopts 'hiUVb:c:j:K:t:u:v:' opt; do
+		case "${opt}" in
+			b)
+				if ! which -s ${BEADM}; then
+					debug_print "[*] Please install the beadm pkg."
+					exit 1
+				fi
+
+				zfsbe="${OPTARG}"
+				;;
+			c)
+				configfile="${OPTARG}"
+				;;
+			i)
+				ignorever=1
+				;;
+			j)
+				jailname="${OPTARG}"
+				;;
+			K)
+				backupkern="${OPTARG}"
+				;;
+			t)
+				tmpdir="${OPTARG}"
+				;;
+			U)
+				unsigned=1
+				;;
+			v)
+				buildver="${OPTARG}"
+				;;
+			V)
+				verbose=1
+				;;
+			*)
+				usage
+				;;
+		esac
+	done
+
+	check_sanity
+	check_jailname
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		exit 1
+	fi
+
+	if [ -z "${tmpdir}" ]; then
+		get_tmpdir > /dev/null
+	fi
+
+	if [ -z "${buildver}" ]; then
+		get_version > /dev/null
+		res=${?}
+		if [ ${res} -gt 0 ]; then
+			debug_print "[*] Could not get the version number"
+			cleanup
+			exit 1
+		fi
+	fi
+
+	check_version
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		debug_print "[*] This system is already on the latest version."
+		cleanup
+		exit 0
+	fi
+
+	fetch_update
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		cleanup
+		exit 1
+	fi
+
+	if [ ${unsigned} -eq 0 ]; then
+		check_pubkey_validity
+		res=${?}
+		if [ ${res} -gt 0 ]; then
+			cleanup
+			debug_print "[*] Public key failed to validate."
+			exit 1
+		fi
+
+		check_set_validity
+		res=${?}
+		if [ ${res} -gt 0 ]; then
+			cleanup
+			debug_print "[*] Public key failed to validate."
+			exit 1
+		fi
+	fi
+
+	create_be
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		cleanup
+		destroy_be
+		exit 1
+	fi
+
+	apply_base
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		cleanup
+		destroy_be
+		exit 1
+	fi
+
+	apply_kernel
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		cleanup
+		destroy_be
+		exit 1
+	fi
+
+	cache_version
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		cleanup
+		destroy_be
+		exit 1
+	fi
+
+	activate_be
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		cleanup
+		destroy_be
+		exit 1
+	fi
+
+	cleanup
+	exit 0
+}
+
+main "${@}"

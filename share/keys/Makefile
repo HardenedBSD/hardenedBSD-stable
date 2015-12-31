@@ -1,5 +1,5 @@
 # $FreeBSD$
 
-SUBDIR= pkg
+SUBDIR= pkg hbsd-update
 
 .include <bsd.subdir.mk>
