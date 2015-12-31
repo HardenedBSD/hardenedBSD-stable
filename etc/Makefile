@@ -19,6 +19,7 @@ BIN1=	crontab \
 	fbtab \
 	gettytab \
 	group \
+	hbsd-update.conf \
 	hosts \
 	hosts.allow \
 	hosts.equiv \
