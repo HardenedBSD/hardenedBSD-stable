@@ -280,10 +280,22 @@ arm_physmem_hardware_region(vm_paddr_t pa, vm_size_t sz)
 	/*
 	 * Filter out the page at PA 0x00000000.  The VM can't handle it, as
 	 * pmap_extract() == 0 means failure.
+	 *
+	 * Also filter out the page at the end of the physical address space --
+	 * if addr is non-zero and addr+size is zero we wrapped to the next byte
+	 * beyond what vm_paddr_t can express.  That leads to a NULL pointer
+	 * deref early in startup; work around it by leaving the last page out.
+	 *
+	 * XXX This just in:  subtract out a whole megabyte, not just 1 page.
+	 * Reducing the size by anything less than 1MB results in the NULL
+	 * pointer deref in _vm_map_lock_read().  Better to give up a megabyte
+	 * than leave some folks with an unusable system while we investigate.
 	 */
 	if (pa == 0) {
 		pa  = PAGE_SIZE;
 		sz -= PAGE_SIZE;
+	} else if (pa + sz == 0) {
+		sz -= 1024 * 1024;
 	}
 
 	/*
