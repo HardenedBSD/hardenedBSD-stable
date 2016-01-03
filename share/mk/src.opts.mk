@@ -179,11 +179,8 @@ __DEFAULT_NO_OPTIONS = \
     EISA \
     FREEBSD_UPDATE \
     HESIOD \
-<<<<<<< HEAD
     LIB32 \
-=======
     LIBSOFT \
->>>>>>> origin/master
     NAND \
     OFED \
     OPENLDAP \
