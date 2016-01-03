@@ -1,3 +1,16 @@
+[20151225] redo rework internal structures
+__HardenedBSD_version = 39
+
+	Change pax_get_prison(...) to pax_get_prison_td(...) where possible.
+	Fix one segvguard related issue.
+	Changed pax_elf signature.
+
+	We reverted this code in version 37, because we observed weird
+	issue, but this issues was unrelated to the reworked internals.
+	The true root of the problem was a secadm bug and the issue fixed
+	with version 38.
+
+
 [20151218] reworked MAP_32BIT mmap randomization
 __HardenedBSD_version = 38
 

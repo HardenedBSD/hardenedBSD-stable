@@ -50,6 +50,9 @@ __FBSDID("$FreeBSD$");
 #include <sys/stat.h>
 #include <sys/sysctl.h>
 
+
+static void pax_set_flags(struct proc *p, struct thread *td, const uint32_t flags);
+static void pax_set_flags_td(struct thread *td, const uint32_t flags);
 static int pax_validate_flags(uint32_t flags);
 static int pax_check_conflicting_modes(uint32_t mode);
 
@@ -96,13 +99,12 @@ struct prison *
 pax_get_prison(struct proc *p)
 {
 
-	/* p can be NULL with kernel threads, so use prison0. */
-	if (p == NULL || p->p_ucred == NULL)
-		return (&prison0);
+	KASSERT(p != NULL, ("%s: p == NULL", __func__));
 
-#if 0
 	PROC_LOCK_ASSERT(p, MA_OWNED);
-#endif
+
+	if (p->p_ucred == NULL)
+		return (&prison0);
 
 	return (p->p_ucred->cr_prison);
 }
@@ -129,6 +131,18 @@ void
 pax_get_flags(struct proc *p, uint32_t *flags)
 {
 
+	KASSERT(p == curthread->td_proc,
+	    ("%s: p != curthread->td_proc", __func__));
+
+#ifdef HBSD_DEBUG
+	struct thread *td;
+
+	FOREACH_THREAD_IN_PROC(p, td) {
+		KASSERT(td->td_pax == p->p_pax, ("%s: td->td_pax != p->p_pax",
+		    __func__));
+	}
+#endif
+
 	*flags = p->p_pax;
 }
 
@@ -136,7 +150,49 @@ void
 pax_get_flags_td(struct thread *td, uint32_t *flags)
 {
 
+	KASSERT(td == curthread,
+	    ("%s: td != curthread", __func__));
+
+#ifdef HBSD_DEBUG
+	struct proc *p;
+	struct thread *td0;
+
+	p = td->td_proc;
+
+	FOREACH_THREAD_IN_PROC(p, td0) {
+		KASSERT(td0->td_proc == p,
+		    ("%s: td0->td_proc != p", __func__));
+		KASSERT(td0->td_pax == p->p_pax, ("%s: td0->td_pax != p->p_pax",
+		    __func__));
+	}
+#endif
+
 	*flags = td->td_pax;
+}
+
+void
+pax_set_flags(struct proc *p, struct thread *td, const uint32_t flags)
+{
+	struct thread *td0;
+
+	KASSERT(td == curthread,
+	    ("%s: td != curthread", __func__));
+	KASSERT(td->td_proc == p,
+	    ("%s: td->td_proc != p", __func__));
+
+	PROC_LOCK(p);
+	p->p_pax = flags;
+	FOREACH_THREAD_IN_PROC(p, td0) {
+		pax_set_flags_td(td0, flags);
+	}
+	PROC_UNLOCK(p);
+}
+
+void
+pax_set_flags_td(struct thread *td, const uint32_t flags)
+{
+
+	td->td_pax = flags;
 }
 
 static int
@@ -169,7 +225,7 @@ pax_check_conflicting_modes(uint32_t mode)
  * 			0 on success
  */
 int
-pax_elf(struct image_params *imgp, uint32_t mode)
+pax_elf(struct image_params *imgp, struct thread *td, uint32_t mode)
 {
 	uint32_t flags;
 
@@ -195,23 +251,23 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 	flags = 0;
 
 #ifdef PAX_ASLR
-	flags |= pax_aslr_setup_flags(imgp, mode);
+	flags |= pax_aslr_setup_flags(imgp, td, mode);
 #ifdef MAP_32BIT
-	flags |= pax_disallow_map32bit_setup_flags(imgp, mode);
+	flags |= pax_disallow_map32bit_setup_flags(imgp, td, mode);
 #endif
 #endif
 
 #ifdef PAX_NOEXEC
-	flags |= pax_pageexec_setup_flags(imgp, mode);
-	flags |= pax_mprotect_setup_flags(imgp, mode);
+	flags |= pax_pageexec_setup_flags(imgp, td, mode);
+	flags |= pax_mprotect_setup_flags(imgp, td, mode);
 #endif
 
 #ifdef PAX_SEGVGUARD
-	flags |= pax_segvguard_setup_flags(imgp, mode);
+	flags |= pax_segvguard_setup_flags(imgp, td, mode);
 #endif
 
 #ifdef PAX_HARDENING
-	flags |= pax_hardening_setup_flags(imgp, mode);
+	flags |= pax_hardening_setup_flags(imgp, td, mode);
 #endif
 
 	CTR3(KTR_PAX, "%s : flags = %x mode = %x",
@@ -243,7 +299,7 @@ pax_elf(struct image_params *imgp, uint32_t mode)
 		return (ENOEXEC);
 	}
 
-	imgp->proc->p_pax = flags;
+	pax_set_flags(imgp->proc, td, flags);
 
 	/*
 	 * if we enable/disable features with secadm, print out a warning

@@ -282,15 +282,20 @@ pax_segvguard_init_prison(struct prison *pr)
 }
 
 uint32_t
-pax_segvguard_setup_flags(struct image_params *imgp, uint32_t mode)
+pax_segvguard_setup_flags(struct image_params *imgp, struct thread *td, uint32_t mode)
 {
 	struct prison *pr;
+	struct vattr vap;
 	uint32_t flags, status;
+	int ret;
+
+	KASSERT(imgp->proc == td->td_proc,
+	    ("%s: imgp->proc != td->td_proc", __func__));
 
 	flags = 0;
 	status = 0;
 
-	pr = pax_get_prison(imgp->proc);
+	pr = pax_get_prison_td(td);
 	status = pr->pr_hardening.hr_pax_segvguard_status;
 
 	if (status == PAX_FEATURE_DISABLED) {
@@ -308,7 +313,14 @@ pax_segvguard_setup_flags(struct image_params *imgp, uint32_t mode)
 	}
 
 	if (status == PAX_FEATURE_OPTIN) {
-		if (mode & PAX_NOTE_SEGVGUARD) {
+		/*
+		 * If the program has setuid, enforce the
+		 * segvguard.
+		 */
+		ret = VOP_GETATTR(imgp->vp, &vap, td->td_ucred);
+		if (ret != 0 ||
+		    (vap.va_mode & (S_ISUID | S_ISGID)) != 0 ||
+		    (mode & PAX_NOTE_SEGVGUARD)) {
 			flags |= PAX_NOTE_SEGVGUARD;
 			flags &= ~PAX_NOTE_NOSEGVGUARD;
 		} else {
@@ -338,59 +350,6 @@ pax_segvguard_setup_flags(struct image_params *imgp, uint32_t mode)
 	flags &= ~PAX_NOTE_NOSEGVGUARD;
 
 	return (flags);
-}
-
-int
-pax_segvguard_update_flags_if_setuid(struct image_params *imgp, struct vnode *vn)
-{
-	int ret;
-	struct prison *pr;
-	u_int status;
-
-	ret = 0;
-
-	pr = pax_get_prison(imgp->proc);
-	status = pr->pr_hardening.hr_pax_segvguard_status;
-
-	if (status == PAX_FEATURE_OPTIN) {
-		uint32_t flags;
-		struct vattr vap;
-
-		flags = imgp->proc->p_pax;
-
-		/* lock? */
-		ret = VOP_GETATTR(vn, &vap, imgp->proc->p_ucred);
-		if (ret != 0) {
-			flags |= PAX_NOTE_SEGVGUARD;
-			flags &= ~PAX_NOTE_NOSEGVGUARD;
-			/*
-			 * XXXOP: alert the user:
-			 *  pax_log_log
-			 *  pax_log_ulog
-			 */
-
-			imgp->proc->p_pax = flags;
-
-			return (ret);
-		}
-
-		CTR3(KTR_PAX, "%s: pid = %d p_pax = %x - before update",
-		    __func__, imgp->proc->p_pid, flags);
-
-		if ((vap.va_mode & (S_ISUID | S_ISGID)) != 0) {
-			flags |= PAX_NOTE_SEGVGUARD;
-			flags &= ~PAX_NOTE_NOSEGVGUARD;
-
-			imgp->proc->p_pax = flags;
-
-			CTR3(KTR_PAX, "%s: pid = %d p_pax = %x - after update",
-			    __func__, imgp->proc->p_pid, flags);
-
-			return (ret);
-		}
-	}
-
-	return (ret);
 }
 
 
