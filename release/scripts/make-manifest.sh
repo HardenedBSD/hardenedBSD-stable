@@ -9,22 +9,6 @@
 #
 # $FreeBSD$
 
-<<<<<<< HEAD
-desc_base="Base system (MANDATORY)"
-desc_kernel="Kernel (MANDATORY)"
-desc_doc="Additional documentation"
-doc_default=off
-desc_lib32="32-bit compatibility libraries"
-lib32_default=off
-desc_ports="Ports tree"
-desc_src="System source code"
-desc_tests="Test suite"
-src_default=off
-tests_default=off
-
-for i in $*; do
-	echo "`basename $i`	`sha256 -q $i`	`tar tvf $i | wc -l | tr -d ' '`	`basename $i .txz`	\"`eval echo \\\$desc_$(basename $i .txz)`\"	`eval echo \\\${$(basename $i .txz)_default:-on}`"
-=======
 base="Base system"
 doc="Additional Documentation"
 kernel="Kernel"
@@ -47,6 +31,7 @@ desc_src="${src}"
 desc_tests="${tests}"
 
 default_doc=off
+default_lib32=off
 default_src=off
 default_tests=off
 default_base_dbg=off
@@ -84,6 +69,5 @@ for i in ${*}; do
 	esac
 
 	printf "${dist}\t${hash}\t${nfiles}\t${distname}\t\"${desc}\"\t${default}\n"
->>>>>>> origin/master
 done
 
