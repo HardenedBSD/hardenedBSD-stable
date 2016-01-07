@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2013-2014 Devin Teske <dteske@FreeBSD.org>
+ * Copyright (c) 2003 Peter Wemm <peter@FreeBSD.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -10,7 +10,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -26,25 +26,32 @@
  * $FreeBSD$
  */
 
-#ifndef _UTIL_H_
-#define _UTIL_H_
+#ifndef _MACHINE_METADATA_H_
+#define	_MACHINE_METADATA_H_
 
-#include <sys/types.h>
+#define	MODINFOMD_SMAP		0x1001
+#define	MODINFOMD_SMAP_XATTR	0x1002
+#define	MODINFOMD_DTBP		0x1003
+#define	MODINFOMD_EFI_MAP	0x1004
+#define	MODINFOMD_EFI_FB	0x1005
+#define	MODINFOMD_MODULEP	0x1006
 
-#include <paths.h>
+struct efi_map_header {
+	uint64_t	memory_size;
+	uint64_t	descriptor_size;
+	uint32_t	descriptor_version;
+};
 
-#define SHELL_SPAWN_DEBUG	0	/* Debug spawning of sh(1) commands */
+struct efi_fb {
+	uint64_t	fb_addr;
+	uint64_t	fb_size;
+	uint32_t	fb_height;
+	uint32_t	fb_width;
+	uint32_t	fb_stride;
+	uint32_t	fb_mask_red;
+	uint32_t	fb_mask_green;
+	uint32_t	fb_mask_blue;
+	uint32_t	fb_mask_reserved;
+};
 
-#ifdef _PATH_BSHELL
-#define PATH_SHELL	_PATH_BSHELL
-#else
-#define PATH_SHELL	"/bin/sh"
-#endif
-
-#define CMDBUFMAX	65536
-
-__BEGIN_DECLS
-int	shell_spawn_pipecmd(const char *_cmd, const char *_label, pid_t *_pid);
-__END_DECLS
-
-#endif /* !_UTIL_H_ */
+#endif /* !_MACHINE_METADATA_H_ */
