@@ -36,6 +36,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/linker.h>
 #include <sys/boot.h>
 #include <machine/cpufunc.h>
+#include <machine/elf.h>
 #include <machine/metadata.h>
 #include <machine/psl.h>
 #include <machine/specialreg.h>
@@ -45,9 +46,9 @@ __FBSDID("$FreeBSD$");
 
 #include "bootstrap.h"
 #include "framebuffer.h"
-#include "x86_efi.h"
+#include "loader_efi.h"
 
-UINTN x86_efi_mapkey;
+UINTN efi_mapkey;
 
 static const char howto_switches[] = "aCdrgDmphsv";
 static int howto_masks[] = {
@@ -234,8 +235,19 @@ bi_load_efi_data(struct preloaded_file *kfp)
 	struct efi_map_header *efihdr;
 	struct efi_fb efifb;
 
-	if (efi_find_framebuffer(&efifb) == 0)
+	if (efi_find_framebuffer(&efifb) == 0) {
+		printf("EFI framebuffer information:\n");
+		printf("addr, size     0x%lx, 0x%lx\n", efifb.fb_addr,
+		    efifb.fb_size);
+		printf("dimensions     %d x %d\n", efifb.fb_width,
+		    efifb.fb_height);
+		printf("stride         %d\n", efifb.fb_stride);
+		printf("masks          0x%08x, 0x%08x, 0x%08x, 0x%08x\n",
+		    efifb.fb_mask_red, efifb.fb_mask_green, efifb.fb_mask_blue,
+		    efifb.fb_mask_reserved);
+
 		file_addmetadata(kfp, MODINFOMD_EFI_FB, sizeof(efifb), &efifb);
+	}
 
 	efisz = (sizeof(struct efi_map_header) + 0xf) & ~0xf;
 
@@ -249,7 +261,7 @@ bi_load_efi_data(struct preloaded_file *kfp)
 	 * one is marked as being loader data.
 	 */
 	sz = 0;
-	BS->GetMemoryMap(&sz, NULL, &x86_efi_mapkey, &mmsz, &mmver);
+	BS->GetMemoryMap(&sz, NULL, &efi_mapkey, &mmsz, &mmver);
 	sz += mmsz;
 	sz = (sz + 0xf) & ~0xf;
 	pages = EFI_SIZE_TO_PAGES(sz + efisz);
@@ -269,7 +281,7 @@ bi_load_efi_data(struct preloaded_file *kfp)
 	efihdr = (struct efi_map_header *)addr;
 	mm = (void *)((uint8_t *)efihdr + efisz);
 	sz = (EFI_PAGE_SIZE * pages) - efisz;
-	status = BS->GetMemoryMap(&sz, mm, &x86_efi_mapkey, &mmsz, &mmver);
+	status = BS->GetMemoryMap(&sz, mm, &efi_mapkey, &mmsz, &mmver);
 	if (EFI_ERROR(status)) {
 		printf("%s: GetMemoryMap() returned 0x%lx\n", __func__,
 		    (long)status);
@@ -322,7 +334,7 @@ bi_load(char *args, vm_offset_t *modulep, vm_offset_t *kernendp)
 	}
 
 	/* Try reading the /etc/fstab file to select the root device */
-	getrootmount(x86_efi_fmtdev((void *)rootdev));
+	getrootmount(efi_fmtdev((void *)rootdev));
 
 	addr = 0;
 	for (xp = file_findfile(NULL, NULL); xp != NULL; xp = xp->f_next) {
@@ -364,6 +376,6 @@ bi_load(char *args, vm_offset_t *modulep, vm_offset_t *kernendp)
 
 	/* Copy module list and metadata. */
 	(void)bi_copymodules(addr);
-	
+
 	return (0);
 }

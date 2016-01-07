@@ -27,23 +27,9 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
-#include <stand.h>
-#include <machine/elf.h>
-#include "../btx/lib/btxv86.h"
-
-#include "../../common/bootstrap.h"
-
-uint32_t __base;
-struct __v86 __v86;
-
-void
-__v86int()
+int
+efi_autoload(void)
 {
-	printf("%s\n", __func__);
-	exit(1);
-}
 
-void
-__exec(caddr_t addr, ...)
-{
+	return (0);
 }
