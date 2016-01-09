@@ -400,11 +400,7 @@ linux_rt_sendsig(sig_t catcher, ksiginfo_t *ksi, sigset_t *mask)
 	 * Build context to run handler in.
 	 */
 	regs->tf_rsp = PTROUT(fp);
-<<<<<<< HEAD
-	regs->tf_rip = p->p_sigcode_base + linux_sznonrtsigcode;
-=======
 	regs->tf_rip = linux32_rt_sigcode;
->>>>>>> freebsd/stable/10
 	regs->tf_rflags &= ~(PSL_T | PSL_D);
 	regs->tf_cs = _ucode32sel;
 	regs->tf_ss = _udatasel;
@@ -525,11 +521,7 @@ linux_sendsig(sig_t catcher, ksiginfo_t *ksi, sigset_t *mask)
 	 * Build context to run handler in.
 	 */
 	regs->tf_rsp = PTROUT(fp);
-<<<<<<< HEAD
-	regs->tf_rip = p->p_sigcode_base;
-=======
 	regs->tf_rip = linux32_sigcode;
->>>>>>> freebsd/stable/10
 	regs->tf_rflags &= ~(PSL_T | PSL_D);
 	regs->tf_cs = _ucode32sel;
 	regs->tf_ss = _udatasel;
@@ -1054,11 +1046,8 @@ struct sysentvec elf_linux_sysvec = {
 	.sv_shared_page_base = LINUX32_SHAREDPAGE,
 	.sv_shared_page_len = PAGE_SIZE,
 	.sv_schedtail	= linux_schedtail,
-<<<<<<< HEAD
-	.sv_pax_aslr_init = pax_aslr_init_vmspace32,
-=======
 	.sv_thread_detach = linux_thread_detach,
->>>>>>> freebsd/stable/10
+	.sv_pax_aslr_init = pax_aslr_init_vmspace32,
 };
 
 static void
