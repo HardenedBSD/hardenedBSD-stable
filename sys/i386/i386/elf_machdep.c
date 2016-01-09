@@ -90,11 +90,8 @@ struct sysentvec elf32_freebsd_sysvec = {
 	.sv_shared_page_base = SHAREDPAGE,
 	.sv_shared_page_len = PAGE_SIZE,
 	.sv_schedtail	= NULL,
-<<<<<<< HEAD
-	.sv_pax_aslr_init = pax_aslr_init_vmspace,
-=======
 	.sv_thread_detach = NULL,
->>>>>>> freebsd/stable/10
+	.sv_pax_aslr_init = pax_aslr_init_vmspace,
 };
 INIT_SYSENTVEC(elf32_sysvec, &elf32_freebsd_sysvec);
 
