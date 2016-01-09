@@ -416,11 +416,8 @@ struct sysentvec null_sysvec = {
 	.sv_fetch_syscall_args = null_fetch_syscall_args,
 	.sv_syscallnames = NULL,
 	.sv_schedtail	= NULL,
-<<<<<<< HEAD
-	.sv_pax_aslr_init = NULL,
-=======
 	.sv_thread_detach = NULL,
->>>>>>> freebsd/stable/10
+	.sv_pax_aslr_init = NULL,
 };
 
 /*
