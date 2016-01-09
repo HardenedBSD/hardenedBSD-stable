@@ -251,12 +251,8 @@ elf_linux_fixup(register_t **stack_base, struct image_params *imgp)
 	pos = *stack_base + (imgp->args->argc + imgp->args->envc + 2);
 
 	AUXARGS_ENTRY(pos, LINUX_AT_SYSINFO_EHDR,
-<<<<<<< HEAD
 	    imgp->proc->p_shared_page_base);
-=======
-	    imgp->proc->p_sysent->sv_shared_page_base);
 	AUXARGS_ENTRY(pos, LINUX_AT_SYSINFO, linux_vsyscall);
->>>>>>> freebsd/stable/10
 	AUXARGS_ENTRY(pos, LINUX_AT_HWCAP, cpu_feature);
 
 	/*
@@ -316,15 +312,11 @@ linux_copyout_strings(struct image_params *imgp)
 	 * Calculate string base and vector table pointers.
 	 */
 	p = imgp->proc;
-<<<<<<< HEAD
-	arginfo = (struct ps_strings *)p->p_psstrings;
-=======
 	if (imgp->execpath != NULL && imgp->auxargs != NULL)
 		execpath_len = strlen(imgp->execpath) + 1;
 	else
 		execpath_len = 0;
-	arginfo = (struct ps_strings *)p->p_sysent->sv_psstrings;
->>>>>>> freebsd/stable/10
+	arginfo = (struct ps_strings *)p->p_psstrings;
 	destp = (caddr_t)arginfo - SPARE_USRSPACE - linux_szplatform -
 	    roundup(sizeof(canary), sizeof(char *)) -
 	    roundup(execpath_len, sizeof(char *)) -
@@ -541,11 +533,7 @@ linux_rt_sendsig(sig_t catcher, ksiginfo_t *ksi, sigset_t *mask)
 	 * Build context to run handler in.
 	 */
 	regs->tf_esp = (int)fp;
-<<<<<<< HEAD
-	regs->tf_eip = p->p_sigcode_base + linux_sznonrtsigcode;
-=======
 	regs->tf_eip = linux_rt_sigcode;
->>>>>>> freebsd/stable/10
 	regs->tf_eflags &= ~(PSL_T | PSL_VM | PSL_D);
 	regs->tf_cs = _ucodesel;
 	regs->tf_ds = _udatasel;
@@ -662,11 +650,7 @@ linux_sendsig(sig_t catcher, ksiginfo_t *ksi, sigset_t *mask)
 	 * Build context to run handler in.
 	 */
 	regs->tf_esp = (int)fp;
-<<<<<<< HEAD
-	regs->tf_eip = p->p_sigcode_base;
-=======
 	regs->tf_eip = linux_sigcode;
->>>>>>> freebsd/stable/10
 	regs->tf_eflags &= ~(PSL_T | PSL_VM | PSL_D);
 	regs->tf_cs = _ucodesel;
 	regs->tf_ds = _udatasel;
@@ -970,48 +954,6 @@ linux_get_machine(const char **dst)
 	}
 }
 
-<<<<<<< HEAD
-=======
-struct sysentvec linux_sysvec = {
-	.sv_size	= LINUX_SYS_MAXSYSCALL,
-	.sv_table	= linux_sysent,
-	.sv_mask	= 0,
-	.sv_sigsize	= 0,
-	.sv_sigtbl	= NULL,
-	.sv_errsize	= ELAST + 1,
-	.sv_errtbl	= bsd_to_linux_errno,
-	.sv_transtrap	= translate_traps,
-	.sv_fixup	= linux_fixup,
-	.sv_sendsig	= linux_sendsig,
-	.sv_sigcode	= &_binary_linux_locore_o_start,
-	.sv_szsigcode	= &linux_szsigcode,
-	.sv_prepsyscall	= NULL,
-	.sv_name	= "Linux a.out",
-	.sv_coredump	= NULL,
-	.sv_imgact_try	= exec_linux_imgact_try,
-	.sv_minsigstksz	= LINUX_MINSIGSTKSZ,
-	.sv_pagesize	= PAGE_SIZE,
-	.sv_minuser	= VM_MIN_ADDRESS,
-	.sv_maxuser	= VM_MAXUSER_ADDRESS,
-	.sv_usrstack	= LINUX_USRSTACK,
-	.sv_psstrings	= PS_STRINGS,
-	.sv_stackprot	= VM_PROT_ALL,
-	.sv_copyout_strings = exec_copyout_strings,
-	.sv_setregs	= exec_linux_setregs,
-	.sv_fixlimit	= NULL,
-	.sv_maxssiz	= NULL,
-	.sv_flags	= SV_ABI_LINUX | SV_AOUT | SV_IA32 | SV_ILP32,
-	.sv_set_syscall_retval = cpu_set_syscall_retval,
-	.sv_fetch_syscall_args = linux_fetch_syscall_args,
-	.sv_syscallnames = NULL,
-	.sv_shared_page_base = LINUX_SHAREDPAGE,
-	.sv_shared_page_len = PAGE_SIZE,
-	.sv_schedtail	= linux_schedtail,
-	.sv_thread_detach = linux_thread_detach,
-};
-INIT_SYSENTVEC(aout_sysvec, &linux_sysvec);
-
->>>>>>> freebsd/stable/10
 struct sysentvec elf_linux_sysvec = {
 	.sv_size	= LINUX_SYS_MAXSYSCALL,
 	.sv_table	= linux_sysent,
@@ -1047,10 +989,8 @@ struct sysentvec elf_linux_sysvec = {
 	.sv_shared_page_base = LINUX_SHAREDPAGE,
 	.sv_shared_page_len = PAGE_SIZE,
 	.sv_schedtail	= linux_schedtail,
-<<<<<<< HEAD
-	.sv_pax_aslr_init = pax_aslr_init_vmspace,
-=======
 	.sv_thread_detach = linux_thread_detach,
+	.sv_pax_aslr_init = pax_aslr_init_vmspace,
 };
 
 static void
@@ -1082,7 +1022,6 @@ linux_vdso_deinstall(void *param)
 {
 
 	__elfN(linux_shared_page_fini)(linux_shared_page_obj);
->>>>>>> freebsd/stable/10
 };
 SYSUNINIT(elf_linux_vdso_uninit, SI_SUB_EXEC, SI_ORDER_FIRST,
     (sysinit_cfunc_t)linux_vdso_deinstall, NULL);
