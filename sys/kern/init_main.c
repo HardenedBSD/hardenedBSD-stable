@@ -416,7 +416,11 @@ struct sysentvec null_sysvec = {
 	.sv_fetch_syscall_args = null_fetch_syscall_args,
 	.sv_syscallnames = NULL,
 	.sv_schedtail	= NULL,
+<<<<<<< HEAD
 	.sv_pax_aslr_init = NULL,
+=======
+	.sv_thread_detach = NULL,
+>>>>>>> freebsd/stable/10
 };
 
 /*
@@ -619,9 +623,9 @@ proc0_post(void *dummy __unused)
 	sx_slock(&allproc_lock);
 	FOREACH_PROC_IN_SYSTEM(p) {
 		microuptime(&p->p_stats->p_start);
-		PROC_SLOCK(p);
+		PROC_STATLOCK(p);
 		rufetch(p, &ru);	/* Clears thread stats */
-		PROC_SUNLOCK(p);
+		PROC_STATUNLOCK(p);
 		p->p_rux.rux_runtime = 0;
 		p->p_rux.rux_uticks = 0;
 		p->p_rux.rux_sticks = 0;
