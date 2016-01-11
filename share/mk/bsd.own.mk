@@ -357,7 +357,6 @@ __DEFAULT_YES_OPTIONS = \
     PIE \
     PKGBOOTSTRAP \
     PMC \
-    PORTSNAP \
     PPP \
     PROFILE \
     QUOTAS \
@@ -408,6 +407,7 @@ __DEFAULT_NO_OPTIONS = \
     OFED \
     OPENSSH_NONE_CIPHER \
     PKGTOOLS \
+    PORTSNAP \
     SHARED_TOOLCHAIN \
     SVN \
     TESTS \
