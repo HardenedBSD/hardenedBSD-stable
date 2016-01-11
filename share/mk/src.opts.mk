@@ -137,7 +137,6 @@ __DEFAULT_YES_OPTIONS = \
     PF \
     PKGBOOTSTRAP \
     PMC \
-    PORTSNAP \
     PPP \
     QUOTAS \
     RADIUS_SUPPORT \
@@ -184,6 +183,7 @@ __DEFAULT_NO_OPTIONS = \
     NAND \
     OFED \
     OPENLDAP \
+    PORTSNAP \
     SHARED_TOOLCHAIN \
     SORT_THREADS \
     SVN
