@@ -148,6 +148,11 @@ SYSCTL_VNET_INT(_net_inet_tcp, OID_AUTO, drop_synfin, CTLFLAG_RW,
     &VNET_NAME(drop_synfin), 0,
     "Drop TCP packets with SYN+FIN set");
 
+VNET_DEFINE(int, tcp_do_rfc6675_pipe) = 0;
+SYSCTL_INT(_net_inet_tcp, OID_AUTO, do_pipe, CTLFLAG_VNET | CTLFLAG_RW,
+    &VNET_NAME(tcp_do_rfc6675_pipe), 0,
+    "Use calculated pipe/in-flight bytes per RFC 6675");
+
 VNET_DEFINE(int, tcp_do_rfc3042) = 1;
 #define	V_tcp_do_rfc3042	VNET(tcp_do_rfc3042)
 SYSCTL_VNET_INT(_net_inet_tcp, OID_AUTO, rfc3042, CTLFLAG_RW,
@@ -1443,7 +1448,7 @@ tcp_do_segment(struct mbuf *m, struct tcphdr *th, struct socket *so,
     struct tcpcb *tp, int drop_hdrlen, int tlen, uint8_t iptos,
     int ti_locked)
 {
-	int thflags, acked, ourfinisacked, needoutput = 0;
+	int thflags, acked, ourfinisacked, needoutput = 0, sack_changed;
 	int rstreason, todrop, win;
 	u_long tiwin;
 	char *s;
@@ -1464,6 +1469,7 @@ tcp_do_segment(struct mbuf *m, struct tcphdr *th, struct socket *so,
 	thflags = th->th_flags;
 	inc = &tp->t_inpcb->inp_inc;
 	tp->sackhint.last_sack_ack = 0;
+	sack_changed = 0;
 
 	/*
 	 * If this is either a state-changing packet or current state isn't
@@ -2454,13 +2460,21 @@ tcp_do_segment(struct mbuf *m, struct tcphdr *th, struct socket *so,
 		if ((tp->t_flags & TF_SACK_PERMIT) &&
 		    ((to.to_flags & TOF_SACK) ||
 		     !TAILQ_EMPTY(&tp->snd_holes)))
-			tcp_sack_doack(tp, &to, th->th_ack);
+			sack_changed = tcp_sack_doack(tp, &to, th->th_ack);
+		else
+			/*
+			 * Reset the value so that previous (valid) value
+			 * from the last ack with SACK doesn't get used.
+			 */
+			tp->sackhint.sacked_bytes = 0;
 
 		/* Run HHOOK_TCP_ESTABLISHED_IN helper hooks. */
 		hhook_run_tcp_est_in(tp, th, &to);
 
 		if (SEQ_LEQ(th->th_ack, tp->snd_una)) {
-			if (tlen == 0 && tiwin == tp->snd_wnd) {
+			if (tlen == 0 &&
+			    (tiwin == tp->snd_wnd ||
+			    (tp->t_flags & TF_SACK_PERMIT))) {
 				TCPSTAT_INC(tcps_rcvdupack);
 				/*
 				 * If we have outstanding data (other than
@@ -2489,8 +2503,20 @@ tcp_do_segment(struct mbuf *m, struct tcphdr *th, struct socket *so,
 				 * When using TCP ECN, notify the peer that
 				 * we reduced the cwnd.
 				 */
-				if (!tcp_timer_active(tp, TT_REXMT) ||
-				    th->th_ack != tp->snd_una)
+				/*
+				 * Following 2 kinds of acks should not affect
+				 * dupack counting:
+				 * 1) Old acks
+				 * 2) Acks with SACK but without any new SACK
+				 * information in them. These could result from
+				 * any anomaly in the network like a switch
+				 * duplicating packets or a possible DoS attack.
+				 */
+				if (th->th_ack != tp->snd_una ||
+				    ((tp->t_flags & TF_SACK_PERMIT) &&
+				    !sack_changed))
+					break;
+				else if (!tcp_timer_active(tp, TT_REXMT))
 					tp->t_dupacks = 0;
 				else if (++tp->t_dupacks > tcprexmtthresh ||
 				     IN_FASTRECOVERY(tp->t_flags)) {
@@ -2505,8 +2531,12 @@ tcp_do_segment(struct mbuf *m, struct tcphdr *th, struct socket *so,
 						 * we have less than 1/2 the original window's
 						 * worth of data in flight.
 						 */
-						awnd = (tp->snd_nxt - tp->snd_fack) +
-							tp->sackhint.sack_bytes_rexmit;
+						if (V_tcp_do_rfc6675_pipe)
+							awnd = tcp_compute_pipe(tp);
+						else
+							awnd = (tp->snd_nxt - tp->snd_fack) +
+								tp->sackhint.sack_bytes_rexmit;
+
 						if (awnd < tp->snd_ssthresh) {
 							tp->snd_cwnd += tp->t_maxseg;
 							if (tp->snd_cwnd > tp->snd_ssthresh)
@@ -2645,9 +2675,20 @@ tcp_do_segment(struct mbuf *m, struct tcphdr *th, struct socket *so,
 					tp->snd_cwnd = oldcwnd;
 					goto drop;
 				}
-			} else
-				tp->t_dupacks = 0;
+			}
 			break;
+		} else {
+			/*
+			 * This ack is advancing the left edge, reset the
+			 * counter.
+			 */
+			tp->t_dupacks = 0;
+			/*
+			 * If this ack also has new SACK info, increment the
+			 * counter as per rfc6675.
+			 */
+			if ((tp->t_flags & TF_SACK_PERMIT) && sack_changed)
+				tp->t_dupacks++;
 		}
 
 		KASSERT(SEQ_GT(th->th_ack, tp->snd_una),
@@ -2666,7 +2707,6 @@ tcp_do_segment(struct mbuf *m, struct tcphdr *th, struct socket *so,
 			} else
 				cc_post_recovery(tp, th);
 		}
-		tp->t_dupacks = 0;
 		/*
 		 * If we reach this point, ACK is not a duplicate,
 		 *     i.e., it ACKs something we sent.
@@ -3797,4 +3837,12 @@ tcp_newreno_partial_ack(struct tcpcb *tp, struct tcphdr *th)
 	else
 		tp->snd_cwnd = 0;
 	tp->snd_cwnd += tp->t_maxseg;
+}
+
+int
+tcp_compute_pipe(struct tcpcb *tp)
+{
+	return (tp->snd_max - tp->snd_una +
+		tp->sackhint.sack_bytes_rexmit -
+		tp->sackhint.sacked_bytes);
 }
