@@ -505,38 +505,6 @@ efx_mac_fcntl_get(
 	__out		unsigned int *fcntl_wantedp,
 	__out		unsigned int *fcntl_linkp);
 
-#define	EFX_MAC_HASH_BITS	(1 << 8)
-
-extern	__checkReturn			efx_rc_t
-efx_pktfilter_init(
-	__in				efx_nic_t *enp);
-
-extern					void
-efx_pktfilter_fini(
-	__in				efx_nic_t *enp);
-
-extern	__checkReturn			efx_rc_t
-efx_pktfilter_set(
-	__in		efx_nic_t *enp,
-	__in		boolean_t unicst,
-	__in		boolean_t brdcst);
-
-extern	__checkReturn			efx_rc_t
-efx_mac_hash_set(
-	__in				efx_nic_t *enp,
-	__in_ecount(EFX_MAC_HASH_BITS)	unsigned int const *bucket);
-
-#if EFSYS_OPT_MCAST_FILTER_LIST
-extern	__checkReturn			efx_rc_t
-efx_pktfilter_mcast_list_set(
-	__in				efx_nic_t *enp,
-	__in				uint8_t const *addrs,
-	__in				int count);
-#endif /* EFSYS_OPT_MCAST_FILTER_LIST */
-
-extern	__checkReturn			efx_rc_t
-efx_pktfilter_mcast_all(
-	__in				efx_nic_t *enp);
 
 #if EFSYS_OPT_MAC_STATS
 
@@ -1128,6 +1096,7 @@ typedef struct efx_nic_cfg_s {
 	uint32_t		enc_buftbl_limit;
 	uint32_t		enc_piobuf_limit;
 	uint32_t		enc_piobuf_size;
+	uint32_t		enc_piobuf_min_alloc_size;
 	uint32_t		enc_evq_timer_quantum_ns;
 	uint32_t		enc_evq_timer_max_us;
 	uint32_t		enc_clk_mult;
@@ -1947,8 +1916,6 @@ efx_psuedo_hdr_pkt_length_get(
 
 typedef enum efx_rxq_type_e {
 	EFX_RXQ_TYPE_DEFAULT,
-	EFX_RXQ_TYPE_SPLIT_HEADER,
-	EFX_RXQ_TYPE_SPLIT_PAYLOAD,
 	EFX_RXQ_TYPE_SCATTER,
 	EFX_RXQ_NTYPES
 } efx_rxq_type_t;
