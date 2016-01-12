@@ -61,6 +61,7 @@ typedef enum efx_family_e {
 	EFX_FAMILY_FALCON,
 	EFX_FAMILY_SIENA,
 	EFX_FAMILY_HUNTINGTON,
+	EFX_FAMILY_MEDFORD,
 	EFX_FAMILY_NTYPES
 } efx_family_t;
 
@@ -90,6 +91,9 @@ efx_infer_family(
 #define	EFX_PCI_DEVID_FARMINGDALE_VF		0x1903	/* SFC9120 VF */
 #define	EFX_PCI_DEVID_GREENPORT_VF		0x1923	/* SFC9140 VF */
 
+#define	EFX_PCI_DEVID_MEDFORD_PF_UNINIT		0x0913
+#define	EFX_PCI_DEVID_MEDFORD			0x0A03	/* SFC9240 PF */
+#define	EFX_PCI_DEVID_MEDFORD_VF		0x1A03	/* SFC9240 VF */
 
 #define	EFX_MEM_BAR	2
 
@@ -187,8 +191,8 @@ efx_nic_destroy(
 
 #if EFSYS_OPT_MCDI
 
-#if EFSYS_OPT_HUNTINGTON
-/* Huntington requires MCDIv2 commands */
+#if EFSYS_OPT_HUNTINGTON || EFSYS_OPT_MEDFORD
+/* Huntington and Medford require MCDIv2 commands */
 #define	WITH_MCDI_V2 1
 #endif
 
@@ -590,6 +594,7 @@ typedef enum efx_mon_type_e {
 	EFX_MON_MAX6647,
 	EFX_MON_SFC90X0,
 	EFX_MON_SFC91X0,
+	EFX_MON_SFC92X0,
 	EFX_MON_NTYPES
 } efx_mon_type_t;
 
@@ -610,7 +615,7 @@ efx_mon_init(
 #define	EFX_MON_STATS_PAGE_SIZE 0x100
 #define	EFX_MON_MASK_ELEMENT_SIZE 32
 
-/* START MKCONFIG GENERATED MonitorHeaderStatsBlock c79c86b62a144846 */
+/* START MKCONFIG GENERATED MonitorHeaderStatsBlock c09b13f732431f23 */
 typedef enum efx_mon_stat_e {
 	EFX_MON_STAT_2_5V,
 	EFX_MON_STAT_VCCP1,
@@ -681,6 +686,12 @@ typedef enum efx_mon_stat_e {
 	EFX_MON_STAT_CONTROLLER_SLAVE_INTERNAL_TEMP,
 	EFX_MON_STAT_CONTROLLER_SLAVE_VPTAT_EXT_ADC,
 	EFX_MON_STAT_CONTROLLER_SLAVE_INTERNAL_TEMP_EXT_ADC,
+	EFX_MON_STAT_SODIMM_VOUT,
+	EFX_MON_STAT_SODIMM_0_TEMP,
+	EFX_MON_STAT_SODIMM_1_TEMP,
+	EFX_MON_STAT_PHY0_VCC,
+	EFX_MON_STAT_PHY1_VCC,
+	EFX_MON_STAT_CONTROLLER_TDIODE_TEMP,
 	EFX_MON_NSTATS
 } efx_mon_stat_t;
 
@@ -1144,20 +1155,20 @@ typedef struct efx_nic_cfg_s {
 	uint32_t		enc_mcdi_phy_stat_mask;
 #endif	/* EFSYS_OPT_PHY_STATS */
 #endif /* EFSYS_OPT_SIENA */
-#if (EFSYS_OPT_SIENA || EFSYS_OPT_HUNTINGTON)
+#if (EFSYS_OPT_SIENA || EFSYS_OPT_HUNTINGTON || EFSYS_OPT_MEDFORD)
 #if EFSYS_OPT_MON_STATS
 	uint32_t		*enc_mcdi_sensor_maskp;
 	uint32_t		enc_mcdi_sensor_mask_size;
 #endif	/* EFSYS_OPT_MON_STATS */
-#endif	/* (EFSYS_OPT_SIENA | EFSYS_OPT_HUNTINGTON) */
+#endif	/* (EFSYS_OPT_SIENA || EFSYS_OPT_HUNTINGTON || EFSYS_OPT_MEDFORD) */
 #if EFSYS_OPT_BIST
 	uint32_t		enc_bist_mask;
 #endif	/* EFSYS_OPT_BIST */
-#if EFSYS_OPT_HUNTINGTON
+#if EFSYS_OPT_HUNTINGTON || EFSYS_OPT_MEDFORD
 	uint32_t		enc_pf;
 	uint32_t		enc_vf;
 	uint32_t		enc_privilege_mask;
-#endif /* EFSYS_OPT_HUNTINGTON */
+#endif /* EFSYS_OPT_HUNTINGTON || EFSYS_OPT_MEDFORD */
 	boolean_t		enc_bug26807_workaround;
 	boolean_t		enc_bug35388_workaround;
 	boolean_t		enc_bug41750_workaround;
