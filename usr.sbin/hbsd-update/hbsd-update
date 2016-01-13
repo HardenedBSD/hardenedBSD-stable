@@ -249,11 +249,23 @@ apply_base() {
 
 	${TAR} -xpf ${tmpdir}/base.txz \
 		-X ${tmpdir}/skip.txt \
+		--exclude ./boot \
 		-C ${mountpoint}
 	res=${?}
 	if [ ${res} -gt 0 ]; then
 		return 1
 	fi
+
+	boottmp=$(env TMPDIR=${tmpdir} ${MKTEMP} -d)
+	${TAR} -xpf ${tmpdir}/base.txz --include ./boot -C ${boottmp}
+	${TAR} -c -C ${boottmp}/boot -f - . | \
+		(cd ${mountpoint}/boot; ${TAR} -xpf -)
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		return 1
+	fi
+
+	rm -rf ${boottmp}
 
 	if [ ${verbose} -gt 0 ]; then
 		debug_print "[*] Updating /etc"
@@ -314,15 +326,27 @@ apply_kernel() {
 		fi
 	fi
 
+	kerntmp=$(env TMPDIR=${tmpdir} ${MKTEMP} -d)
+
 	${TAR} -xpf ${tmpdir}/kernel-${kernel}.txz \
 		-X ${tmpdir}/skip.txt \
-		-C ${mountpoint}
+		--include ./boot \
+		-C ${kerntmp}
 	res=${?}
 	if [ ${res} -gt 0 ]; then
 		return 1
 	fi
 
-	${KLDXREF} /boot/kernel
+	${TAR} -cp -C ${kerntmp}/boot -f - . | \
+		(cd ${mountpoint}/boot; ${TAR} -xpf -)
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		return ${res}
+	fi
+
+	rm -rf ${kerntmp}
+
+	${KLDXREF} ${mountpoint}/boot/kernel
 	res=${?}
 	if [ ${res} -gt 0 ]; then
 		return 1
