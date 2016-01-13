@@ -157,10 +157,6 @@ typedef struct efx_tx_ops_s {
 typedef struct efx_rx_ops_s {
 	efx_rc_t	(*erxo_init)(efx_nic_t *);
 	void		(*erxo_fini)(efx_nic_t *);
-#if EFSYS_OPT_RX_HDR_SPLIT
-	efx_rc_t	(*erxo_hdr_split_enable)(efx_nic_t *, unsigned int,
-						 unsigned int);
-#endif
 #if EFSYS_OPT_RX_SCATTER
 	efx_rc_t	(*erxo_scatter_enable)(efx_nic_t *, unsigned int);
 #endif
@@ -170,7 +166,11 @@ typedef struct efx_rx_ops_s {
 	efx_rc_t	(*erxo_scale_key_set)(efx_nic_t *, uint8_t *, size_t);
 	efx_rc_t	(*erxo_scale_tbl_set)(efx_nic_t *, unsigned int *,
 					      size_t);
-#endif
+	uint32_t	(*erxo_prefix_hash)(efx_nic_t *, efx_rx_hash_alg_t,
+					    uint8_t *);
+#endif /* EFSYS_OPT_RX_SCALE */
+	efx_rc_t	(*erxo_prefix_pktlen)(efx_nic_t *, uint8_t *,
+					      uint16_t *);
 	void		(*erxo_qpost)(efx_rxq_t *, efsys_dma_addr_t *, size_t,
 				      unsigned int, unsigned int,
 				      unsigned int);
@@ -492,6 +492,8 @@ typedef struct efx_nvram_ops_s {
 	efx_rc_t	(*envo_set_version)(efx_nic_t *, efx_nvram_type_t,
 					    uint16_t *);
 
+	efx_rc_t	(*envo_type_to_partn)(efx_nic_t *, efx_nvram_type_t,
+					    uint32_t *);
 } efx_nvram_ops_t;
 #endif /* EFSYS_OPT_NVRAM */
 
@@ -672,6 +674,7 @@ struct efx_nic_s {
 		struct {
 			int			ena_vi_base;
 			int			ena_vi_count;
+			int			ena_vi_shift;
 #if EFSYS_OPT_VPD
 			caddr_t			ena_svpd;
 			size_t			ena_svpd_length;
@@ -1117,7 +1120,7 @@ efx_vpd_hunk_next(
 	__in				size_t size,
 	__out				efx_vpd_tag_t *tagp,
 	__out				efx_vpd_keyword_t *keyword,
-	__out_bcount_opt(*paylenp)	unsigned int *payloadp,
+	__out_opt			unsigned int *payloadp,
 	__out_opt			uint8_t *paylenp,
 	__inout				unsigned int *contp);
 

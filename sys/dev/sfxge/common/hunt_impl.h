@@ -52,7 +52,7 @@ extern "C" {
 /* Alignment requirement for value written to RX WPTR:
  *  the WPTR must be aligned to an 8 descriptor boundary
  */
-#define	HUNTINGTON_RX_WPTR_ALIGN 8
+#define	EF10_RX_WPTR_ALIGN 8
 
 /* Invalid RSS context handle */
 #define	EF10_RSS_CONTEXT_INVALID	(0xffffffff)
@@ -161,48 +161,48 @@ ef10_intr_fini(
 /* NIC */
 
 extern	__checkReturn	efx_rc_t
-hunt_nic_probe(
+ef10_nic_probe(
 	__in		efx_nic_t *enp);
 
 extern	__checkReturn	efx_rc_t
-hunt_nic_set_drv_limits(
+ef10_nic_set_drv_limits(
 	__inout		efx_nic_t *enp,
 	__in		efx_drv_limits_t *edlp);
 
 extern	__checkReturn	efx_rc_t
-hunt_nic_get_vi_pool(
+ef10_nic_get_vi_pool(
 	__in		efx_nic_t *enp,
 	__out		uint32_t *vi_countp);
 
 extern	__checkReturn	efx_rc_t
-hunt_nic_get_bar_region(
+ef10_nic_get_bar_region(
 	__in		efx_nic_t *enp,
 	__in		efx_nic_region_t region,
 	__out		uint32_t *offsetp,
 	__out		size_t *sizep);
 
 extern	__checkReturn	efx_rc_t
-hunt_nic_reset(
+ef10_nic_reset(
 	__in		efx_nic_t *enp);
 
 extern	__checkReturn	efx_rc_t
-hunt_nic_init(
+ef10_nic_init(
 	__in		efx_nic_t *enp);
 
 #if EFSYS_OPT_DIAG
 
 extern	__checkReturn	efx_rc_t
-hunt_nic_register_test(
+ef10_nic_register_test(
 	__in		efx_nic_t *enp);
 
 #endif	/* EFSYS_OPT_DIAG */
 
 extern			void
-hunt_nic_fini(
+ef10_nic_fini(
 	__in		efx_nic_t *enp);
 
 extern			void
-hunt_nic_unprobe(
+ef10_nic_unprobe(
 	__in		efx_nic_t *enp);
 
 
@@ -289,10 +289,10 @@ ef10_mcdi_poll_response(
 
 extern			void
 ef10_mcdi_read_response(
-	__in		efx_nic_t *enp,
-	__out		void *bufferp,
-	__in		size_t offset,
-	__in		size_t length);
+	__in			efx_nic_t *enp,
+	__out_bcount(length)	void *bufferp,
+	__in			size_t offset,
+	__in			size_t length);
 
 extern			void
 ef10_mcdi_request_copyout(
@@ -465,6 +465,12 @@ ef10_nvram_set_version(
 	__in			efx_nic_t *enp,
 	__in			efx_nvram_type_t type,
 	__in_ecount(4)		uint16_t version[4]);
+
+extern	__checkReturn		efx_rc_t
+ef10_nvram_type_to_partn(
+	__in			efx_nic_t *enp,
+	__in			efx_nvram_type_t type,
+	__out			uint32_t *partnp);
 
 #endif	/* EFSYS_OPT_NVRAM */
 
@@ -747,7 +753,7 @@ typedef uint32_t	efx_piobuf_handle_t;
 #define	EFX_PIOBUF_HANDLE_INVALID	((efx_piobuf_handle_t) -1)
 
 extern	__checkReturn	efx_rc_t
-hunt_nic_pio_alloc(
+ef10_nic_pio_alloc(
 	__inout		efx_nic_t *enp,
 	__out		uint32_t *bufnump,
 	__out		efx_piobuf_handle_t *handlep,
@@ -756,19 +762,19 @@ hunt_nic_pio_alloc(
 	__out		size_t *sizep);
 
 extern	__checkReturn	efx_rc_t
-hunt_nic_pio_free(
+ef10_nic_pio_free(
 	__inout		efx_nic_t *enp,
 	__in		uint32_t bufnum,
 	__in		uint32_t blknum);
 
 extern	__checkReturn	efx_rc_t
-hunt_nic_pio_link(
+ef10_nic_pio_link(
 	__inout		efx_nic_t *enp,
 	__in		uint32_t vi_index,
 	__in		efx_piobuf_handle_t handle);
 
 extern	__checkReturn	efx_rc_t
-hunt_nic_pio_unlink(
+ef10_nic_pio_unlink(
 	__inout		efx_nic_t *enp,
 	__in		uint32_t vi_index);
 
@@ -845,14 +851,6 @@ extern	__checkReturn	efx_rc_t
 ef10_rx_init(
 	__in		efx_nic_t *enp);
 
-#if EFSYS_OPT_RX_HDR_SPLIT
-extern	__checkReturn	efx_rc_t
-ef10_rx_hdr_split_enable(
-	__in		efx_nic_t *enp,
-	__in		unsigned int hdr_buf_size,
-	__in		unsigned int pld_buf_size);
-#endif	/* EFSYS_OPT_RX_HDR_SPLIT */
-
 #if EFSYS_OPT_RX_SCATTER
 extern	__checkReturn	efx_rc_t
 ef10_rx_scatter_enable(
@@ -881,6 +879,18 @@ ef10_rx_scale_tbl_set(
 	__in		efx_nic_t *enp,
 	__in_ecount(n)	unsigned int *table,
 	__in		size_t n);
+
+extern	__checkReturn	uint32_t
+ef10_rx_prefix_hash(
+	__in		efx_nic_t *enp,
+	__in		efx_rx_hash_alg_t func,
+	__in		uint8_t *buffer);
+
+extern	__checkReturn	efx_rc_t
+ef10_rx_prefix_pktlen(
+	__in		efx_nic_t *enp,
+	__in		uint8_t *buffer,
+	__out		uint16_t *lengthp);
 
 #endif /* EFSYS_OPT_RX_SCALE */
 

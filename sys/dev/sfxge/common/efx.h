@@ -1817,15 +1817,6 @@ extern		void
 efx_rx_fini(
 	__in		efx_nic_t *enp);
 
-#if EFSYS_OPT_RX_HDR_SPLIT
-	__checkReturn	efx_rc_t
-efx_rx_hdr_split_enable(
-	__in		efx_nic_t *enp,
-	__in		unsigned int hdr_buf_size,
-	__in		unsigned int pld_buf_size);
-
-#endif	/* EFSYS_OPT_RX_HDR_SPLIT */
-
 #if EFSYS_OPT_RX_SCATTER
 	__checkReturn	efx_rc_t
 efx_rx_scatter_enable(
@@ -1892,7 +1883,7 @@ efx_rx_scale_key_set(
 	__in_ecount(n)	uint8_t *key,
 	__in		size_t n);
 
-extern uint32_t
+extern	__checkReturn	uint32_t
 efx_psuedo_hdr_hash_get(
 	__in		efx_nic_t *enp,
 	__in		efx_rx_hash_alg_t func,
@@ -2244,14 +2235,14 @@ efx_filter_supported_filters(
 
 extern			void
 efx_filter_spec_init_rx(
-	__inout		efx_filter_spec_t *spec,
+	__out		efx_filter_spec_t *spec,
 	__in		efx_filter_priority_t priority,
 	__in		efx_filter_flag_t flags,
 	__in		efx_rxq_t *erp);
 
 extern			void
 efx_filter_spec_init_tx(
-	__inout		efx_filter_spec_t *spec,
+	__out		efx_filter_spec_t *spec,
 	__in		efx_txq_t *etp);
 
 extern	__checkReturn	efx_rc_t

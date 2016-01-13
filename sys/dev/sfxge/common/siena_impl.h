@@ -127,10 +127,10 @@ siena_mcdi_poll_response(
 
 extern			void
 siena_mcdi_read_response(
-	__in		efx_nic_t *enp,
-	__out		void *bufferp,
-	__in		size_t offset,
-	__in		size_t length);
+	__in			efx_nic_t *enp,
+	__out_bcount(length)	void *bufferp,
+	__in			size_t offset,
+	__in			size_t length);
 
 extern			void
 siena_mcdi_request_copyout(
@@ -270,6 +270,12 @@ siena_nvram_set_version(
 	__in			efx_nic_t *enp,
 	__in			efx_nvram_type_t type,
 	__in_ecount(4)		uint16_t version[4]);
+
+extern	__checkReturn		efx_rc_t
+siena_nvram_type_to_partn(
+	__in			efx_nic_t *enp,
+	__in			efx_nvram_type_t type,
+	__out			uint32_t *partnp);
 
 #endif	/* EFSYS_OPT_NVRAM */
 
