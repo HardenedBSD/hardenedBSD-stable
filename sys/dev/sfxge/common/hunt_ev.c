@@ -31,10 +31,7 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
-#include "efsys.h"
 #include "efx.h"
-#include "efx_types.h"
-#include "efx_regs.h"
 #include "efx_impl.h"
 #if EFSYS_OPT_MON_STATS
 #include "mcdi_mon.h"
@@ -499,7 +496,6 @@ ef10_ev_rx(
 	uint32_t l3_class;
 	uint32_t l4_class;
 	uint32_t next_read_lbits;
-	boolean_t soft1, soft2;
 	uint16_t flags;
 	boolean_t should_abort;
 	efx_evq_rxq_state_t *eersp;
@@ -560,10 +556,6 @@ ef10_ev_rx(
 		/* ECC memory error */
 		flags |= EFX_DISCARD;
 	}
-
-	/* FIXME: do we need soft bits from RXDP firmware ? */
-	soft1 = (EFX_QWORD_FIELD(*eqp, ESF_DZ_RX_EV_SOFT1) != 0);
-	soft2 = (EFX_QWORD_FIELD(*eqp, ESF_DZ_RX_EV_SOFT2) != 0);
 
 	mcast = EFX_QWORD_FIELD(*eqp, ESF_DZ_RX_MAC_CLASS);
 	if (mcast == ESE_DZ_MAC_CLASS_UCAST)

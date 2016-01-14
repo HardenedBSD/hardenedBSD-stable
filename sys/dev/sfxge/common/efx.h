@@ -505,38 +505,6 @@ efx_mac_fcntl_get(
 	__out		unsigned int *fcntl_wantedp,
 	__out		unsigned int *fcntl_linkp);
 
-#define	EFX_MAC_HASH_BITS	(1 << 8)
-
-extern	__checkReturn			efx_rc_t
-efx_pktfilter_init(
-	__in				efx_nic_t *enp);
-
-extern					void
-efx_pktfilter_fini(
-	__in				efx_nic_t *enp);
-
-extern	__checkReturn			efx_rc_t
-efx_pktfilter_set(
-	__in		efx_nic_t *enp,
-	__in		boolean_t unicst,
-	__in		boolean_t brdcst);
-
-extern	__checkReturn			efx_rc_t
-efx_mac_hash_set(
-	__in				efx_nic_t *enp,
-	__in_ecount(EFX_MAC_HASH_BITS)	unsigned int const *bucket);
-
-#if EFSYS_OPT_MCAST_FILTER_LIST
-extern	__checkReturn			efx_rc_t
-efx_pktfilter_mcast_list_set(
-	__in				efx_nic_t *enp,
-	__in				uint8_t const *addrs,
-	__in				int count);
-#endif /* EFSYS_OPT_MCAST_FILTER_LIST */
-
-extern	__checkReturn			efx_rc_t
-efx_pktfilter_mcast_all(
-	__in				efx_nic_t *enp);
 
 #if EFSYS_OPT_MAC_STATS
 
@@ -1849,15 +1817,6 @@ extern		void
 efx_rx_fini(
 	__in		efx_nic_t *enp);
 
-#if EFSYS_OPT_RX_HDR_SPLIT
-	__checkReturn	efx_rc_t
-efx_rx_hdr_split_enable(
-	__in		efx_nic_t *enp,
-	__in		unsigned int hdr_buf_size,
-	__in		unsigned int pld_buf_size);
-
-#endif	/* EFSYS_OPT_RX_HDR_SPLIT */
-
 #if EFSYS_OPT_RX_SCATTER
 	__checkReturn	efx_rc_t
 efx_rx_scatter_enable(
@@ -1924,7 +1883,7 @@ efx_rx_scale_key_set(
 	__in_ecount(n)	uint8_t *key,
 	__in		size_t n);
 
-extern uint32_t
+extern	__checkReturn	uint32_t
 efx_psuedo_hdr_hash_get(
 	__in		efx_nic_t *enp,
 	__in		efx_rx_hash_alg_t func,
@@ -1948,8 +1907,6 @@ efx_psuedo_hdr_pkt_length_get(
 
 typedef enum efx_rxq_type_e {
 	EFX_RXQ_TYPE_DEFAULT,
-	EFX_RXQ_TYPE_SPLIT_HEADER,
-	EFX_RXQ_TYPE_SPLIT_PAYLOAD,
 	EFX_RXQ_TYPE_SCATTER,
 	EFX_RXQ_NTYPES
 } efx_rxq_type_t;
@@ -2278,14 +2235,14 @@ efx_filter_supported_filters(
 
 extern			void
 efx_filter_spec_init_rx(
-	__inout		efx_filter_spec_t *spec,
+	__out		efx_filter_spec_t *spec,
 	__in		efx_filter_priority_t priority,
 	__in		efx_filter_flag_t flags,
 	__in		efx_rxq_t *erp);
 
 extern			void
 efx_filter_spec_init_tx(
-	__inout		efx_filter_spec_t *spec,
+	__out		efx_filter_spec_t *spec,
 	__in		efx_txq_t *etp);
 
 extern	__checkReturn	efx_rc_t
