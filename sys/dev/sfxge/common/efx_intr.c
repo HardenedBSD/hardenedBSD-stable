@@ -40,7 +40,7 @@ __FBSDID("$FreeBSD$");
 
 #if EFSYS_OPT_FALCON || EFSYS_OPT_SIENA
 
-static	__checkReturn	int
+static	__checkReturn	efx_rc_t
 falconsiena_intr_init(
 	__in		efx_nic_t *enp,
 	__in		efx_intr_type_t type,
@@ -58,7 +58,7 @@ static			void
 falconsiena_intr_disable_unlocked(
 	__in		efx_nic_t *enp);
 
-static	__checkReturn	int
+static	__checkReturn	efx_rc_t
 falconsiena_intr_trigger(
 	__in		efx_nic_t *enp,
 	__in		unsigned int level);
@@ -101,19 +101,18 @@ static efx_intr_ops_t	__efx_intr_siena_ops = {
 };
 #endif	/* EFSYS_OPT_SIENA */
 
-#if EFSYS_OPT_HUNTINGTON
-static efx_intr_ops_t	__efx_intr_hunt_ops = {
-	hunt_intr_init,			/* eio_init */
-	hunt_intr_enable,		/* eio_enable */
-	hunt_intr_disable,		/* eio_disable */
-	hunt_intr_disable_unlocked,	/* eio_disable_unlocked */
-	hunt_intr_trigger,		/* eio_trigger */
-	hunt_intr_fini,			/* eio_fini */
+#if EFSYS_OPT_HUNTINGTON || EFSYS_OPT_MEDFORD
+static efx_intr_ops_t	__efx_intr_ef10_ops = {
+	ef10_intr_init,			/* eio_init */
+	ef10_intr_enable,		/* eio_enable */
+	ef10_intr_disable,		/* eio_disable */
+	ef10_intr_disable_unlocked,	/* eio_disable_unlocked */
+	ef10_intr_trigger,		/* eio_trigger */
+	ef10_intr_fini,			/* eio_fini */
 };
-#endif	/* EFSYS_OPT_HUNTINGTON */
+#endif	/* EFSYS_OPT_HUNTINGTON || EFSYS_OPT_MEDFORD */
 
-
-	__checkReturn	int
+	__checkReturn	efx_rc_t
 efx_intr_init(
 	__in		efx_nic_t *enp,
 	__in		efx_intr_type_t type,
@@ -121,7 +120,7 @@ efx_intr_init(
 {
 	efx_intr_t *eip = &(enp->en_intr);
 	efx_intr_ops_t *eiop;
-	int rc;
+	efx_rc_t rc;
 
 	EFSYS_ASSERT3U(enp->en_magic, ==, EFX_NIC_MAGIC);
 	EFSYS_ASSERT3U(enp->en_mod_flags, &, EFX_MOD_NIC);
@@ -152,9 +151,15 @@ efx_intr_init(
 
 #if EFSYS_OPT_HUNTINGTON
 	case EFX_FAMILY_HUNTINGTON:
-		eiop = (efx_intr_ops_t *)&__efx_intr_hunt_ops;
+		eiop = (efx_intr_ops_t *)&__efx_intr_ef10_ops;
 		break;
 #endif	/* EFSYS_OPT_HUNTINGTON */
+
+#if EFSYS_OPT_MEDFORD
+	case EFX_FAMILY_MEDFORD:
+		eiop = (efx_intr_ops_t *)&__efx_intr_ef10_ops;
+		break;
+#endif	/* EFSYS_OPT_MEDFORD */
 
 	default:
 		EFSYS_ASSERT(B_FALSE);
@@ -174,7 +179,7 @@ fail3:
 fail2:
 	EFSYS_PROBE(fail2);
 fail1:
-	EFSYS_PROBE1(fail1, int, rc);
+	EFSYS_PROBE1(fail1, efx_rc_t, rc);
 
 	return (rc);
 }
@@ -235,7 +240,7 @@ efx_intr_disable_unlocked(
 }
 
 
-	__checkReturn	int
+	__checkReturn	efx_rc_t
 efx_intr_trigger(
 	__in		efx_nic_t *enp,
 	__in		unsigned int level)
@@ -336,7 +341,7 @@ efx_intr_fatal(
 
 #if EFSYS_OPT_FALCON || EFSYS_OPT_SIENA
 
-static	__checkReturn	int
+static	__checkReturn	efx_rc_t
 falconsiena_intr_init(
 	__in		efx_nic_t *enp,
 	__in		efx_intr_type_t type,
@@ -417,7 +422,7 @@ falconsiena_intr_disable_unlocked(
 	    &oword, B_FALSE);
 }
 
-static	__checkReturn	int
+static	__checkReturn	efx_rc_t
 falconsiena_intr_trigger(
 	__in		efx_nic_t *enp,
 	__in		unsigned int level)
@@ -426,7 +431,7 @@ falconsiena_intr_trigger(
 	efx_oword_t oword;
 	unsigned int count;
 	uint32_t sel;
-	int rc;
+	efx_rc_t rc;
 
 	/* bug16757: No event queues can be initialized */
 	EFSYS_ASSERT(!(enp->en_mod_flags & EFX_MOD_EV));
@@ -480,7 +485,7 @@ falconsiena_intr_trigger(
 	return (0);
 
 fail1:
-	EFSYS_PROBE1(fail1, int, rc);
+	EFSYS_PROBE1(fail1, efx_rc_t, rc);
 
 	return (rc);
 }
