@@ -47,7 +47,7 @@ medford_board_cfg(
 	efx_nic_cfg_t *encp = &(enp->en_nic_cfg);
 	uint8_t mac_addr[6] = { 0 };
 	uint32_t board_type = 0;
-	hunt_link_state_t hls;
+	ef10_link_state_t els;
 	efx_port_t *epp = &(enp->en_port);
 	uint32_t port;
 	uint32_t pf;
@@ -126,10 +126,10 @@ medford_board_cfg(
 		goto fail6;
 
 	/* Obtain the default PHY advertised capabilities */
-	if ((rc = hunt_phy_get_link(enp, &hls)) != 0)
+	if ((rc = hunt_phy_get_link(enp, &els)) != 0)
 		goto fail7;
-	epp->ep_default_adv_cap_mask = hls.hls_adv_cap_mask;
-	epp->ep_adv_cap_mask = hls.hls_adv_cap_mask;
+	epp->ep_default_adv_cap_mask = els.els_adv_cap_mask;
+	epp->ep_adv_cap_mask = els.els_adv_cap_mask;
 
 	if (EFX_PCI_FUNCTION_IS_VF(encp)) {
 		/*
@@ -189,9 +189,8 @@ medford_board_cfg(
 	 * the privilege mask to check for sufficient privileges, as that
 	 * can result in time-of-check/time-of-use bugs.
 	 */
-	if ((rc = efx_mcdi_privilege_mask(enp, pf, vf, &mask)) != 0)
+	if ((rc = ef10_get_privilege_mask(enp, &mask)) != 0)
 		goto fail10;
-
 	encp->enc_privilege_mask = mask;
 
 	/* Get interrupt vector limits */
@@ -211,6 +210,12 @@ medford_board_cfg(
 	 * firmware assisted TSO to work.
 	 */
 	encp->enc_tx_tso_tcp_header_offset_limit = EF10_TCP_HEADER_OFFSET_LIMIT;
+
+	/*
+	 * Medford stores a single global copy of VPD, not per-PF as on
+	 * Huntington.
+	 */
+	encp->enc_vpd_is_global = B_TRUE;
 
 	return (0);
 

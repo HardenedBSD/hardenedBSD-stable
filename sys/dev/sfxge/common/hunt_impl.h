@@ -305,11 +305,6 @@ ef10_mcdi_read_response(
 	__in			size_t offset,
 	__in			size_t length);
 
-extern			void
-ef10_mcdi_request_copyout(
-	__in		efx_nic_t *enp,
-	__in		efx_mcdi_req_t *emrp);
-
 extern			efx_rc_t
 ef10_mcdi_poll_reboot(
 	__in		efx_nic_t *enp);
@@ -422,12 +417,6 @@ ef10_nvram_get_version(
 	__out_ecount(4)		uint16_t version[4]);
 
 extern	__checkReturn		efx_rc_t
-ef10_nvram_rw_start(
-	__in			efx_nic_t *enp,
-	__in			efx_nvram_type_t type,
-	__out			size_t *pref_chunkp);
-
-extern	__checkReturn		efx_rc_t
 ef10_nvram_read_chunk(
 	__in			efx_nic_t *enp,
 	__in			efx_nvram_type_t type,
@@ -477,21 +466,27 @@ ef10_nvram_partn_size(
 	__in			uint32_t partn,
 	__out			size_t *sizep);
 
+extern	__checkReturn		efx_rc_t
+ef10_nvram_partn_rw_start(
+	__in			efx_nic_t *enp,
+	__in			uint32_t partn,
+	__out			size_t *chunk_sizep);
+
 #endif	/* EFSYS_OPT_NVRAM */
 
 
 /* PHY */
 
-typedef struct hunt_link_state_s {
-	uint32_t		hls_adv_cap_mask;
-	uint32_t		hls_lp_cap_mask;
-	unsigned int 		hls_fcntl;
-	efx_link_mode_t		hls_link_mode;
+typedef struct ef10_link_state_s {
+	uint32_t		els_adv_cap_mask;
+	uint32_t		els_lp_cap_mask;
+	unsigned int		els_fcntl;
+	efx_link_mode_t		els_link_mode;
 #if EFSYS_OPT_LOOPBACK
-	efx_loopback_type_t	hls_loopback;
+	efx_loopback_type_t	els_loopback;
 #endif
-	boolean_t		hls_mac_up;
-} hunt_link_state_t;
+	boolean_t		els_mac_up;
+} ef10_link_state_t;
 
 extern			void
 hunt_phy_link_ev(
@@ -502,7 +497,7 @@ hunt_phy_link_ev(
 extern	__checkReturn	efx_rc_t
 hunt_phy_get_link(
 	__in		efx_nic_t *enp,
-	__out		hunt_link_state_t *hlsp);
+	__out		ef10_link_state_t *elsp);
 
 extern	__checkReturn	efx_rc_t
 hunt_phy_power(
@@ -747,7 +742,7 @@ ef10_tx_qstats_update(
 
 #define	HUNT_MIN_PIO_ALLOC_SIZE	(HUNT_PIOBUF_SIZE / 32)
 
-#define	HUNT_LEGACY_PF_PRIVILEGE_MASK					\
+#define	EF10_LEGACY_PF_PRIVILEGE_MASK					\
 	(MC_CMD_PRIVILEGE_MASK_IN_GRP_ADMIN			|	\
 	MC_CMD_PRIVILEGE_MASK_IN_GRP_LINK			|	\
 	MC_CMD_PRIVILEGE_MASK_IN_GRP_ONLOAD			|	\
@@ -760,7 +755,7 @@ ef10_tx_qstats_update(
 	MC_CMD_PRIVILEGE_MASK_IN_GRP_ALL_MULTICAST		|	\
 	MC_CMD_PRIVILEGE_MASK_IN_GRP_PROMISCUOUS)
 
-#define	HUNT_LEGACY_VF_PRIVILEGE_MASK	0
+#define	EF10_LEGACY_VF_PRIVILEGE_MASK	0
 
 typedef uint32_t	efx_piobuf_handle_t;
 
