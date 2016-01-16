@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Elad Efrat <elad@NetBSD.org>
- * Copyright (c) 2013-2015, by Oliver Pinter <oliver.pinter@hardenedbsd.org>
+ * Copyright (c) 2013-2016, by Oliver Pinter <oliver.pinter@hardenedbsd.org>
  * Copyright (c) 2014-2015, by Shawn Webb <shawn.webb@hardenedbsd.org>
  * All rights reserved.
  *
@@ -793,10 +793,10 @@ pax_aslr_sysinit(void)
 }
 SYSINIT(pax_aslr, SI_SUB_PAX, SI_ORDER_SECOND, pax_aslr_sysinit, NULL);
 
-int
+bool
 pax_aslr_active(struct proc *p)
 {
-	uint32_t flags;
+	pax_flag_t flags;
 
 	pax_get_flags(p, &flags);
 
@@ -1078,23 +1078,23 @@ pax_aslr_init_prison32(struct prison *pr)
 #endif /* COMPAT_FREEBSD32 */
 
 void
-pax_aslr_mmap(struct proc *p, vm_offset_t *addr, vm_offset_t orig_addr, int flags)
+pax_aslr_mmap(struct proc *p, vm_offset_t *addr, vm_offset_t orig_addr, int mmap_flags)
 {
 
 	PROC_LOCK_ASSERT(p, MA_OWNED);
 
 #ifdef MAP_32BIT
-	if (((flags & MAP_32BIT) == MAP_32BIT) || !pax_aslr_active(p))
+	if (((mmap_flags & MAP_32BIT) == MAP_32BIT) || !pax_aslr_active(p))
 #else
 	if (!pax_aslr_active(p))
 #endif
 		return;
 
 #ifdef MAP_32BIT
-	KASSERT((flags & MAP_32BIT) != MAP_32BIT,
+	KASSERT((mmap_flags & MAP_32BIT) != MAP_32BIT,
 	    ("%s: we can't handle MAP_32BIT mapping here", __func__));
 #endif
-	KASSERT((flags & MAP_FIXED) != MAP_FIXED,
+	KASSERT((mmap_flags & MAP_FIXED) != MAP_FIXED,
 	    ("%s: we can't randomize MAP_FIXED mapping", __func__));
 
 	/*
@@ -1108,14 +1108,14 @@ pax_aslr_mmap(struct proc *p, vm_offset_t *addr, vm_offset_t orig_addr, int flag
 	 *
 	 * https://github.com/HardenedBSD/pax-docs-mirror/blob/master/randmmap.txt#L30
 	 */
-	if ((orig_addr == 0) || !(flags & MAP_ANON)) {
-		CTR4(KTR_PAX, "%s: applying to %p orig_addr=%p flags=%x\n",
-		    __func__, (void *)*addr, (void *)orig_addr, flags);
+	if ((orig_addr == 0) || !(mmap_flags & MAP_ANON)) {
+		CTR4(KTR_PAX, "%s: applying to %p orig_addr=%p mmap_flags=%x\n",
+		    __func__, (void *)*addr, (void *)orig_addr, mmap_flags);
 		*addr += p->p_vmspace->vm_aslr_delta_mmap;
 		CTR2(KTR_PAX, "%s: result %p\n", __func__, (void *)*addr);
 	} else
-		CTR4(KTR_PAX, "%s: not applying to %p orig_addr=%p flags=%x\n",
-		    __func__, (void *)*addr, (void *)orig_addr, flags);
+		CTR4(KTR_PAX, "%s: not applying to %p orig_addr=%p mmap_flags=%x\n",
+		    __func__, (void *)*addr, (void *)orig_addr, mmap_flags);
 }
 
 void
@@ -1199,11 +1199,12 @@ pax_aslr_vdso(struct proc *p, vm_offset_t *addr)
 	    __func__, (void *)orig_addr, (void *)*addr);
 }
 
-uint32_t
-pax_aslr_setup_flags(struct image_params *imgp, struct thread *td, uint32_t mode)
+pax_flag_t
+pax_aslr_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_t mode)
 {
 	struct prison *pr;
-	uint32_t flags, status;
+	pax_flag_t flags;
+	uint32_t status;
 
 	KASSERT(imgp->proc == td->td_proc,
 	    ("%s: imgp->proc != td->td_proc", __func__));
@@ -1283,17 +1284,17 @@ pax_aslr_setup_flags(struct image_params *imgp, struct thread *td, uint32_t mode
 
 #ifdef MAP_32BIT
 void
-pax_aslr_mmap_map_32bit(struct proc *p, vm_offset_t *addr, vm_offset_t orig_addr, int flags)
+pax_aslr_mmap_map_32bit(struct proc *p, vm_offset_t *addr, vm_offset_t orig_addr, int mmap_flags)
 {
 
 	PROC_LOCK_ASSERT(p, MA_OWNED);
 
-	if (((flags & MAP_32BIT) != MAP_32BIT) || !pax_aslr_active(p))
+	if (((mmap_flags & MAP_32BIT) != MAP_32BIT) || !pax_aslr_active(p))
 		return;
 
-	KASSERT((flags & MAP_32BIT) == MAP_32BIT,
+	KASSERT((mmap_flags & MAP_32BIT) == MAP_32BIT,
 	    ("%s: we can't handle not MAP_32BIT mapping here", __func__));
-	KASSERT((flags & MAP_FIXED) != MAP_FIXED,
+	KASSERT((mmap_flags & MAP_FIXED) != MAP_FIXED,
 	    ("%s: we can't randomize MAP_FIXED mapping", __func__));
 
 	/*
@@ -1307,19 +1308,19 @@ pax_aslr_mmap_map_32bit(struct proc *p, vm_offset_t *addr, vm_offset_t orig_addr
 	 *
 	 * https://github.com/HardenedBSD/pax-docs-mirror/blob/master/randmmap.txt#L30
 	 */
-	if ((orig_addr == 0) || !(flags & MAP_ANON)) {
-		CTR4(KTR_PAX, "%s: applying to %p orig_addr=%p flags=%x\n",
-				__func__, (void *)*addr, (void *)orig_addr, flags);
+	if ((orig_addr == 0) || !(mmap_flags & MAP_ANON)) {
+		CTR4(KTR_PAX, "%s: applying to %p orig_addr=%p mmap_flags=%x\n",
+				__func__, (void *)*addr, (void *)orig_addr, mmap_flags);
 
 		*addr += p->p_vmspace->vm_aslr_delta_map32bit;
 		CTR2(KTR_PAX, "%s: result %p\n", __func__, (void *)*addr);
 	}
 }
 
-int
+bool
 pax_disallow_map32bit_active(struct thread *td, int mmap_flags)
 {
-	uint32_t flags;
+	pax_flag_t flags;
 
 	if ((mmap_flags & MAP_32BIT) != MAP_32BIT)
 		/*
@@ -1342,11 +1343,12 @@ pax_disallow_map32bit_active(struct thread *td, int mmap_flags)
 	return (true);
 }
 
-uint32_t
-pax_disallow_map32bit_setup_flags(struct image_params *imgp, struct thread *td, uint32_t mode)
+pax_flag_t
+pax_disallow_map32bit_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_t mode)
 {
 	struct prison *pr;
-	uint32_t flags, status;
+	pax_flag_t flags;
+	uint32_t  status;
 
 	KASSERT(imgp->proc == td->td_proc,
 	    ("%s: imgp->proc != td->td_proc", __func__));
