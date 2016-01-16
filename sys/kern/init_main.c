@@ -417,7 +417,11 @@ struct sysentvec null_sysvec = {
 	.sv_syscallnames = NULL,
 	.sv_schedtail	= NULL,
 	.sv_thread_detach = NULL,
+<<<<<<< HEAD
 	.sv_pax_aslr_init = NULL,
+=======
+	.sv_trap	= NULL,
+>>>>>>> freebsd/stable/10
 };
 
 /*

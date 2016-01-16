@@ -132,7 +132,11 @@ struct sysentvec {
 	void		*sv_shared_page_obj;
 	void		(*sv_schedtail)(struct thread *);
 	void		(*sv_thread_detach)(struct thread *);
+<<<<<<< HEAD
 	void		(* const sv_pax_aslr_init)(struct proc *p);
+=======
+	int		(*sv_trap)(struct thread *);
+>>>>>>> freebsd/stable/10
 };
 
 #define	SV_ILP32	0x000100
