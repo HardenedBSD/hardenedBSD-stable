@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2014, by David Carlier <devnexen at gmail.com>
+ * Copyright (c) 2014, by David Carlier <devnexen@gmail.com>
  * Copyright (c) 2014, by Oliver Pinter <oliver.pinter@hardenedbsd.org>
  * All rights reserved.
  *

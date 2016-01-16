@@ -46,7 +46,7 @@
 #include <ddb/ddb.h>
 #endif
 
-static void pax_log_log(struct proc *p, struct thread *td, uint64_t flags,
+static void pax_log_log(struct proc *p, struct thread *td, pax_log_settings_t flags,
     const char *prefix, const char *fmt, va_list ap);
 static void pax_log_ulog(const char *prefix, const char *fmt, va_list ap);
 
@@ -87,7 +87,7 @@ static void pax_log_ulog(const char *prefix, const char *fmt, va_list ap);
 
 #define __HARDENING_LOG_TEMPLATE(MAIN, SUBJECT, prefix, name)		\
 void									\
-prefix##_log_##name(struct proc *p, uint64_t flags,			\
+prefix##_log_##name(struct proc *p, pax_log_settings_t flags,		\
     const char* fmt, ...)						\
 {									\
 	const char *prefix = "["#MAIN" "#SUBJECT"]";			\
@@ -226,14 +226,14 @@ sysctl_hardening_log_ulog(SYSCTL_HANDLER_ARGS)
 #endif
 
 static void
-_pax_log_prefix(struct sbuf *sb, uint64_t flags, const char *prefix)
+_pax_log_prefix(struct sbuf *sb, pax_log_settings_t flags, const char *prefix)
 {
 
 	sbuf_printf(sb, "%s ", prefix);
 }
 
 static void
-_pax_log_indent(struct sbuf *sb, uint64_t flags)
+_pax_log_indent(struct sbuf *sb, pax_log_settings_t flags)
 {
 
 	if ((flags & PAX_LOG_NO_INDENT) != PAX_LOG_NO_INDENT)
@@ -241,7 +241,7 @@ _pax_log_indent(struct sbuf *sb, uint64_t flags)
 }
 
 static void
-_pax_log_proc_details(struct sbuf *sb, uint64_t flags, struct proc *p)
+_pax_log_proc_details(struct sbuf *sb, pax_log_settings_t flags, struct proc *p)
 {
 
 	if (p != NULL) {
@@ -257,7 +257,7 @@ _pax_log_proc_details(struct sbuf *sb, uint64_t flags, struct proc *p)
 }
 
 static void
-_pax_log_thread_details(struct sbuf *sb, uint64_t flags, struct thread *td)
+_pax_log_thread_details(struct sbuf *sb, pax_log_settings_t flags, struct thread *td)
 {
 
 	if (td != NULL) {
@@ -273,7 +273,7 @@ _pax_log_details_end(struct sbuf *sb)
 }
 
 static void
-_pax_log_imgp_details(struct sbuf *sb, uint64_t flags, struct image_params *imgp)
+_pax_log_imgp_details(struct sbuf *sb, pax_log_settings_t flags, struct image_params *imgp)
 {
 
 	if (imgp != NULL && imgp->args != NULL)
@@ -284,7 +284,7 @@ _pax_log_imgp_details(struct sbuf *sb, uint64_t flags, struct image_params *imgp
 
 
 static void
-pax_log_log(struct proc *p, struct thread *td, uint64_t flags,
+pax_log_log(struct proc *p, struct thread *td, pax_log_settings_t flags,
     const char *prefix, const char *fmt, va_list ap)
 {
 	struct sbuf *sb;
@@ -330,7 +330,7 @@ pax_log_ulog(const char *prefix, const char *fmt, va_list ap)
 }
 
 void
-pax_printf_flags(struct proc *p, uint64_t flags)
+pax_printf_flags(struct proc *p, pax_log_settings_t flags)
 {
 
 	if (p != NULL) {
@@ -341,7 +341,7 @@ pax_printf_flags(struct proc *p, uint64_t flags)
 }
 
 void
-pax_printf_flags_td(struct thread *td, uint64_t flags)
+pax_printf_flags_td(struct thread *td, pax_log_settings_t flags)
 {
 
 	if (td != NULL) {
@@ -353,7 +353,7 @@ pax_printf_flags_td(struct thread *td, uint64_t flags)
 
 #ifdef DDB
 void
-pax_db_printf_flags(struct proc *p, uint64_t flags)
+pax_db_printf_flags(struct proc *p, pax_log_settings_t flags)
 {
 
 	if (p != NULL) {
@@ -364,7 +364,7 @@ pax_db_printf_flags(struct proc *p, uint64_t flags)
 }
 
 void
-pax_db_printf_flags_td(struct thread *td, uint64_t flags)
+pax_db_printf_flags_td(struct thread *td, pax_log_settings_t flags)
 {
 
 	if (td != NULL) {
@@ -383,7 +383,7 @@ __HARDENING_LOG_TEMPLATE(HBSD, SEGVGUARD, pax, segvguard);
 __HARDENING_LOG_TEMPLATE(HBSD, PTRACE_HARDENING, pax, ptrace_hardening);
 
 void
-pax_log_internal_imgp(struct image_params *imgp, uint64_t flags, const char* fmt, ...)
+pax_log_internal_imgp(struct image_params *imgp, pax_log_settings_t flags, const char* fmt, ...)
 {
 	const char *prefix = "[HBSD INTERNAL]";
 	struct sbuf *sb;

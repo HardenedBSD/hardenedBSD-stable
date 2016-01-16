@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Elad Efrat <elad@NetBSD.org>
- * Copyright (c) 2013-2014, by Oliver Pinter <oliver.pinter@hardenedbsd.org>
+ * Copyright (c) 2013-2015, by Oliver Pinter <oliver.pinter@hardenedbsd.org>
  * Copyright (c) 2014, by Shawn Webb <lattera at gmail.com>
  * All rights reserved.
  *
@@ -233,11 +233,12 @@ pax_noexec_init_prison(struct prison *pr)
 	}
 }
 
-u_int
-pax_pageexec_setup_flags(struct image_params *imgp, struct thread *td, uint32_t mode)
+pax_flag_t
+pax_pageexec_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_t mode)
 {
 	struct prison *pr;
-	u_int flags, status;
+	pax_flag_t flags;
+	u_int status;
 
 	KASSERT(imgp->proc == td->td_proc,
 	    ("%s: imgp->proc != td->td_proc", __func__));
@@ -299,10 +300,10 @@ pax_pageexec_setup_flags(struct image_params *imgp, struct thread *td, uint32_t 
  * PAGEEXEC
  */
 
-int
+bool
 pax_pageexec_active(struct proc *p)
 {
-	u_int flags;
+	pax_flag_t flags;
 
 	pax_get_flags(p, &flags);
 
@@ -340,10 +341,10 @@ pax_pageexec(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot)
  * MPROTECT
  */
 
-int
+bool
 pax_mprotect_active(struct proc *p)
 {
-	u_int flags;
+	pax_flag_t flags;
 
 	pax_get_flags(p, &flags);
 
@@ -359,11 +360,12 @@ pax_mprotect_active(struct proc *p)
 	return (true);
 }
 
-u_int
-pax_mprotect_setup_flags(struct image_params *imgp, struct thread *td, uint32_t mode)
+pax_flag_t
+pax_mprotect_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_t mode)
 {
 	struct prison *pr;
-	u_int flags, status;
+	pax_flag_t flags;
+	uint32_t status;
 
 	flags = 0;
 	status = 0;
