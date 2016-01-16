@@ -91,11 +91,8 @@ static struct sysentvec elf64_freebsd_sysvec = {
 	.sv_syscallnames = syscallnames,
 	.sv_schedtail	= NULL,
 	.sv_thread_detach = NULL,
-<<<<<<< HEAD
-	.sv_pax_aslr_init = pax_aslr_init_vmspace,
-=======
 	.sv_trap	= NULL,
->>>>>>> freebsd/stable/10
+	.sv_pax_aslr_init = pax_aslr_init_vmspace,
 };
 
 static Elf64_Brandinfo freebsd_brand_info = {
