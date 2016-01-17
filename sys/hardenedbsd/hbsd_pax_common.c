@@ -50,6 +50,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/stat.h>
 #include <sys/sysctl.h>
 
+#include <machine/_inttypes.h>
 
 static void pax_set_flags(struct proc *p, struct thread *td, const pax_flag_t flags);
 static void pax_set_flags_td(struct thread *td, const pax_flag_t flags);
@@ -343,7 +344,7 @@ static void
 pax_sysinit(void)
 {
 
-	printf("HBSD: initialize and check HardenedBSD features (version %d).\n",
+	printf("HBSD: initialize and check HardenedBSD features (version %"PRIu64").\n",
 	    __HardenedBSD_version);
 }
 SYSINIT(pax, SI_SUB_PAX, SI_ORDER_FIRST, pax_sysinit, NULL);
