@@ -71,9 +71,8 @@ CTASSERT((sizeof((struct thread *)NULL)->td_pax) == sizeof(pax_flag_t));
 SYSCTL_NODE(_hardening, OID_AUTO, pax, CTLFLAG_RD, 0,
     "PaX (exploit mitigation) features.");
 
-static int HardenedBSD_version = __HardenedBSD_version;
-SYSCTL_INT(_hardening, OID_AUTO, version, CTLFLAG_RD|CTLFLAG_CAPRD,
-    &HardenedBSD_version, 0, "HardenedBSD version");
+SYSCTL_U64(_hardening, OID_AUTO, version, CTLFLAG_RD|CTLFLAG_CAPRD,
+    SYSCTL_NULL_U64_PTR, __HardenedBSD_version, "HardenedBSD version");
 
 const char *pax_status_str[] = {
 	[PAX_FEATURE_DISABLED] = "disabled",
@@ -87,6 +86,20 @@ const char *pax_status_simple_str[] = {
 	[PAX_FEATURE_SIMPLE_DISABLED] = "disabled",
 	[PAX_FEATURE_SIMPLE_ENABLED] = "enabled"
 };
+
+
+/*
+ * @ brief Get current __HardenedBSD_version.
+ *
+ * @ return	__HardenedBSD_version
+ */
+__noinline uint64_t
+pax_get_hardenedbsd_version(void)
+{
+	static const uint64_t HardenedBSD_version = __HardenedBSD_version;
+
+	return (HardenedBSD_version);
+}
 
 /*
  * @brief Get the current process prison.
