@@ -228,7 +228,8 @@ check_set_validity() {
 }
 
 apply_base() {
-	local needsresolve=0
+	local needsresolve
+	needsresolve=0
 
 	if [ ${verbose} -gt 0 ]; then
 		debug_print "[*] Applying base"
@@ -259,32 +260,29 @@ apply_base() {
 		debug_print "[*] Updating /etc"
 	fi
 
-	${ETCUPDATE} -t ${tmpdir}/${ETCUPDATE}.tbz \
+	${ETCUPDATE} -t ${tmpdir}/etcupdate.tbz \
 	    -D ${mountpoint} \
 	    -I /etc/passwd \
 	    -I /etc/group \
 	    -I /etc/master.passwd \
 	    -I /etc/pwd.db \
-	    -I /etc/spwd.db | while read line; do
-		res=$(echo ${line} | ${AWK} '{print $1;}')
+	    -I /etc/spwd.db > ${tmpdir}/etcupdate.log
+
+	for res in $(awk '{print $1;}' ${tmpdir}/etcupdate.log); do
 		if [ "${res}" = "C" ]; then
 			needsresolve=1
+			break
 		fi
 	done
 
-	while [ ${needsresolve} -gt 0 ]; do
+	if [ ${needsresolve} -gt 0 ]; then
 		debug_print "[*] Manual merges need to be done."
 		${ETCUPDATE} resolve -D ${mountpoint}
 		res=${?}
 		if [ ${res} -gt 0 ]; then
 			return 1
 		fi
-
-		needsresolve=$(${ETCUPDATE} status -D \
-			${mountpoint} | \
-			wc -l | \
-			${AWK} '{print $1;}')
-	done
+	fi
 
 	return 0
 }
