@@ -16,10 +16,13 @@ makeoptions 	WERROR="-Werror"
 
 options 	MD_ROOT
 #makeoptions 	MFS_IMAGE=/path/to/miniroot
-options 	ROOTDEVNAME=\"ufs:md0\"
+#options 	ROOTDEVNAME=\"ufs:md0\"
+options 	ROOTDEVNAME=\"/dev/da0s1a\"
 
 options 	SCHED_ULE		# ULE scheduler
 #options 	SCHED_4BSD		# 4BSD scheduler
+
+options 	SMP
 
 # Debugging
 #options 	DEBUG
@@ -50,12 +53,30 @@ device		uart_ns8250
 # Network
 device		ether
 device		vlan
+device		mii
+device		bpf
+device		re
+
+# PCI
+device		pci
 
 # Interrupt controllers
 device		gic
 
 # Timers
 device		mpcore_timer
+
+# USB
+device		usb
+device		ehci
+device		umass
+device		scbus
+device		pass
+device		da
+
+# I2C
+device		iic
+device		iicbus
 
 #FDT
 options 	FDT
