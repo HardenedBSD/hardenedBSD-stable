@@ -2223,19 +2223,15 @@ load_needed_objects(Obj_Entry *first, int flags)
 {
     Obj_Entry *obj;
 
-<<<<<<< HEAD
-    for (obj = first;  obj != NULL;  obj = obj->next) {
+    obj = first;
+    TAILQ_FOREACH_FROM(obj, &obj_list, next) {
+	if (obj->marker)
+	    continue;
 #ifdef HARDENEDBSD
         if ((pax_flags & (PAX_NOTE_NOSHLIBRANDOM | PAX_NOTE_SHLIBRANDOM)) !=
 	  PAX_NOTE_NOSHLIBRANDOM)
             randomize_neededs(obj, flags);
 #endif
-=======
-    obj = first;
-    TAILQ_FOREACH_FROM(obj, &obj_list, next) {
-	if (obj->marker)
-	    continue;
->>>>>>> origin/master
 	if (process_needed(obj, obj->needed, flags) == -1)
 	    return (-1);
     }
