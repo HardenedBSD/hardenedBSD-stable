@@ -24,7 +24,7 @@ ident		OP-PERPETUA
 options		HZ=100
 
 makeoptions	DEBUG=-gdwarf-2		# Build kernel with gdb(1) debug symbols
-makeoptions	MODULES_OVERRIDE="usb/umodem usb/u3g usb/umass usb/ucom usb/uplcom drm2 i2c vmm nmdm msdosfs"
+makeoptions	MODULES_OVERRIDE="usb/umodem usb/u3g usb/umass usb/ucom usb/uplcom usb/urtwn usb/urtwnfw drm2 i2c vmm nmdm"
 #makeoptions	WITH_CTF=1		# Run ctfconvert(1) for DTrace support
 
 options 	SCHED_ULE		# ULE scheduler
@@ -46,7 +46,7 @@ options 	QUOTA			# Enable disk quotas for UFS
 #options 	NFSD			# New Network Filesystem Server
 #options 	NFSLOCKD		# Network Lock Manager
 #options 	NFS_ROOT		# NFS usable as /, requires NFSCL
-#options 	MSDOSFS			# MSDOS Filesystem
+options 	MSDOSFS			# MSDOS Filesystem
 #options 	CD9660			# ISO 9660 Filesystem
 #options 	PROCFS			# Process filesystem (requires PSEUDOFS)
 options 	PSEUDOFS		# Pseudo-filesystem framework
