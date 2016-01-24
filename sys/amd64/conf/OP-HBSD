@@ -46,7 +46,7 @@ options 	QUOTA			# Enable disk quotas for UFS
 #options 	NFSD			# New Network Filesystem Server
 #options 	NFSLOCKD		# Network Lock Manager
 #options 	NFS_ROOT		# NFS usable as /, requires NFSCL
-options 	MSDOSFS			# MSDOS Filesystem
+options 	MSDOSFS			# MSDOS Filesystem - required by UEFI
 #options 	CD9660			# ISO 9660 Filesystem
 #options 	PROCFS			# Process filesystem (requires PSEUDOFS)
 options 	PSEUDOFS		# Pseudo-filesystem framework
