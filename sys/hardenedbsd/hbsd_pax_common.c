@@ -72,8 +72,8 @@ CTASSERT((sizeof((struct thread *)NULL)->td_pax) == sizeof(pax_flag_t));
 SYSCTL_NODE(_hardening, OID_AUTO, pax, CTLFLAG_RD, 0,
     "PaX (exploit mitigation) features.");
 
-SYSCTL_U64(_hardening, OID_AUTO, version, CTLFLAG_RD|CTLFLAG_CAPRD,
-    SYSCTL_NULL_U64_PTR, __HardenedBSD_version, "HardenedBSD version");
+SYSCTL_UQUAD(_hardening, OID_AUTO, version, CTLFLAG_RD|CTLFLAG_CAPRD,
+    SYSCTL_NULL_UQUAD_PTR, __HardenedBSD_version, "HardenedBSD version");
 
 const char *pax_status_str[] = {
 	[PAX_FEATURE_DISABLED] = "disabled",
