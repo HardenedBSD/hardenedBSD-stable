@@ -98,6 +98,7 @@ __FBSDID("$FreeBSD$");
 #include <machine/atags.h>
 #include <machine/cpu.h>
 #include <machine/cpuinfo.h>
+#include <machine/debug_monitor.h>
 #include <machine/db_machdep.h>
 #include <machine/devmap.h>
 #include <machine/frame.h>
@@ -1712,6 +1713,7 @@ initarm(struct arm_boot_params *abp)
 	arm_physmem_init_kernel_globals();
 
 	init_param2(physmem);
+	dbg_monitor_init();
 	kdb_init();
 
 	return ((void *)(kernelstack.pv_va + USPACE_SVC_STACK_TOP -
@@ -1899,6 +1901,7 @@ initarm(struct arm_boot_params *abp)
 	init_param2(physmem);
 	/* Init message buffer. */
 	msgbufinit(msgbufp, msgbufsize);
+	dbg_monitor_init();
 	kdb_init();
 	return ((void *)STACKALIGN(thread0.td_pcb));
 
