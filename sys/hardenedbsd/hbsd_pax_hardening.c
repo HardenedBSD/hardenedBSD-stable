@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2014, by Shawn Webb <shawn.webb at hardenedbsd.org>
- * Copyright (c) 2014, by Oliver Pinter <oliver.pinter@hardenedbsd.org>
+ * Copyright (c) 2014-2016, by Oliver Pinter <oliver.pinter@hardenedbsd.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -178,13 +178,14 @@ pax_procfs_harden(struct thread *td)
 	return (pr->pr_hardening.hr_pax_procfs_harden ? EPERM : 0);
 }
 
-uint32_t
-pax_hardening_setup_flags(struct image_params *imgp, struct thread *td, uint32_t mode)
+pax_flag_t
+pax_hardening_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_t mode)
 {
 #if 0
 	struct prison *pr;
 #endif
-	uint32_t flags, status;
+	pax_flag_t flags;
+	uint32_t status;
 
 	KASSERT(imgp->proc == td->td_proc,
 	    ("%s: imgp->proc != td->td_proc", __func__));

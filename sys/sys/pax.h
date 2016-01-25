@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Elad Efrat <elad@NetBSD.org>
- * Copyright (c) 2013-2015, by Oliver Pinter <oliver.pinter@hardenedbsd.org>
+ * Copyright (c) 2013-2016, by Oliver Pinter <oliver.pinter@hardenedbsd.org>
  * Copyright (c) 2014-2015 by Shawn Webb <shawn.webb@hardenedbsd.org>
  * All rights reserved.
  *
@@ -32,7 +32,7 @@
 #ifndef	_SYS_PAX_H
 #define	_SYS_PAX_H
 
-#define	__HardenedBSD_version	39
+#define	__HardenedBSD_version	40UL
 
 #if defined(_KERNEL) || defined(_WANT_PRISON)
 struct hardening_features {
@@ -69,8 +69,9 @@ struct prison;
 struct thread;
 struct proc;
 struct vnode;
-struct vm_map_t;
 struct vm_offset_t;
+
+typedef	uint32_t	pax_flag_t;
 
 /*
  * used in sysctl handler
@@ -91,9 +92,10 @@ extern const char *pax_status_simple_str[];
 /*
  * generic pax functions
  */
-int pax_elf(struct image_params *imgp, struct thread *td, uint32_t mode);
-void pax_get_flags(struct proc *p, uint32_t *flags);
-void pax_get_flags_td(struct thread *td, uint32_t *flags);
+uint64_t pax_get_hardenedbsd_version(void);
+int pax_elf(struct image_params *imgp, struct thread *td, pax_flag_t mode);
+void pax_get_flags(struct proc *p, pax_flag_t *flags);
+void pax_get_flags_td(struct thread *td, pax_flag_t *flags);
 struct prison *pax_get_prison(struct proc *p);
 struct prison *pax_get_prison_td(struct thread *td);
 void pax_init_prison(struct prison *pr);
@@ -101,7 +103,7 @@ void pax_init_prison(struct prison *pr);
 /*
  * ASLR related functions
  */
-int pax_aslr_active(struct proc *p);
+bool pax_aslr_active(struct proc *p);
 #ifdef PAX_ASLR
 void pax_aslr_init_prison(struct prison *pr);
 void pax_aslr_init_prison32(struct prison *pr);
@@ -115,20 +117,20 @@ void pax_aslr_init_vmspace32(struct proc *p);
 #endif
 void pax_aslr_init(struct image_params *imgp);
 void pax_aslr_execbase(struct proc *p, u_long *et_dyn_addrp);
-void pax_aslr_mmap(struct proc *p, vm_offset_t *addr, 
-    vm_offset_t orig_addr, int flags);
-void pax_aslr_mmap_map_32bit(struct proc *p, vm_offset_t *addr, 
-    vm_offset_t orig_addr, int flags);
+void pax_aslr_mmap(struct proc *p, vm_offset_t *addr, vm_offset_t orig_addr, int mmap_flags);
+void pax_aslr_mmap_map_32bit(struct proc *p, vm_offset_t *addr, vm_offset_t orig_addr, int mmap_flags);
 void pax_aslr_rtld(struct proc *p, u_long *addr);
-uint32_t pax_aslr_setup_flags(struct image_params *imgp, struct thread *td, uint32_t mode);
+pax_flag_t pax_aslr_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_t mode);
 void pax_aslr_stack(struct proc *p, vm_offset_t *addr);
 void pax_aslr_stack_with_gap(struct proc *p, vm_offset_t *addr);
 void pax_aslr_vdso(struct proc *p, vm_offset_t *addr);
-uint32_t pax_disallow_map32bit_setup_flags(struct image_params *imgp, struct thread *td, uint32_t mode);
+pax_flag_t pax_disallow_map32bit_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_t mode);
 
 /*
  * Log related functions
  */
+
+typedef	uint64_t	pax_log_settings_t;
 
 #define	PAX_LOG_DEFAULT		0x00000000
 #define	PAX_LOG_SKIP_DETAILS	0x00000001
@@ -137,23 +139,23 @@ uint32_t pax_disallow_map32bit_setup_flags(struct image_params *imgp, struct thr
 #define	PAX_LOG_NO_P_PAX	0x00000008
 #define	PAX_LOG_NO_INDENT	0x00000010
 
-void pax_printf_flags(struct proc *p, uint64_t flags);
-void pax_printf_flags_td(struct thread *td, uint64_t flags);
-void pax_db_printf_flags(struct proc *p, uint64_t flags);
-void pax_db_printf_flags_td(struct thread *td, uint64_t flags);
+void pax_printf_flags(struct proc *p, pax_log_settings_t flags);
+void pax_printf_flags_td(struct thread *td, pax_log_settings_t flags);
+void pax_db_printf_flags(struct proc *p, pax_log_settings_t flags);
+void pax_db_printf_flags_td(struct thread *td, pax_log_settings_t flags);
 int hbsd_uprintf(const char *fmt, ...) __printflike(1, 2);
-void pax_log_internal(struct proc *, uint64_t flags, const char *fmt, ...) __printflike(3, 4);
-void pax_log_internal_imgp(struct image_params *imgp, uint64_t flags, const char* fmt, ...) __printflike(3, 4);
+void pax_log_internal(struct proc *, pax_log_settings_t flags, const char *fmt, ...) __printflike(3, 4);
+void pax_log_internal_imgp(struct image_params *imgp, pax_log_settings_t flags, const char* fmt, ...) __printflike(3, 4);
 void pax_ulog_internal(const char *fmt, ...) __printflike(1, 2);
-void pax_log_aslr(struct proc *, uint64_t flags, const char *fmt, ...) __printflike(3, 4);
+void pax_log_aslr(struct proc *, pax_log_settings_t flags, const char *fmt, ...) __printflike(3, 4);
 void pax_ulog_aslr(const char *fmt, ...) __printflike(1, 2);
-void pax_log_pageexec(struct proc *, uint64_t flags, const char *fmt, ...) __printflike(3, 4);
+void pax_log_pageexec(struct proc *, pax_log_settings_t flags, const char *fmt, ...) __printflike(3, 4);
 void pax_ulog_pageexec(const char *fmt, ...) __printflike(1, 2);
-void pax_log_mprotect(struct proc *, uint64_t flags, const char *fmt, ...) __printflike(3, 4);
+void pax_log_mprotect(struct proc *, pax_log_settings_t flags, const char *fmt, ...) __printflike(3, 4);
 void pax_ulog_mprotect(const char *fmt, ...) __printflike(1, 2);
-void pax_log_segvguard(struct proc *, uint64_t flags, const char *fmt, ...) __printflike(3, 4);
+void pax_log_segvguard(struct proc *, pax_log_settings_t flags, const char *fmt, ...) __printflike(3, 4);
 void pax_ulog_segvguard(const char *fmt, ...) __printflike(1, 2);
-void pax_log_ptrace_hardening(struct proc *, uint64_t flags, const char *fmt, ...) __printflike(3, 4);
+void pax_log_ptrace_hardening(struct proc *, pax_log_settings_t flags, const char *fmt, ...) __printflike(3, 4);
 void pax_ulog_ptrace_hardening(const char *fmt, ...) __printflike(1, 2);
 
 
@@ -168,7 +170,7 @@ void pax_segvguard_init_prison(struct prison *pr);
 int pax_segvguard_check(struct thread *, struct vnode *, const char *);
 int pax_segvguard_segfault(struct thread *, const char *);
 void pax_segvguard_remove(struct thread *td, struct vnode *vn);
-uint32_t pax_segvguard_setup_flags(struct image_params *imgp, struct thread *td, uint32_t mode);
+pax_flag_t pax_segvguard_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_t mode);
 
 /*
  * PAX PAGEEXEC and MPROTECT hardening
@@ -180,10 +182,10 @@ void pax_noexec_init_prison(struct prison *pr);
 #endif
 void pax_noexec_nw(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot);
 void pax_noexec_nx(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot);
-int pax_pageexec_active(struct proc *p);
-int pax_mprotect_active(struct proc *p);
-u_int pax_pageexec_setup_flags(struct image_params *imgp, struct thread *td, uint32_t mode);
-u_int pax_mprotect_setup_flags(struct image_params *imgp, struct thread *td, uint32_t mode);
+bool pax_pageexec_active(struct proc *p);
+bool pax_mprotect_active(struct proc *p);
+pax_flag_t pax_pageexec_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_t mode);
+pax_flag_t pax_mprotect_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_t mode);
 void pax_pageexec(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot);
 void pax_mprotect(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot);
 int pax_mprotect_enforce(struct proc *p, vm_map_t map, vm_prot_t old_prot, vm_prot_t new_prot);
@@ -196,10 +198,10 @@ void pax_hardening_init_prison(struct prison *pr);
 #else
 #define	pax_hardening_init_prison(pr)	do {} while (0)
 #endif
-int pax_disallow_map32bit_active(struct thread *td, int flags);
+bool pax_disallow_map32bit_active(struct thread *td, int mmap_flags);
 int pax_mprotect_exec_harden(struct thread *td);
 int pax_procfs_harden(struct thread *td);
-uint32_t pax_hardening_setup_flags(struct image_params *imgp, struct thread *td, uint32_t mode);
+pax_flag_t pax_hardening_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_t mode);
 
 /*
  * ptrace hardening related functions

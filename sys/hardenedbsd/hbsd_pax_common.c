@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Elad Efrat <elad@NetBSD.org>
- * Copyright (c) 2013-2015, by Oliver Pinter <oliver.pinter@hardenedbsd.org>
+ * Copyright (c) 2013-2016, by Oliver Pinter <oliver.pinter@hardenedbsd.org>
  * Copyright (c) 2014-2015, by Shawn Webb <shawn.webb@hardenedbsd.org>
  * All rights reserved.
  *
@@ -50,28 +50,30 @@ __FBSDID("$FreeBSD$");
 #include <sys/stat.h>
 #include <sys/sysctl.h>
 
+#include <machine/_inttypes.h>
 
-static void pax_set_flags(struct proc *p, struct thread *td, const uint32_t flags);
-static void pax_set_flags_td(struct thread *td, const uint32_t flags);
-static int pax_validate_flags(uint32_t flags);
-static int pax_check_conflicting_modes(uint32_t mode);
+static void pax_set_flags(struct proc *p, struct thread *td, const pax_flag_t flags);
+static void pax_set_flags_td(struct thread *td, const pax_flag_t flags);
+static int pax_validate_flags(const pax_flag_t flags);
+static int pax_check_conflicting_modes(const pax_flag_t mode);
 
 /*
  * Enforce and check HardenedBSD constraints
  */
-
 #ifndef INVARIANTS
 #ifndef PAX_INSECURE_MODE
 #error "HardenedBSD required enabled INVARIANTS in kernel config... If you really know what you're doing you can add `options PAX_INSECURE_MODE` to the kernel config"
 #endif
 #endif
 
+CTASSERT((sizeof((struct proc *)NULL)->p_pax) == sizeof(pax_flag_t));
+CTASSERT((sizeof((struct thread *)NULL)->td_pax) == sizeof(pax_flag_t));
+
 SYSCTL_NODE(_hardening, OID_AUTO, pax, CTLFLAG_RD, 0,
     "PaX (exploit mitigation) features.");
 
-static int HardenedBSD_version = __HardenedBSD_version;
-SYSCTL_INT(_hardening, OID_AUTO, version, CTLFLAG_RD|CTLFLAG_CAPRD,
-    &HardenedBSD_version, 0, "HardenedBSD version");
+SYSCTL_U64(_hardening, OID_AUTO, version, CTLFLAG_RD|CTLFLAG_CAPRD,
+    SYSCTL_NULL_U64_PTR, __HardenedBSD_version, "HardenedBSD version");
 
 const char *pax_status_str[] = {
 	[PAX_FEATURE_DISABLED] = "disabled",
@@ -85,6 +87,20 @@ const char *pax_status_simple_str[] = {
 	[PAX_FEATURE_SIMPLE_DISABLED] = "disabled",
 	[PAX_FEATURE_SIMPLE_ENABLED] = "enabled"
 };
+
+
+/*
+ * @ brief Get current __HardenedBSD_version.
+ *
+ * @ return	__HardenedBSD_version
+ */
+__noinline uint64_t
+pax_get_hardenedbsd_version(void)
+{
+	static const uint64_t HardenedBSD_version = __HardenedBSD_version;
+
+	return (HardenedBSD_version);
+}
 
 /*
  * @brief Get the current process prison.
@@ -128,7 +144,7 @@ pax_get_prison_td(struct thread *td)
  * @return		none
  */
 void
-pax_get_flags(struct proc *p, uint32_t *flags)
+pax_get_flags(struct proc *p, pax_flag_t *flags)
 {
 
 	KASSERT(p == curthread->td_proc,
@@ -147,7 +163,7 @@ pax_get_flags(struct proc *p, uint32_t *flags)
 }
 
 void
-pax_get_flags_td(struct thread *td, uint32_t *flags)
+pax_get_flags_td(struct thread *td, pax_flag_t *flags)
 {
 
 	KASSERT(td == curthread,
@@ -171,7 +187,7 @@ pax_get_flags_td(struct thread *td, uint32_t *flags)
 }
 
 void
-pax_set_flags(struct proc *p, struct thread *td, const uint32_t flags)
+pax_set_flags(struct proc *p, struct thread *td, const pax_flag_t flags)
 {
 	struct thread *td0;
 
@@ -189,14 +205,17 @@ pax_set_flags(struct proc *p, struct thread *td, const uint32_t flags)
 }
 
 void
-pax_set_flags_td(struct thread *td, const uint32_t flags)
+pax_set_flags_td(struct thread *td, const pax_flag_t flags)
 {
 
 	td->td_pax = flags;
 }
 
+/*
+ * rename to pax_valid_flags, and change return values and type to bool
+ */
 static int
-pax_validate_flags(uint32_t flags)
+pax_validate_flags(const pax_flag_t flags)
 {
 
 	if ((flags & ~PAX_NOTE_ALL) != 0)
@@ -205,8 +224,11 @@ pax_validate_flags(uint32_t flags)
 	return (0);
 }
 
+/*
+ * same as pax_valid_flags
+ */
 static int
-pax_check_conflicting_modes(uint32_t mode)
+pax_check_conflicting_modes(const pax_flag_t mode)
 {
 
 	if (((mode & PAX_NOTE_ALL_ENABLED) & ((mode & PAX_NOTE_ALL_DISABLED) >> 1)) != 0)
@@ -225,9 +247,9 @@ pax_check_conflicting_modes(uint32_t mode)
  * 			0 on success
  */
 int
-pax_elf(struct image_params *imgp, struct thread *td, uint32_t mode)
+pax_elf(struct image_params *imgp, struct thread *td, pax_flag_t mode)
 {
-	uint32_t flags;
+	pax_flag_t flags;
 
 	if (pax_validate_flags(mode) != 0) {
 		pax_log_internal_imgp(imgp, PAX_LOG_DEFAULT,
@@ -322,7 +344,7 @@ static void
 pax_sysinit(void)
 {
 
-	printf("HBSD: initialize and check HardenedBSD features (version %d).\n",
+	printf("HBSD: initialize and check HardenedBSD features (version %"PRIu64").\n",
 	    __HardenedBSD_version);
 }
 SYSINIT(pax, SI_SUB_PAX, SI_ORDER_FIRST, pax_sysinit, NULL);

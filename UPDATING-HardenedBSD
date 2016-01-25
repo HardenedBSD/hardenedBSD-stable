@@ -1,3 +1,12 @@
+[20150123] add pax_get_hardenedbsd_version API
+__HardenedBSD_version = 40
+
+	Add pax_get_hardenedbsd_version() API to query hardening's version
+	from kernel codes.
+
+	Add new types, which represents the PAX_FLAGS.
+
+
 [20151225] redo rework internal structures
 __HardenedBSD_version = 39
 
