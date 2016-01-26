@@ -49,4 +49,3 @@
 #   RekeyLimit 1G 1h
 #   VerifyHostKeyDNS yes
 #   VersionAddendum FreeBSD-20160121
-UseRoaming no
