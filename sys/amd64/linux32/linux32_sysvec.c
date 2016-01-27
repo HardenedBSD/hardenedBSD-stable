@@ -232,6 +232,7 @@ elf_linux_fixup(register_t **stack_base, struct image_params *imgp)
 	Elf32_Addr *base;
 	Elf32_Addr *pos;
 	struct linux32_ps_strings *arginfo;
+	int issetugid;
 
 	KASSERT(curthread->td_proc == imgp->proc,
 	    ("unsafe elf_linux_fixup(), should be curproc"));
@@ -241,6 +242,7 @@ elf_linux_fixup(register_t **stack_base, struct image_params *imgp)
 	args = (Elf32_Auxargs *)imgp->auxargs;
 	pos = base + (imgp->args->argc + imgp->args->envc + 2);
 
+	issetugid = imgp->proc->p_flag & P_SUGID ? 1 : 0;
 	AUXARGS_ENTRY_32(pos, LINUX_AT_SYSINFO_EHDR,
 	    imgp->proc->p_shared_page_base);
 	AUXARGS_ENTRY_32(pos, LINUX_AT_SYSINFO, linux32_vsyscall);
@@ -263,7 +265,7 @@ elf_linux_fixup(register_t **stack_base, struct image_params *imgp)
 	AUXARGS_ENTRY_32(pos, AT_FLAGS, args->flags);
 	AUXARGS_ENTRY_32(pos, AT_ENTRY, args->entry);
 	AUXARGS_ENTRY_32(pos, AT_BASE, args->base);
-	AUXARGS_ENTRY_32(pos, LINUX_AT_SECURE, 0);
+	AUXARGS_ENTRY_32(pos, LINUX_AT_SECURE, issetugid);
 	AUXARGS_ENTRY_32(pos, AT_UID, imgp->proc->p_ucred->cr_ruid);
 	AUXARGS_ENTRY_32(pos, AT_EUID, imgp->proc->p_ucred->cr_svuid);
 	AUXARGS_ENTRY_32(pos, AT_GID, imgp->proc->p_ucred->cr_rgid);
