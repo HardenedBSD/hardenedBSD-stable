@@ -245,6 +245,7 @@ build_kernel_archives() {
 add_extra_files() {
 	cat <<EOF > ${STAGEDIR}/skip.txt
 ./etc
+./proc
 ./root/.profile
 ./var/empty
 EOF
