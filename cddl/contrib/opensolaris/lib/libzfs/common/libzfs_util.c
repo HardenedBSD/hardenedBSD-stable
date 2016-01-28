@@ -623,13 +623,20 @@ libzfs_load(void)
 {
 	int error;
 
-	if (modfind("zfs") < 0) {
-		/* Not present in kernel, try loading it. */
-		if (kldload("zfs") < 0 || modfind("zfs") < 0) {
-			if (errno != EEXIST)
-				return (-1);
+#ifdef HARDENEDBSD
+	if (getuid() == 0) {
+#endif
+		if (modfind("zfs") < 0) {
+			/* Not present in kernel, try loading it. */
+			if (kldload("zfs") < 0 || modfind("zfs") < 0) {
+				if (errno != EEXIST)
+					return (-1);
+			}
 		}
+#ifdef HARDENEDBSD
 	}
+#endif
+
 	return (0);
 }
 
