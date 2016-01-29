@@ -268,17 +268,7 @@ void pmap_devmap_bootstrap(const struct pmap_devmap *);
 /*
  * sys/arm/arm/cpufunc.c
  */
-void pmap_pte_init_mmu_v6(void);
 void vector_page_setprot(int);
-
-
-/*
- * sys/arm/arm/db_interface.c
- * sys/arm/arm/machdep.c
- * sys/arm/arm/minidump_machdep.c
- * sys/arm/arm/pmap.c
- */
-#define pmap_kernel() kernel_pmap
 
 /*
  * sys/arm/arm/bus_space_generic.c (just comment)
