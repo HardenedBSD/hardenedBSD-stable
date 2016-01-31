@@ -148,15 +148,10 @@ struct cpu_functions arm9_cpufuncs = {
 
 	cpufunc_nullop,			/* flush_prefetchbuf	*/
 	armv4_drain_writebuf,		/* drain_writebuf	*/
-	cpufunc_nullop,			/* flush_brnchtgt_C	*/
-	(void *)cpufunc_nullop,		/* flush_brnchtgt_E	*/
 
 	(void *)cpufunc_nullop,		/* sleep		*/
 
 	/* Soft functions */
-
-	cpufunc_null_fixup,		/* dataabt_fixup	*/
-	cpufunc_null_fixup,		/* prefetchabt_fixup	*/
 
 	arm9_context_switch,		/* context_switch	*/
 
@@ -213,15 +208,10 @@ struct cpu_functions armv5_ec_cpufuncs = {
 
 	cpufunc_nullop,			/* flush_prefetchbuf	*/
 	armv4_drain_writebuf,		/* drain_writebuf	*/
-	cpufunc_nullop,			/* flush_brnchtgt_C	*/
-	(void *)cpufunc_nullop,		/* flush_brnchtgt_E	*/
 
 	(void *)cpufunc_nullop,		/* sleep		*/
 
 	/* Soft functions */
-
-	cpufunc_null_fixup,		/* dataabt_fixup	*/
-	cpufunc_null_fixup,		/* prefetchabt_fixup	*/
 
 	arm10_context_switch,		/* context_switch	*/
 
@@ -276,15 +266,10 @@ struct cpu_functions sheeva_cpufuncs = {
 
 	cpufunc_nullop,			/* flush_prefetchbuf	*/
 	armv4_drain_writebuf,		/* drain_writebuf	*/
-	cpufunc_nullop,			/* flush_brnchtgt_C	*/
-	(void *)cpufunc_nullop,		/* flush_brnchtgt_E	*/
 
 	sheeva_cpu_sleep,		/* sleep		*/
 
 	/* Soft functions */
-
-	cpufunc_null_fixup,		/* dataabt_fixup	*/
-	cpufunc_null_fixup,		/* prefetchabt_fixup	*/
 
 	arm10_context_switch,		/* context_switch	*/
 
@@ -339,16 +324,10 @@ struct cpu_functions pj4bv7_cpufuncs = {
 
 	cpufunc_nullop,			/* flush_prefetchbuf	*/
 	armv7_drain_writebuf,		/* drain_writebuf	*/
-	cpufunc_nullop,			/* flush_brnchtgt_C	*/
-	(void *)cpufunc_nullop,		/* flush_brnchtgt_E	*/
 
 	(void *)cpufunc_nullop,		/* sleep		*/
 
 	/* Soft functions */
-
-	cpufunc_null_fixup,		/* dataabt_fixup	*/
-	cpufunc_null_fixup,		/* prefetchabt_fixup	*/
-
 	armv7_context_switch,		/* context_switch	*/
 
 	pj4bv7_setup			/* cpu setup		*/
@@ -405,15 +384,10 @@ struct cpu_functions xscale_cpufuncs = {
 
 	cpufunc_nullop,			/* flush_prefetchbuf	*/
 	armv4_drain_writebuf,		/* drain_writebuf	*/
-	cpufunc_nullop,			/* flush_brnchtgt_C	*/
-	(void *)cpufunc_nullop,		/* flush_brnchtgt_E	*/
 
 	xscale_cpu_sleep,		/* sleep		*/
 
 	/* Soft functions */
-
-	cpufunc_null_fixup,		/* dataabt_fixup	*/
-	cpufunc_null_fixup,		/* prefetchabt_fixup	*/
 
 	xscale_context_switch,		/* context_switch	*/
 
@@ -470,15 +444,10 @@ struct cpu_functions xscalec3_cpufuncs = {
 
 	cpufunc_nullop,			/* flush_prefetchbuf	*/
 	armv4_drain_writebuf,		/* drain_writebuf	*/
-	cpufunc_nullop,			/* flush_brnchtgt_C	*/
-	(void *)cpufunc_nullop,		/* flush_brnchtgt_E	*/
 
 	xscale_cpu_sleep,		/* sleep		*/
 
 	/* Soft functions */
-
-	cpufunc_null_fixup,		/* dataabt_fixup	*/
-	cpufunc_null_fixup,		/* prefetchabt_fixup	*/
 
 	xscalec3_context_switch,	/* context_switch	*/
 
@@ -534,15 +503,11 @@ struct cpu_functions fa526_cpufuncs = {
 
 	fa526_flush_prefetchbuf,	/* flush_prefetchbuf	*/
 	armv4_drain_writebuf,		/* drain_writebuf	*/
-	cpufunc_nullop,			/* flush_brnchtgt_C	*/
-	fa526_flush_brnchtgt_E,		/* flush_brnchtgt_E	*/
 
 	fa526_cpu_sleep,		/* sleep		*/
 
 	/* Soft functions */
 
-	cpufunc_null_fixup,		/* dataabt_fixup	*/
-	cpufunc_null_fixup,		/* prefetchabt_fixup	*/
 
 	fa526_context_switch,		/* context_switch	*/
 
@@ -598,15 +563,10 @@ struct cpu_functions arm1176_cpufuncs = {
 
 	arm11x6_flush_prefetchbuf,      /* flush_prefetchbuf    */
 	arm11_drain_writebuf,           /* drain_writebuf       */
-	cpufunc_nullop,                 /* flush_brnchtgt_C     */
-	(void *)cpufunc_nullop,         /* flush_brnchtgt_E     */
 
 	arm11x6_sleep,                  /* sleep                */
 
 	/* Soft functions */
-
-	cpufunc_null_fixup,             /* dataabt_fixup        */
-	cpufunc_null_fixup,             /* prefetchabt_fixup    */
 
 	arm11_context_switch,           /* context_switch       */
 
@@ -670,15 +630,10 @@ struct cpu_functions cortexa_cpufuncs = {
 
 	cpufunc_nullop,                 /* flush_prefetchbuf    */
 	armv7_drain_writebuf,           /* drain_writebuf       */
-	cpufunc_nullop,                 /* flush_brnchtgt_C     */
-	(void *)cpufunc_nullop,         /* flush_brnchtgt_E     */
 
 	armv7_cpu_sleep,                /* sleep                */
 
 	/* Soft functions */
-
-	cpufunc_null_fixup,             /* dataabt_fixup        */
-	cpufunc_null_fixup,             /* prefetchabt_fixup    */
 
 	armv7_context_switch,           /* context_switch       */
 
@@ -992,27 +947,6 @@ set_cpufuncs()
 out:
 	uma_set_align(arm_dcache_align_mask);
 	return (0);
-}
-
-/*
- * Fixup routines for data and prefetch aborts.
- *
- * Several compile time symbols are used
- *
- * DEBUG_FAULT_CORRECTION - Print debugging information during the
- * correction of registers after a fault.
- */
-
-
-/*
- * Null abort fixup routine.
- * For use when no fixup is required.
- */
-int
-cpufunc_null_fixup(arg)
-	void *arg;
-{
-	return(ABORT_FIXUP_OK);
 }
 
 /*

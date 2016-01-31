@@ -157,15 +157,10 @@ struct cpu_functions {
 
 	void	(*cf_flush_prefetchbuf)	(void);
 	void	(*cf_drain_writebuf)	(void);
-	void	(*cf_flush_brnchtgt_C)	(void);
-	void	(*cf_flush_brnchtgt_E)	(u_int va);
 
 	void	(*cf_sleep)		(int mode);
 
 	/* Soft functions */
-
-	int	(*cf_dataabt_fixup)	(void *arg);
-	int	(*cf_prefetchabt_fixup)	(void *arg);
 
 	void	(*cf_context_switch)	(void);
 
@@ -210,16 +205,7 @@ extern u_int cputype;
 
 #define	cpu_flush_prefetchbuf()	cpufuncs.cf_flush_prefetchbuf()
 #define	cpu_drain_writebuf()	cpufuncs.cf_drain_writebuf()
-#define	cpu_flush_brnchtgt_C()	cpufuncs.cf_flush_brnchtgt_C()
-#define	cpu_flush_brnchtgt_E(e)	cpufuncs.cf_flush_brnchtgt_E(e)
-
 #define cpu_sleep(m)		cpufuncs.cf_sleep(m)
-
-#define cpu_dataabt_fixup(a)		cpufuncs.cf_dataabt_fixup(a)
-#define cpu_prefetchabt_fixup(a)	cpufuncs.cf_prefetchabt_fixup(a)
-#define ABORT_FIXUP_OK		0	/* fixup succeeded */
-#define ABORT_FIXUP_FAILED	1	/* fixup failed */
-#define ABORT_FIXUP_RETURN	2	/* abort handler should return */
 
 #define cpu_setup()			cpufuncs.cf_setup()
 
@@ -228,9 +214,6 @@ int	set_cpufuncs		(void);
 #define ARCHITECTURE_NOT_SUPPORTED	2	/* not known */
 
 void	cpufunc_nullop		(void);
-int	cpufunc_null_fixup	(void *);
-int	early_abort_fixup	(void *);
-int	late_abort_fixup	(void *);
 u_int	cpufunc_id		(void);
 u_int	cpufunc_cpuid		(void);
 u_int	cpufunc_control		(u_int clear, u_int bic);
@@ -247,7 +230,6 @@ void	fa526_cpu_sleep		(int);
 void	fa526_tlb_flushI_SE	(u_int);
 void	fa526_tlb_flushID_SE	(u_int);
 void	fa526_flush_prefetchbuf	(void);
-void	fa526_flush_brnchtgt_E	(u_int);
 
 void	fa526_icache_sync_all	(void);
 void	fa526_icache_sync_range(vm_offset_t start, vm_size_t end);
