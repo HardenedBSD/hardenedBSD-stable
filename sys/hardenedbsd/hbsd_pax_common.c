@@ -345,7 +345,7 @@ pax_sysinit(void)
 {
 
 	printf("HBSD: initialize and check HardenedBSD features (version %"PRIu64").\n",
-	    __HardenedBSD_version);
+	    (uint64_t)__HardenedBSD_version);
 }
 SYSINIT(pax, SI_SUB_PAX, SI_ORDER_FIRST, pax_sysinit, NULL);
 
