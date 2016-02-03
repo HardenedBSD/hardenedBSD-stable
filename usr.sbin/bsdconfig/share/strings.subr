@@ -65,7 +65,7 @@ f_isinteger()
 # f_substr [-v $var_to_set] $string $start [$length]
 #
 # Similar to awk(1)'s substr(), return length substring of string that begins
-# at start position counted from 1. 
+# at start position counted from 1.
 #
 f_substr()
 {
@@ -76,7 +76,7 @@ f_substr()
 		esac
 	done
 	shift $(( $OPTIND - 1 ))
-	
+
 	local __tmp="$1" __start="${2:-1}" __size="$3"
 	local __tbuf __tbuf_len __trim __trimq
 
@@ -146,7 +146,11 @@ f_substr()
 		fi
 	done
 
-	setvar "$__var_to_set" "$__tmp"
+	if [ "$__var_to_set" ]; then
+		setvar "$__var_to_set" "$__tmp"
+	else
+		echo "$__tmp"
+	fi
 }
 
 # f_sprintf $var_to_set $format [$arguments ...]
@@ -154,20 +158,25 @@ f_substr()
 # Similar to sprintf(3), write a string into $var_to_set using printf(1) syntax
 # (`$format [$arguments ...]').
 #
-f_sprintf()
-{
-	local __var_to_set="$1"
-	shift 1 # var_to_set
-
-	case "$BASH_VERSION" in
-	3.1*|4.*)
-		local __tmp
+case "$BASH_VERSION" in
+3.1*|4.*)
+	f_sprintf()
+	{
+		local __var_to_set="$1" __tmp
+		shift 1 # var_to_set
 		printf -v __tmp "$@"
 		eval "$__var_to_set"=\"\${__tmp%\$NL}\"
-		;;
-	*) eval "$__var_to_set"=\$\( printf -- \"\$@\" \)
-	esac
-}
+	}
+	;;
+*)
+	# NB: On FreeBSD, sh(1) runs this faster than bash(1) runs the above
+	f_sprintf()
+	{
+		local __var_to_set="$1"
+		shift 1 # var_to_set
+		eval "$__var_to_set"=\$\( printf -- \"\$@\" \)
+	}
+esac
 
 # f_vsprintf $var_to_set $format $format_args
 #
