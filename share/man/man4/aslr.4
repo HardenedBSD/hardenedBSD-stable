@@ -260,25 +260,20 @@ Default: For 32-bit systems: N/A. For 64-bit systems: 18.
 .Sh HISTORY
 On 14 May 2013, Oliver Pinter published to GitHub an initial patch to
 implement ASLR.
-.It
 His work was inspired by Elad Efrat's work in NetBSD.
-.It
 The patch was submitted to FreeBSD as a bug report on 24 Aug 2013.
 Independenty of Oliver's work, Shawn Webb posted to his tech blog that
 he was interested in implementing ASLR for FreeBSD.
-.It
 Oliver found his post and suggested that he and Shawn work together.
-.It
 On June 08, 2014, preparatory work was committed to HardenedBSD, adding
 Position-Independent Executable (PIE) support in base.
 PIE support was removed sometime later.
-.It
 On 07 Apr 2014, SoldierX agreed to sponsor the project and donated a
 sparc64 machine and a BeagleBone Black to Shawn Webb.
-.It
-This hardware is used for testing and debugging ASLR.
-.It
+This hardware was used for testing and debugging ASLR.
 ASLR for FreeBSD was first introduced in HardenedBSD.
+On 19 December 2015, HardenedBSD officially decided to halt the
+upstreaming process.
 .Sh AUTHORS
 This manual page was written by
 .An -nosplit
@@ -288,8 +283,8 @@ The ASLR implementation was written by
 .An Shawn Webb .
 .Sh BUGS
 The original PaX implementation, from which the HardenedBSD
-implementation is inspired, uses a special ELF process header which
-requires modification of executable files.
+implementation also drew inspiration, uses a special ELF process
+header which requires modification of executable files.
 The authors of the HardenedBSD implementation have deliberately chosen
 to go a different route based on the
 .Xr mac 4
