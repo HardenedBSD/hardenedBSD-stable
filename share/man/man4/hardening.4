@@ -58,6 +58,14 @@ are modified to prevent arbitrary writes to a process's registers.
 This behavior is controlled by the
 .Fa hardening.procfs_harden
 sysctl option.
+.Pp
+.Xr kld 4
+related system calls are restricted to non-jailed, root-only.
+Attempting to list using
+.Xr modfind 2 ,
+.Xr kldfind 2 ,
+and the other KLD-related system calls will result in permission
+denied if used by a non-root or jailed user.
 .Ss APPENDIX A
 .Bl -bullet
 .It
@@ -188,6 +196,8 @@ Hardened: 1
 .El
 .El
 .Sh SEE ALSO
+.Xr kldfind 2 ,
+.Xr modfind 2 ,
 .Xr sysctl 8
 .Sh AUTHORS
 This manual page was written by
