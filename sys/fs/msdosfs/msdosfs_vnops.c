@@ -1024,7 +1024,6 @@ msdosfs_rename(ap)
 	struct buf *bp;
 
 	fddep = VTODE(ap->a_fdvp);
-	pmp = fddep->de_pmp;
 
 	pmp = VFSTOMSDOSFS(fdvp->v_mount);
 
