@@ -2700,6 +2700,19 @@ OLD_FILES+=usr/share/man/man8/hastd.8.gz
 OLD_DIRS+=usr/share/examples/hast
 .endif
 
+.if ${MK_HBSD_UPDATE} == no
+OLD_FILES+=etc/hbsd-update.conf
+OLD_FILES+=usr/sbin/hbsd-update
+OLD_FILES+=usr/sbin/hbsd-update-build
+OLD_FILES+=usr/share/man/man8/hbsd-update.8.gz
+OLD_FILES+=usr/share/man/man8/hbsd-update-build.8.gz
+OLD_DIRS+=usr/share/keys/hbsd-update/revoked
+OLD_FILES+=usr/share/keys/hbsd-update/trusted/5905e1b4.0
+OLD_FILES+=usr/share/keys/hbsd-update/trusted/ca.hardenedbsd.org
+OLD_DIRS+=usr/share/keys/hbsd-update/trusted
+OLD_DIRS+=usr/share/keys/hbsd-update
+.endif
+
 .if ${MK_HESIOD} == no
 OLD_FILES+=usr/bin/hesinfo
 OLD_FILES+=usr/include/hesiod.h
