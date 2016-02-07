@@ -310,6 +310,7 @@ __DEFAULT_YES_OPTIONS = \
     GPL_DTC \
     GROFF \
     HAST \
+    HBSD_UPDATE \
     HTML \
     ICONV \
     INET \

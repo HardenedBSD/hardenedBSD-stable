@@ -33,7 +33,6 @@ SUBDIR=	adduser \
 	getfmac \
 	getpmac \
 	gstat \
-	hbsd-update \
 	i2c \
 	ifmcstat \
 	iostat \
@@ -169,6 +168,10 @@ SUBDIR+=	gssd
 
 .if ${MK_GPIO} != "no"
 SUBDIR+=	gpioctl
+.endif
+
+.if ${MK_HBSD_UPDATE} != "no"
+SUBDIR+=	hbsd-update
 .endif
 
 .if ${MK_INET6} != "no"
