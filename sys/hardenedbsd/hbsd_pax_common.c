@@ -80,7 +80,6 @@ const char *pax_status_str[] = {
 	[PAX_FEATURE_OPTIN] = "opt-in",
 	[PAX_FEATURE_OPTOUT] = "opt-out",
 	[PAX_FEATURE_FORCE_ENABLED] = "force enabled",
-	[PAX_FEATURE_UNKNOWN_STATUS] = "UNKNOWN -> changed to \"force enabled\""
 };
 
 const char *pax_status_simple_str[] = {
