@@ -212,8 +212,6 @@ void pax_ptrace_hardening_init_prison(struct prison *pr);
 #endif
 int pax_ptrace_hardening(struct thread *td);
 
-#endif /* _KERNEL */
-
 #define	PAX_NOTE_PAGEEXEC	0x00000001
 #define	PAX_NOTE_NOPAGEEXEC	0x00000002
 #define	PAX_NOTE_MPROTECT	0x00000004
@@ -238,5 +236,7 @@ int pax_ptrace_hardening(struct thread *td);
     PAX_NOTE_NOSEGVGUARD | PAX_NOTE_NOASLR | PAX_NOTE_NOSHLIBRANDOM | \
     PAX_NOTE_NODISALLOWMAP32BIT)
 #define PAX_NOTE_ALL	(PAX_NOTE_ALL_ENABLED | PAX_NOTE_ALL_DISABLED | PAX_NOTE_FINALIZED)
+
+#endif /* _KERNEL */
 
 #endif /* !_SYS_PAX_H */
