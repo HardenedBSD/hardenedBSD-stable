@@ -5,7 +5,6 @@ options 	PAX
 options 	PAX_ASLR
 options 	PAX_ASLR_DELTA_MMAP_DEF_LEN=21
 options 	PAX_ASLR_DELTA_STACK_DEF_LEN=21
-options 	PAX_ASLR_DELTA_STACK_WITH_GAP_LSB=12 # XXX this should be 3 in the final version
 options 	PAX_ASLR_DELTA_VDSO_DEF_LEN=21
 options 	PAX_ASLR_DELTA_EXEC_DEF_LEN=21
 options 	PAX_SYSCTLS
