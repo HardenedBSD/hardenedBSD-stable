@@ -230,4 +230,7 @@ int pax_procfs_harden(struct thread *td);
 
 #endif /* _KERNEL */
 
+#define	PAX_HARDENING_SHLIBRANDOM	0x00000100
+#define	PAX_HARDENING_NOSHLIBRANDOM	0x00000200
+
 #endif /* !_SYS_PAX_H */

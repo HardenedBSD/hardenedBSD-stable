@@ -69,6 +69,14 @@ static int pax_check_conflicting_modes(const pax_flag_t mode);
 CTASSERT((sizeof((struct proc *)NULL)->p_pax) == sizeof(pax_flag_t));
 CTASSERT((sizeof((struct thread *)NULL)->td_pax) == sizeof(pax_flag_t));
 
+/*
+ * The PAX_HARDENING_{,NO}SHLIBRANDOM flags are
+ * used from rtld.
+ */
+CTASSERT(PAX_NOTE_SHLIBRANDOM == PAX_HARDENING_SHLIBRANDOM);
+CTASSERT(PAX_NOTE_NOSHLIBRANDOM == PAX_HARDENING_NOSHLIBRANDOM);
+
+
 SYSCTL_NODE(_hardening, OID_AUTO, pax, CTLFLAG_RD, 0,
     "PaX (exploit mitigation) features.");
 

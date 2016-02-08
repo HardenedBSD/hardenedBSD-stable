@@ -2228,8 +2228,8 @@ load_needed_objects(Obj_Entry *first, int flags)
 	if (obj->marker)
 	    continue;
 #ifdef HARDENEDBSD
-        if ((pax_flags & (PAX_NOTE_NOSHLIBRANDOM | PAX_NOTE_SHLIBRANDOM)) !=
-	  PAX_NOTE_NOSHLIBRANDOM)
+        if ((pax_flags & (PAX_HARDENING_NOSHLIBRANDOM | PAX_HARDENING_SHLIBRANDOM)) !=
+	  PAX_HARDENING_NOSHLIBRANDOM)
             randomize_neededs(obj, flags);
 #endif
 	if (process_needed(obj, obj->needed, flags) == -1)
