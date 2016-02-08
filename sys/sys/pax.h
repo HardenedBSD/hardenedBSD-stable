@@ -199,7 +199,6 @@ void pax_hardening_init_prison(struct prison *pr);
 #else
 #define	pax_hardening_init_prison(pr)	do {} while (0)
 #endif
-int pax_mprotect_exec_harden(struct thread *td);
 int pax_procfs_harden(struct thread *td);
 pax_flag_t pax_hardening_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_t mode);
 
