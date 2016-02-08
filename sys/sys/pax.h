@@ -125,6 +125,7 @@ void pax_aslr_stack(struct proc *p, vm_offset_t *addr);
 void pax_aslr_stack_with_gap(struct proc *p, vm_offset_t *addr);
 void pax_aslr_vdso(struct proc *p, vm_offset_t *addr);
 pax_flag_t pax_disallow_map32bit_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_t mode);
+bool pax_disallow_map32bit_active(struct thread *td, int mmap_flags);
 
 /*
  * Log related functions
@@ -198,7 +199,6 @@ void pax_hardening_init_prison(struct prison *pr);
 #else
 #define	pax_hardening_init_prison(pr)	do {} while (0)
 #endif
-bool pax_disallow_map32bit_active(struct thread *td, int mmap_flags);
 int pax_mprotect_exec_harden(struct thread *td);
 int pax_procfs_harden(struct thread *td);
 pax_flag_t pax_hardening_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_t mode);
