@@ -129,7 +129,7 @@ sysctl_pax_procfs(SYSCTL_HANDLER_ARGS)
 
 	pr = pax_get_prison_td(req->td);
 
-	val = pr->pr_hardening.hr_pax_procfs_harden;
+	val = pr->pr_hbsd.hardening.procfs_harden;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
 	if (err || (req->newptr == NULL))
 		return (err);
@@ -140,7 +140,7 @@ sysctl_pax_procfs(SYSCTL_HANDLER_ARGS)
 	if (pr == &prison0)
 		pax_procfs_harden_global = val;
 
-	pr->pr_hardening.hr_pax_procfs_harden = val;
+	pr->pr_hbsd.hardening.procfs_harden = val;
 
 	return (0);
 }
@@ -156,15 +156,15 @@ pax_hardening_init_prison(struct prison *pr)
 
 	if (pr == &prison0) {
 		/* prison0 has no parent, use globals */
-		pr->pr_hardening.hr_pax_procfs_harden =
+		pr->pr_hbsd.hardening.procfs_harden =
 		    pax_procfs_harden_global;
 	} else {
 		KASSERT(pr->pr_parent != NULL,
 		   ("%s: pr->pr_parent == NULL", __func__));
 		pr_p = pr->pr_parent;
 
-		pr->pr_hardening.hr_pax_procfs_harden =
-		    pr_p->pr_hardening.hr_pax_procfs_harden;
+		pr->pr_hbsd.hardening.procfs_harden =
+		    pr_p->pr_hbsd.hardening.procfs_harden;
 	}
 }
 
@@ -175,7 +175,7 @@ pax_procfs_harden(struct thread *td)
 
 	pr = pax_get_prison_td(td);
 
-	return (pr->pr_hardening.hr_pax_procfs_harden ? EPERM : 0);
+	return (pr->pr_hbsd.hardening.procfs_harden ? EPERM : 0);
 }
 
 pax_flag_t
@@ -194,7 +194,7 @@ pax_hardening_setup_flags(struct image_params *imgp, struct thread *td, pax_flag
 	status = 0;
 #if 0
 	pr = pax_get_prison_td(td);
-	status = pr->pr_hardening.hr_pax_FOO_status;
+	status = pr->pr_hbsd.hardening.FOO_status;
 
 	if (status == PAX_FEATURE_DISABLED) {
 		flags &= ~PAX_NOTE_FOO;

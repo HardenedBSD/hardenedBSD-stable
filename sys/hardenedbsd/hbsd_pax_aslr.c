@@ -261,7 +261,7 @@ sysctl_pax_aslr_status(SYSCTL_HANDLER_ARGS)
 
 	pr = pax_get_prison_td(req->td);
 
-	val = pr->pr_hardening.hr_pax_aslr_status;
+	val = pr->pr_hbsd.aslr.status;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
 	if (err || (req->newptr == NULL))
 		return (err);
@@ -274,7 +274,7 @@ sysctl_pax_aslr_status(SYSCTL_HANDLER_ARGS)
 		if (pr == &prison0)
 			pax_aslr_status = val;
 
-		pr->pr_hardening.hr_pax_aslr_status = val;
+		pr->pr_hbsd.aslr.status = val;
 		break;
 	default:
 		return (EINVAL);
@@ -307,7 +307,7 @@ sysctl_pax_aslr_compat_status(SYSCTL_HANDLER_ARGS)
 
 	pr = pax_get_prison_td(req->td);
 
-	val = pr->pr_hardening.hr_pax_aslr_compat_status;
+	val = pr->pr_hbsd.aslr.compat_status;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
 	if (err || (req->newptr == NULL))
 		return (err);
@@ -320,7 +320,7 @@ sysctl_pax_aslr_compat_status(SYSCTL_HANDLER_ARGS)
 		if (pr == &prison0)
 			pax_aslr_compat_status = val;
 
-		pr->pr_hardening.hr_pax_aslr_compat_status = val;
+		pr->pr_hbsd.aslr.compat_status = val;
 		break;
 	default:
 		return (EINVAL);
@@ -352,7 +352,7 @@ sysctl_pax_disallow_map32bit(SYSCTL_HANDLER_ARGS)
 
 	pr = pax_get_prison_td(req->td);
 
-	val = pr->pr_hardening.hr_pax_disallow_map32bit_status;
+	val = pr->pr_hbsd.aslr.disallow_map32bit_status;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
 	if (err || (req->newptr == NULL))
 		return (err);
@@ -365,7 +365,7 @@ sysctl_pax_disallow_map32bit(SYSCTL_HANDLER_ARGS)
 		if (pr == &prison0)
 			pax_disallow_map32bit_status_global = val;
 
-		pr->pr_hardening.hr_pax_disallow_map32bit_status = val;
+		pr->pr_hbsd.aslr.disallow_map32bit_status = val;
 		break;
 	default:
 		return (EINVAL);
@@ -458,12 +458,12 @@ pax_aslr_init_vmspace(struct proc *p)
 	arc4rand(&rand_buf, sizeof(rand_buf), 0);
 	vm->vm_aslr_delta_mmap = PAX_ASLR_DELTA(rand_buf,
 	    PAX_ASLR_DELTA_MMAP_LSB,
-	    pr->pr_hardening.hr_pax_aslr_mmap_len);
+	    pr->pr_hbsd.aslr.mmap_len);
 
 	arc4rand(&rand_buf, sizeof(rand_buf), 0);
 	vm->vm_aslr_delta_exec = PAX_ASLR_DELTA(rand_buf,
 	    PAX_ASLR_DELTA_EXEC_LSB,
-	    pr->pr_hardening.hr_pax_aslr_exec_len);
+	    pr->pr_hbsd.aslr.exec_len);
 
 	try = 3;
 try_again:
@@ -477,13 +477,13 @@ try_again:
 	arc4rand(&rand_buf, sizeof(rand_buf), 0);
 	vm->vm_aslr_delta_stack = PAX_ASLR_DELTA(rand_buf,
 	    PAX_ASLR_DELTA_STACK_WITH_GAP_LSB,
-	    pr->pr_hardening.hr_pax_aslr_stack_len);
+	    pr->pr_hbsd.aslr.stack_len);
 	vm->vm_aslr_delta_stack = ALIGN(vm->vm_aslr_delta_stack);
 
 	arc4rand(&rand_buf, sizeof(rand_buf), 0);
 	rand_buf = PAX_ASLR_DELTA(rand_buf,
 	    PAX_ASLR_DELTA_VDSO_LSB,
-	    pr->pr_hardening.hr_pax_aslr_vdso_len);
+	    pr->pr_hbsd.aslr.vdso_len);
 
 	/*
 	 * Place the vdso between the stacktop and
@@ -518,7 +518,7 @@ try_again:
 	arc4rand(&rand_buf, sizeof(rand_buf), 0);
 	vm->vm_aslr_delta_map32bit = PAX_ASLR_DELTA(rand_buf,
 	    PAX_ASLR_DELTA_MAP32BIT_LSB,
-	    pr->pr_hardening.hr_pax_aslr_map32bit_len);
+	    pr->pr_hbsd.aslr.map32bit_len);
 #endif
 
 	CTR2(KTR_PAX, "%s: vm_aslr_delta_mmap=%p\n",
@@ -574,23 +574,23 @@ pax_aslr_init_vmspace32(struct proc *p)
 	arc4rand(&rand_buf, sizeof(rand_buf), 0);
 	vm->vm_aslr_delta_mmap = PAX_ASLR_DELTA(rand_buf,
 	    PAX_ASLR_COMPAT_DELTA_MMAP_LSB,
-	    pr->pr_hardening.hr_pax_aslr_compat_mmap_len);
+	    pr->pr_hbsd.aslr.compat_mmap_len);
 
 	arc4rand(&rand_buf, sizeof(rand_buf), 0);
 	vm->vm_aslr_delta_stack = PAX_ASLR_DELTA(rand_buf,
 	    PAX_ASLR_COMPAT_DELTA_STACK_LSB,
-	    pr->pr_hardening.hr_pax_aslr_compat_stack_len);
+	    pr->pr_hbsd.aslr.compat_stack_len);
 	vm->vm_aslr_delta_stack = ALIGN(vm->vm_aslr_delta_stack);
 
 	arc4rand(&rand_buf, sizeof(rand_buf), 0);
 	vm->vm_aslr_delta_exec = PAX_ASLR_DELTA(rand_buf,
 	    PAX_ASLR_COMPAT_DELTA_EXEC_LSB,
-	    pr->pr_hardening.hr_pax_aslr_compat_exec_len);
+	    pr->pr_hbsd.aslr.compat_exec_len);
 
 	arc4rand(&rand_buf, sizeof(rand_buf), 0);
 	vm->vm_aslr_delta_vdso = PAX_ASLR_DELTA(rand_buf,
 	    PAX_ASLR_COMPAT_DELTA_VDSO_LSB,
-	    pr->pr_hardening.hr_pax_aslr_compat_vdso_len);
+	    pr->pr_hbsd.aslr.compat_vdso_len);
 
 	CTR2(KTR_PAX, "%s: vm_aslr_delta_mmap=%p\n",
 	    __func__, (void *)vm->vm_aslr_delta_mmap);
@@ -628,19 +628,14 @@ pax_aslr_init_prison(struct prison *pr)
 
 	if (pr == &prison0) {
 		/* prison0 has no parent, use globals */
-		pr->pr_hardening.hr_pax_aslr_status = pax_aslr_status;
-		pr->pr_hardening.hr_pax_aslr_mmap_len =
-		    pax_aslr_mmap_len;
-		pr->pr_hardening.hr_pax_aslr_stack_len =
-		    pax_aslr_stack_len;
-		pr->pr_hardening.hr_pax_aslr_exec_len =
-		    pax_aslr_exec_len;
-		pr->pr_hardening.hr_pax_aslr_vdso_len =
-		    pax_aslr_vdso_len;
+		pr->pr_hbsd.aslr.status = pax_aslr_status;
+		pr->pr_hbsd.aslr.mmap_len = pax_aslr_mmap_len;
+		pr->pr_hbsd.aslr.stack_len = pax_aslr_stack_len;
+		pr->pr_hbsd.aslr.exec_len = pax_aslr_exec_len;
+		pr->pr_hbsd.aslr.vdso_len = pax_aslr_vdso_len;
 #ifdef MAP_32BIT
-		pr->pr_hardening.hr_pax_aslr_map32bit_len =
-		    pax_aslr_map32bit_len;
-		pr->pr_hardening.hr_pax_disallow_map32bit_status =
+		pr->pr_hbsd.aslr.map32bit_len = pax_aslr_map32bit_len;
+		pr->pr_hbsd.aslr.disallow_map32bit_status =
 		    pax_disallow_map32bit_status_global;
 #endif
 	} else {
@@ -648,21 +643,16 @@ pax_aslr_init_prison(struct prison *pr)
 		   ("%s: pr->pr_parent == NULL", __func__));
 		pr_p = pr->pr_parent;
 
-		pr->pr_hardening.hr_pax_aslr_status =
-		    pr_p->pr_hardening.hr_pax_aslr_status;
-		pr->pr_hardening.hr_pax_aslr_mmap_len =
-		    pr_p->pr_hardening.hr_pax_aslr_mmap_len;
-		pr->pr_hardening.hr_pax_aslr_stack_len =
-		    pr_p->pr_hardening.hr_pax_aslr_stack_len;
-		pr->pr_hardening.hr_pax_aslr_exec_len =
-		    pr_p->pr_hardening.hr_pax_aslr_exec_len;
-		pr->pr_hardening.hr_pax_aslr_vdso_len =
-		    pr_p->pr_hardening.hr_pax_aslr_vdso_len;
+		pr->pr_hbsd.aslr.status = pr_p->pr_hbsd.aslr.status;
+		pr->pr_hbsd.aslr.mmap_len = pr_p->pr_hbsd.aslr.mmap_len;
+		pr->pr_hbsd.aslr.stack_len = pr_p->pr_hbsd.aslr.stack_len;
+		pr->pr_hbsd.aslr.exec_len = pr_p->pr_hbsd.aslr.exec_len;
+		pr->pr_hbsd.aslr.vdso_len = pr_p->pr_hbsd.aslr.vdso_len;
 #ifdef MAP_32BIT
-		pr->pr_hardening.hr_pax_aslr_map32bit_len =
-		    pr_p->pr_hardening.hr_pax_aslr_map32bit_len;
-		pr->pr_hardening.hr_pax_disallow_map32bit_status =
-		    pr_p->pr_hardening.hr_pax_disallow_map32bit_status;
+		pr->pr_hbsd.aslr.map32bit_len =
+		    pr_p->pr_hbsd.aslr.map32bit_len;
+		pr->pr_hbsd.aslr.disallow_map32bit_status =
+		    pr_p->pr_hbsd.aslr.disallow_map32bit_status;
 #endif
 	}
 }
@@ -679,31 +669,21 @@ pax_aslr_init_prison32(struct prison *pr)
 	if (pr == &prison0) {
 		/* prison0 has no parent, use globals */
 
-		pr->pr_hardening.hr_pax_aslr_compat_status =
-		    pax_aslr_compat_status;
-		pr->pr_hardening.hr_pax_aslr_compat_mmap_len =
-		    pax_aslr_compat_mmap_len;
-		pr->pr_hardening.hr_pax_aslr_compat_stack_len =
-		    pax_aslr_compat_stack_len;
-		pr->pr_hardening.hr_pax_aslr_compat_exec_len =
-		    pax_aslr_compat_exec_len;
-		pr->pr_hardening.hr_pax_aslr_compat_vdso_len =
-		    pax_aslr_compat_vdso_len;
+		pr->pr_hbsd.aslr.compat_status = pax_aslr_compat_status;
+		pr->pr_hbsd.aslr.compat_mmap_len = pax_aslr_compat_mmap_len;
+		pr->pr_hbsd.aslr.compat_stack_len = pax_aslr_compat_stack_len;
+		pr->pr_hbsd.aslr.compat_exec_len = pax_aslr_compat_exec_len;
+		pr->pr_hbsd.aslr.compat_vdso_len = pax_aslr_compat_vdso_len;
 	} else {
 		KASSERT(pr->pr_parent != NULL,
 		   ("%s: pr->pr_parent == NULL", __func__));
 		pr_p = pr->pr_parent;
 
-		pr->pr_hardening.hr_pax_aslr_compat_status =
-		    pr_p->pr_hardening.hr_pax_aslr_compat_status;
-		pr->pr_hardening.hr_pax_aslr_compat_mmap_len =
-		    pr_p->pr_hardening.hr_pax_aslr_compat_mmap_len;
-		pr->pr_hardening.hr_pax_aslr_compat_stack_len =
-		    pr_p->pr_hardening.hr_pax_aslr_compat_stack_len;
-		pr->pr_hardening.hr_pax_aslr_compat_exec_len =
-		    pr_p->pr_hardening.hr_pax_aslr_compat_exec_len;
-		pr->pr_hardening.hr_pax_aslr_compat_vdso_len =
-		    pr_p->pr_hardening.hr_pax_aslr_compat_vdso_len;
+		pr->pr_hbsd.aslr.compat_status = pr_p->pr_hbsd.aslr.compat_status;
+		pr->pr_hbsd.aslr.compat_mmap_len = pr_p->pr_hbsd.aslr.compat_mmap_len;
+		pr->pr_hbsd.aslr.compat_stack_len = pr_p->pr_hbsd.aslr.compat_stack_len;
+		pr->pr_hbsd.aslr.compat_exec_len = pr_p->pr_hbsd.aslr.compat_exec_len;
+		pr->pr_hbsd.aslr.compat_vdso_len = pr_p->pr_hbsd.aslr.compat_vdso_len;
 	}
 }
 #endif /* COMPAT_FREEBSD32 */
@@ -844,7 +824,7 @@ pax_aslr_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_t mo
 	status = 0;
 
 	pr = pax_get_prison_td(td);
-	status = pr->pr_hardening.hr_pax_aslr_status;
+	status = pr->pr_hbsd.aslr.status;
 
 	if (status == PAX_FEATURE_DISABLED) {
 		flags &= ~PAX_NOTE_ASLR;
@@ -988,7 +968,7 @@ pax_disallow_map32bit_setup_flags(struct image_params *imgp, struct thread *td, 
 	status = 0;
 
 	pr = pax_get_prison_td(td);
-	status = pr->pr_hardening.hr_pax_disallow_map32bit_status;
+	status = pr->pr_hbsd.aslr.disallow_map32bit_status;
 
 	if (status == PAX_FEATURE_DISABLED) {
 		flags &= ~PAX_NOTE_DISALLOWMAP32BIT;

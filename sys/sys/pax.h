@@ -35,28 +35,38 @@
 #define	__HardenedBSD_version	40UL
 
 #if defined(_KERNEL) || defined(_WANT_PRISON)
-struct hardening_features {
-	int	 hr_pax_aslr_status;		/* (p) PaX ASLR enabled */
-	int	 hr_pax_aslr_mmap_len;		/* (p) Number of bits randomized with mmap */
-	int	 hr_pax_aslr_stack_len;		/* (p) Number of bits randomized with stack */
-	int	 hr_pax_aslr_exec_len;		/* (p) Number of bits randomized with the execbase */
-	int	 hr_pax_aslr_vdso_len;		/* (p) Number of bits randomized with the VDSO */
-	int	 hr_pax_aslr_map32bit_len;	/* (p) Number of bits randomized with MAP_32BIT mmap */
-	int	 hr_pax_aslr_compat_status;	/* (p) PaX ASLR enabled (compat32) */
-	int	 hr_pax_aslr_compat_mmap_len;	/* (p) Number of bits randomized with mmap (compat32) */
-	int	 hr_pax_aslr_compat_stack_len;	/* (p) Number of bits randomized with stack (compat32) */
-	int	 hr_pax_aslr_compat_exec_len;	/* (p) Number of bits randomized with the execbase (compat32) */
-	int	 hr_pax_aslr_compat_vdso_len;	/* (p) Number of bits randomized with the VDSO (compat32) */
-	int	 hr_pax_segvguard_status;       /* (p) PaX segvguard enabled */
-	int	 hr_pax_segvguard_expiry;       /* (p) Number of seconds to expire an entry */
-	int	 hr_pax_segvguard_suspension;   /* (p) Number of seconds to suspend an application */
-	int	 hr_pax_segvguard_maxcrashes;   /* (p) Maximum number of crashes before suspending application */
-	int	 hr_pax_pageexec_status;	/* (p) Remove WX pages from user-space */
-	int	 hr_pax_mprotect_status;	/* (p) Enforce W^X mappings */
-	int	 hr_pax_disallow_map32bit_status;	/* (p) MAP_32BIT protection (amd64 only) */
-	int	 hr_pax_procfs_harden;		/* (p) Harden procfs */
-	int	 hr_pax_ptrace_hardening_status;	/* (p) Disallow unprivileged ptrace */
-	gid_t	 hr_pax_ptrace_hardening_gid;	/* (p) Allowed ptrace users group */
+struct hbsd_features {
+	struct hbsd_aslr {
+		int	 status;	/* (p) PaX ASLR enabled */
+		int	 mmap_len;	/* (p) num of bits randomized with mmap */
+		int	 stack_len;	/* (p) num of bits randomized with stack */
+		int	 exec_len;	/* (p) num of bits randomized with execbase */
+		int	 vdso_len;	/* (p) num of bits randomized with VDSO */
+		int	 map32bit_len;	/* (p) num of bits randomized with MAP_32BIT mmap */
+		int	 compat_status;	/* (p) PaX ASLR enabled (compat32) */
+		int	 compat_mmap_len; /* (p) num of bits randomized with mmap (compat32) */
+		int	 compat_stack_len;/* (p) num of bits randomized with stack (compat32) */
+		int	 compat_exec_len; /* (p) num of bits randomized with execbase (compat32) */
+		int	 compat_vdso_len; /* (p) num of bits randomized with VDSO (compat32) */
+		int	 disallow_map32bit_status; /* (p) MAP_32BIT protection (__LP64__ only) */
+	} aslr;
+	struct hbsd_segvguard {
+		int	 status;       /* (p) PaX segvguard enabled */
+		int	 expiry;       /* (p) num of seconds to expire an entry */
+		int	 suspension;   /* (p) num of seconds to suspend an application */
+		int	 maxcrashes;   /* (p) Maximum number of crashes before suspending application */
+	} segvguard;
+	struct hbsd_noexec {
+		int	 pageexec_status;	/* (p) Remove WX pages from user-space */
+		int	 mprotect_status;	/* (p) Enforce W^X mappings */
+	} noexec;
+	struct hbsd_hardening {
+		int	 procfs_harden;		/* (p) Harden procfs */
+	} hardening;
+	struct hbsd_ptrace_hardening {
+		int	 status;		/* (p) Disallow unprivileged ptrace */
+		gid_t	 gid;			/* (p) Allowed ptrace users group */
+	} ptrace_hardening;
 };
 #endif
 
