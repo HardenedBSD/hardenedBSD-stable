@@ -191,8 +191,7 @@ struct prison {
 	char		 pr_domainname[MAXHOSTNAMELEN];	/* (p) jail domainname */
 	char		 pr_hostuuid[HOSTUUIDLEN];	/* (p) jail hostuuid */
 	char		 pr_osrelease[OSRELEASELEN];	/* (c) kern.osrelease value */
-	/* Lock only needed for pax_* if pr_pax_set == 0 */
-	struct hardening_features pr_hardening;         /* (p) PaX-inspired hardening features */
+	struct hbsd_features pr_hbsd;			/* (p) PaX-inspired hardening features */
 };
 
 struct prison_racct {

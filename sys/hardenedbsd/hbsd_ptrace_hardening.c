@@ -106,7 +106,7 @@ sysctl_ptrace_hardening_status(SYSCTL_HANDLER_ARGS)
 
 	pr = pax_get_prison_td(req->td);
 
-	val = pr->pr_hardening.hr_pax_ptrace_hardening_status;
+	val = pr->pr_hbsd.ptrace_hardening.status;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
 	if (err || (req->newptr == NULL))
 		return (err);
@@ -117,7 +117,7 @@ sysctl_ptrace_hardening_status(SYSCTL_HANDLER_ARGS)
 		if (pr == &prison0)
 			pax_ptrace_hardening_status = val;
 
-		pr->pr_hardening.hr_pax_ptrace_hardening_status = val;
+		pr->pr_hbsd.ptrace_hardening.status = val;
 		break;
 	default:
 		return (EINVAL);
@@ -136,7 +136,7 @@ sysctl_ptrace_hardening_gid(SYSCTL_HANDLER_ARGS)
 
 	pr = pax_get_prison_td(req->td);
 
-	val = pr->pr_hardening.hr_pax_ptrace_hardening_gid;
+	val = pr->pr_hbsd.ptrace_hardening.gid;
 	err = sysctl_handle_long(oidp, &val, sizeof(long), req);
 	if (err || (req->newptr == NULL))
 		return (err);
@@ -147,7 +147,7 @@ sysctl_ptrace_hardening_gid(SYSCTL_HANDLER_ARGS)
 	if (pr == &prison0)
 		pax_ptrace_hardening_gid = val;
 
-	 pr->pr_hardening.hr_pax_ptrace_hardening_gid = val;
+	 pr->pr_hbsd.ptrace_hardening.gid = val;
 
 	return (0);
 }
@@ -193,19 +193,19 @@ pax_ptrace_hardening_init_prison(struct prison *pr)
 
 	if (pr == &prison0) {
 		/* prison0 has no parent, use globals */
-		pr->pr_hardening.hr_pax_ptrace_hardening_status =
+		pr->pr_hbsd.ptrace_hardening.status =
 		    pax_ptrace_hardening_status;
-		pr->pr_hardening.hr_pax_ptrace_hardening_gid =
+		pr->pr_hbsd.ptrace_hardening.gid =
 		    pax_ptrace_hardening_gid;
 	} else {
 		KASSERT(pr->pr_parent != NULL,
 		   ("%s: pr->pr_parent == NULL", __func__));
 		pr_p = pr->pr_parent;
 
-		pr->pr_hardening.hr_pax_ptrace_hardening_status =
-		    pr_p->pr_hardening.hr_pax_ptrace_hardening_status;
-		pr->pr_hardening.hr_pax_ptrace_hardening_gid =
-		    pr_p->pr_hardening.hr_pax_ptrace_hardening_gid;
+		pr->pr_hbsd.ptrace_hardening.status =
+		    pr_p->pr_hbsd.ptrace_hardening.status;
+		pr->pr_hbsd.ptrace_hardening.gid =
+		    pr_p->pr_hbsd.ptrace_hardening.gid;
 	}
 }
 
@@ -217,7 +217,7 @@ pax_ptrace_allowed(struct prison *pr, struct ucred *cred)
 
 	// XXXOP: convert the uid check to priv_check(...)
 	uid = cred->cr_ruid;
-	allowed_gid = pr->pr_hardening.hr_pax_ptrace_hardening_gid;
+	allowed_gid = pr->pr_hbsd.ptrace_hardening.gid;
 #ifdef PAX_PTRACE_HARDENING_GRP
 	if ((uid != 0) &&
 	    (groupmember(allowed_gid, cred) == 0))
@@ -237,7 +237,7 @@ pax_ptrace_hardening(struct thread *td)
 
 	pr = pax_get_prison_td(td);
 
-	if (pr->pr_hardening.hr_pax_ptrace_hardening_status ==
+	if (pr->pr_hbsd.ptrace_hardening.status ==
 	    PAX_FEATURE_SIMPLE_DISABLED)
 		return (0);
 

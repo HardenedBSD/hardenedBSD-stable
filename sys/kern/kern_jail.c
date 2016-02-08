@@ -4749,41 +4749,57 @@ db_show_prison(struct prison *pr)
 		    ip6_sprintf(ip6buf, &pr->pr_ip6[ii]));
 #endif
 #ifdef PAX
-	db_printf(" pr_hardening = {\n");
-	db_printf(" .hr_pax_aslr_status             = %d\n",
-	    pr->pr_hardening.hr_pax_aslr_status);
-	db_printf(" .hr_pax_aslr_mmap_len           = %d\n",
-	    pr->pr_hardening.hr_pax_aslr_mmap_len);
-	db_printf(" .hr_pax_aslr_stack_len          = %d\n",
-	    pr->pr_hardening.hr_pax_aslr_stack_len);
-	db_printf(" .hr_pax_aslr_exec_len           = %d\n",
-	    pr->pr_hardening.hr_pax_aslr_exec_len);
-	db_printf(" .hr_pax_aslr_compat_status      = %d\n",
-	    pr->pr_hardening.hr_pax_aslr_compat_status);
-	db_printf(" .hr_pax_aslr_compat_mmap_len    = %d\n",
-	    pr->pr_hardening.hr_pax_aslr_compat_mmap_len);
-	db_printf(" .hr_pax_aslr_compat_stack_len   = %d\n",
-	    pr->pr_hardening.hr_pax_aslr_compat_stack_len);
-	db_printf(" .hr_pax_aslr_compat_exec_len    = %d\n",
-	    pr->pr_hardening.hr_pax_aslr_compat_exec_len);
-	db_printf(" .hr_pax_pageexec_status           = %d\n",
-	   pr->pr_hardening.hr_pax_pageexec_status);
-	db_printf(" .hr_pax_mprotect_status           = %d\n",
-	   pr->pr_hardening.hr_pax_mprotect_status);
-	db_printf(" .hr_pax_segvguard_status        = %d\n",
-	   pr->pr_hardening.hr_pax_segvguard_status);
-	db_printf(" .hr_pax_segvguard_expiry        = %d\n",
-	   pr->pr_hardening.hr_pax_segvguard_expiry);
-	db_printf(" .hr_pax_segvguard_suspension    = %d\n",
-	   pr->pr_hardening.hr_pax_segvguard_suspension);
-	db_printf(" .hr_pax_segvguard_maxcrashes    = %d\n",
-	   pr->pr_hardening.hr_pax_segvguard_maxcrashes);
-	db_printf(" .hr_pax_disallow_map32bit_status    = %d\n",
-	   pr->pr_hardening.hr_pax_disallow_map32bit_status);
-	db_printf(" .hr_pax_procfs_harden           = %d\n",
-	   pr->pr_hardening.hr_pax_procfs_harden);
-	db_printf(" .hr_pax_ptrace_hardening_status = %d\n",
-	   pr->pr_hardening.hr_pax_ptrace_hardening_status);
+	db_printf(" pr_hbsd = {\n");
+
+	db_printf("  .aslr = {\n");
+	db_printf("   .status             = %d\n",
+	    pr->pr_hbsd.aslr.status);
+	db_printf("   .mmap_len           = %d\n",
+	    pr->pr_hbsd.aslr.mmap_len);
+	db_printf("   .stack_len          = %d\n",
+	    pr->pr_hbsd.aslr.stack_len);
+	db_printf("   .exec_len           = %d\n",
+	    pr->pr_hbsd.aslr.exec_len);
+	db_printf("   .compat_status      = %d\n",
+	    pr->pr_hbsd.aslr.compat_status);
+	db_printf("   .compat_mmap_len    = %d\n",
+	    pr->pr_hbsd.aslr.compat_mmap_len);
+	db_printf("   .compat_stack_len   = %d\n",
+	    pr->pr_hbsd.aslr.compat_stack_len);
+	db_printf("   .compat_exec_len    = %d\n",
+	    pr->pr_hbsd.aslr.compat_exec_len);
+	db_printf("   .disallow_map32bit_status    = %d\n",
+	   pr->pr_hbsd.aslr.disallow_map32bit_status);
+	db_printf("  }\n");
+
+	db_printf("  .noexec = {\n");
+	db_printf("   .pageexec_status           = %d\n",
+	   pr->pr_hbsd.noexec.pageexec_status);
+	db_printf("   .mprotect_status           = %d\n",
+	   pr->pr_hbsd.noexec.mprotect_status);
+	db_printf("  }\n");
+
+	db_printf("  .segvguard = {\n");
+	db_printf("   .status        = %d\n",
+	   pr->pr_hbsd.segvguard.status);
+	db_printf("   .expiry        = %d\n",
+	   pr->pr_hbsd.segvguard.expiry);
+	db_printf("   .suspension    = %d\n",
+	   pr->pr_hbsd.segvguard.suspension);
+	db_printf("   .maxcrashes    = %d\n",
+	   pr->pr_hbsd.segvguard.maxcrashes);
+	db_printf("  }\n");
+
+	db_printf("  .hardening = {\n");
+	db_printf("   .procfs_harden           = %d\n",
+	   pr->pr_hbsd.hardening.procfs_harden);
+	db_printf("  }\n");
+
+	db_printf("  .ptrace_hardening = {\n");
+	db_printf("   .status = %d\n",
+	   pr->pr_hbsd.ptrace_hardening.status);
+	db_printf("  }\n");
+
 	db_printf(" }\n");
 #endif
 }

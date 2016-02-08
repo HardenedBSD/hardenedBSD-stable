@@ -99,7 +99,7 @@ sysctl_pax_pageexec_status(SYSCTL_HANDLER_ARGS)
 
 	pr = pax_get_prison_td(req->td);
 
-	val = pr->pr_hardening.hr_pax_pageexec_status;
+	val = pr->pr_hbsd.noexec.pageexec_status;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
 	if (err || (req->newptr == NULL))
 		return (err);
@@ -110,7 +110,7 @@ sysctl_pax_pageexec_status(SYSCTL_HANDLER_ARGS)
 		if (pr == &prison0)
 			pax_mprotect_status = val;
 
-		pr->pr_hardening.hr_pax_mprotect_status = val;
+		pr->pr_hbsd.noexec.mprotect_status = val;
 		/* FALLTHROUGH */
 	case PAX_FEATURE_OPTIN:
 	case PAX_FEATURE_OPTOUT:
@@ -118,7 +118,7 @@ sysctl_pax_pageexec_status(SYSCTL_HANDLER_ARGS)
 		if (pr == &prison0)
 			pax_pageexec_status = val;
 
-		pr->pr_hardening.hr_pax_pageexec_status = val;
+		pr->pr_hbsd.noexec.pageexec_status = val;
 		break;
 	default:
 		return (EINVAL);
@@ -147,7 +147,7 @@ sysctl_pax_mprotect_status(SYSCTL_HANDLER_ARGS)
 
 	pr = pax_get_prison_td(req->td);
 
-	val = pr->pr_hardening.hr_pax_mprotect_status;
+	val = pr->pr_hbsd.noexec.mprotect_status;
 	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
 	if (err || (req->newptr == NULL))
 		return (err);
@@ -160,7 +160,7 @@ sysctl_pax_mprotect_status(SYSCTL_HANDLER_ARGS)
 		if (pr == &prison0)
 			pax_mprotect_status = val;
 
-		pr->pr_hardening.hr_pax_mprotect_status = val;
+		pr->pr_hbsd.noexec.mprotect_status = val;
 		break;
 	default:
 		return (EINVAL);
@@ -219,17 +219,17 @@ pax_noexec_init_prison(struct prison *pr)
 
 	if (pr == &prison0) {
 		/* prison0 has no parent, use globals */
-		pr->pr_hardening.hr_pax_pageexec_status = pax_pageexec_status;
-		pr->pr_hardening.hr_pax_mprotect_status = pax_mprotect_status;
+		pr->pr_hbsd.noexec.pageexec_status = pax_pageexec_status;
+		pr->pr_hbsd.noexec.mprotect_status = pax_mprotect_status;
 	} else {
 		KASSERT(pr->pr_parent != NULL,
 		   ("%s: pr->pr_parent == NULL", __func__));
 		pr_p = pr->pr_parent;
 
-		pr->pr_hardening.hr_pax_pageexec_status =
-		    pr_p->pr_hardening.hr_pax_pageexec_status;
-		pr->pr_hardening.hr_pax_mprotect_status =
-		    pr_p->pr_hardening.hr_pax_mprotect_status;
+		pr->pr_hbsd.noexec.pageexec_status =
+		    pr_p->pr_hbsd.noexec.pageexec_status;
+		pr->pr_hbsd.noexec.mprotect_status =
+		    pr_p->pr_hbsd.noexec.mprotect_status;
 	}
 }
 
@@ -247,7 +247,7 @@ pax_pageexec_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_
 	status = 0;
 
 	pr = pax_get_prison_td(td);
-	status = pr->pr_hardening.hr_pax_pageexec_status;
+	status = pr->pr_hbsd.noexec.pageexec_status;
 
 	if (status == PAX_FEATURE_DISABLED) {
 		flags &= ~PAX_NOTE_PAGEEXEC;
@@ -371,7 +371,7 @@ pax_mprotect_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_
 	status = 0;
 
 	pr = pax_get_prison_td(td);
-	status = pr->pr_hardening.hr_pax_mprotect_status;
+	status = pr->pr_hbsd.noexec.mprotect_status;
 
 	if (status == PAX_FEATURE_DISABLED) {
 		flags &= ~PAX_NOTE_MPROTECT;
