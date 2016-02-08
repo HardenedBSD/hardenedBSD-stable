@@ -87,8 +87,6 @@ options 	PAX_NOEXEC		# Remove WX pages from user-space and enforce W^X
 options 	PAX_HARDENING		# Various hardening options
 options 	PAX_SEGVGUARD		# prevent brute-force attacks
 options 	HBSD_DEBUG
-#options 	PAX_PTRACE_HARDENING
-#options 	PAX_PTRACE_HARDENING_GRP=50000
 options 	INVARIANTS		# Check and enforce proper kernel state.
 options 	INVARIANT_SUPPORT
 

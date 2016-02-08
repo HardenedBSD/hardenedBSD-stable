@@ -2967,8 +2967,6 @@ hardenedbsd/hbsd_pax_hardening.c	optional pax pax_hardening
 hardenedbsd/hbsd_pax_noexec.c		optional pax pax_noexec
 hardenedbsd/hbsd_pax_segvguard.c	optional pax pax_segvguard
 #
-hardenedbsd/hbsd_ptrace_hardening.c	optional pax pax_ptrace_hardening | pax_ptrace_hardening_grp
-#
 isa/isa_if.m			standard
 isa/isa_common.c		optional isa
 isa/isahint.c			optional isa

@@ -4795,11 +4795,6 @@ db_show_prison(struct prison *pr)
 	   pr->pr_hbsd.hardening.procfs_harden);
 	db_printf("  }\n");
 
-	db_printf("  .ptrace_hardening = {\n");
-	db_printf("   .status = %d\n",
-	   pr->pr_hbsd.ptrace_hardening.status);
-	db_printf("  }\n");
-
 	db_printf(" }\n");
 #endif
 }
