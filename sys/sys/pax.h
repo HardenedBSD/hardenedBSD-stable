@@ -63,10 +63,6 @@ struct hbsd_features {
 	struct hbsd_hardening {
 		int	 procfs_harden;		/* (p) Harden procfs */
 	} hardening;
-	struct hbsd_ptrace_hardening {
-		int	 status;		/* (p) Disallow unprivileged ptrace */
-		gid_t	 gid;			/* (p) Allowed ptrace users group */
-	} ptrace_hardening;
 };
 #endif
 
@@ -165,9 +161,6 @@ void pax_log_mprotect(struct proc *, pax_log_settings_t flags, const char *fmt, 
 void pax_ulog_mprotect(const char *fmt, ...) __printflike(1, 2);
 void pax_log_segvguard(struct proc *, pax_log_settings_t flags, const char *fmt, ...) __printflike(3, 4);
 void pax_ulog_segvguard(const char *fmt, ...) __printflike(1, 2);
-void pax_log_ptrace_hardening(struct proc *, pax_log_settings_t flags, const char *fmt, ...) __printflike(3, 4);
-void pax_ulog_ptrace_hardening(const char *fmt, ...) __printflike(1, 2);
-
 
 /*
  * SegvGuard related functions
@@ -209,16 +202,6 @@ void pax_hardening_init_prison(struct prison *pr);
 #define	pax_hardening_init_prison(pr)	do {} while (0)
 #endif
 int pax_procfs_harden(struct thread *td);
-
-/*
- * ptrace hardening related functions
- */
-#if defined(PAX_PTRACE_HARDENING) || defined(PAX_PTRACE_HARDENING_GRP)
-void pax_ptrace_hardening_init_prison(struct prison *pr);
-#else
-#define	pax_ptrace_hardening_init_prison(pr)	do {} while (0)
-#endif
-int pax_ptrace_hardening(struct thread *td);
 
 #define	PAX_NOTE_PAGEEXEC	0x00000001
 #define	PAX_NOTE_NOPAGEEXEC	0x00000002
