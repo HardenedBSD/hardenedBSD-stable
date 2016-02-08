@@ -55,6 +55,8 @@ __FBSDID("$FreeBSD$");
 #include <vm/vm_map.h>
 #include <vm/vm_extern.h>
 
+#include "hbsd_pax_internal.h"
+
 #ifndef PAX_ASLR_DELTA
 #define	PAX_ASLR_DELTA(delta, lsb, len)	\
 	(((delta) & ((1UL << (len)) - 1)) << (lsb))
@@ -233,146 +235,27 @@ TUNABLE_INT("hardening.pax.aslr.compat.vdso_len", &pax_aslr_compat_vdso_len);
 #ifdef PAX_SYSCTLS
 SYSCTL_DECL(_hardening_pax);
 
-/*
- * sysctls
- */
-static int sysctl_pax_aslr_status(SYSCTL_HANDLER_ARGS);
-#ifdef MAP_32BIT
-static int sysctl_pax_disallow_map32bit(SYSCTL_HANDLER_ARGS);
-#endif
-
 SYSCTL_NODE(_hardening_pax, OID_AUTO, aslr, CTLFLAG_RD, 0,
     "Address Space Layout Randomization.");
-
-SYSCTL_PROC(_hardening_pax_aslr, OID_AUTO, status,
-    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
-    NULL, 0, sysctl_pax_aslr_status, "I",
-    "Restrictions status. "
-    "0 - disabled, "
-    "1 - opt-in,  "
-    "2 - opt-out, "
-    "3 - force enabled");
-
-static int
-sysctl_pax_aslr_status(SYSCTL_HANDLER_ARGS)
-{
-	struct prison *pr;
-	int err, val;
-
-	pr = pax_get_prison_td(req->td);
-
-	val = pr->pr_hbsd.aslr.status;
-	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
-	if (err || (req->newptr == NULL))
-		return (err);
-
-	switch (val) {
-	case PAX_FEATURE_DISABLED:
-	case PAX_FEATURE_OPTIN:
-	case PAX_FEATURE_OPTOUT:
-	case PAX_FEATURE_FORCE_ENABLED:
-		if (pr == &prison0)
-			pax_aslr_status = val;
-
-		pr->pr_hbsd.aslr.status = val;
-		break;
-	default:
-		return (EINVAL);
-	}
-
-	return (0);
-}
+SYSCTL_HBSD_4STATE(pax_aslr_status, pr_hbsd.aslr.status,
+    _hardening_pax_aslr, status,
+    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE);
 
 /* COMPAT_FREEBSD32 and linuxulator. */
 #ifdef COMPAT_FREEBSD32
-static int sysctl_pax_aslr_compat_status(SYSCTL_HANDLER_ARGS);
-
 SYSCTL_NODE(_hardening_pax_aslr, OID_AUTO, compat, CTLFLAG_RD, 0,
-    "Setting for COMPAT_FREEBSD32 and linuxulator.");
-
-SYSCTL_PROC(_hardening_pax_aslr_compat, OID_AUTO, status,
-    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON,
-    NULL, 0, sysctl_pax_aslr_compat_status, "I",
-    "Restrictions status. "
-    "0 - disabled, "
-    "1 - enabled,  "
-    "2 - global enabled, "
-    "3 - force global enabled");
-
-static int
-sysctl_pax_aslr_compat_status(SYSCTL_HANDLER_ARGS)
-{
-	struct prison *pr;
-	int err, val;
-
-	pr = pax_get_prison_td(req->td);
-
-	val = pr->pr_hbsd.aslr.compat_status;
-	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
-	if (err || (req->newptr == NULL))
-		return (err);
-
-	switch (val) {
-	case PAX_FEATURE_DISABLED:
-	case PAX_FEATURE_OPTIN:
-	case PAX_FEATURE_OPTOUT:
-	case PAX_FEATURE_FORCE_ENABLED:
-		if (pr == &prison0)
-			pax_aslr_compat_status = val;
-
-		pr->pr_hbsd.aslr.compat_status = val;
-		break;
-	default:
-		return (EINVAL);
-	}
-
-	return (0);
-}
-
+    "Settings for COMPAT_FREEBSD32 and linuxulator.");
+SYSCTL_HBSD_4STATE(pax_aslr_compat_status, pr_hbsd.aslr.compat_status,
+    _hardening_pax_aslr_compat, status,
+    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON);
 #endif /* COMPAT_FREEBSD32 */
 
 #ifdef MAP_32BIT
 SYSCTL_NODE(_hardening_pax, OID_AUTO, disallow_map32bit, CTLFLAG_RD, 0,
     "Disallow MAP_32BIT mode mmap(2) calls.");
-
-SYSCTL_PROC(_hardening_pax_disallow_map32bit, OID_AUTO, status,
-    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
-    NULL, 0, sysctl_pax_disallow_map32bit, "I",
-    "Restriction status:"
-    "0 - disabled, "
-    "1 - opt-in, "
-    "2 - opt-out, "
-    "3 - force enabled.");
-
-static int
-sysctl_pax_disallow_map32bit(SYSCTL_HANDLER_ARGS)
-{
-	struct prison *pr;
-	int err, val;
-
-	pr = pax_get_prison_td(req->td);
-
-	val = pr->pr_hbsd.aslr.disallow_map32bit_status;
-	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
-	if (err || (req->newptr == NULL))
-		return (err);
-
-	switch (val) {
-	case PAX_FEATURE_DISABLED:
-	case PAX_FEATURE_OPTIN:
-	case PAX_FEATURE_OPTOUT:
-	case PAX_FEATURE_FORCE_ENABLED:
-		if (pr == &prison0)
-			pax_disallow_map32bit_status_global = val;
-
-		pr->pr_hbsd.aslr.disallow_map32bit_status = val;
-		break;
-	default:
-		return (EINVAL);
-	}
-
-	return (0);
-}
+SYSCTL_HBSD_4STATE(pax_disallow_map32bit_status_global, pr_hbsd.aslr.disallow_map32bit_status,
+    _hardening_pax_disallow_map32bit, status,
+    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE);
 #endif	/* MAP_32BIT */
 
 #endif /* PAX_SYSCTLS */
