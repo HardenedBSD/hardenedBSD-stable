@@ -178,69 +178,6 @@ pax_procfs_harden(struct thread *td)
 	return (pr->pr_hbsd.hardening.procfs_harden ? EPERM : 0);
 }
 
-pax_flag_t
-pax_hardening_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_t mode)
-{
-#if 0
-	struct prison *pr;
-#endif
-	pax_flag_t flags;
-	uint32_t status;
-
-	KASSERT(imgp->proc == td->td_proc,
-	    ("%s: imgp->proc != td->td_proc", __func__));
-
-	flags = 0;
-	status = 0;
-#if 0
-	pr = pax_get_prison_td(td);
-	status = pr->pr_hbsd.hardening.FOO_status;
-
-	if (status == PAX_FEATURE_DISABLED) {
-		flags &= ~PAX_NOTE_FOO;
-		flags |= PAX_NOTE_NOFOO;
-
-		return (flags);
-	}
-
-	if (status == PAX_FEATURE_FORCE_ENABLED) {
-		flags &= ~PAX_NOTE_NOFOO;
-		flags |= PAX_NOTE_FOO;
-
-		return (flags);
-	}
-
-	if (status == PAX_FEATURE_OPTIN) {
-		if (mode & PAX_NOTE_FOO) {
-			flags |= PAX_NOTE_FOO;
-			flags &= ~PAX_NOTE_NOFOO;
-		} else {
-			flags &= ~PAX_NOTE_FOO;
-			flags |= PAX_NOTE_NOFOO;
-		}
-
-		return (flags);
-	}
-
-	if (status == PAX_FEATURE_OPTOUT) {
-		if (mode & PAX_NOTE_NOFOO) {
-			flags |= PAX_NOTE_NOFOO;
-			flags &= ~PAX_NOTE_FOO;
-		} else {
-			flags &= ~PAX_NOTE_NOFOO;
-			flags |= PAX_NOTE_FOO;
-		}
-
-		return (flags);
-	}
-
-	/* Unknown status, force FOO restriction. */
-	flags |= PAX_NOTE_FOO;
-	flags &= ~PAX_NOTE_NOFOO;
-#endif
-
-	return (flags);
-}
 
 extern int randompid;
 

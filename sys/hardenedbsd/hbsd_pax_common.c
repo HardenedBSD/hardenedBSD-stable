@@ -287,10 +287,6 @@ pax_elf(struct image_params *imgp, struct thread *td, pax_flag_t mode)
 	flags |= pax_segvguard_setup_flags(imgp, td, mode);
 #endif
 
-#ifdef PAX_HARDENING
-	flags |= pax_hardening_setup_flags(imgp, td, mode);
-#endif
-
 	CTR3(KTR_PAX, "%s : flags = %x mode = %x",
 	    __func__, flags, mode);
 
