@@ -90,7 +90,6 @@ typedef	uint32_t	pax_flag_t;
 #define	PAX_FEATURE_OPTIN		1
 #define	PAX_FEATURE_OPTOUT		2
 #define	PAX_FEATURE_FORCE_ENABLED	3
-#define	PAX_FEATURE_UNKNOWN_STATUS	4
 
 extern const char *pax_status_str[];
 
