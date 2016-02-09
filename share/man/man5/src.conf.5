@@ -650,9 +650,9 @@ Set to build bootloaders without Forth support.
 Set to build
 .Nm libc
 without floating-point support.
-.It Va WITHOUT_FREEBSD_UPDATE
-.\" from FreeBSD: head/tools/build/options/WITHOUT_FREEBSD_UPDATE 183242 2008-09-21 22:02:26Z sam
-Set to not build
+.It Va WITH_FREEBSD_UPDATE
+.\" from FreeBSD: head/tools/build/options/WITH_FREEBSD_UPDATE
+Set to build
 .Xr freebsd-update 8 .
 .It Va WITHOUT_FTP
 .\" from FreeBSD: head/tools/build/options/WITHOUT_FTP 278192 2015-02-04 10:19:32Z ngie
@@ -1199,8 +1199,8 @@ Set to not build
 .Xr pmccontrol 8
 and related programs.
 .It Va WITHOUT_PORTSNAP
-.\" from FreeBSD: head/tools/build/options/WITHOUT_PORTSNAP 183242 2008-09-21 22:02:26Z sam
-Set to not build or install
+.\" from FreeBSD: head/tools/build/options/WITH_PORTSNAP
+Set to build or install
 .Xr portsnap 8
 and related files.
 .It Va WITHOUT_PPP
