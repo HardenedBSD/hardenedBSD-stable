@@ -30,11 +30,11 @@
 #ifndef __HBSD_PAX_INTERNAL_H
 #define __HBSD_PAX_INTERNAL_H
 
-#define SYSCTL_HBSD_2STATE(g_status, pr_status, parent, name, access)	\
+#define SYSCTL_HBSD_2STATE(g_status, pr_status, parent, name, access, desc)	\
 	static int sysctl ## parent ## _ ## name (SYSCTL_HANDLER_ARGS);	\
 	SYSCTL_PROC(parent, OID_AUTO, name, access, 			\
 	    NULL, 0, sysctl ## parent ## _ ## name, "I",		\
-	    "Restrictions status. "					\
+	    desc " status: "				\
 	    "0 - disabled, "						\
 	    "1 - enabled");						\
 									\
@@ -69,7 +69,7 @@
 	static int sysctl ## parent ## _ ## name (SYSCTL_HANDLER_ARGS);	\
 	SYSCTL_PROC(parent, OID_AUTO, name, access, 			\
 	    NULL, 0, sysctl ## parent ## _ ## name, "I",		\
-	    "Restrictions status. "					\
+	    "Restrictions status: "					\
 	    "0 - disabled, "						\
 	    "1 - opt-in,  "						\
 	    "2 - opt-out, "						\
