@@ -49,8 +49,9 @@ __FBSDID("$FreeBSD$");
 #include <sys/stat.h>
 #include <sys/sysctl.h>
 
+#include "hbsd_pax_internal.h"
 
-FEATURE(pax_hardening, "Various hardening features.");
+FEATURE(hbsd_hardening, "Various hardening features.");
 
 #if __FreeBSD_version < 1100000
 #define	kern_unsetenv	unsetenv
@@ -66,19 +67,15 @@ static int pax_randomize_pids_global = PAX_FEATURE_SIMPLE_DISABLED;
 static int pax_init_hardening_global = PAX_FEATURE_SIMPLE_DISABLED;
 #endif
 
-#ifdef PAX_SYSCTLS
-static int sysctl_pax_procfs(SYSCTL_HANDLER_ARGS);
-
-SYSCTL_PROC(_hardening, OID_AUTO, procfs_harden,
-    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_SECURE,
-    NULL, 0, sysctl_pax_procfs, "I",
-    "Harden procfs, disabling write of /proc/pid/mem. "
-    "0 - disabled, "
-    "1 - enabled.");
-#endif
-
 TUNABLE_INT("hardening.procfs_harden", &pax_procfs_harden_global);
 TUNABLE_INT("hardening.randomize_pids", &pax_randomize_pids_global);
+
+#ifdef PAX_SYSCTLS
+SYSCTL_HBSD_2STATE(pax_procfs_harden_global, pr_hbsd.hardening.procfs_harden,
+    _hardening, procfs_harden,
+    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_SECURE,
+    "Harden procfs, disabling write of /proc/pid/mem");
+#endif
 
 static void
 pax_hardening_sysinit(void)
@@ -119,32 +116,6 @@ pax_hardening_sysinit(void)
 	    pax_status_simple_str[pax_init_hardening_global]);
 }
 SYSINIT(pax_hardening, SI_SUB_PAX, SI_ORDER_SECOND, pax_hardening_sysinit, NULL);
-
-#ifdef PAX_SYSCTLS
-static int
-sysctl_pax_procfs(SYSCTL_HANDLER_ARGS)
-{
-	struct prison *pr;
-	int err, val;
-
-	pr = pax_get_prison_td(req->td);
-
-	val = pr->pr_hbsd.hardening.procfs_harden;
-	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
-	if (err || (req->newptr == NULL))
-		return (err);
-
-	if (val > 1 || val < -1)
-		return (EINVAL);
-
-	if (pr == &prison0)
-		pax_procfs_harden_global = val;
-
-	pr->pr_hbsd.hardening.procfs_harden = val;
-
-	return (0);
-}
-#endif
 
 void
 pax_hardening_init_prison(struct prison *pr)
@@ -197,6 +168,7 @@ pax_randomize_pids(void *dummy __unused)
 }
 SYSINIT(pax_randomize_pids, SI_SUB_KTHREAD_INIT, SI_ORDER_MIDDLE+1,
     pax_randomize_pids, NULL);
+
 
 static void
 pax_init_hardening(void *dummy __unused)
