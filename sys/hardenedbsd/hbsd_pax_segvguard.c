@@ -53,14 +53,19 @@ __FBSDID("$FreeBSD$");
 #include <sys/sysent.h>
 #include <sys/vnode.h>
 
+#include "hbsd_pax_internal.h"
+
 #define PAX_SEGVGUARD_EXPIRY		(2 * 60)
 #define PAX_SEGVGUARD_SUSPENSION	(10 * 60)
 #define PAX_SEGVGUARD_MAXCRASHES	5
 
+FEATURE(hbsd_segvguard, "Segmentation fault protection.");
 
-FEATURE(segvguard, "Segmentation fault protection.");
-
+#ifdef PAX_HARDENING
+static int pax_segvguard_status = PAX_FEATURE_OPTIN; /* XXXOP */
+#else
 static int pax_segvguard_status = PAX_FEATURE_OPTIN;
+#endif
 static int pax_segvguard_expiry = PAX_SEGVGUARD_EXPIRY;
 static int pax_segvguard_suspension = PAX_SEGVGUARD_SUSPENSION;
 static int pax_segvguard_maxcrashes = PAX_SEGVGUARD_MAXCRASHES;
@@ -119,7 +124,6 @@ TUNABLE_INT("hardening.pax.segvguard.suspend_timeout", &pax_segvguard_suspension
 TUNABLE_INT("hardening.pax.segvguard.max_crashes", &pax_segvguard_maxcrashes);
 
 #ifdef PAX_SYSCTLS
-static int sysctl_pax_segvguard_status(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_segvguard_expiry(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_segvguard_suspension(SYSCTL_HANDLER_ARGS);
 static int sysctl_pax_segvguard_maxcrashes(SYSCTL_HANDLER_ARGS);
@@ -127,14 +131,9 @@ static int sysctl_pax_segvguard_maxcrashes(SYSCTL_HANDLER_ARGS);
 SYSCTL_DECL(_hardening_pax);
 SYSCTL_NODE(_hardening_pax, OID_AUTO, segvguard, CTLFLAG_RD, 0, "PaX segvguard");
 
-SYSCTL_PROC(_hardening_pax_segvguard, OID_AUTO, status,
-    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
-    NULL, 0, sysctl_pax_segvguard_status, "I",
-    "Guard status. "
-    "0 - disabled, "
-    "1 - opt-in,  "
-    "2 - opt-out, "
-    "3 - force enabled");
+SYSCTL_HBSD_4STATE(pax_segvguard_status, pr_hbsd.segvguard.status,
+    _hardening_pax_segvguard, status,
+    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE);
 
 SYSCTL_PROC(_hardening_pax_segvguard, OID_AUTO, expiry_timeout,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
@@ -153,36 +152,6 @@ SYSCTL_PROC(_hardening_pax_segvguard, OID_AUTO, max_crashes,
 #endif
 
 #ifdef PAX_SYSCTLS
-static int
-sysctl_pax_segvguard_status(SYSCTL_HANDLER_ARGS)
-{
-	int err;
-	int val;
-	struct prison *pr;
-
-	pr = pax_get_prison_td(req->td);
-
-	val = pr->pr_hbsd.segvguard.status;
-	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
-	if (err || (req->newptr == NULL))
-		return (err);
-
-	switch (val) {
-	case    PAX_FEATURE_DISABLED:
-	case    PAX_FEATURE_OPTIN:
-	case    PAX_FEATURE_OPTOUT:
-	case    PAX_FEATURE_FORCE_ENABLED:
-		if (pr == &prison0)
-			pax_segvguard_status = val;
-		pr->pr_hbsd.segvguard.status = val;
-		break;
-	default:
-		return (EINVAL);
-	}
-
-	return (0);
-}
-
 static int
 sysctl_pax_segvguard_expiry(SYSCTL_HANDLER_ARGS)
 {
