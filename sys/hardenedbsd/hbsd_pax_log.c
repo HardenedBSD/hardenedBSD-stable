@@ -35,6 +35,7 @@
 #include <sys/systm.h>
 #include <sys/types.h>
 #include <sys/kernel.h>
+#include <sys/ktr.h>
 #include <sys/imgact.h>
 #include <sys/pax.h>
 #include <sys/proc.h>
@@ -45,6 +46,8 @@
 #ifdef DDB
 #include <ddb/ddb.h>
 #endif
+
+#include "hbsd_pax_internal.h"
 
 static void pax_log_log(struct proc *p, struct thread *td, pax_log_settings_t flags,
     const char *prefix, const char *fmt, va_list ap);
@@ -115,9 +118,6 @@ prefix##_ulog_##name(const char* fmt, ...)				\
 	va_end(args);							\
 }
 
-static int sysctl_hardening_log_log(SYSCTL_HANDLER_ARGS);
-static int sysctl_hardening_log_ulog(SYSCTL_HANDLER_ARGS);
-
 static int hardening_log_log = PAX_FEATURE_SIMPLE_ENABLED;
 static int hardening_log_ulog = PAX_FEATURE_SIMPLE_DISABLED;
 
@@ -128,19 +128,13 @@ TUNABLE_INT("hardening.log.ulog", &hardening_log_ulog);
 SYSCTL_NODE(_hardening, OID_AUTO, log, CTLFLAG_RD, 0,
     "Hardening related logging facility.");
 
-SYSCTL_PROC(_hardening_log, OID_AUTO, log,
+SYSCTL_HBSD_2STATE(hardening_log_log, pr_hbsd.log.log, _hardening_log, log,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
-    NULL, 0, sysctl_hardening_log_log, "I",
-    "log to syslog "
-    "0 - disabled, "
-    "1 - enabled ");
+    "log to syslog ");
 
-SYSCTL_PROC(_hardening_log, OID_AUTO, ulog,
+SYSCTL_HBSD_2STATE(hardening_log_ulog, pr_hbsd.log.ulog, _hardening_log, ulog,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE,
-    NULL, 0, sysctl_hardening_log_ulog, "I",
-    "log to user terminal"
-    "0 - disabled, "
-    "1 - enabled ");
+    "log to syslog ");
 #endif
 
 
@@ -173,57 +167,27 @@ hardening_log_sysinit(void)
 }
 SYSINIT(hardening_log, SI_SUB_PAX, SI_ORDER_SECOND, hardening_log_sysinit, NULL);
 
-#ifdef PAX_SYSCTLS
-static int
-sysctl_hardening_log_log(SYSCTL_HANDLER_ARGS)
+void
+pax_log_init_prison(struct prison *pr)
 {
-	int err;
-	int val;
+	struct prison *pr_p;
 
-	val = hardening_log_log;
-	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
-	if (err || !req->newptr)
-		return (err);
+	CTR2(KTR_PAX, "%s: Setting prison %s PaX variables\n",
+	    __func__, pr->pr_name);
 
-	switch (val) {
-	case	PAX_FEATURE_SIMPLE_DISABLED :
-	case	PAX_FEATURE_SIMPLE_ENABLED :
-		break;
-	default:
-		return (EINVAL);
+	if (pr == &prison0) {
+		/* prison0 has no parent, use globals */
+		pr->pr_hbsd.log.log = hardening_log_log;
+		pr->pr_hbsd.log.ulog = hardening_log_ulog;
+	} else {
+		KASSERT(pr->pr_parent != NULL,
+		   ("%s: pr->pr_parent == NULL", __func__));
+		pr_p = pr->pr_parent;
 
+		pr->pr_hbsd.log.log = pr_p->pr_hbsd.log.log;
+		pr->pr_hbsd.log.ulog = pr_p->pr_hbsd.log.ulog;
 	}
-
-	hardening_log_log = val;
-
-	return (0);
 }
-
-static int
-sysctl_hardening_log_ulog(SYSCTL_HANDLER_ARGS)
-{
-	int err;
-	int val;
-
-	val = hardening_log_ulog;
-	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
-	if (err || !req->newptr)
-		return (err);
-
-	switch (val) {
-	case	PAX_FEATURE_SIMPLE_DISABLED :
-	case	PAX_FEATURE_SIMPLE_ENABLED :
-		break;
-	default:
-		return (EINVAL);
-
-	}
-
-	hardening_log_ulog = val;
-
-	return (0);
-}
-#endif
 
 static void
 _pax_log_prefix(struct sbuf *sb, pax_log_settings_t flags, const char *prefix)

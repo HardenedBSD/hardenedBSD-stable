@@ -63,6 +63,10 @@ struct hbsd_features {
 	struct hbsd_hardening {
 		int	 procfs_harden;		/* (p) Harden procfs */
 	} hardening;
+	struct hbsd_log {
+		int	log;		/* (p) Per-jail logging status */
+		int	ulog;		/* (p) Per-jail user visible logging status */
+	} log;
 };
 #endif
 
@@ -145,6 +149,7 @@ typedef	uint64_t	pax_log_settings_t;
 #define	PAX_LOG_NO_P_PAX	0x00000008
 #define	PAX_LOG_NO_INDENT	0x00000010
 
+void pax_log_init_prison(struct prison *pr);
 void pax_printf_flags(struct proc *p, pax_log_settings_t flags);
 void pax_printf_flags_td(struct thread *td, pax_log_settings_t flags);
 void pax_db_printf_flags(struct proc *p, pax_log_settings_t flags);

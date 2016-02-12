@@ -4790,9 +4790,11 @@ db_show_prison(struct prison *pr)
 	   pr->pr_hbsd.segvguard.maxcrashes);
 	db_printf("  }\n");
 
-	db_printf("  .hardening = {\n");
-	db_printf("   .procfs_harden           = %d\n",
-	   pr->pr_hbsd.hardening.procfs_harden);
+	db_printf("  .log = {\n");
+	db_printf("   .log           = %d\n",
+	   pr->pr_hbsd.log.log);
+	db_printf("   .ulog          = %d\n",
+	   pr->pr_hbsd.log.ulog);
 	db_printf("  }\n");
 
 	db_printf(" }\n");
