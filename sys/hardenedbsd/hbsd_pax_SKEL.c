@@ -47,8 +47,10 @@
 #include <sys/stat.h>
 #include <sys/sysctl.h>
 
+#include "hbsd_pax_internal.h"
 
-FEATURE(pax_SKEL, "SKEL features.");
+
+FEATURE(hbsd_SKEL, "SKEL features.");
 
 #if __FreeBSD_version < 1100000
 #define	kern_unsetenv	unsetenv
@@ -63,15 +65,11 @@ static int pax_SKEL_status = PAX_FEATURE_SIMPLE_DISABLED;
 #ifdef PAX_SYSCTLS
 static int sysctl_pax_SKEL(SYSCTL_HANDLER_ARGS);
 
-SYSCTL_NODE(_hardening_pax, OID_AUTO, pageexec, CTLFLAG_RD, 0,
+SYSCTL_NODE(_hardening_pax, OID_AUTO, SKEL, CTLFLAG_RD, 0,
     "SKEL feature.");
 
-SYSCTL_PROC(_hardening, OID_AUTO, SKEL_status,
-    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_SECURE,
-    NULL, 0, sysctl_pax_SKEL, "I",
-    "SKEL 2-state feature. "
-    "0 - disabled, "
-    "1 - enabled.");
+SYSCTL_HBSD_4STATE(pax_SKEL_statusx, pr_hbsd.SKEL.status, _hardening_pax_SKEL, status,
+    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_SECURE);
 #endif
 
 TUNABLE_INT("hardening.SKEL.state", &pax_SKEL_state);
@@ -93,36 +91,6 @@ pax_SKEL_sysinit(void)
 	    pax_status_simple_str[pax_SKEL_status]);
 }
 SYSINIT(pax_SKEL, SI_SUB_PAX, SI_ORDER_SECOND, pax_SKEL_sysinit, NULL);
-
-#ifdef PAX_SYSCTLS
-static int
-sysctl_pax_SKEL(SYSCTL_HANDLER_ARGS)
-{
-	struct prison *pr;
-	int err, val;
-
-	pr = pax_get_prison_td(req->td);
-
-	val = pr->pr_hbsd.SKEL.status;
-	err = sysctl_handle_int(oidp, &val, sizeof(int), req);
-	if (err || (req->newptr == NULL))
-		return (err);
-
-	switch (val) {
-	case PAX_FEATURE_SIMPLE_DISABLED:
-	case PAX_FEATURE_SIMPLE_ENABLED:
-		if (pr == &prison0)
-			pax_SKEL_status = val;
-
-		pr->pr_hbsd.SKEL.status = val;
-		break;
-	default:
-		return (EINVAL);
-	}
-
-	return (0);
-}
-#endif
 
 void
 pax_SKEL_init_prison(struct prison *pr)
