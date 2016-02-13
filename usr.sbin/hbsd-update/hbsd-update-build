@@ -288,7 +288,7 @@ git_version() {
 hbsd_version() {
 	grep -F __HardenedBSD_version \
 		${CHROOTDIR}/usr/src/sys/sys/pax.h | \
-		awk '{print $3;}'
+		awk '{print $3;}' | sed -e 's/UL$//g'
 }
 
 full_version() {
