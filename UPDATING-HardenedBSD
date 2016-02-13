@@ -1,3 +1,15 @@
+[20150213] rewritten internals
+__HardenedBSD_version = 41
+
+	Changed hardenedBSD core structures.
+	Dropped ptrace_hardening.
+	Dropped ASLR bit settings.
+	Fixed hbsd_update_build bug.
+	Added skeleton file.
+	Changed feature strings.
+	Changed noexec implicit rules.
+
+
 [20150123] add pax_get_hardenedbsd_version API
 __HardenedBSD_version = 40
 
