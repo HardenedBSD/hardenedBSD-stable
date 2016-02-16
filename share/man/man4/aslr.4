@@ -301,3 +301,19 @@ to go a different route based on the
 framework.
 Support for filesystem extended attributes will be added at a later
 time.
+.Pp
+The shared object load order randomization can lend itself to
+interesting behavior.
+If multiple libraries contain symbols of the same name, randomizing
+the order in which shared libraries get loaded can cause symbol
+lookups to resolve to the wrong symbol.
+Though incorrect resolution is rare, it is known to happen.
+Privoxy is one such example.
+Privoxy's list of dependencies are small, but two of them implement
+symbols of the same name.
+If Privoxy's dependencies are loaded in the wrong order, Privoxy will
+reference the wrong symbol and will crash.
+Shared library load order randomization can be disabled on a
+per-application basis with secadm for such cases.
+Work is underway to make shared object load order randomization more
+robust and prevent symbol resolution conflicts.
