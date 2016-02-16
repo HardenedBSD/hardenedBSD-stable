@@ -1,6 +1,8 @@
-/*-
- * Copyright (c) 2015 Ian Lepore <ian@freebsd.org>
- * All rights excluded.
+/*
+ * Copyright (C) 2016 Cavium Inc.
+ * All rights reserved.
+ *
+ * Developed by Semihalf.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -22,53 +24,30 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
+ * $FreeBSD$
+ *
  */
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
+#ifndef __THUNDER_PCIE_PEM_H__
+#define	__THUNDER_PCIE_PEM_H__
 
-#include <sys/param.h>
-#include <sys/bus.h>
+#define	THUNDER_PEM_DESC		"ThunderX PEM"
 
-#include <machine/bus.h>
-#include <machine/fdt.h>
+struct thunder_pem_softc {
+	device_t		dev;
+	struct resource		*reg;
+	bus_space_tag_t		reg_bst;
+	bus_space_handle_t	reg_bsh;
+	struct pcie_range	ranges[RANGES_TUPLES_MAX];
+	struct rman		mem_rman;
+	struct rman		io_rman;
+	bus_space_handle_t	pem_sli_base;
+	uint32_t		node;
+	uint32_t		id;
+	uint32_t		sli;
+	uint32_t		sli_group;
+	uint64_t		sli_window_base;
+};
 
-#include <dev/ofw/openfirm.h>
-#include <dev/ofw/ofw_subr.h>
-
-int
-OF_decode_addr(phandle_t dev, int regno, bus_space_tag_t *tag,
-    bus_space_handle_t *handle, bus_size_t *sz)
-{
-	bus_addr_t addr;
-	bus_size_t size;
-	pcell_t pci_hi;
-	int flags, res;
-
-	res = ofw_reg_to_paddr(dev, regno, &addr, &size, &pci_hi);
-	if (res < 0)
-		return (res);
-
-	/*
-	 * Nothing special to do for PCI busses right now.
-	 * This may need to be handled per-platform when it does come up.
-	 */
-#ifdef notyet
-	if (pci_hi == OFW_PADDR_NOT_PCI) {
-		*tag = fdtbus_bs_tag;
-		flags = 0;
-	} else {
-		*tag = fdtbus_bs_tag;
-		flags = (pci_hi & OFW_PCI_PHYS_HI_PREFETCHABLE) ? 
-		    BUS_SPACE_MAP_PREFETCHABLE: 0;
-	}
-#else
-	*tag = fdtbus_bs_tag;
-	flags = 0;
 #endif
-
-	if (sz != NULL)
-		*sz = size;
-
-	return (bus_space_map(*tag, addr, size, flags, handle));
-}
