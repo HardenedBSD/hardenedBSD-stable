@@ -26,7 +26,7 @@
 .\"
 .\" $FreeBSD$
 .\"
-.Dd February 06, 2016
+.Dd February 16, 2016
 .Dt ASLR 4
 .Os
 .Sh NAME
@@ -133,6 +133,15 @@ Stack randomization is implemented using a small stack gap
 and a bigger random, which applies to the stack's mapping.
 On executable image activation, the stack delta is computed and
 subtracted from the top of the stack.
+.Pp
+Shared object load order in the
+.Xr rtld 1
+is randomized with respect to the Depenency Acyclical Graph (DAG).
+Randomizing the DAG helps prevent successful ROP gadget creation by
+further removing deterministic loading of shared objects.
+Often, when ROP gadgets are generated, the generation requires shared
+objects providing gadgets to be in the same spot in memory relative to
+the ASLR deltas.
 .Ss APPENDIX A
 NOTE: All tunables can only be changed during boot-time via
 .Fa /boot/loader.conf
@@ -242,6 +251,7 @@ Default: For 32-bit systems: N/A. For 64-bit systems: 18.
 .El
 .El
 .Sh SEE ALSO
+.Xr rtld 1 ,
 .Xr mmap 2 ,
 .Xr elf 3 ,
 .Xr mac 4
