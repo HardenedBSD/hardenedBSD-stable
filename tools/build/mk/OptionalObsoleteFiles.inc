@@ -5023,7 +5023,6 @@ OLD_FILES+=usr/sbin/unbound
 OLD_FILES+=usr/sbin/unbound-anchor
 OLD_FILES+=usr/sbin/unbound-checkconf
 OLD_FILES+=usr/sbin/unbound-control
-OLD_FILES+=usr/sbin/unbound-control-setup
 .endif
 
 .if ${MK_USB} == no
