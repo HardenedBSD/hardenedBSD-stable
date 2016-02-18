@@ -34,12 +34,14 @@ __FBSDID("$FreeBSD$");
 #include <sys/param.h>
 #include <sys/bus.h>
 #include <sys/libkern.h>
+#include <sys/rman.h>
 
 #include <machine/bus.h>
 
 #include <dev/ofw/openfirm.h>
-#include <dev/ofw/ofw_pci.h>
 #include <dev/ofw/ofw_subr.h>
+#include <dev/ofw/ofw_bus_subr.h>
+#include <dev/ofw/ofw_pci.h>
 
 static void
 get_addr_props(phandle_t node, uint32_t *addrp, uint32_t *sizep, int *pcip)
