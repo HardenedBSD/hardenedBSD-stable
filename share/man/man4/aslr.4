@@ -171,83 +171,36 @@ opt in.
 .It
 Default: 2
 .El
-.It
-hardening.pax.aslr.exec_len
-.Bl -dash -compact
-.It
-Type: integer
-.It
-Description: Set the number of bits to be randomized for the PIE
-execbase.
-.It
-Values:
-.br
-For 32-bit systems, minimum of 8, maximum of 21. For 64-bit systems,
-minimum of 16, maximum of 42.
-.It
-Default: For 32-bit systems: 14. For 64-bit systems: 30.
 .El
+.Pp
+When
+.Cd COMPAT_FREEBSD32
+is enabled in the kernel:
+.Bl -bullet
 .It
-hardening.pax.aslr.mmap_len
+hardening.pax.aslr.compat.status
 .Bl -dash -compact
 .It
 Type: integer
 .It
-Description: Set the number of bits to be randomized for
-.Xr mmap 2
-calls.
+Description: Toggle system-wide ASLR protection compatible with 32-bit
+applications.
 .It
 Values:
 .br
-For 32-bit systems, minimum of 8, maximum of 21. For 64-bit systems,
-minimum of 16, maximum of 42.
-.It
-Default: For 32-bit systems: 14. For 64-bit systems: 30.
-.El
-.It
-hardening.pax.aslr.stack_len
-.Bl -dash -compact
-.It
-Type: integer
-.It
-Description: Set the number of bits to be randomized for the stack.
-.It
-Values:
+0 - 32-bit compatible ASLR disabled system-wide. Individual
+applications may
+.Em NOT
+opt in.
 .br
-For 32-bit systems, minimum of 8, maximum of 21. For 64-bit systems,
-minimum of 16, maximum of 42.
-.It
-Default: For 32-bit systems: 14. For 64-bit systems: 42.
-.El
-.It
-hardening.pax.aslr.vdso_len
-.Bl -dash -compact
-.It
-Type: integer
-.It
-Description: Set the number of bits to be randomized for the shared page (vdso).
-.It
-Values:
+1 - 32-bit compatible ASLR disabled but applications may opt in.
 .br
-For 32-bit systems, minimum of 8, maximum of 21. For 64-bit systems,
-minimum of 16, maximum of 38.
-.It
-Default: For 32-bit systems: 10. For 64-bit systems: 28.
-.El
-.It
-hardening.pax.aslr.map32bit_len
-.Bl -dash -compact
-.It
-Type: integer
-.It
-Description: Set the number of bits to be randomized
-for the mmap(2) calls when MAP_32BIT flag set.
-.It
-Values:
+2 - 32-bit compatible ASLR enabled and applications may opt out.
 .br
-For 32-bit systems N/A. For 64-bit systems, minimum of 8, maximum of 27.
+3 - 32-bit compatible ASLR enabled for all applications. Applications
+may not opt out.
 .It
-Default: For 32-bit systems: N/A. For 64-bit systems: 18.
+Default: 2
 .El
 .El
 .Sh SEE ALSO
@@ -267,23 +220,6 @@ Default: For 32-bit systems: N/A. For 64-bit systems: 18.
 .%T "secadm"
 .%U https://github.com/HardenedBSD/secadm
 .Re
-.Sh HISTORY
-On 14 May 2013, Oliver Pinter published to GitHub an initial patch to
-implement ASLR.
-His work was inspired by Elad Efrat's work in NetBSD.
-The patch was submitted to FreeBSD as a bug report on 24 Aug 2013.
-Independenty of Oliver's work, Shawn Webb posted to his tech blog that
-he was interested in implementing ASLR for FreeBSD.
-Oliver found his post and suggested that he and Shawn work together.
-On June 08, 2014, preparatory work was committed to HardenedBSD, adding
-Position-Independent Executable (PIE) support in base.
-PIE support was removed sometime later.
-On 07 Apr 2014, SoldierX agreed to sponsor the project and donated a
-sparc64 machine and a BeagleBone Black to Shawn Webb.
-This hardware was used for testing and debugging ASLR.
-ASLR for FreeBSD was first introduced in HardenedBSD.
-On 19 December 2015, HardenedBSD officially decided to halt the
-upstreaming process.
 .Sh AUTHORS
 This manual page was written by
 .An -nosplit
