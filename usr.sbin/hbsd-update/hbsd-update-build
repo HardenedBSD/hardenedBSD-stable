@@ -247,6 +247,7 @@ add_extra_files() {
 ./etc
 ./proc
 ./root/.profile
+./root/.cshrc
 ./var/empty
 EOF
 
