@@ -20,7 +20,6 @@ FILES=	DAEMON \
 	${_bluetooth} \
 	bridge \
 	${_bthidd} \
-	${_casperd} \
 	cleanvar \
 	cleartmp \
 	cron \
@@ -173,10 +172,6 @@ FILES+=		bootparams
 
 .if ${MK_BSNMP} != "no"
 FILES+=		bsnmpd
-.endif
-
-.if ${MK_CASPER} != "no"
-_casperd=	casperd
 .endif
 
 .if ${MK_CCD} != "no"

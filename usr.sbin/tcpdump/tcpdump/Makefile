@@ -177,9 +177,15 @@ CFLAGS+=	-DLBL_ALIGN
 
 LIBADD=	l pcap
 .if ${MK_CASPER} != "no"
+<<<<<<< HEAD
 LIBADD+=	capsicum
 WANTS_PIE=	yes
 CFLAGS+=-DHAVE_CAPSICUM
+=======
+LIBADD+=	casper
+LIBADD+=	cap_dns
+CFLAGS+=-DHAVE_CASPER
+>>>>>>> origin/master
 .endif
 .if ${MK_OPENSSL} != "no"
 LIBADD+=	crypto
