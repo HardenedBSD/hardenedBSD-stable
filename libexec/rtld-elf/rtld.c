@@ -484,6 +484,10 @@ _rtld(Elf_Addr *sp, func_ptr_type *exit_proc, Obj_Entry **objp)
     dbg("initializing thread locks");
     lockdflt_init();
 
+    if (aux_info[AT_STACKPROT] != NULL &&
+      aux_info[AT_STACKPROT]->a_un.a_val != 0)
+	    stack_prot = aux_info[AT_STACKPROT]->a_un.a_val;
+
     /*
      * Load the main program, or process its program header if it is
      * already loaded.
@@ -496,6 +500,9 @@ _rtld(Elf_Addr *sp, func_ptr_type *exit_proc, Obj_Entry **objp)
 	if (obj_main == NULL)
 	    rtld_die();
 	max_stack_flags = obj->stack_flags;
+	if ((max_stack_flags & PF_X) == PF_X)
+	    if ((stack_prot & PROT_EXEC) == 0)
+	        max_stack_flags &= ~(PF_X);
     } else {				/* Main program already loaded. */
 	const Elf_Phdr *phdr;
 	int phnum;
@@ -534,10 +541,6 @@ _rtld(Elf_Addr *sp, func_ptr_type *exit_proc, Obj_Entry **objp)
     }
     dbg("obj_main path %s", obj_main->path);
     obj_main->mainprog = true;
-
-    if (aux_info[AT_STACKPROT] != NULL &&
-      aux_info[AT_STACKPROT]->a_un.a_val != 0)
-	    stack_prot = aux_info[AT_STACKPROT]->a_un.a_val;
 
 #ifndef COMPAT_32BIT
     /*
@@ -1296,7 +1299,7 @@ digest_phdr(const Elf_Phdr *phdr, int phnum, caddr_t entry, const char *path)
 	break;
     }
 
-    obj->stack_flags = PF_X | PF_R | PF_W;
+    obj->stack_flags = PF_R | PF_W;
 
     for (ph = phdr;  ph < phlimit;  ph++) {
 	switch (ph->p_type) {
@@ -2353,6 +2356,9 @@ do_load_object(int fd, const char *name, char *path, struct stat *sbp,
     obj_loads++;
     linkmap_add(obj);	/* for GDB & dlinfo() */
     max_stack_flags |= obj->stack_flags;
+    if ((max_stack_flags & PF_X) == PF_X)
+        if ((stack_prot & PROT_EXEC) == 0)
+            max_stack_flags &= ~(PF_X);
 
     dbg("  %p .. %p: %s", obj->mapbase,
          obj->mapbase + obj->mapsize - 1, obj->path);

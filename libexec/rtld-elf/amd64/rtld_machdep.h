@@ -76,7 +76,7 @@ typedef struct {
 
 void *__tls_get_addr(tls_index *ti) __exported;
 
-#define	RTLD_DEFAULT_STACK_PF_EXEC	PF_X
-#define	RTLD_DEFAULT_STACK_EXEC		PROT_EXEC
+#define	RTLD_DEFAULT_STACK_PF_EXEC	0
+#define	RTLD_DEFAULT_STACK_EXEC		0
 
 #endif
