@@ -1,3 +1,9 @@
+[20160225] RTLD noexec
+__HardenedBSD_version = 42
+
+	Enforce nonexec thread stacks, driven by the RTLD.
+
+
 [20150213] rewritten internals
 __HardenedBSD_version = 41
 
