@@ -33,51 +33,51 @@
 : ${DIALOG_ITEM_HELP=4}
 : ${DIALOG_ESC=255}
 
+_HBSD_VERSION=`uname -v | sed -n 's/.*\[\(.*\)\].*/\1/p'`
+_BUILD_TYPE=`echo ${_HBSD_VERSION} | cut -d ':' -f 1`
+
+case ${_BUILD_TYPE} in
+	"DEVEL")
+	;&
+	"PLAYGROUND")
+		_BUILD_BRANCH=`echo ${_HBSD_VERSION} | cut -d ':' -f 2`
+		_BUILD_NUMBER=`echo ${_HBSD_VERSION} | cut -d ':' -f 3`
+		_mirror_prefix="jenkins"
+		_hbsd_dist_dir="builds/${_BUILD_BRANCH}/build-${_BUILD_NUMBER}"
+	;;
+	"STABLE")
+		_BUILD_TAG=`echo ${_HBSD_VERSION} | cut -d ':' -f 2`
+		_mirror_prefix="installer"
+		_hbsd_dist_dir="pub/HardenedBSD/releases/`uname -m`/`uname -p`/${_BUILD_TAG}"
+	;;
+	*)
+		case `uname -r` in
+			10.*)
+				_hbsd_dist_dir="pub/HardenedBSD/releases/`uname -m`/`uname -p`/HardenedBSD-10-STABLE-LATEST"
+				;;
+			11.*)
+				_hbsd_dist_dir="pub/HardenedBSD/releases/`uname -m`/`uname -p`/HardenedBSD-11-CURRENT-LATEST"
+				;;
+			*)
+				_hbsd_dist_dir="pub/HardenedBSD/releases/`uname -m`/`uname -p`/HardenedBSD-12-CURRENT-LATEST"
+				;;
+		esac
+		_mirror_prefix="installer"
+	;;
+esac
+
 exec 3>&1
 MIRROR=`dialog --backtitle "HardenedBSD Installer" \
     --title "Mirror Selection - experimental and not all branch supported" --extra-button --extra-label "Other" \
     --menu "Please select the site closest to you or \"other\" if you'd like to specify a different choice.  Also note that not every site listed here carries more than the base distribution kits. Only Primary sites are guaranteed to carry the full range of possible distributions. Select a site that's close!" \
     0 0 0 \
-	http://jenkins.hardenedbsd.org	"Main Site"\
-	http://jenkins.hardenedbsd.org 	"IPv6 Main Site"\
+	http://${_mirror_prefix}.hardenedbsd.org	"Main Site"\
+	http://${_mirror_prefix}.hardenedbsd.org 	"IPv6 Main Site"\
     2>&1 1>&3`
 MIRROR_BUTTON=$?
 exec 3>&-
 
-_UNAME_R=`uname -r`
-_UNAME_R=${_UNAME_R%-p*}
-
-#
-# XXX:	We should create the proper infrastructure to serve these distfiles.
-# 	Currently this isn't supported.
-#
-
-#case ${_UNAME_R} in
-#	*-CURRENT|*-STABLE|*-PRERELEASE)
-#		RELDIR="snapshots"
-#		;;
-#	*)
-#		RELDIR="releases"
-#		;;
-#esac
-#
-#BSDINSTALL_DISTSITE="$MIRROR/pub/HardenedBSD/${RELDIR}/`uname -m`/`uname -p`/${_UNAME_R}"
-
-#
-# XXX: hard-code paths...
-#
-case ${_UNAME_R} in
-	*-STABLE-HBSD|*-PRERELEASE-HBSD)
-		_HBSD_MAJOR=${_UNAME_R%.*}
-		BSDINSTALL_DISTSITE="$MIRROR/builds/HardenedBSD-stable-${_HBSD_MAJOR}-STABLE-`uname -m`-LATEST"
-		;;
-	*-CURRENT-HBSD)
-		BSDINSTALL_DISTSITE="$MIRROR/builds/HardenedBSD-stable-master-`uname -m`-LATEST"
-		;;
-	*)
-		BSDINSTALL_DISTSITE="XXX not handled by the current state XXX"
-		;;
-esac
+BSDINSTALL_DISTSITE="$MIRROR/${_hbsd_dist_dir}"
 
 case $MIRROR_BUTTON in
 $DIALOG_CANCEL)
