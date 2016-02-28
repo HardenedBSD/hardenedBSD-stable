@@ -181,6 +181,7 @@ __DEFAULT_NO_OPTIONS = \
     FREEBSD_UPDATE \
     HESIOD \
     LIB32 \
+    LIBRESSL \
     LIBSOFT \
     NAND \
     OFED \
@@ -315,6 +316,10 @@ MK_GROFF:=	no
 MK_GNUCXX:=	no
 .endif
 
+.if ${MK_LIBRESSL} == "yes"
+MK_OPENSSL:=	no
+.endif
+
 .if ${MK_MAIL} == "no"
 MK_MAILWRAPPER:= no
 MK_SENDMAIL:=	no
@@ -326,7 +331,7 @@ MK_ATM:=	no
 MK_BLUETOOTH:=	no
 .endif
 
-.if ${MK_OPENSSL} == "no"
+.if ${MK_OPENSSL} == "no" && ${MK_LIBRESSL} == "no"
 MK_OPENSSH:=	no
 MK_KERBEROS:=	no
 .endif
