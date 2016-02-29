@@ -1447,7 +1447,8 @@ initarm(struct arm_boot_params *abp)
 	struct pv_addr kernel_l1pt;
 	struct pv_addr dpcpu;
 	vm_offset_t dtbp, freemempos, l2_start, lastaddr;
-	uint32_t memsize, l2size;
+	u_long memsize;
+	uint32_t l2size;
 	char *env;
 	void *kmdp;
 	u_int l1pagetable;
@@ -1716,7 +1717,7 @@ initarm(struct arm_boot_params *abp)
 	struct mem_region mem_regions[FDT_MEM_REGIONS];
 	vm_paddr_t lastaddr;
 	vm_offset_t dtbp, kernelstack, dpcpu;
-	uint32_t memsize;
+	u_long memsize;
 	char *env;
 	void *kmdp;
 	int err_devmap, mem_regions_sz;

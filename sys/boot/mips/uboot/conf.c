@@ -1,6 +1,5 @@
 /*-
- * Copyright (c) 2001 Benno Rice <benno@FreeBSD.org>
- * Copyright (c) 2007 Semihalf, Rafal Jaworowski <raj@semihalf.com>
+ * Copyright (c) 2008 Semihalf, Rafal Jaworowski
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -23,78 +22,94 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
  */
 
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
-#include <sys/param.h>
-#include <sys/linker.h>
-
-#ifdef __mips__
-#include <sys/proc.h>
-#include <machine/frame.h>
-#endif
-#include <machine/md_var.h>
-#include <machine/metadata.h>
-#include <machine/elf.h>
-
 #include <stand.h>
-
 #include "bootstrap.h"
 #include "libuboot.h"
 
-extern vm_offset_t md_load(char *, vm_offset_t *);
-
-int
-__elfN(uboot_load)(char *filename, u_int64_t dest,
-    struct preloaded_file **result)
-{
-	int r;
-
-	r = __elfN(loadfile)(filename, dest, result);
-	if (r != 0)
-		return (r);
-
-#if defined(__powerpc__)
-	/*
-	 * No need to sync the icache for modules: this will
-	 * be done by the kernel after relocation.
-	 */
-	if (!strcmp((*result)->f_type, "elf kernel"))
-		__syncicache((void *) (*result)->f_addr, (*result)->f_size);
+#if defined(LOADER_NET_SUPPORT)
+#include "dev_net.h"
 #endif
-	return (0);
-}
 
-int
-__elfN(uboot_exec)(struct preloaded_file *fp)
-{
-	struct file_metadata *fmp;
-	vm_offset_t mdp;
-	Elf_Ehdr *e;
-	int error;
-	void (*entry)(void *);
-
-	if ((fmp = file_findmetadata(fp, MODINFOMD_ELFHDR)) == NULL)
-		return (EFTYPE);
-
-	e = (Elf_Ehdr *)&fmp->md_data;
-
-	if ((error = md_load(fp->f_args, &mdp)) != 0)
-		return (error);
-
-	entry = (void *)e->e_entry;
-	printf("Kernel entry at 0x%p...\n", entry);
-
-	dev_cleanup();
-	printf("Kernel args: %s\n", fp->f_args);
-
-	(*entry)((void *)mdp);
-	panic("exec returned");
-}
-
-struct file_format uboot_elf = {
-	__elfN(uboot_load),
-	__elfN(uboot_exec)
+struct devsw *devsw[] = {
+#if defined(LOADER_DISK_SUPPORT) || defined(LOADER_CD9660_SUPPORT)
+	&uboot_storage,
+#endif
+#if defined(LOADER_NET_SUPPORT)
+	&netdev,
+#endif
+	NULL
 };
+
+struct fs_ops *file_system[] = {
+#if defined(LOADER_MSDOS_SUPPORT)
+	&dosfs_fsops,
+#endif
+#if defined(LOADER_UFS_SUPPORT)
+	&ufs_fsops,
+#endif
+#if defined(LOADER_CD9660_SUPPORT)
+	&cd9660_fsops,
+#endif
+#if defined(LOADER_EXT2FS_SUPPORT)
+	&ext2fs_fsops,
+#endif
+#if defined(LOADER_NANDFS_SUPPORT)
+	&nandfs_fsops,
+#endif
+#if defined(LOADER_NFS_SUPPORT)
+	&nfs_fsops,
+#endif
+#if defined(LOADER_TFTP_SUPPORT)
+	&tftp_fsops,
+#endif
+#if defined(LOADER_GZIP_SUPPORT)
+	&gzipfs_fsops,
+#endif
+#if defined(LOADER_BZIP2_SUPPORT)
+	&bzipfs_fsops,
+#endif
+	NULL
+};
+
+struct netif_driver *netif_drivers[] = {
+#if defined(LOADER_NET_SUPPORT)
+	&uboot_net,
+#endif
+	NULL,
+};
+
+struct file_format *file_formats[] = {
+	&uboot_elf,
+	NULL
+};
+
+extern struct console uboot_console;
+
+struct console *consoles[] = {
+	&uboot_console,
+	NULL
+};
+
+void
+abort(void)
+{
+ 
+	printf("error: loader abort\n");
+	while (1);
+}
+
+void
+longjmperror(void)
+{
+ 
+	printf("error: loader longjmp error\n");
+	while (1);
+}
+
+int debug = 1;
