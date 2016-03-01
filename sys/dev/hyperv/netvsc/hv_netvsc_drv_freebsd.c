@@ -138,6 +138,7 @@ __FBSDID("$FreeBSD$");
 
 #define HN_RNDIS_MSG_LEN		\
     (sizeof(rndis_msg) +		\
+     RNDIS_HASH_PPI_SIZE +		\
      RNDIS_VLAN_PPI_SIZE +		\
      RNDIS_TSO_PPI_SIZE +		\
      RNDIS_CSUM_PPI_SIZE)
@@ -274,7 +275,7 @@ static int hn_bind_tx_taskq = -1;
 SYSCTL_INT(_hw_hn, OID_AUTO, bind_tx_taskq, CTLFLAG_RDTUN,
     &hn_bind_tx_taskq, 0, "Bind TX taskqueue to the specified cpu");
 
-static int hn_use_if_start = 1;
+static int hn_use_if_start = 0;
 SYSCTL_INT(_hw_hn, OID_AUTO, use_if_start, CTLFLAG_RDTUN,
     &hn_use_if_start, 0, "Use if_start TX method");
 
@@ -290,8 +291,10 @@ static void hn_start(struct ifnet *ifp);
 static void hn_start_txeof(struct hn_tx_ring *);
 static int hn_ifmedia_upd(struct ifnet *ifp);
 static void hn_ifmedia_sts(struct ifnet *ifp, struct ifmediareq *ifmr);
+#if __FreeBSD_version >= 1100099
 static int hn_lro_lenlim_sysctl(SYSCTL_HANDLER_ARGS);
 static int hn_lro_ackcnt_sysctl(SYSCTL_HANDLER_ARGS);
+#endif
 static int hn_trust_hcsum_sysctl(SYSCTL_HANDLER_ARGS);
 static int hn_tx_chimney_size_sysctl(SYSCTL_HANDLER_ARGS);
 static int hn_rx_stat_ulong_sysctl(SYSCTL_HANDLER_ARGS);
@@ -735,6 +738,7 @@ hn_encap(struct hn_tx_ring *txr, struct hn_txdesc *txd, struct mbuf **m_head0)
 	rndis_msg *rndis_mesg;
 	rndis_packet *rndis_pkt;
 	rndis_per_packet_info *rppi;
+	struct ndis_hash_info *hash_info;
 	uint32_t rndis_msg_size;
 
 	packet = &txd->netvsc_pkt;
@@ -758,6 +762,18 @@ hn_encap(struct hn_tx_ring *txr, struct hn_txdesc *txd, struct mbuf **m_head0)
 	rndis_pkt->per_pkt_info_offset = sizeof(rndis_packet);
 
 	rndis_msg_size = RNDIS_MESSAGE_SIZE(rndis_packet);
+
+	/*
+	 * Set the hash info for this packet, so that the host could
+	 * dispatch the TX done event for this packet back to this TX
+	 * ring's channel.
+	 */
+	rndis_msg_size += RNDIS_HASH_PPI_SIZE;
+	rppi = hv_set_rppi_data(rndis_mesg, RNDIS_HASH_PPI_SIZE,
+	    nbl_hash_value);
+	hash_info = (struct ndis_hash_info *)((uint8_t *)rppi +
+	    rppi->per_packet_info_offset);
+	hash_info->hash = txr->hn_tx_idx;
 
 	if (m_head->m_flags & M_VLANTAG) {
 		ndis_8021q_info *rppi_vlan_info;
@@ -1285,6 +1301,9 @@ skip:
 		m_new->m_flags |= M_VLANTAG;
 	}
 
+	m_new->m_pkthdr.flowid = rxr->hn_rx_idx;
+	M_HASHTYPE_SET(m_new, M_HASHTYPE_OPAQUE);
+
 	/*
 	 * Note:  Moved RX completion back to hv_nv_on_receive() so all
 	 * messages (not just data messages) will trigger a response.
@@ -1368,6 +1387,7 @@ hn_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		/* Obtain and record requested MTU */
 		ifp->if_mtu = ifr->ifr_mtu;
 
+#if __FreeBSD_version >= 1100099
 		/*
 		 * Make sure that LRO aggregation length limit is still
 		 * valid, after the MTU change.
@@ -1383,6 +1403,7 @@ hn_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 			}
 		}
 		NV_UNLOCK(sc);
+#endif
 
 		do {
 			NV_LOCK(sc);
@@ -1705,6 +1726,8 @@ hn_watchdog(struct ifnet *ifp)
 }
 #endif
 
+#if __FreeBSD_version >= 1100099
+
 static int
 hn_lro_lenlim_sysctl(SYSCTL_HANDLER_ARGS)
 {
@@ -1757,6 +1780,8 @@ hn_lro_ackcnt_sysctl(SYSCTL_HANDLER_ARGS)
 	NV_UNLOCK(sc);
 	return 0;
 }
+
+#endif
 
 static int
 hn_trust_hcsum_sysctl(SYSCTL_HANDLER_ARGS)
@@ -2029,6 +2054,7 @@ hn_create_rx_data(struct hn_softc *sc)
 		if (hn_trust_hostip)
 			rxr->hn_trust_hcsum |= HN_TRUST_HCSUM_IP;
 		rxr->hn_ifp = sc->hn_ifp;
+		rxr->hn_rx_idx = i;
 
 		/*
 		 * Initialize LRO.
@@ -2040,8 +2066,10 @@ hn_create_rx_data(struct hn_softc *sc)
 		tcp_lro_init(&rxr->hn_lro);
 		rxr->hn_lro.ifp = sc->hn_ifp;
 #endif
+#if __FreeBSD_version >= 1100099
 		rxr->hn_lro.lro_length_lim = HN_LRO_LENLIM_DEF;
 		rxr->hn_lro.lro_ackcnt_lim = HN_LRO_ACKCNT_DEF;
+#endif
 #endif	/* INET || INET6 */
 	}
 
@@ -2060,12 +2088,14 @@ hn_create_rx_data(struct hn_softc *sc)
 	    CTLTYPE_ULONG | CTLFLAG_RW, sc,
 	    __offsetof(struct hn_rx_ring, hn_lro_tried),
 	    hn_rx_stat_ulong_sysctl, "LU", "# of LRO tries");
+#if __FreeBSD_version >= 1100099
 	SYSCTL_ADD_PROC(ctx, child, OID_AUTO, "lro_length_lim",
 	    CTLTYPE_UINT | CTLFLAG_RW, sc, 0, hn_lro_lenlim_sysctl, "IU",
 	    "Max # of data bytes to be aggregated by LRO");
 	SYSCTL_ADD_PROC(ctx, child, OID_AUTO, "lro_ackcnt_lim",
 	    CTLTYPE_INT | CTLFLAG_RW, sc, 0, hn_lro_ackcnt_sysctl, "I",
 	    "Max # of ACKs to be aggregated by LRO");
+#endif
 	SYSCTL_ADD_PROC(ctx, child, OID_AUTO, "trust_hosttcp",
 	    CTLTYPE_INT | CTLFLAG_RW, sc, HN_TRUST_HCSUM_TCP,
 	    hn_trust_hcsum_sysctl, "I",
@@ -2132,6 +2162,7 @@ hn_create_tx_ring(struct hn_softc *sc, int id)
 	int error, i;
 
 	txr->hn_sc = sc;
+	txr->hn_tx_idx = id;
 
 #ifndef HN_USE_TXDESC_BUFRING
 	mtx_init(&txr->hn_txlist_spin, "hn txlist", NULL, MTX_SPIN);
@@ -2555,10 +2586,14 @@ hn_transmit(struct ifnet *ifp, struct mbuf *m)
 {
 	struct hn_softc *sc = ifp->if_softc;
 	struct hn_tx_ring *txr;
-	int error;
+	int error, idx = 0;
 
-	/* TODO: vRSS, TX ring selection */
-	txr = &sc->hn_tx_ring[0];
+	/*
+	 * Select the TX ring based on flowid
+	 */
+	if (M_HASHTYPE_GET(m) != M_HASHTYPE_NONE)
+		idx = m->m_pkthdr.flowid % sc->hn_tx_ring_cnt;
+	txr = &sc->hn_tx_ring[idx];
 
 	error = drbr_enqueue(ifp, txr->hn_mbuf_br, m);
 	if (error)

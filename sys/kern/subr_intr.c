@@ -88,7 +88,6 @@ MALLOC_DEFINE(M_INTRNG, "intr", "intr interrupt handling");
 void intr_irq_handler(struct trapframe *tf);
 
 /* Root interrupt controller stuff. */
-static struct intr_irqsrc *irq_root_isrc;
 device_t intr_irq_root_dev;
 static intr_irq_filter_t *irq_root_filter;
 static void *irq_root_arg;
@@ -713,7 +712,11 @@ isrc_event_create(struct intr_irqsrc *isrc)
 	 * Make sure that we do not mix the two ways
 	 * how we handle interrupt sources. Let contested event wins.
 	 */
+#ifdef INTR_SOLO
 	if (isrc->isrc_filter != NULL || isrc->isrc_event != NULL) {
+#else
+	if (isrc->isrc_event != NULL) {
+#endif
 		mtx_unlock(&isrc_table_lock);
 		intr_event_destroy(ie);
 		return (isrc->isrc_event != NULL ? EBUSY : 0);
@@ -890,8 +893,6 @@ int
 intr_pic_claim_root(device_t dev, intptr_t xref, intr_irq_filter_t *filter,
     void *arg, u_int ipicount)
 {
-	int error;
-	u_int rootirq;
 
 	if (pic_lookup(dev, xref) == NULL) {
 		device_printf(dev, "not registered\n");
@@ -912,24 +913,6 @@ intr_pic_claim_root(device_t dev, intptr_t xref, intr_irq_filter_t *filter,
 		return (EBUSY);
 	}
 
-	rootirq = intr_namespace_map_irq(device_get_parent(dev), 0, 0);
-	if (rootirq == IRQ_INVALID) {
-		device_printf(dev, "failed to map an irq for the root pic\n");
-		return (ENOMEM);
-	}
-
-        /* Create the isrc. */
-	irq_root_isrc = isrc_lookup(rootirq);
-
-        /* XXX "register" with the PIC.  We are the "pic" here, so fake it. */
-	irq_root_isrc->isrc_flags |= INTR_ISRCF_REGISTERED;
-
-	error = intr_irq_add_handler(device_get_parent(dev), 
-		(void*)filter, NULL, arg, rootirq, INTR_TYPE_CLK, NULL);
-	if (error != 0) {
-		device_printf(dev, "failed to install root pic handler\n");
-		return (error);
-	}
 	intr_irq_root_dev = dev;
 	irq_root_filter = filter;
 	irq_root_arg = arg;
@@ -1013,7 +996,7 @@ intr_irq_remove_handler(device_t dev, u_int irq, void *cookie)
 	isrc = isrc_lookup(irq);
 	if (isrc == NULL || isrc->isrc_handlers == 0)
 		return (EINVAL);
-
+#ifdef INTR_SOLO
 	if (isrc->isrc_filter != NULL) {
 		if (isrc != cookie)
 			return (EINVAL);
@@ -1028,7 +1011,7 @@ intr_irq_remove_handler(device_t dev, u_int irq, void *cookie)
 		mtx_unlock(&isrc_table_lock);
 		return (0);
 	}
-
+#endif
 	if (isrc != intr_handler_source(cookie))
 		return (EINVAL);
 
@@ -1079,7 +1062,7 @@ intr_irq_describe(u_int irq, void *cookie, const char *descr)
 	isrc = isrc_lookup(irq);
 	if (isrc == NULL || isrc->isrc_handlers == 0)
 		return (EINVAL);
-
+#ifdef INTR_SOLO
 	if (isrc->isrc_filter != NULL) {
 		if (isrc != cookie)
 			return (EINVAL);
@@ -1089,7 +1072,7 @@ intr_irq_describe(u_int irq, void *cookie, const char *descr)
 		mtx_unlock(&isrc_table_lock);
 		return (0);
 	}
-
+#endif
 	error = intr_event_describe_handler(isrc->isrc_event, cookie, descr);
 	if (error == 0) {
 		mtx_lock(&isrc_table_lock);
@@ -1108,10 +1091,10 @@ intr_irq_bind(u_int irq, int cpu)
 	isrc = isrc_lookup(irq);
 	if (isrc == NULL || isrc->isrc_handlers == 0)
 		return (EINVAL);
-
+#ifdef INTR_SOLO
 	if (isrc->isrc_filter != NULL)
 		return (intr_isrc_assign_cpu(isrc, cpu));
-
+#endif
 	return (intr_event_bind(isrc->isrc_event, cpu));
 }
 
