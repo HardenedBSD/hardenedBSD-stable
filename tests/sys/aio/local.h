@@ -1,11 +1,7 @@
 /*-
- * Copyright (c) 2002-2004 Tim J. Robbins.
+ * Copyright (c) 2016 Chelsio Communications, Inc.
  * All rights reserved.
- *
- * Copyright (c) 2011 The FreeBSD Foundation
- * All rights reserved.
- * Portions of this software were developed by David Chisnall
- * under sponsorship from the FreeBSD Foundation.
+ * Written by: John Baldwin <jhb@FreeBSD.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,41 +23,52 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
+ * $FreeBSD$
  */
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
+#ifndef _AIO_TEST_LOCAL_H_
+#define	_AIO_TEST_LOCAL_H_
 
+#include <sys/types.h>
+#include <sys/sysctl.h>
 #include <errno.h>
-#include <stdlib.h>
-#include <wchar.h>
-#include "mblocal.h"
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
 
-int
-mbtowc_l(wchar_t * __restrict pwc, const char * __restrict s, size_t n, locale_t locale)
-{
-	static const mbstate_t initial;
-	size_t rval;
-	FIX_LOCALE(locale);
+#include <atf-c.h>
 
-	if (s == NULL) {
-		/* No support for state dependent encodings. */
-		locale->mbtowc = initial;
-		return (0);
-	}
-	rval = XLOCALE_CTYPE(locale)->__mbrtowc(pwc, s, n, &locale->mbtowc);
-	switch (rval) {
-	case (size_t)-2:
-		errno = EILSEQ;
-		/* FALLTHROUGH */
-	case (size_t)-1:
-		return (-1);
-	default:
-		return ((int)rval);
-	}
-}
-int
-mbtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n)
-{
-	return mbtowc_l(pwc, s, n, __get_locale());
-}
+#define	ATF_REQUIRE_UNSAFE_AIO() do {					\
+	size_t _len;							\
+	int _unsafe;							\
+									\
+	_len = sizeof(_unsafe);						\
+	if (sysctlbyname("vfs.aio.enable_unsafe", &_unsafe, &_len, NULL,\
+	    0) < 0) {							\
+		if (errno != ENOENT)					\
+			atf_libc_error(errno,				\
+			    "Failed to read vfs.aio.enable_unsafe");	\
+	} else if (_unsafe == 0)					\
+		atf_tc_skip("Unsafe AIO is disabled");			\
+} while (0)
+	
+#define	PLAIN_REQUIRE_UNSAFE_AIO(_exit_code) do {			\
+	size_t _len;							\
+	int _unsafe;							\
+									\
+	_len = sizeof(_unsafe);						\
+	if (sysctlbyname("vfs.aio.enable_unsafe", &_unsafe, &_len, NULL,\
+	    0) < 0) {							\
+		if (errno != ENOENT) {					\
+			printf("Failed to read vfs.aio.enable_unsafe: %s\n",\
+			    strerror(errno));				\
+			_exit(1);					\
+		}							\
+	} else if (_unsafe == 0) {					\
+		printf("Unsafe AIO is disabled");			\
+		_exit(_exit_code);					\
+	}								\
+} while (0)
+
+#endif /* !_AIO_TEST_LOCAL_H_ */
