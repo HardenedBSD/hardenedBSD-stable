@@ -38,16 +38,7 @@
 struct hbsd_features {
 	struct hbsd_aslr {
 		int	 status;	/* (p) PaX ASLR enabled */
-		int	 mmap_len;	/* (p) num of bits randomized with mmap */
-		int	 stack_len;	/* (p) num of bits randomized with stack */
-		int	 exec_len;	/* (p) num of bits randomized with execbase */
-		int	 vdso_len;	/* (p) num of bits randomized with VDSO */
-		int	 map32bit_len;	/* (p) num of bits randomized with MAP_32BIT mmap */
 		int	 compat_status;	/* (p) PaX ASLR enabled (compat32) */
-		int	 compat_mmap_len; /* (p) num of bits randomized with mmap (compat32) */
-		int	 compat_stack_len;/* (p) num of bits randomized with stack (compat32) */
-		int	 compat_exec_len; /* (p) num of bits randomized with execbase (compat32) */
-		int	 compat_vdso_len; /* (p) num of bits randomized with VDSO (compat32) */
 		int	 disallow_map32bit_status; /* (p) MAP_32BIT protection (__LP64__ only) */
 	} aslr;
 	struct hbsd_segvguard {
@@ -135,6 +126,22 @@ void pax_aslr_stack_with_gap(struct proc *p, vm_offset_t *addr);
 void pax_aslr_vdso(struct proc *p, vm_offset_t *addr);
 pax_flag_t pax_disallow_map32bit_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_t mode);
 bool pax_disallow_map32bit_active(struct thread *td, int mmap_flags);
+
+int pax_aslr_get_stack_len(void);
+int pax_aslr_get_mmap_len(void);
+int pax_aslr_get_exec_len(void);
+int pax_aslr_get_vdso_len(void);
+#ifdef COMPAT_FREEBSD32
+int pax_aslr_compat_get_stack_len(void);
+int pax_aslr_compat_get_mmap_len(void);
+int pax_aslr_compat_get_exec_len(void);
+int pax_aslr_compat_get_vdso_len(void);
+#else
+#define pax_aslr_compat_get_stack_len()	0
+#define pax_aslr_compat_get_mmap_len()	0
+#define pax_aslr_compat_get_exec_len()	0
+#define pax_aslr_compat_get_vdso_len()	0
+#endif
 
 /*
  * Log related functions
