@@ -53,13 +53,14 @@ case ${_BUILD_TYPE} in
 	*)
 		case `uname -r` in
 			10.*)
-				_hbsd_dist_dir="pub/HardenedBSD/releases/`uname -m`/`uname -p`/HardenedBSD-10-STABLE-LATEST"
+				_hbsd_dist_dir="pub/HardenedBSD/releases/`uname -m`/`uname -p`/hardenedbsd-10-stable-LAST"
 				;;
 			11.*)
-				_hbsd_dist_dir="pub/HardenedBSD/releases/`uname -m`/`uname -p`/HardenedBSD-11-CURRENT-LATEST"
+				#_hbsd_dist_dir="pub/HardenedBSD/releases/`uname -m`/`uname -p`/hardenedbsd-11-stable-LAST"
+				_hbsd_dist_dir="pub/HardenedBSD/releases/`uname -m`/`uname -p`/hardenedbsd-master-LAST"
 				;;
 			*)
-				_hbsd_dist_dir="pub/HardenedBSD/releases/`uname -m`/`uname -p`/HardenedBSD-12-CURRENT-LATEST"
+				_hbsd_dist_dir="pub/HardenedBSD/releases/`uname -m`/`uname -p`/hardenedbsd-master-LAST"
 				;;
 		esac
 		_mirror_prefix="installer"
