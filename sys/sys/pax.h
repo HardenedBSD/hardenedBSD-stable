@@ -137,10 +137,10 @@ int pax_aslr_compat_get_mmap_len(void);
 int pax_aslr_compat_get_exec_len(void);
 int pax_aslr_compat_get_vdso_len(void);
 #else
-#define pax_aslr_compat_get_stack_len()	0
-#define pax_aslr_compat_get_mmap_len()	0
-#define pax_aslr_compat_get_exec_len()	0
-#define pax_aslr_compat_get_vdso_len()	0
+#define	pax_aslr_compat_get_stack_len()	0
+#define	pax_aslr_compat_get_mmap_len()	0
+#define	pax_aslr_compat_get_exec_len()	0
+#define	pax_aslr_compat_get_vdso_len()	0
 #endif
 
 /*
