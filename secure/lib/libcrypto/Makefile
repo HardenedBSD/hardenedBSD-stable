@@ -1,12 +1,15 @@
 # $FreeBSD$
 
+.if !"${WITH_LIBRESSL}" == "yes"
+
 SHLIBDIR?=	/lib
 SUBDIR=		engines
 
-.include <bsd.own.mk>
+.include <bsd.opts.mk>
 
 LIB=		crypto
 SHLIB_MAJOR=	8
+.warning Building OpenSSL
 ALLOW_SHARED_TEXTREL=
 
 NO_LINT=
@@ -435,6 +438,7 @@ _bn_asmpath=	${LCRYPTO_SRC}/crypto/bn/asm
 	${LCRYPTO_SRC}/crypto/cms \
 	${LCRYPTO_SRC}/crypto/comp \
 	${LCRYPTO_SRC}/crypto/conf \
+	${LCRYPTO_SRC}/crypto/crypto \
 	${LCRYPTO_SRC}/crypto/des \
 	${LCRYPTO_SRC}/crypto/dh \
 	${LCRYPTO_SRC}/crypto/dsa \
@@ -476,3 +480,7 @@ _bn_asmpath=	${LCRYPTO_SRC}/crypto/bn/asm
 	${LCRYPTO_SRC}/crypto/x509 \
 	${LCRYPTO_SRC}/crypto/x509v3 \
 	${.CURDIR}/man
+
+.else
+.include "Makefile.libressl"
+.endif # ${MK_OPENSSL} != "no"
