@@ -582,9 +582,6 @@ options 	NKPT=31
 # Enable 32-bit runtime support for FreeBSD/i386 binaries.
 options 	COMPAT_FREEBSD32
 
-# Emulate spx device for client side of SVR3 local X interface
-#XXX#options 	SPX_HACK
-
 # Enable Linux ABI emulation
 #XXX#options 	COMPAT_LINUX
 
