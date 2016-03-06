@@ -5,11 +5,11 @@
 SHLIBDIR?=	/lib
 SUBDIR=		engines
 
-.include <bsd.opts.mk>
+.include <bsd.own.mk>
 
 LIB=		crypto
 SHLIB_MAJOR=	8
-.warning Building OpenSSL
+
 ALLOW_SHARED_TEXTREL=
 
 NO_LINT=
@@ -438,7 +438,6 @@ _bn_asmpath=	${LCRYPTO_SRC}/crypto/bn/asm
 	${LCRYPTO_SRC}/crypto/cms \
 	${LCRYPTO_SRC}/crypto/comp \
 	${LCRYPTO_SRC}/crypto/conf \
-	${LCRYPTO_SRC}/crypto/crypto \
 	${LCRYPTO_SRC}/crypto/des \
 	${LCRYPTO_SRC}/crypto/dh \
 	${LCRYPTO_SRC}/crypto/dsa \
@@ -483,4 +482,4 @@ _bn_asmpath=	${LCRYPTO_SRC}/crypto/bn/asm
 
 .else
 .include "Makefile.libressl"
-.endif # ${MK_OPENSSL} != "no"
+.endif # !"${WITH_LIBRESSL}" == "yes"
