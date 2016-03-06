@@ -6,11 +6,12 @@ LIBADD= ssl crypto
 
 MAN1=	openssl.1
 
+.if exists(Makefile.man.libressl)
+.include "Makefile.man.libressl"
+.endif
 .include "../../lib/libcrypto/Makefile.inc.libressl"
 
 CFLAGS+=        -DMONOLITH
-
-.warning Building for LibreSSL ${OPENSSL_VER}
 
 SRCS=	apps.c apps_posix.c asn1pars.c ca.c certhash.c ciphers.c cms.c crl.c \
 	crl2p7.c dgst.c dh.c dhparam.c dsa.c dsaparam.c ec.c ecparam.c enc.c \
