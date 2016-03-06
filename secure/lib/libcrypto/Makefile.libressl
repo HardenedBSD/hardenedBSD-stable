@@ -25,7 +25,7 @@ PICFLAG=-fPIC
 INCS+=	crypto.h opensslv.h ossl_typ.h
 INCS+=  aes.h asn1.h asn1_mac.h asn1t.h
 INCS+=  blowfish.h bio.h bn.h buffer.h 
-INCS+=  camellia.h cast.h chacha.h cmac.h cms.h comp.h conf.h conf_api.h crypto.h 
+INCS+=  camellia.h cast.h chacha.h cmac.h cms.h comp.h conf.h conf_api.h
 INCS+=  des.h dh.h dsa.h dso.h 
 INCS+=  ec.h ecdh.h ecdsa.h engine.h err.h evp.h 
 INCS+=  gost.h hmac.h idea.h krb5_asn.h lhash.h 
@@ -281,6 +281,49 @@ SRCS+= v3_int.c v3_enum.c v3_sxnet.c v3_cpols.c v3_crld.c v3_purp.c v3_info.c
 SRCS+= v3_ocsp.c v3_akeya.c v3_pmaps.c v3_pcons.c v3_ncons.c v3_pcia.c v3_pci.c
 SRCS+= pcy_cache.c pcy_node.c pcy_data.c pcy_map.c pcy_tree.c pcy_lib.c
 
+.if ${MACHINE_CPUARCH} == "amd64"
+# aes
+CFLAGS+= -DAES_ASM -DBSAES_ASM -DVPAES_ASM
+SRCS+= aes-elf-x86_64.s bsaes-elf-x86_64.s vpaes-elf-x86_64.s aesni-elf-x86_64.s \
+	aesni-sha1-elf-x86_64.s bn_asm.c
+# bf
+SRCS+= bf_enc.c
+# bn
+CFLAGS+= -DOPENSSL_IA32_SSE2 -DRSA_ASM -DOPENSSL_BN_ASM_MONT -DOPENSSL_BN_ASM_MONT5 -DOPENSSL_BN_ASM_GF2m
+SRCS+= modexp512-elf-x86_64.s mont-elf-x86_64.s mont5-elf-x86_64.s gf2m-elf-x86_64.s 
+# camellia
+SRCS+= cmll_misc.c cmll-elf-x86_64.s
+# des
+SRCS+= des_enc.c fcrypt_b.c
+# md5
+CFLAGS+= -DMD5_ASM
+SRCS+= md5-elf-x86_64.s
+# modes
+CFLAGS+= -DGHASH_ASM
+SRCS+= ghash-elf-x86_64.s
+# rc4
+CFLAGS+= -DRC4_MD5_ASM
+SRCS+= rc4-elf-x86_64.s rc4-md5-elf-x86_64.s
+# sha
+CFLAGS+= -DSHA1_ASM -DSHA256_ASM -DSHA512_ASM
+SRCS+= sha1-elf-x86_64.s sha256-elf-x86_64.S sha512-elf-x86_64.S
+# whrlpool
+FLAGS+= -DWHIRLPOOL_ASM
+SRCS+= wp-elf-x86_64.s wp-macosx-x86_64.s 
+# 
+CFLAGS+= -DOPENSSL_CPUID_OBJ
+SRCS+= cpuid-elf-x86_64.S
+.else
+CFLAGS+=-DOPENSSL_NO_ASM
+SRCS+= aes_core.c aes_cbc.c
+SRCS+= bf_enc.c
+SRCS+= bn_asm.c
+SRCS+= camellia.c cmll_cbc.c cmll_misc.c
+SRCS+= des_enc.c fcrypt_b.c
+SRCS+= rc4_enc.c rc4_skey.c
+SRCS+= wp_block.c
+.endif # CPUARCH amd64
+
 .include <bsd.lib.mk>
 
 .PATH:	${LCRYPTO_SRC} \
@@ -371,8 +414,10 @@ CFLAGS+= -I${.OBJDIR}
 
 CLEANFILES=${GENERATED} obj_mac.num.tmp
 
-.if exists (${.CURDIR}/arch/${MACHINE_CPUARCH}/Makefile.inc)
-.include "${.CURDIR}/arch/${MACHINE_CPUARCH}/Makefile.inc"
+.if 1 == 2
+
+.if exists (${.CURDIR}/${MACHINE_CPUARCH}/Makefile.inc.libressl)
+.include "${.CURDIR}/${MACHINE_CPUARCH}/Makefile.inc.libressl"
 .else
 CFLAGS+=-DOPENSSL_NO_ASM
 SRCS+= aes_core.c aes_cbc.c
@@ -383,7 +428,6 @@ SRCS+= des_enc.c fcrypt_b.c
 SRCS+= rc4_enc.c rc4_skey.c
 SRCS+= wp_block.c
 .endif
+.endif # 1 == 2
 
 all beforedepend: ${GENERATED}
-
-.include <bsd.lib.mk>
