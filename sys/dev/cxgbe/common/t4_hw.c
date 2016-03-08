@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2012 Chelsio Communications, Inc.
+ * Copyright (c) 2012, 2016 Chelsio Communications, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -342,6 +342,43 @@ int t4_wr_mbox_meat(struct adapter *adap, int mbox, const void *cmd, int size,
 	if (t4_read_reg(adap, A_PCIE_FW) & F_PCIE_FW_ERR)
 		t4_report_fw_error(adap);
 	return -ETIMEDOUT;
+}
+
+static int t4_edc_err_read(struct adapter *adap, int idx)
+{
+	u32 edc_ecc_err_addr_reg;
+	u32 edc_bist_status_rdata_reg;
+
+	if (is_t4(adap)) {
+		CH_WARN(adap, "%s: T4 NOT supported.\n", __func__);
+		return 0;
+	}
+	if (idx != 0 && idx != 1) {
+		CH_WARN(adap, "%s: idx %d NOT supported.\n", __func__, idx);
+		return 0;
+	}
+
+	edc_ecc_err_addr_reg = EDC_T5_REG(A_EDC_H_ECC_ERR_ADDR, idx);
+	edc_bist_status_rdata_reg = EDC_T5_REG(A_EDC_H_BIST_STATUS_RDATA, idx);
+
+	CH_WARN(adap,
+		"edc%d err addr 0x%x: 0x%x.\n",
+		idx, edc_ecc_err_addr_reg,
+		t4_read_reg(adap, edc_ecc_err_addr_reg));
+	CH_WARN(adap,
+	 	"bist: 0x%x, status %llx %llx %llx %llx %llx %llx %llx %llx %llx.\n",
+		edc_bist_status_rdata_reg,
+		(unsigned long long)t4_read_reg64(adap, edc_bist_status_rdata_reg),
+		(unsigned long long)t4_read_reg64(adap, edc_bist_status_rdata_reg + 8),
+		(unsigned long long)t4_read_reg64(adap, edc_bist_status_rdata_reg + 16),
+		(unsigned long long)t4_read_reg64(adap, edc_bist_status_rdata_reg + 24),
+		(unsigned long long)t4_read_reg64(adap, edc_bist_status_rdata_reg + 32),
+		(unsigned long long)t4_read_reg64(adap, edc_bist_status_rdata_reg + 40),
+		(unsigned long long)t4_read_reg64(adap, edc_bist_status_rdata_reg + 48),
+		(unsigned long long)t4_read_reg64(adap, edc_bist_status_rdata_reg + 56),
+		(unsigned long long)t4_read_reg64(adap, edc_bist_status_rdata_reg + 64));
+
+	return 0;
 }
 
 /**
@@ -3867,11 +3904,14 @@ int t4_restart_aneg(struct adapter *adap, unsigned int mbox, unsigned int port)
 	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
 }
 
+typedef void (*int_handler_t)(struct adapter *adap);
+
 struct intr_info {
-	unsigned int mask;       /* bits to check in interrupt status */
-	const char *msg;         /* message to print or NULL */
-	short stat_idx;          /* stat counter to increment or -1 */
-	unsigned short fatal;    /* whether the condition reported is fatal */
+	unsigned int mask;	/* bits to check in interrupt status */
+	const char *msg;	/* message to print or NULL */
+	short stat_idx;		/* stat counter to increment or -1 */
+	unsigned short fatal;	/* whether the condition reported is fatal */
+	int_handler_t int_handler;	/* platform-specific int handler */
 };
 
 /**
@@ -3882,7 +3922,7 @@ struct intr_info {
  *
  *	A table driven interrupt handler that applies a set of masks to an
  *	interrupt status word and performs the corresponding actions if the
- *	interrupts described by the mask have occured.  The actions include
+ *	interrupts described by the mask have occurred.  The actions include
  *	optionally emitting a warning or alert message.  The table is terminated
  *	by an entry specifying mask 0.  Returns the number of fatal interrupt
  *	conditions.
@@ -3899,15 +3939,17 @@ static int t4_handle_intr_status(struct adapter *adapter, unsigned int reg,
 			continue;
 		if (acts->fatal) {
 			fatal++;
-			CH_ALERT(adapter, "%s (0x%x)\n",
-				 acts->msg, status & acts->mask);
+			CH_ALERT(adapter, "%s (0x%x)\n", acts->msg,
+				  status & acts->mask);
 		} else if (acts->msg)
-			CH_WARN_RATELIMIT(adapter, "%s (0x%x)\n",
-					  acts->msg, status & acts->mask);
+			CH_WARN_RATELIMIT(adapter, "%s (0x%x)\n", acts->msg,
+				 status & acts->mask);
+		if (acts->int_handler)
+			acts->int_handler(adapter);
 		mask |= acts->mask;
 	}
 	status &= mask;
-	if (status)                           /* clear processed interrupts */
+	if (status)	/* clear processed interrupts */
 		t4_write_reg(adapter, reg, status);
 	return fatal;
 }
@@ -3917,7 +3959,7 @@ static int t4_handle_intr_status(struct adapter *adapter, unsigned int reg,
  */
 static void pcie_intr_handler(struct adapter *adapter)
 {
-	static struct intr_info sysbus_intr_info[] = {
+	static const struct intr_info sysbus_intr_info[] = {
 		{ F_RNPP, "RXNP array parity error", -1, 1 },
 		{ F_RPCP, "RXPC array parity error", -1, 1 },
 		{ F_RCIP, "RXCIF array parity error", -1, 1 },
@@ -3925,7 +3967,7 @@ static void pcie_intr_handler(struct adapter *adapter)
 		{ F_RFTP, "RXFT array parity error", -1, 1 },
 		{ 0 }
 	};
-	static struct intr_info pcie_port_intr_info[] = {
+	static const struct intr_info pcie_port_intr_info[] = {
 		{ F_TPCP, "TXPC array parity error", -1, 1 },
 		{ F_TNPP, "TXNP array parity error", -1, 1 },
 		{ F_TFTP, "TXFT array parity error", -1, 1 },
@@ -3937,7 +3979,7 @@ static void pcie_intr_handler(struct adapter *adapter)
 		{ F_TDUE, "Tx uncorrectable data error", -1, 1 },
 		{ 0 }
 	};
-	static struct intr_info pcie_intr_info[] = {
+	static const struct intr_info pcie_intr_info[] = {
 		{ F_MSIADDRLPERR, "MSI AddrL parity error", -1, 1 },
 		{ F_MSIADDRHPERR, "MSI AddrH parity error", -1, 1 },
 		{ F_MSIDATAPERR, "MSI data parity error", -1, 1 },
@@ -3972,7 +4014,7 @@ static void pcie_intr_handler(struct adapter *adapter)
 		{ 0 }
 	};
 
-	static struct intr_info t5_pcie_intr_info[] = {
+	static const struct intr_info t5_pcie_intr_info[] = {
 		{ F_MSTGRPPERR, "Master Response Read Queue parity error",
 		  -1, 1 },
 		{ F_MSTTIMEOUTPERR, "Master Timeout FIFO parity error", -1, 1 },
@@ -4017,13 +4059,13 @@ static void pcie_intr_handler(struct adapter *adapter)
 
 	if (is_t4(adapter))
 		fat = t4_handle_intr_status(adapter,
-					    A_PCIE_CORE_UTL_SYSTEM_BUS_AGENT_STATUS,
-					    sysbus_intr_info) +
-		      t4_handle_intr_status(adapter,
-					    A_PCIE_CORE_UTL_PCI_EXPRESS_PORT_STATUS,
-					    pcie_port_intr_info) +
-		      t4_handle_intr_status(adapter, A_PCIE_INT_CAUSE,
-					    pcie_intr_info);
+				A_PCIE_CORE_UTL_SYSTEM_BUS_AGENT_STATUS,
+				sysbus_intr_info) +
+			t4_handle_intr_status(adapter,
+					A_PCIE_CORE_UTL_PCI_EXPRESS_PORT_STATUS,
+					pcie_port_intr_info) +
+			t4_handle_intr_status(adapter, A_PCIE_INT_CAUSE,
+					      pcie_intr_info);
 	else
 		fat = t4_handle_intr_status(adapter, A_PCIE_INT_CAUSE,
 					    t5_pcie_intr_info);
@@ -4036,7 +4078,7 @@ static void pcie_intr_handler(struct adapter *adapter)
  */
 static void tp_intr_handler(struct adapter *adapter)
 {
-	static struct intr_info tp_intr_info[] = {
+	static const struct intr_info tp_intr_info[] = {
 		{ 0x3fffffff, "TP parity error", -1, 1 },
 		{ F_FLMTXFLSTEMPTY, "TP out of Tx pages", -1, 1 },
 		{ 0 }
@@ -4054,13 +4096,13 @@ static void sge_intr_handler(struct adapter *adapter)
 	u64 v;
 	u32 err;
 
-	static struct intr_info sge_intr_info[] = {
+	static const struct intr_info sge_intr_info[] = {
 		{ F_ERR_CPL_EXCEED_IQE_SIZE,
 		  "SGE received CPL exceeding IQE size", -1, 1 },
 		{ F_ERR_INVALID_CIDX_INC,
 		  "SGE GTS CIDX increment too large", -1, 0 },
 		{ F_ERR_CPL_OPCODE_0, "SGE received 0-length CPL", -1, 0 },
-		{ F_ERR_DROPPED_DB, "SGE doorbell dropped", -1, 0 },
+		{ F_DBFIFO_LP_INT, NULL, -1, 0, t4_db_full },
 		{ F_ERR_DATA_CPL_ON_HIGH_QID1 | F_ERR_DATA_CPL_ON_HIGH_QID0,
 		  "SGE IQID > 1023 received CPL for FL", -1, 0 },
 		{ F_ERR_BAD_DB_PIDX3, "SGE DBP 3 pidx increment too large", -1,
@@ -4073,23 +4115,47 @@ static void sge_intr_handler(struct adapter *adapter)
 		  0 },
 		{ F_ERR_ING_CTXT_PRIO,
 		  "SGE too many priority ingress contexts", -1, 0 },
-		{ F_ERR_EGR_CTXT_PRIO,
-		  "SGE too many priority egress contexts", -1, 0 },
 		{ F_INGRESS_SIZE_ERR, "SGE illegal ingress QID", -1, 0 },
 		{ F_EGRESS_SIZE_ERR, "SGE illegal egress QID", -1, 0 },
 		{ 0 }
 	};
 
+	static const struct intr_info t4t5_sge_intr_info[] = {
+		{ F_ERR_DROPPED_DB, NULL, -1, 0, t4_db_dropped },
+		{ F_DBFIFO_HP_INT, NULL, -1, 0, t4_db_full },
+		{ F_ERR_EGR_CTXT_PRIO,
+		  "SGE too many priority egress contexts", -1, 0 },
+		{ 0 }
+	};
+
+	/*
+ 	* For now, treat below interrupts as fatal so that we disable SGE and
+ 	* get better debug */
+	static const struct intr_info t6_sge_intr_info[] = {
+		{ F_ERR_PCIE_ERROR0 | F_ERR_PCIE_ERROR1,
+		  "SGE PCIe error for a DBP thread", -1, 1 },
+		{ F_FATAL_WRE_LEN,
+		  "SGE Actual WRE packet is less than advertized length",
+		  -1, 1 },
+		{ 0 }
+	};
+
 	v = (u64)t4_read_reg(adapter, A_SGE_INT_CAUSE1) |
-	    ((u64)t4_read_reg(adapter, A_SGE_INT_CAUSE2) << 32);
+		((u64)t4_read_reg(adapter, A_SGE_INT_CAUSE2) << 32);
 	if (v) {
 		CH_ALERT(adapter, "SGE parity error (%#llx)\n",
-			 (unsigned long long)v);
+				(unsigned long long)v);
 		t4_write_reg(adapter, A_SGE_INT_CAUSE1, v);
 		t4_write_reg(adapter, A_SGE_INT_CAUSE2, v >> 32);
 	}
 
 	v |= t4_handle_intr_status(adapter, A_SGE_INT_CAUSE3, sge_intr_info);
+	if (chip_id(adapter) <= CHELSIO_T5)
+		v |= t4_handle_intr_status(adapter, A_SGE_INT_CAUSE3,
+					   t4t5_sge_intr_info);
+	else
+		v |= t4_handle_intr_status(adapter, A_SGE_INT_CAUSE3,
+					   t6_sge_intr_info);
 
 	err = t4_read_reg(adapter, A_SGE_ERROR_STATS);
 	if (err & F_ERROR_QID_VALID) {
@@ -4114,7 +4180,7 @@ static void sge_intr_handler(struct adapter *adapter)
  */
 static void cim_intr_handler(struct adapter *adapter)
 {
-	static struct intr_info cim_intr_info[] = {
+	static const struct intr_info cim_intr_info[] = {
 		{ F_PREFDROPINT, "CIM control register prefetch drop", -1, 1 },
 		{ CIM_OBQ_INTR, "CIM OBQ parity error", -1, 1 },
 		{ CIM_IBQ_INTR, "CIM IBQ parity error", -1, 1 },
@@ -4124,7 +4190,7 @@ static void cim_intr_handler(struct adapter *adapter)
 		{ F_TIEQOUTPARERRINT, "CIM TIEQ incoming parity error", -1, 1 },
 		{ 0 }
 	};
-	static struct intr_info cim_upintr_info[] = {
+	static const struct intr_info cim_upintr_info[] = {
 		{ F_RSVDSPACEINT, "CIM reserved space access", -1, 1 },
 		{ F_ILLTRANSINT, "CIM illegal transaction", -1, 1 },
 		{ F_ILLWRINT, "CIM illegal write", -1, 1 },
@@ -4173,7 +4239,7 @@ static void cim_intr_handler(struct adapter *adapter)
  */
 static void ulprx_intr_handler(struct adapter *adapter)
 {
-	static struct intr_info ulprx_intr_info[] = {
+	static const struct intr_info ulprx_intr_info[] = {
 		{ F_CAUSE_CTX_1, "ULPRX channel 1 context error", -1, 1 },
 		{ F_CAUSE_CTX_0, "ULPRX channel 0 context error", -1, 1 },
 		{ 0x7fffff, "ULPRX parity error", -1, 1 },
@@ -4189,7 +4255,7 @@ static void ulprx_intr_handler(struct adapter *adapter)
  */
 static void ulptx_intr_handler(struct adapter *adapter)
 {
-	static struct intr_info ulptx_intr_info[] = {
+	static const struct intr_info ulptx_intr_info[] = {
 		{ F_PBL_BOUND_ERR_CH3, "ULPTX channel 3 PBL out of bounds", -1,
 		  0 },
 		{ F_PBL_BOUND_ERR_CH2, "ULPTX channel 2 PBL out of bounds", -1,
@@ -4211,7 +4277,7 @@ static void ulptx_intr_handler(struct adapter *adapter)
  */
 static void pmtx_intr_handler(struct adapter *adapter)
 {
-	static struct intr_info pmtx_intr_info[] = {
+	static const struct intr_info pmtx_intr_info[] = {
 		{ F_PCMD_LEN_OVFL0, "PMTX channel 0 pcmd too large", -1, 1 },
 		{ F_PCMD_LEN_OVFL1, "PMTX channel 1 pcmd too large", -1, 1 },
 		{ F_PCMD_LEN_OVFL2, "PMTX channel 2 pcmd too large", -1, 1 },
@@ -4234,7 +4300,7 @@ static void pmtx_intr_handler(struct adapter *adapter)
  */
 static void pmrx_intr_handler(struct adapter *adapter)
 {
-	static struct intr_info pmrx_intr_info[] = {
+	static const struct intr_info pmrx_intr_info[] = {
 		{ F_ZERO_E_CMD_ERROR, "PMRX 0-length pcmd", -1, 1 },
 		{ 0x3ffff0, "PMRX framing error", -1, 1 },
 		{ F_OCSPI_PAR_ERROR, "PMRX ocspi parity error", -1, 1 },
@@ -4254,7 +4320,7 @@ static void pmrx_intr_handler(struct adapter *adapter)
  */
 static void cplsw_intr_handler(struct adapter *adapter)
 {
-	static struct intr_info cplsw_intr_info[] = {
+	static const struct intr_info cplsw_intr_info[] = {
 		{ F_CIM_OP_MAP_PERR, "CPLSW CIM op_map parity error", -1, 1 },
 		{ F_CIM_OVFL_ERROR, "CPLSW CIM overflow", -1, 1 },
 		{ F_TP_FRAMING_ERROR, "CPLSW TP framing error", -1, 1 },
@@ -4273,7 +4339,8 @@ static void cplsw_intr_handler(struct adapter *adapter)
  */
 static void le_intr_handler(struct adapter *adap)
 {
-	static struct intr_info le_intr_info[] = {
+	unsigned int chip_ver = chip_id(adap);
+	static const struct intr_info le_intr_info[] = {
 		{ F_LIPMISS, "LE LIP miss", -1, 0 },
 		{ F_LIP0, "LE 0 LIP error", -1, 0 },
 		{ F_PARITYERR, "LE parity error", -1, 1 },
@@ -4282,7 +4349,18 @@ static void le_intr_handler(struct adapter *adap)
 		{ 0 }
 	};
 
-	if (t4_handle_intr_status(adap, A_LE_DB_INT_CAUSE, le_intr_info))
+	static const struct intr_info t6_le_intr_info[] = {
+		{ F_T6_LIPMISS, "LE LIP miss", -1, 0 },
+		{ F_T6_LIP0, "LE 0 LIP error", -1, 0 },
+		{ F_TCAMINTPERR, "LE parity error", -1, 1 },
+		{ F_T6_UNKNOWNCMD, "LE unknown command", -1, 1 },
+		{ F_SSRAMINTPERR, "LE request queue parity error", -1, 1 },
+		{ 0 }
+	};
+
+	if (t4_handle_intr_status(adap, A_LE_DB_INT_CAUSE,
+				  (chip_ver <= CHELSIO_T5) ?
+				  le_intr_info : t6_le_intr_info))
 		t4_fatal_err(adap);
 }
 
@@ -4291,11 +4369,11 @@ static void le_intr_handler(struct adapter *adap)
  */
 static void mps_intr_handler(struct adapter *adapter)
 {
-	static struct intr_info mps_rx_intr_info[] = {
+	static const struct intr_info mps_rx_intr_info[] = {
 		{ 0xffffff, "MPS Rx parity error", -1, 1 },
 		{ 0 }
 	};
-	static struct intr_info mps_tx_intr_info[] = {
+	static const struct intr_info mps_tx_intr_info[] = {
 		{ V_TPFIFO(M_TPFIFO), "MPS Tx TP FIFO parity error", -1, 1 },
 		{ F_NCSIFIFO, "MPS Tx NC-SI FIFO parity error", -1, 1 },
 		{ V_TXDATAFIFO(M_TXDATAFIFO), "MPS Tx data FIFO parity error",
@@ -4307,26 +4385,26 @@ static void mps_intr_handler(struct adapter *adapter)
 		{ F_FRMERR, "MPS Tx framing error", -1, 1 },
 		{ 0 }
 	};
-	static struct intr_info mps_trc_intr_info[] = {
+	static const struct intr_info mps_trc_intr_info[] = {
 		{ V_FILTMEM(M_FILTMEM), "MPS TRC filter parity error", -1, 1 },
 		{ V_PKTFIFO(M_PKTFIFO), "MPS TRC packet FIFO parity error", -1,
 		  1 },
 		{ F_MISCPERR, "MPS TRC misc parity error", -1, 1 },
 		{ 0 }
 	};
-	static struct intr_info mps_stat_sram_intr_info[] = {
+	static const struct intr_info mps_stat_sram_intr_info[] = {
 		{ 0x1fffff, "MPS statistics SRAM parity error", -1, 1 },
 		{ 0 }
 	};
-	static struct intr_info mps_stat_tx_intr_info[] = {
+	static const struct intr_info mps_stat_tx_intr_info[] = {
 		{ 0xfffff, "MPS statistics Tx FIFO parity error", -1, 1 },
 		{ 0 }
 	};
-	static struct intr_info mps_stat_rx_intr_info[] = {
+	static const struct intr_info mps_stat_rx_intr_info[] = {
 		{ 0xffffff, "MPS statistics Rx FIFO parity error", -1, 1 },
 		{ 0 }
 	};
-	static struct intr_info mps_cls_intr_info[] = {
+	static const struct intr_info mps_cls_intr_info[] = {
 		{ F_MATCHSRAM, "MPS match SRAM parity error", -1, 1 },
 		{ F_MATCHTCAM, "MPS match TCAM parity error", -1, 1 },
 		{ F_HASHSRAM, "MPS hash SRAM parity error", -1, 1 },
@@ -4351,26 +4429,27 @@ static void mps_intr_handler(struct adapter *adapter)
 				    mps_cls_intr_info);
 
 	t4_write_reg(adapter, A_MPS_INT_CAUSE, 0);
-	t4_read_reg(adapter, A_MPS_INT_CAUSE);                    /* flush */
+	t4_read_reg(adapter, A_MPS_INT_CAUSE);	/* flush */
 	if (fat)
 		t4_fatal_err(adapter);
 }
 
-#define MEM_INT_MASK (F_PERR_INT_CAUSE | F_ECC_CE_INT_CAUSE | F_ECC_UE_INT_CAUSE)
+#define MEM_INT_MASK (F_PERR_INT_CAUSE | F_ECC_CE_INT_CAUSE | \
+		      F_ECC_UE_INT_CAUSE)
 
 /*
  * EDC/MC interrupt handler.
  */
 static void mem_intr_handler(struct adapter *adapter, int idx)
 {
-	static const char name[3][5] = { "EDC0", "EDC1", "MC" };
+	static const char name[4][7] = { "EDC0", "EDC1", "MC/MC0", "MC1" };
 
 	unsigned int addr, cnt_addr, v;
 
 	if (idx <= MEM_EDC1) {
 		addr = EDC_REG(A_EDC_INT_CAUSE, idx);
 		cnt_addr = EDC_REG(A_EDC_ECC_STATUS, idx);
-	} else {
+	} else if (idx == MEM_MC) {
 		if (is_t4(adapter)) {
 			addr = A_MC_INT_CAUSE;
 			cnt_addr = A_MC_ECC_STATUS;
@@ -4378,13 +4457,19 @@ static void mem_intr_handler(struct adapter *adapter, int idx)
 			addr = A_MC_P_INT_CAUSE;
 			cnt_addr = A_MC_P_ECC_STATUS;
 		}
+	} else {
+		addr = MC_REG(A_MC_P_INT_CAUSE, 1);
+		cnt_addr = MC_REG(A_MC_P_ECC_STATUS, 1);
 	}
 
 	v = t4_read_reg(adapter, addr) & MEM_INT_MASK;
 	if (v & F_PERR_INT_CAUSE)
-		CH_ALERT(adapter, "%s FIFO parity error\n", name[idx]);
+		CH_ALERT(adapter, "%s FIFO parity error\n",
+			  name[idx]);
 	if (v & F_ECC_CE_INT_CAUSE) {
 		u32 cnt = G_ECC_CECNT(t4_read_reg(adapter, cnt_addr));
+
+		t4_edc_err_read(adapter, idx);
 
 		t4_write_reg(adapter, cnt_addr, V_ECC_CECNT(M_ECC_CECNT));
 		CH_WARN_RATELIMIT(adapter,
@@ -4392,8 +4477,8 @@ static void mem_intr_handler(struct adapter *adapter, int idx)
 				  cnt, name[idx], cnt > 1 ? "s" : "");
 	}
 	if (v & F_ECC_UE_INT_CAUSE)
-		CH_ALERT(adapter, "%s uncorrectable ECC data error\n",
-			 name[idx]);
+		CH_ALERT(adapter,
+			 "%s uncorrectable ECC data error\n", name[idx]);
 
 	t4_write_reg(adapter, addr, v);
 	if (v & (F_PERR_INT_CAUSE | F_ECC_UE_INT_CAUSE))
@@ -4408,19 +4493,21 @@ static void ma_intr_handler(struct adapter *adapter)
 	u32 v, status = t4_read_reg(adapter, A_MA_INT_CAUSE);
 
 	if (status & F_MEM_PERR_INT_CAUSE) {
-		CH_ALERT(adapter, "MA parity error, parity status %#x\n",
-			 t4_read_reg(adapter, A_MA_PARITY_ERROR_STATUS1));
+		CH_ALERT(adapter,
+			  "MA parity error, parity status %#x\n",
+			  t4_read_reg(adapter, A_MA_PARITY_ERROR_STATUS1));
 		if (is_t5(adapter))
 			CH_ALERT(adapter,
-				 "MA parity error, parity status %#x\n",
-				 t4_read_reg(adapter,
-				 	     A_MA_PARITY_ERROR_STATUS2));
+				  "MA parity error, parity status %#x\n",
+				  t4_read_reg(adapter,
+					      A_MA_PARITY_ERROR_STATUS2));
 	}
 	if (status & F_MEM_WRAP_INT_CAUSE) {
 		v = t4_read_reg(adapter, A_MA_INT_WRAP_STATUS);
-		CH_ALERT(adapter, "MA address wrap-around error by client %u to"
-			 " address %#x\n", G_MEM_WRAP_CLIENT_NUM(v),
-			 G_MEM_WRAP_ADDRESS(v) << 4);
+		CH_ALERT(adapter, "MA address wrap-around error by "
+			  "client %u to address %#x\n",
+			  G_MEM_WRAP_CLIENT_NUM(v),
+			  G_MEM_WRAP_ADDRESS(v) << 4);
 	}
 	t4_write_reg(adapter, A_MA_INT_CAUSE, status);
 	t4_fatal_err(adapter);
@@ -4431,7 +4518,7 @@ static void ma_intr_handler(struct adapter *adapter)
  */
 static void smb_intr_handler(struct adapter *adap)
 {
-	static struct intr_info smb_intr_info[] = {
+	static const struct intr_info smb_intr_info[] = {
 		{ F_MSTTXFIFOPARINT, "SMB master Tx FIFO parity error", -1, 1 },
 		{ F_MSTRXFIFOPARINT, "SMB master Rx FIFO parity error", -1, 1 },
 		{ F_SLVFIFOPARINT, "SMB slave FIFO parity error", -1, 1 },
@@ -4447,7 +4534,7 @@ static void smb_intr_handler(struct adapter *adap)
  */
 static void ncsi_intr_handler(struct adapter *adap)
 {
-	static struct intr_info ncsi_intr_info[] = {
+	static const struct intr_info ncsi_intr_info[] = {
 		{ F_CIM_DM_PRTY_ERR, "NC-SI CIM parity error", -1, 1 },
 		{ F_MPS_DM_PRTY_ERR, "NC-SI MPS parity error", -1, 1 },
 		{ F_TXFIFO_PRTY_ERR, "NC-SI Tx FIFO parity error", -1, 1 },
@@ -4472,14 +4559,17 @@ static void xgmac_intr_handler(struct adapter *adap, int port)
 		int_cause_reg = T5_PORT_REG(port, A_MAC_PORT_INT_CAUSE);
 
 	v = t4_read_reg(adap, int_cause_reg);
+
 	v &= (F_TXFIFO_PRTY_ERR | F_RXFIFO_PRTY_ERR);
 	if (!v)
 		return;
 
 	if (v & F_TXFIFO_PRTY_ERR)
-		CH_ALERT(adap, "XGMAC %d Tx FIFO parity error\n", port);
+		CH_ALERT(adap, "XGMAC %d Tx FIFO parity error\n",
+			  port);
 	if (v & F_RXFIFO_PRTY_ERR)
-		CH_ALERT(adap, "XGMAC %d Rx FIFO parity error\n", port);
+		CH_ALERT(adap, "XGMAC %d Rx FIFO parity error\n",
+			  port);
 	t4_write_reg(adap, int_cause_reg, v);
 	t4_fatal_err(adap);
 }
@@ -4489,27 +4579,24 @@ static void xgmac_intr_handler(struct adapter *adap, int port)
  */
 static void pl_intr_handler(struct adapter *adap)
 {
-	static struct intr_info pl_intr_info[] = {
+	static const struct intr_info pl_intr_info[] = {
 		{ F_FATALPERR, "Fatal parity error", -1, 1 },
 		{ F_PERRVFID, "PL VFID_MAP parity error", -1, 1 },
 		{ 0 }
 	};
 
-	static struct intr_info t5_pl_intr_info[] = {
-		{ F_PL_BUSPERR, "PL bus parity error", -1, 1 },
+	static const struct intr_info t5_pl_intr_info[] = {
 		{ F_FATALPERR, "Fatal parity error", -1, 1 },
 		{ 0 }
 	};
 
 	if (t4_handle_intr_status(adap, A_PL_PL_INT_CAUSE,
-	    is_t4(adap) ?  pl_intr_info : t5_pl_intr_info))
+				  is_t4(adap) ?
+				  pl_intr_info : t5_pl_intr_info))
 		t4_fatal_err(adap);
 }
 
 #define PF_INTR_MASK (F_PFSW | F_PFCIM)
-#define GLBL_INTR_MASK (F_CIM | F_MPS | F_PL | F_PCIE | F_MC | F_EDC0 | \
-		F_EDC1 | F_LE | F_TP | F_MA | F_PM_TX | F_PM_RX | F_ULP_RX | \
-		F_CPL_SWITCH | F_SGE | F_ULP_TX)
 
 /**
  *	t4_slow_intr_handler - control path interrupt handler
@@ -4535,18 +4622,20 @@ int t4_slow_intr_handler(struct adapter *adapter)
 		pl_intr_handler(adapter);
 	if (cause & F_SMB)
 		smb_intr_handler(adapter);
-	if (cause & F_XGMAC0)
+	if (cause & F_MAC0)
 		xgmac_intr_handler(adapter, 0);
-	if (cause & F_XGMAC1)
+	if (cause & F_MAC1)
 		xgmac_intr_handler(adapter, 1);
-	if (cause & F_XGMAC_KR0)
+	if (cause & F_MAC2)
 		xgmac_intr_handler(adapter, 2);
-	if (cause & F_XGMAC_KR1)
+	if (cause & F_MAC3)
 		xgmac_intr_handler(adapter, 3);
 	if (cause & F_PCIE)
 		pcie_intr_handler(adapter);
-	if (cause & F_MC)
+	if (cause & F_MC0)
 		mem_intr_handler(adapter, MEM_MC);
+	if (is_t5(adapter) && (cause & F_MC1))
+		mem_intr_handler(adapter, MEM_MC1);
 	if (cause & F_EDC0)
 		mem_intr_handler(adapter, MEM_EDC0);
 	if (cause & F_EDC1)
@@ -4572,7 +4661,7 @@ int t4_slow_intr_handler(struct adapter *adapter)
 
 	/* Clear the interrupts just processed for which we are the master. */
 	t4_write_reg(adapter, A_PL_INT_CAUSE, cause & GLBL_INTR_MASK);
-	(void) t4_read_reg(adapter, A_PL_INT_CAUSE); /* flush */
+	(void)t4_read_reg(adapter, A_PL_INT_CAUSE); /* flush */
 	return 1;
 }
 
@@ -4591,16 +4680,23 @@ int t4_slow_intr_handler(struct adapter *adapter)
  */
 void t4_intr_enable(struct adapter *adapter)
 {
-	u32 pf = G_SOURCEPF(t4_read_reg(adapter, A_PL_WHOAMI));
+	u32 val = 0;
+	u32 whoami = t4_read_reg(adapter, A_PL_WHOAMI);
+	u32 pf = (chip_id(adapter) <= CHELSIO_T5
+		  ? G_SOURCEPF(whoami)
+		  : G_T6_SOURCEPF(whoami));
 
+	if (chip_id(adapter) <= CHELSIO_T5)
+		val = F_ERR_DROPPED_DB | F_ERR_EGR_CTXT_PRIO | F_DBFIFO_HP_INT;
+	else
+		val = F_ERR_PCIE_ERROR0 | F_ERR_PCIE_ERROR1 | F_FATAL_WRE_LEN;
 	t4_write_reg(adapter, A_SGE_INT_ENABLE3, F_ERR_CPL_EXCEED_IQE_SIZE |
 		     F_ERR_INVALID_CIDX_INC | F_ERR_CPL_OPCODE_0 |
-		     F_ERR_DROPPED_DB | F_ERR_DATA_CPL_ON_HIGH_QID1 |
+		     F_ERR_DATA_CPL_ON_HIGH_QID1 | F_INGRESS_SIZE_ERR |
 		     F_ERR_DATA_CPL_ON_HIGH_QID0 | F_ERR_BAD_DB_PIDX3 |
 		     F_ERR_BAD_DB_PIDX2 | F_ERR_BAD_DB_PIDX1 |
 		     F_ERR_BAD_DB_PIDX0 | F_ERR_ING_CTXT_PRIO |
-		     F_ERR_EGR_CTXT_PRIO | F_INGRESS_SIZE_ERR |
-		     F_EGRESS_SIZE_ERR);
+		     F_DBFIFO_LP_INT | F_EGRESS_SIZE_ERR | val);
 	t4_write_reg(adapter, MYPF_REG(A_PL_PF_INT_ENABLE), PF_INTR_MASK);
 	t4_set_reg_field(adapter, A_PL_INT_MAP0, 0, 1 << pf);
 }
@@ -4615,7 +4711,10 @@ void t4_intr_enable(struct adapter *adapter)
  */
 void t4_intr_disable(struct adapter *adapter)
 {
-	u32 pf = G_SOURCEPF(t4_read_reg(adapter, A_PL_WHOAMI));
+	u32 whoami = t4_read_reg(adapter, A_PL_WHOAMI);
+	u32 pf = (chip_id(adapter) <= CHELSIO_T5
+		  ? G_SOURCEPF(whoami)
+		  : G_T6_SOURCEPF(whoami));
 
 	t4_write_reg(adapter, MYPF_REG(A_PL_PF_INT_ENABLE), 0);
 	t4_set_reg_field(adapter, A_PL_INT_MAP0, 1 << pf, 0);
@@ -4867,6 +4966,42 @@ int t4_read_rss(struct adapter *adapter, u16 *map)
 }
 
 /**
+ *	t4_fw_tp_pio_rw - Access TP PIO through LDST
+ *	@adap: the adapter
+ *	@vals: where the indirect register values are stored/written
+ *	@nregs: how many indirect registers to read/write
+ *	@start_idx: index of first indirect register to read/write
+ *	@rw: Read (1) or Write (0)
+ *
+ *	Access TP PIO registers through LDST
+ */
+void t4_fw_tp_pio_rw(struct adapter *adap, u32 *vals, unsigned int nregs,
+		     unsigned int start_index, unsigned int rw)
+{
+	int ret, i;
+	int cmd = FW_LDST_ADDRSPC_TP_PIO;
+	struct fw_ldst_cmd c;
+
+	for (i = 0 ; i < nregs; i++) {
+		memset(&c, 0, sizeof(c));
+		c.op_to_addrspace = cpu_to_be32(V_FW_CMD_OP(FW_LDST_CMD) |
+						F_FW_CMD_REQUEST |
+						(rw ? F_FW_CMD_READ :
+						     F_FW_CMD_WRITE) |
+						V_FW_LDST_CMD_ADDRSPACE(cmd));
+		c.cycles_to_len16 = cpu_to_be32(FW_LEN16(c));
+
+		c.u.addrval.addr = cpu_to_be32(start_index + i);
+		c.u.addrval.val  = rw ? 0 : cpu_to_be32(vals[i]);
+		ret = t4_wr_mbox(adap, adap->mbox, &c, sizeof(c), &c);
+		if (ret == 0) {
+			if (rw)
+				vals[i] = be32_to_cpu(c.u.addrval.val);
+		}
+	}
+}
+
+/**
  *	t4_read_rss_key - read the global RSS key
  *	@adap: the adapter
  *	@key: 10-entry array holding the 320-bit RSS key
@@ -4875,8 +5010,11 @@ int t4_read_rss(struct adapter *adapter, u16 *map)
  */
 void t4_read_rss_key(struct adapter *adap, u32 *key)
 {
-	t4_read_indirect(adap, A_TP_PIO_ADDR, A_TP_PIO_DATA, key, 10,
-			 A_TP_RSS_SECRET_KEY0);
+	if (t4_use_ldst(adap))
+		t4_fw_tp_pio_rw(adap, key, 10, A_TP_RSS_SECRET_KEY0, 1);
+	else
+		t4_read_indirect(adap, A_TP_PIO_ADDR, A_TP_PIO_DATA, key, 10,
+				 A_TP_RSS_SECRET_KEY0);
 }
 
 /**
@@ -4889,13 +5027,35 @@ void t4_read_rss_key(struct adapter *adap, u32 *key)
  *	0..15 the corresponding entry in the RSS key table is written,
  *	otherwise the global RSS key is written.
  */
-void t4_write_rss_key(struct adapter *adap, const u32 *key, int idx)
+void t4_write_rss_key(struct adapter *adap, u32 *key, int idx)
 {
-	t4_write_indirect(adap, A_TP_PIO_ADDR, A_TP_PIO_DATA, key, 10,
-			  A_TP_RSS_SECRET_KEY0);
-	if (idx >= 0 && idx < 16)
-		t4_write_reg(adap, A_TP_RSS_CONFIG_VRT,
-			     V_KEYWRADDR(idx) | F_KEYWREN);
+	u8 rss_key_addr_cnt = 16;
+	u32 vrt = t4_read_reg(adap, A_TP_RSS_CONFIG_VRT);
+
+	/*
+	 * T6 and later: for KeyMode 3 (per-vf and per-vf scramble),
+	 * allows access to key addresses 16-63 by using KeyWrAddrX
+	 * as index[5:4](upper 2) into key table
+	 */
+	if ((chip_id(adap) > CHELSIO_T5) &&
+	    (vrt & F_KEYEXTEND) && (G_KEYMODE(vrt) == 3))
+		rss_key_addr_cnt = 32;
+
+	if (t4_use_ldst(adap))
+		t4_fw_tp_pio_rw(adap, key, 10, A_TP_RSS_SECRET_KEY0, 0);
+	else
+		t4_write_indirect(adap, A_TP_PIO_ADDR, A_TP_PIO_DATA, key, 10,
+				  A_TP_RSS_SECRET_KEY0);
+
+	if (idx >= 0 && idx < rss_key_addr_cnt) {
+		if (rss_key_addr_cnt > 16)
+			t4_write_reg(adap, A_TP_RSS_CONFIG_VRT,
+				     V_KEYWRADDRX(idx >> 4) |
+				     V_T6_VFWRADDR(idx) | F_KEYWREN);
+		else
+			t4_write_reg(adap, A_TP_RSS_CONFIG_VRT,
+				     V_KEYWRADDR(idx) | F_KEYWREN);
+	}
 }
 
 /**
@@ -4907,10 +5067,15 @@ void t4_write_rss_key(struct adapter *adap, const u32 *key, int idx)
  *	Reads the PF RSS Configuration Table at the specified index and returns
  *	the value found there.
  */
-void t4_read_rss_pf_config(struct adapter *adapter, unsigned int index, u32 *valp)
+void t4_read_rss_pf_config(struct adapter *adapter, unsigned int index,
+			   u32 *valp)
 {
-	t4_read_indirect(adapter, A_TP_PIO_ADDR, A_TP_PIO_DATA,
-			 valp, 1, A_TP_RSS_PF0_CONFIG + index);
+	if (t4_use_ldst(adapter))
+		t4_fw_tp_pio_rw(adapter, valp, 1,
+				A_TP_RSS_PF0_CONFIG + index, 1);
+	else
+		t4_read_indirect(adapter, A_TP_PIO_ADDR, A_TP_PIO_DATA,
+				 valp, 1, A_TP_RSS_PF0_CONFIG + index);
 }
 
 /**
@@ -4922,10 +5087,15 @@ void t4_read_rss_pf_config(struct adapter *adapter, unsigned int index, u32 *val
  *	Writes the PF RSS Configuration Table at the specified index with the
  *	specified value.
  */
-void t4_write_rss_pf_config(struct adapter *adapter, unsigned int index, u32 val)
+void t4_write_rss_pf_config(struct adapter *adapter, unsigned int index,
+			    u32 val)
 {
-	t4_write_indirect(adapter, A_TP_PIO_ADDR, A_TP_PIO_DATA,
-			  &val, 1, A_TP_RSS_PF0_CONFIG + index);
+	if (t4_use_ldst(adapter))
+		t4_fw_tp_pio_rw(adapter, &val, 1,
+				A_TP_RSS_PF0_CONFIG + index, 0);
+	else
+		t4_write_indirect(adapter, A_TP_PIO_ADDR, A_TP_PIO_DATA,
+				  &val, 1, A_TP_RSS_PF0_CONFIG + index);
 }
 
 /**
@@ -4941,28 +5111,40 @@ void t4_write_rss_pf_config(struct adapter *adapter, unsigned int index, u32 val
 void t4_read_rss_vf_config(struct adapter *adapter, unsigned int index,
 			   u32 *vfl, u32 *vfh)
 {
-	u32 vrt;
+	u32 vrt, mask, data;
 
+	if (chip_id(adapter) <= CHELSIO_T5) {
+		mask = V_VFWRADDR(M_VFWRADDR);
+		data = V_VFWRADDR(index);
+	} else {
+		 mask =  V_T6_VFWRADDR(M_T6_VFWRADDR);
+		 data = V_T6_VFWRADDR(index);
+	}
 	/*
 	 * Request that the index'th VF Table values be read into VFL/VFH.
 	 */
 	vrt = t4_read_reg(adapter, A_TP_RSS_CONFIG_VRT);
-	vrt &= ~(F_VFRDRG | V_VFWRADDR(M_VFWRADDR) | F_VFWREN | F_KEYWREN);
-	vrt |= V_VFWRADDR(index) | F_VFRDEN;
+	vrt &= ~(F_VFRDRG | F_VFWREN | F_KEYWREN | mask);
+	vrt |= data | F_VFRDEN;
 	t4_write_reg(adapter, A_TP_RSS_CONFIG_VRT, vrt);
 
 	/*
 	 * Grab the VFL/VFH values ...
 	 */
-	t4_read_indirect(adapter, A_TP_PIO_ADDR, A_TP_PIO_DATA,
-			 vfl, 1, A_TP_RSS_VFL_CONFIG);
-	t4_read_indirect(adapter, A_TP_PIO_ADDR, A_TP_PIO_DATA,
-			 vfh, 1, A_TP_RSS_VFH_CONFIG);
+	if (t4_use_ldst(adapter)) {
+		t4_fw_tp_pio_rw(adapter, vfl, 1, A_TP_RSS_VFL_CONFIG, 1);
+		t4_fw_tp_pio_rw(adapter, vfh, 1, A_TP_RSS_VFH_CONFIG, 1);
+	} else {
+		t4_read_indirect(adapter, A_TP_PIO_ADDR, A_TP_PIO_DATA,
+				 vfl, 1, A_TP_RSS_VFL_CONFIG);
+		t4_read_indirect(adapter, A_TP_PIO_ADDR, A_TP_PIO_DATA,
+				 vfh, 1, A_TP_RSS_VFH_CONFIG);
+	}
 }
 
 /**
  *	t4_write_rss_vf_config - write VF RSS Configuration Table
- *	
+ *
  *	@adapter: the adapter
  *	@index: the entry in the VF RSS table to write
  *	@vfl: the VFL to store
@@ -4974,22 +5156,35 @@ void t4_read_rss_vf_config(struct adapter *adapter, unsigned int index,
 void t4_write_rss_vf_config(struct adapter *adapter, unsigned int index,
 			    u32 vfl, u32 vfh)
 {
-	u32 vrt;
+	u32 vrt, mask, data;
+
+	if (chip_id(adapter) <= CHELSIO_T5) {
+		mask = V_VFWRADDR(M_VFWRADDR);
+		data = V_VFWRADDR(index);
+	} else {
+		mask =  V_T6_VFWRADDR(M_T6_VFWRADDR);
+		data = V_T6_VFWRADDR(index);
+	}
 
 	/*
 	 * Load up VFL/VFH with the values to be written ...
 	 */
-	t4_write_indirect(adapter, A_TP_PIO_ADDR, A_TP_PIO_DATA,
-			  &vfl, 1, A_TP_RSS_VFL_CONFIG);
-	t4_write_indirect(adapter, A_TP_PIO_ADDR, A_TP_PIO_DATA,
-			  &vfh, 1, A_TP_RSS_VFH_CONFIG);
+	if (t4_use_ldst(adapter)) {
+		t4_fw_tp_pio_rw(adapter, &vfl, 1, A_TP_RSS_VFL_CONFIG, 0);
+		t4_fw_tp_pio_rw(adapter, &vfh, 1, A_TP_RSS_VFH_CONFIG, 0);
+	} else {
+		t4_write_indirect(adapter, A_TP_PIO_ADDR, A_TP_PIO_DATA,
+				  &vfl, 1, A_TP_RSS_VFL_CONFIG);
+		t4_write_indirect(adapter, A_TP_PIO_ADDR, A_TP_PIO_DATA,
+				  &vfh, 1, A_TP_RSS_VFH_CONFIG);
+	}
 
 	/*
 	 * Write the VFL/VFH into the VF Table at index'th location.
 	 */
 	vrt = t4_read_reg(adapter, A_TP_RSS_CONFIG_VRT);
-	vrt &= ~(F_VFRDRG | F_VFRDEN | V_VFWRADDR(M_VFWRADDR) | F_KEYWREN);
-	vrt |= V_VFWRADDR(index) | F_VFWREN;
+	vrt &= ~(F_VFRDRG | F_VFWREN | F_KEYWREN | mask);
+	vrt |= data | F_VFRDEN;
 	t4_write_reg(adapter, A_TP_RSS_CONFIG_VRT, vrt);
 }
 
@@ -5003,8 +5198,11 @@ u32 t4_read_rss_pf_map(struct adapter *adapter)
 {
 	u32 pfmap;
 
-	t4_read_indirect(adapter, A_TP_PIO_ADDR, A_TP_PIO_DATA,
-			 &pfmap, 1, A_TP_RSS_PF_MAP);
+	if (t4_use_ldst(adapter))
+		t4_fw_tp_pio_rw(adapter, &pfmap, 1, A_TP_RSS_PF_MAP, 1);
+	else
+		t4_read_indirect(adapter, A_TP_PIO_ADDR, A_TP_PIO_DATA,
+				 &pfmap, 1, A_TP_RSS_PF_MAP);
 	return pfmap;
 }
 
@@ -5017,8 +5215,11 @@ u32 t4_read_rss_pf_map(struct adapter *adapter)
  */
 void t4_write_rss_pf_map(struct adapter *adapter, u32 pfmap)
 {
-	t4_write_indirect(adapter, A_TP_PIO_ADDR, A_TP_PIO_DATA,
-			  &pfmap, 1, A_TP_RSS_PF_MAP);
+	if (t4_use_ldst(adapter))
+		t4_fw_tp_pio_rw(adapter, &pfmap, 1, A_TP_RSS_PF_MAP, 0);
+	else
+		t4_write_indirect(adapter, A_TP_PIO_ADDR, A_TP_PIO_DATA,
+				  &pfmap, 1, A_TP_RSS_PF_MAP);
 }
 
 /**
@@ -5031,8 +5232,11 @@ u32 t4_read_rss_pf_mask(struct adapter *adapter)
 {
 	u32 pfmask;
 
-	t4_read_indirect(adapter, A_TP_PIO_ADDR, A_TP_PIO_DATA,
-			 &pfmask, 1, A_TP_RSS_PF_MSK);
+	if (t4_use_ldst(adapter))
+		t4_fw_tp_pio_rw(adapter, &pfmask, 1, A_TP_RSS_PF_MSK, 1);
+	else
+		t4_read_indirect(adapter, A_TP_PIO_ADDR, A_TP_PIO_DATA,
+				 &pfmask, 1, A_TP_RSS_PF_MSK);
 	return pfmask;
 }
 
@@ -5045,61 +5249,11 @@ u32 t4_read_rss_pf_mask(struct adapter *adapter)
  */
 void t4_write_rss_pf_mask(struct adapter *adapter, u32 pfmask)
 {
-	t4_write_indirect(adapter, A_TP_PIO_ADDR, A_TP_PIO_DATA,
-			  &pfmask, 1, A_TP_RSS_PF_MSK);
-}
-
-static void refresh_vlan_pri_map(struct adapter *adap)
-{
-
-        t4_read_indirect(adap, A_TP_PIO_ADDR, A_TP_PIO_DATA,
-                         &adap->params.tp.vlan_pri_map, 1,
-                         A_TP_VLAN_PRI_MAP);
-
-	/*
-	 * Now that we have TP_VLAN_PRI_MAP cached, we can calculate the field
-	 * shift positions of several elements of the Compressed Filter Tuple
-	 * for this adapter which we need frequently ...
-	 */
-	adap->params.tp.vlan_shift = t4_filter_field_shift(adap, F_VLAN);
-	adap->params.tp.vnic_shift = t4_filter_field_shift(adap, F_VNIC_ID);
-	adap->params.tp.port_shift = t4_filter_field_shift(adap, F_PORT);
-	adap->params.tp.protocol_shift = t4_filter_field_shift(adap, F_PROTOCOL);
-
-	/*
-	 * If TP_INGRESS_CONFIG.VNID == 0, then TP_VLAN_PRI_MAP.VNIC_ID
-	 * represents the presense of an Outer VLAN instead of a VNIC ID.
-	 */
-	if ((adap->params.tp.ingress_config & F_VNIC) == 0)
-		adap->params.tp.vnic_shift = -1;
-}
-
-/**
- *	t4_set_filter_mode - configure the optional components of filter tuples
- *	@adap: the adapter
- *	@mode_map: a bitmap selcting which optional filter components to enable
- *
- *	Sets the filter mode by selecting the optional components to enable
- *	in filter tuples.  Returns 0 on success and a negative error if the
- *	requested mode needs more bits than are available for optional
- *	components.
- */
-int t4_set_filter_mode(struct adapter *adap, unsigned int mode_map)
-{
-	static u8 width[] = { 1, 3, 17, 17, 8, 8, 16, 9, 3, 1 };
-
-	int i, nbits = 0;
-
-	for (i = S_FCOE; i <= S_FRAGMENTATION; i++)
-		if (mode_map & (1 << i))
-			nbits += width[i];
-	if (nbits > FILTER_OPT_LEN)
-		return -EINVAL;
-	t4_write_indirect(adap, A_TP_PIO_ADDR, A_TP_PIO_DATA, &mode_map, 1,
-			  A_TP_VLAN_PRI_MAP);
-	refresh_vlan_pri_map(adap);
-
-	return 0;
+	if (t4_use_ldst(adapter))
+		t4_fw_tp_pio_rw(adapter, &pfmask, 1, A_TP_RSS_PF_MSK, 0);
+	else
+		t4_write_indirect(adapter, A_TP_PIO_ADDR, A_TP_PIO_DATA,
+				  &pfmask, 1, A_TP_RSS_PF_MSK);
 }
 
 /**
@@ -7633,40 +7787,158 @@ int __devinit t4_prep_adapter(struct adapter *adapter)
 }
 
 /**
- *	t4_init_tp_params - initialize adap->params.tp
- *	@adap: the adapter
+ *	t4_init_sge_params - initialize adap->params.sge
+ *	@adapter: the adapter
  *
- *	Initialize various fields of the adapter's TP Parameters structure.
+ *	Initialize various fields of the adapter's SGE Parameters structure.
  */
-int __devinit t4_init_tp_params(struct adapter *adap)
+int t4_init_sge_params(struct adapter *adapter)
+{
+	u32 r;
+	struct sge_params *sp = &adapter->params.sge;
+
+	r = t4_read_reg(adapter, A_SGE_INGRESS_RX_THRESHOLD);
+	sp->counter_val[0] = G_THRESHOLD_0(r);
+	sp->counter_val[1] = G_THRESHOLD_1(r);
+	sp->counter_val[2] = G_THRESHOLD_2(r);
+	sp->counter_val[3] = G_THRESHOLD_3(r);
+
+	r = t4_read_reg(adapter, A_SGE_TIMER_VALUE_0_AND_1);
+	sp->timer_val[0] = core_ticks_to_us(adapter, G_TIMERVALUE0(r));
+	sp->timer_val[1] = core_ticks_to_us(adapter, G_TIMERVALUE1(r));
+	r = t4_read_reg(adapter, A_SGE_TIMER_VALUE_2_AND_3);
+	sp->timer_val[2] = core_ticks_to_us(adapter, G_TIMERVALUE2(r));
+	sp->timer_val[3] = core_ticks_to_us(adapter, G_TIMERVALUE3(r));
+	r = t4_read_reg(adapter, A_SGE_TIMER_VALUE_4_AND_5);
+	sp->timer_val[4] = core_ticks_to_us(adapter, G_TIMERVALUE4(r));
+	sp->timer_val[5] = core_ticks_to_us(adapter, G_TIMERVALUE5(r));
+
+	r = t4_read_reg(adapter, A_SGE_CONM_CTRL);
+	sp->fl_starve_threshold = G_EGRTHRESHOLD(r) * 2 + 1;
+	if (is_t4(adapter))
+		sp->fl_starve_threshold2 = sp->fl_starve_threshold;
+	else
+		sp->fl_starve_threshold2 = G_EGRTHRESHOLDPACKING(r) * 2 + 1;
+
+	/* egress queues: log2 of # of doorbells per BAR2 page */
+	r = t4_read_reg(adapter, A_SGE_EGRESS_QUEUES_PER_PAGE_PF);
+	r >>= S_QUEUESPERPAGEPF0 +
+	    (S_QUEUESPERPAGEPF1 - S_QUEUESPERPAGEPF0) * adapter->pf;
+	sp->eq_s_qpp = r & M_QUEUESPERPAGEPF0;
+
+	/* ingress queues: log2 of # of doorbells per BAR2 page */
+	r = t4_read_reg(adapter, A_SGE_INGRESS_QUEUES_PER_PAGE_PF);
+	r >>= S_QUEUESPERPAGEPF0 +
+	    (S_QUEUESPERPAGEPF1 - S_QUEUESPERPAGEPF0) * adapter->pf;
+	sp->iq_s_qpp = r & M_QUEUESPERPAGEPF0;
+
+	r = t4_read_reg(adapter, A_SGE_HOST_PAGE_SIZE);
+	r >>= S_HOSTPAGESIZEPF0 +
+	    (S_HOSTPAGESIZEPF1 - S_HOSTPAGESIZEPF0) * adapter->pf;
+	sp->page_shift = (r & M_HOSTPAGESIZEPF0) + 10;
+
+	r = t4_read_reg(adapter, A_SGE_CONTROL);
+	sp->spg_len = r & F_EGRSTATUSPAGESIZE ? 128 : 64;
+	sp->fl_pktshift = G_PKTSHIFT(r);
+	sp->pad_boundary = 1 << (G_INGPADBOUNDARY(r) + 5);
+	if (is_t4(adapter))
+		sp->pack_boundary = sp->pad_boundary;
+	else {
+		r = t4_read_reg(adapter, A_SGE_CONTROL2);
+		if (G_INGPACKBOUNDARY(r) == 0)
+			sp->pack_boundary = 16;
+		else
+			sp->pack_boundary = 1 << (G_INGPACKBOUNDARY(r) + 5);
+	}
+
+	return 0;
+}
+
+/*
+ * Read and cache the adapter's compressed filter mode and ingress config.
+ */
+static void read_filter_mode_and_ingress_config(struct adapter *adap)
+{
+	struct tp_params *tpp = &adap->params.tp;
+
+	if (t4_use_ldst(adap)) {
+		t4_fw_tp_pio_rw(adap, &tpp->vlan_pri_map, 1,
+				A_TP_VLAN_PRI_MAP, 1);
+		t4_fw_tp_pio_rw(adap, &tpp->ingress_config, 1,
+				A_TP_INGRESS_CONFIG, 1);
+	} else {
+		t4_read_indirect(adap, A_TP_PIO_ADDR, A_TP_PIO_DATA,
+				 &tpp->vlan_pri_map, 1, A_TP_VLAN_PRI_MAP);
+		t4_read_indirect(adap, A_TP_PIO_ADDR, A_TP_PIO_DATA,
+				 &tpp->ingress_config, 1, A_TP_INGRESS_CONFIG);
+	}
+
+	/*
+	 * Now that we have TP_VLAN_PRI_MAP cached, we can calculate the field
+	 * shift positions of several elements of the Compressed Filter Tuple
+	 * for this adapter which we need frequently ...
+	 */
+	tpp->fcoe_shift = t4_filter_field_shift(adap, F_FCOE);
+	tpp->port_shift = t4_filter_field_shift(adap, F_PORT);
+	tpp->vnic_shift = t4_filter_field_shift(adap, F_VNIC_ID);
+	tpp->vlan_shift = t4_filter_field_shift(adap, F_VLAN);
+	tpp->tos_shift = t4_filter_field_shift(adap, F_TOS);
+	tpp->protocol_shift = t4_filter_field_shift(adap, F_PROTOCOL);
+	tpp->ethertype_shift = t4_filter_field_shift(adap, F_ETHERTYPE);
+	tpp->macmatch_shift = t4_filter_field_shift(adap, F_MACMATCH);
+	tpp->matchtype_shift = t4_filter_field_shift(adap, F_MPSHITTYPE);
+	tpp->frag_shift = t4_filter_field_shift(adap, F_FRAGMENTATION);
+
+	/*
+	 * If TP_INGRESS_CONFIG.VNID == 0, then TP_VLAN_PRI_MAP.VNIC_ID
+	 * represents the presense of an Outer VLAN instead of a VNIC ID.
+	 */
+	if ((tpp->ingress_config & F_VNIC) == 0)
+		tpp->vnic_shift = -1;
+}
+
+/**
+ *      t4_init_tp_params - initialize adap->params.tp
+ *      @adap: the adapter
+ *
+ *      Initialize various fields of the adapter's TP Parameters structure.
+ */
+int t4_init_tp_params(struct adapter *adap)
 {
 	int chan;
 	u32 v;
+	struct tp_params *tpp = &adap->params.tp;
 
 	v = t4_read_reg(adap, A_TP_TIMER_RESOLUTION);
-	adap->params.tp.tre = G_TIMERRESOLUTION(v);
-	adap->params.tp.dack_re = G_DELAYEDACKRESOLUTION(v);
+	tpp->tre = G_TIMERRESOLUTION(v);
+	tpp->dack_re = G_DELAYEDACKRESOLUTION(v);
 
 	/* MODQ_REQ_MAP defaults to setting queues 0-3 to chan 0-3 */
 	for (chan = 0; chan < MAX_NCHAN; chan++)
-		adap->params.tp.tx_modq[chan] = chan;
+		tpp->tx_modq[chan] = chan;
 
-	t4_read_indirect(adap, A_TP_PIO_ADDR, A_TP_PIO_DATA,
-			 &adap->params.tp.ingress_config, 1,
-			 A_TP_INGRESS_CONFIG);
-	refresh_vlan_pri_map(adap);
+	read_filter_mode_and_ingress_config(adap);
+
+	/*
+	 * For T6, cache the adapter's compressed error vector
+	 * and passing outer header info for encapsulated packets.
+	 */
+	if (chip_id(adap) > CHELSIO_T5) {
+		v = t4_read_reg(adap, A_TP_OUT_CONFIG);
+		tpp->rx_pkt_encap = (v & F_CRXPKTENC) ? 1 : 0;
+	}
 
 	return 0;
 }
 
 /**
- *	t4_filter_field_shift - calculate filter field shift
- *	@adap: the adapter
- *	@filter_sel: the desired field (from TP_VLAN_PRI_MAP bits)
+ *      t4_filter_field_shift - calculate filter field shift
+ *      @adap: the adapter
+ *      @filter_sel: the desired field (from TP_VLAN_PRI_MAP bits)
  *
- *	Return the shift position of a filter field within the Compressed
- *	Filter Tuple.  The filter field is specified via its selection bit
- *	within TP_VLAN_PRI_MAL (filter mode).  E.g. F_VLAN.
+ *      Return the shift position of a filter field within the Compressed
+ *      Filter Tuple.  The filter field is specified via its selection bit
+ *      within TP_VLAN_PRI_MAL (filter mode).  E.g. F_VLAN.
  */
 int t4_filter_field_shift(const struct adapter *adap, int filter_sel)
 {
@@ -7678,18 +7950,38 @@ int t4_filter_field_shift(const struct adapter *adap, int filter_sel)
 		return -1;
 
 	for (sel = 1, field_shift = 0; sel < filter_sel; sel <<= 1) {
-	    switch (filter_mode & sel) {
-		case F_FCOE:          field_shift += W_FT_FCOE;          break;
-		case F_PORT:          field_shift += W_FT_PORT;          break;
-		case F_VNIC_ID:       field_shift += W_FT_VNIC_ID;       break;
-		case F_VLAN:          field_shift += W_FT_VLAN;          break;
-		case F_TOS:           field_shift += W_FT_TOS;           break;
-		case F_PROTOCOL:      field_shift += W_FT_PROTOCOL;      break;
-		case F_ETHERTYPE:     field_shift += W_FT_ETHERTYPE;     break;
-		case F_MACMATCH:      field_shift += W_FT_MACMATCH;      break;
-		case F_MPSHITTYPE:    field_shift += W_FT_MPSHITTYPE;    break;
-		case F_FRAGMENTATION: field_shift += W_FT_FRAGMENTATION; break;
-	    }
+		switch (filter_mode & sel) {
+		case F_FCOE:
+			field_shift += W_FT_FCOE;
+			break;
+		case F_PORT:
+			field_shift += W_FT_PORT;
+			break;
+		case F_VNIC_ID:
+			field_shift += W_FT_VNIC_ID;
+			break;
+		case F_VLAN:
+			field_shift += W_FT_VLAN;
+			break;
+		case F_TOS:
+			field_shift += W_FT_TOS;
+			break;
+		case F_PROTOCOL:
+			field_shift += W_FT_PROTOCOL;
+			break;
+		case F_ETHERTYPE:
+			field_shift += W_FT_ETHERTYPE;
+			break;
+		case F_MACMATCH:
+			field_shift += W_FT_MACMATCH;
+			break;
+		case F_MPSHITTYPE:
+			field_shift += W_FT_MPSHITTYPE;
+			break;
+		case F_FRAGMENTATION:
+			field_shift += W_FT_FRAGMENTATION;
+			break;
+		}
 	}
 	return field_shift;
 }
@@ -7750,6 +8042,37 @@ int __devinit t4_port_init(struct port_info *p, int mbox, int pf, int vf)
 		/* MPASS((val >> 16) == rss_size); */
 		p->vi[0].rss_base = val & 0xffff;
 	}
+
+	return 0;
+}
+
+/**
+ *	t4_set_filter_mode - configure the optional components of filter tuples
+ *	@adap: the adapter
+ *	@mode_map: a bitmap selcting which optional filter components to enable
+ *
+ *	Sets the filter mode by selecting the optional components to enable
+ *	in filter tuples.  Returns 0 on success and a negative error if the
+ *	requested mode needs more bits than are available for optional
+ *	components.
+ */
+int t4_set_filter_mode(struct adapter *adap, unsigned int mode_map)
+{
+	static u8 width[] = { 1, 3, 17, 17, 8, 8, 16, 9, 3, 1 };
+
+	int i, nbits = 0;
+
+	for (i = S_FCOE; i <= S_FRAGMENTATION; i++)
+		if (mode_map & (1 << i))
+			nbits += width[i];
+	if (nbits > FILTER_OPT_LEN)
+		return -EINVAL;
+	if (t4_use_ldst(adap))
+		t4_fw_tp_pio_rw(adap, &mode_map, 1, A_TP_VLAN_PRI_MAP, 0);
+	else
+		t4_write_indirect(adap, A_TP_PIO_ADDR, A_TP_PIO_DATA, &mode_map,
+				  1, A_TP_VLAN_PRI_MAP);
+	read_filter_mode_and_ingress_config(adap);
 
 	return 0;
 }

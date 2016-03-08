@@ -671,13 +671,6 @@ struct sge_nm_txq {
 #endif
 
 struct sge {
-	int timer_val[SGE_NTIMERS];
-	int counter_val[SGE_NCOUNTERS];
-	int fl_starve_threshold;
-	int fl_starve_threshold2;
-	int eq_s_qpp;
-	int iq_s_qpp;
-
 	int nrxq;	/* total # of Ethernet rx queues */
 	int ntxq;	/* total # of Ethernet tx tx queues */
 #ifdef TCP_OFFLOAD
@@ -710,8 +703,6 @@ struct sge {
 	struct sge_iq **iqmap;	/* iq->cntxt_id to iq mapping */
 	struct sge_eq **eqmap;	/* eq->cntxt_id to eq mapping */
 
-	int pad_boundary;
-	int pack_boundary;
 	int8_t safe_hwidx1;	/* may not have room for metadata */
 	int8_t safe_hwidx2;	/* with room for metadata and maybe more */
 	struct sw_zone_info sw_zone_info[SW_ZONE_SIZES];
@@ -1033,6 +1024,17 @@ tx_resume_threshold(struct sge_eq *eq)
 
 	/* not quite the same as qsize / 4, but this will do. */
 	return (eq->sidx / 4);
+}
+
+static inline int
+t4_use_ldst(struct adapter *sc)
+{
+
+#ifdef notyet
+	return (sc->flags & FW_OK || !sc->use_bd);
+#else
+	return (0);
+#endif
 }
 
 /* t4_main.c */
