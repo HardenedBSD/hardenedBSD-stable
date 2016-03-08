@@ -25,7 +25,16 @@ linux_start()
 	local _tmpdir
 
 	echo -n ' linux'
+<<<<<<< HEAD
 	load_kld -e 'linuxelf' linux
+=======
+	load_kld -e 'linux(aout|elf)' linux
+	case `sysctl -n hw.machine_arch` in
+	amd64)
+		load_kld -e 'linux64elf' linux64
+		;;
+	esac
+>>>>>>> origin/freebsd/current/master
 	if [ -x /compat/linux/sbin/ldconfigDisabled ]; then
 		_tmpdir=`mktemp -d -t linux-ldconfig`
 		/compat/linux/sbin/ldconfig -C ${_tmpdir}/ld.so.cache

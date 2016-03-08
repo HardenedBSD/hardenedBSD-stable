@@ -31,6 +31,7 @@
  * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
  * Copyright (c) 2013 by Saso Kiselkov. All rights reserved.
  * Copyright (c) 2013 Steven Hartland. All rights reserved.
+ * Copyright (c) 2014 Integros [integros.com]
  */
 
 /*
@@ -1601,8 +1602,7 @@ zfs_ioc_pool_import(zfs_cmd_t *zc)
 
 	nvlist_free(config);
 
-	if (props)
-		nvlist_free(props);
+	nvlist_free(props);
 
 	return (error);
 }
@@ -3972,7 +3972,7 @@ zfs_check_settable(const char *dsname, nvpair_t *pair, cred_t *cr)
 			return (SET_ERROR(EINVAL));
 
 		/* check prop value is enabled in features */
-		feature = zio_checksum_to_feature(intval);
+		feature = zio_checksum_to_feature(intval & ZIO_CHECKSUM_MASK);
 		if (feature == SPA_FEATURE_NONE)
 			break;
 
