@@ -645,6 +645,7 @@ t4_attach(device_t dev)
 	int rc = 0, i, j, n10g, n1g, rqidx, tqidx;
 	struct intrs_and_queues iaq;
 	struct sge *s;
+	uint8_t *buf;
 #ifdef TCP_OFFLOAD
 	int ofld_rqidx, ofld_tqidx;
 #endif
@@ -713,8 +714,10 @@ t4_attach(device_t dev)
 	t4_register_cpl_handler(sc, CPL_T5_TRACE_PKT, t5_trace_pkt);
 	t4_init_sge_cpl_handlers(sc);
 
-	/* Prepare the adapter for operation */
-	rc = -t4_prep_adapter(sc);
+	/* Prepare the adapter for operation. */
+	buf = malloc(PAGE_SIZE, M_CXGBE, M_ZERO | M_WAITOK);
+	rc = -t4_prep_adapter(sc, buf);
+	free(buf, M_CXGBE);
 	if (rc != 0) {
 		device_printf(dev, "failed to prepare adapter: %d.\n", rc);
 		goto done;
@@ -815,7 +818,7 @@ t4_attach(device_t dev)
 		 * Allocate the "main" VI and initialize parameters
 		 * like mac addr.
 		 */
-		rc = -t4_port_init(pi, sc->mbox, sc->pf, 0);
+		rc = -t4_port_init(sc, sc->mbox, sc->pf, 0, i);
 		if (rc != 0) {
 			device_printf(dev, "unable to initialize port %d: %d\n",
 			    i, rc);
@@ -1780,13 +1783,13 @@ cxgbe_media_status(struct ifnet *ifp, struct ifmediareq *ifmr)
 		return;
 
 	ifmr->ifm_active = IFM_ETHER | IFM_FDX;
-	if (speed == SPEED_10000)
+	if (speed == 10000)
 		ifmr->ifm_active |= IFM_10G_T;
-	else if (speed == SPEED_1000)
+	else if (speed == 1000)
 		ifmr->ifm_active |= IFM_1000_T;
-	else if (speed == SPEED_100)
+	else if (speed == 100)
 		ifmr->ifm_active |= IFM_100_TX;
-	else if (speed == SPEED_10)
+	else if (speed == 10)
 		ifmr->ifm_active |= IFM_10_T;
 	else
 		KASSERT(0, ("%s: link up but speed unknown (%u)", __func__,
@@ -6017,10 +6020,6 @@ sysctl_linkdnrc(SYSCTL_HANDLER_ARGS)
 	int rc = 0;
 	struct port_info *pi = arg1;
 	struct sbuf *sb;
-	static const char *linkdnreasons[] = {
-		"non-specific", "remote fault", "autoneg failed", "reserved3",
-		"PHY overheated", "unknown", "rx los", "reserved7"
-	};
 
 	rc = sysctl_wire_old_buffer(req, 0);
 	if (rc != 0)
@@ -6031,10 +6030,8 @@ sysctl_linkdnrc(SYSCTL_HANDLER_ARGS)
 
 	if (pi->linkdnrc < 0)
 		sbuf_printf(sb, "n/a");
-	else if (pi->linkdnrc < nitems(linkdnreasons))
-		sbuf_printf(sb, "%s", linkdnreasons[pi->linkdnrc]);
 	else
-		sbuf_printf(sb, "%d", pi->linkdnrc);
+		sbuf_printf(sb, "%s", t4_link_down_rc_str(pi->linkdnrc));
 
 	rc = sbuf_finish(sb);
 	sbuf_delete(sb);

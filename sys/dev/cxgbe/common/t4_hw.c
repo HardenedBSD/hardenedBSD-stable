@@ -211,7 +211,7 @@ static void t4_report_fw_error(struct adapter *adap)
 	pcie_fw = t4_read_reg(adap, A_PCIE_FW);
 	if (pcie_fw & F_PCIE_FW_ERR)
 		CH_ERR(adap, "Firmware reports adapter error: %s\n",
-		       reason[G_PCIE_FW_EVAL(pcie_fw)]);
+			reason[G_PCIE_FW_EVAL(pcie_fw)]);
 }
 
 /*
@@ -227,25 +227,27 @@ static void get_mbox_rpl(struct adapter *adap, __be64 *rpl, int nflit,
 /*
  * Handle a FW assertion reported in a mailbox.
  */
-static void fw_asrt(struct adapter *adap, u32 mbox_addr)
+static void fw_asrt(struct adapter *adap, struct fw_debug_cmd *asrt)
 {
-	struct fw_debug_cmd asrt;
-
-	get_mbox_rpl(adap, (__be64 *)&asrt, sizeof(asrt) / 8, mbox_addr);
-	CH_ALERT(adap, "FW assertion at %.16s:%u, val0 %#x, val1 %#x\n",
-		 asrt.u.assert.filename_0_7, ntohl(asrt.u.assert.line),
-		 ntohl(asrt.u.assert.x), ntohl(asrt.u.assert.y));
+	CH_ALERT(adap,
+		  "FW assertion at %.16s:%u, val0 %#x, val1 %#x\n",
+		  asrt->u.assert.filename_0_7,
+		  be32_to_cpu(asrt->u.assert.line),
+		  be32_to_cpu(asrt->u.assert.x),
+		  be32_to_cpu(asrt->u.assert.y));
 }
 
 #define X_CIM_PF_NOACCESS 0xeeeeeeee
 /**
- *	t4_wr_mbox_meat - send a command to FW through the given mailbox
+ *	t4_wr_mbox_meat_timeout - send a command to FW through the given mailbox
  *	@adap: the adapter
  *	@mbox: index of the mailbox to use
  *	@cmd: the command to write
  *	@size: command length in bytes
  *	@rpl: where to optionally store the reply
  *	@sleep_ok: if true we may sleep while awaiting command completion
+ *	@timeout: time to wait for command to finish before timing out
+ *		(negative implies @sleep_ok=false)
  *
  *	Sends the given command to FW through the selected mailbox and waits
  *	for the FW to execute the command.  If @rpl is not %NULL it is used to
@@ -254,14 +256,17 @@ static void fw_asrt(struct adapter *adap, u32 mbox_addr)
  *	INITIALIZE can take a considerable amount of time to execute.
  *	@sleep_ok determines whether we may sleep while awaiting the response.
  *	If sleeping is allowed we use progressive backoff otherwise we spin.
+ *	Note that passing in a negative @timeout is an alternate mechanism
+ *	for specifying @sleep_ok=false.  This is useful when a higher level
+ *	interface allows for specification of @timeout but not @sleep_ok ...
  *
  *	The return value is 0 on success or a negative errno on failure.  A
  *	failure can happen either because we are not able to execute the
  *	command or FW executes it but signals an error.  In the latter case
  *	the return value is the error code indicated by FW (negated).
  */
-int t4_wr_mbox_meat(struct adapter *adap, int mbox, const void *cmd, int size,
-		    void *rpl, bool sleep_ok)
+int t4_wr_mbox_meat_timeout(struct adapter *adap, int mbox, const void *cmd,
+			    int size, void *rpl, bool sleep_ok, int timeout)
 {
 	/*
 	 * We delay in small increments at first in an effort to maintain
@@ -271,43 +276,97 @@ int t4_wr_mbox_meat(struct adapter *adap, int mbox, const void *cmd, int size,
 	static const int delay[] = {
 		1, 1, 3, 5, 10, 10, 20, 50, 100
 	};
-
 	u32 v;
 	u64 res;
-	int i, ms, delay_idx;
+	int i, ms, delay_idx, ret;
 	const __be64 *p = cmd;
 	u32 data_reg = PF_REG(mbox, A_CIM_PF_MAILBOX_DATA);
 	u32 ctl_reg = PF_REG(mbox, A_CIM_PF_MAILBOX_CTRL);
+	u32 ctl;
+	__be64 cmd_rpl[MBOX_LEN/8];
+	u32 pcie_fw;
 
 	if ((size & 15) || size > MBOX_LEN)
 		return -EINVAL;
 
-	v = G_MBOWNER(t4_read_reg(adap, ctl_reg));
-	for (i = 0; v == X_MBOWNER_NONE && i < 3; i++)
-		v = G_MBOWNER(t4_read_reg(adap, ctl_reg));
+	/*
+	 * If we have a negative timeout, that implies that we can't sleep.
+	 */
+	if (timeout < 0) {
+		sleep_ok = false;
+		timeout = -timeout;
+	}
 
-	if (v != X_MBOWNER_PL)
-		return v ? -EBUSY : -ETIMEDOUT;
+	/*
+	 * Attempt to gain access to the mailbox.
+	 */
+	for (i = 0; i < 4; i++) {
+		ctl = t4_read_reg(adap, ctl_reg);
+		v = G_MBOWNER(ctl);
+		if (v != X_MBOWNER_NONE)
+			break;
+	}
 
+	/*
+	 * If we were unable to gain access, dequeue ourselves from the
+	 * mailbox atomic access list and report the error to our caller.
+	 */
+	if (v != X_MBOWNER_PL) {
+		t4_report_fw_error(adap);
+		ret = (v == X_MBOWNER_FW) ? -EBUSY : -ETIMEDOUT;
+		return ret;
+	}
+
+	/*
+	 * If we gain ownership of the mailbox and there's a "valid" message
+	 * in it, this is likely an asynchronous error message from the
+	 * firmware.  So we'll report that and then proceed on with attempting
+	 * to issue our own command ... which may well fail if the error
+	 * presaged the firmware crashing ...
+	 */
+	if (ctl & F_MBMSGVALID) {
+		CH_ERR(adap, "found VALID command in mbox %u: "
+		       "%llx %llx %llx %llx %llx %llx %llx %llx\n", mbox,
+		       (unsigned long long)t4_read_reg64(adap, data_reg),
+		       (unsigned long long)t4_read_reg64(adap, data_reg + 8),
+		       (unsigned long long)t4_read_reg64(adap, data_reg + 16),
+		       (unsigned long long)t4_read_reg64(adap, data_reg + 24),
+		       (unsigned long long)t4_read_reg64(adap, data_reg + 32),
+		       (unsigned long long)t4_read_reg64(adap, data_reg + 40),
+		       (unsigned long long)t4_read_reg64(adap, data_reg + 48),
+		       (unsigned long long)t4_read_reg64(adap, data_reg + 56));
+	}
+
+	/*
+	 * Copy in the new mailbox command and send it on its way ...
+	 */
 	for (i = 0; i < size; i += 8, p++)
 		t4_write_reg64(adap, data_reg + i, be64_to_cpu(*p));
 
 	CH_DUMP_MBOX(adap, mbox, data_reg);
 
 	t4_write_reg(adap, ctl_reg, F_MBMSGVALID | V_MBOWNER(X_MBOWNER_FW));
-	t4_read_reg(adap, ctl_reg);          /* flush write */
+	t4_read_reg(adap, ctl_reg);	/* flush write */
 
 	delay_idx = 0;
 	ms = delay[0];
 
-	for (i = 0; i < FW_CMD_MAX_TIMEOUT; i += ms) {
+	/*
+	 * Loop waiting for the reply; bail out if we time out or the firmware
+	 * reports an error.
+	 */
+	for (i = 0;
+	     !((pcie_fw = t4_read_reg(adap, A_PCIE_FW)) & F_PCIE_FW_ERR) &&
+	     i < timeout;
+	     i += ms) {
 		if (sleep_ok) {
 			ms = delay[delay_idx];  /* last element may repeat */
 			if (delay_idx < ARRAY_SIZE(delay) - 1)
 				delay_idx++;
 			msleep(ms);
-		} else
+		} else {
 			mdelay(ms);
+		}
 
 		v = t4_read_reg(adap, ctl_reg);
 		if (v == X_CIM_PF_NOACCESS)
@@ -319,15 +378,20 @@ int t4_wr_mbox_meat(struct adapter *adap, int mbox, const void *cmd, int size,
 				continue;
 			}
 
+			/*
+			 * Retrieve the command reply and release the mailbox.
+			 */
+			get_mbox_rpl(adap, cmd_rpl, size/8, data_reg);
+			t4_write_reg(adap, ctl_reg, V_MBOWNER(X_MBOWNER_NONE));
+
 			CH_DUMP_MBOX(adap, mbox, data_reg);
 
-			res = t4_read_reg64(adap, data_reg);
+			res = be64_to_cpu(cmd_rpl[0]);
 			if (G_FW_CMD_OP(res >> 32) == FW_DEBUG_CMD) {
-				fw_asrt(adap, data_reg);
+				fw_asrt(adap, (struct fw_debug_cmd *)cmd_rpl);
 				res = V_FW_CMD_RETVAL(EIO);
 			} else if (rpl)
-				get_mbox_rpl(adap, rpl, size / 8, data_reg);
-			t4_write_reg(adap, ctl_reg, V_MBOWNER(X_MBOWNER_NONE));
+				memcpy(rpl, cmd_rpl, size);
 			return -G_FW_CMD_RETVAL((int)res);
 		}
 	}
@@ -337,11 +401,21 @@ int t4_wr_mbox_meat(struct adapter *adap, int mbox, const void *cmd, int size,
 	 * the error and also check to see if the firmware reported any
 	 * errors ...
 	 */
+	ret = (pcie_fw & F_PCIE_FW_ERR) ? -ENXIO : -ETIMEDOUT;
 	CH_ERR(adap, "command %#x in mailbox %d timed out\n",
 	       *(const u8 *)cmd, mbox);
-	if (t4_read_reg(adap, A_PCIE_FW) & F_PCIE_FW_ERR)
-		t4_report_fw_error(adap);
-	return -ETIMEDOUT;
+
+	t4_report_fw_error(adap);
+	t4_fatal_err(adap);
+	return ret;
+}
+
+int t4_wr_mbox_meat(struct adapter *adap, int mbox, const void *cmd, int size,
+		    void *rpl, bool sleep_ok)
+{
+		return t4_wr_mbox_meat_timeout(adap, mbox, cmd, size, rpl,
+					       sleep_ok, FW_CMD_MAX_TIMEOUT);
+
 }
 
 static int t4_edc_err_read(struct adapter *adap, int idx)
@@ -560,6 +634,56 @@ int t4_mem_read(struct adapter *adap, int mtype, u32 addr, u32 len,
 	}
 
 	return 0;
+}
+
+/*
+ * Return the specified PCI-E Configuration Space register from our Physical
+ * Function.  We try first via a Firmware LDST Command (if fw_attach != 0)
+ * since we prefer to let the firmware own all of these registers, but if that
+ * fails we go for it directly ourselves.
+ */
+u32 t4_read_pcie_cfg4(struct adapter *adap, int reg, int drv_fw_attach)
+{
+
+	/*
+	 * If fw_attach != 0, construct and send the Firmware LDST Command to
+	 * retrieve the specified PCI-E Configuration Space register.
+	 */
+	if (drv_fw_attach != 0) {
+		struct fw_ldst_cmd ldst_cmd;
+		int ret;
+
+		memset(&ldst_cmd, 0, sizeof(ldst_cmd));
+		ldst_cmd.op_to_addrspace =
+			cpu_to_be32(V_FW_CMD_OP(FW_LDST_CMD) |
+				    F_FW_CMD_REQUEST |
+				    F_FW_CMD_READ |
+				    V_FW_LDST_CMD_ADDRSPACE(FW_LDST_ADDRSPC_FUNC_PCIE));
+		ldst_cmd.cycles_to_len16 = cpu_to_be32(FW_LEN16(ldst_cmd));
+		ldst_cmd.u.pcie.select_naccess = V_FW_LDST_CMD_NACCESS(1);
+		ldst_cmd.u.pcie.ctrl_to_fn =
+			(F_FW_LDST_CMD_LC | V_FW_LDST_CMD_FN(adap->pf));
+		ldst_cmd.u.pcie.r = reg;
+
+		/*
+		 * If the LDST Command succeeds, return the result, otherwise
+		 * fall through to reading it directly ourselves ...
+		 */
+		ret = t4_wr_mbox(adap, adap->mbox, &ldst_cmd, sizeof(ldst_cmd),
+				 &ldst_cmd);
+		if (ret == 0)
+			return be32_to_cpu(ldst_cmd.u.pcie.data[0]);
+
+		CH_WARN(adap, "Firmware failed to return "
+			"Configuration Space register %d, err = %d\n",
+			reg, -ret);
+	}
+
+	/*
+	 * Read the desired Configuration Space register via the PCI-E
+	 * Backdoor mechanism.
+	 */
+	return t4_hw_pci_read_cfg4(adap, reg);
 }
 
 /**
@@ -2462,7 +2586,7 @@ void t4_get_regs(struct adapter *adap, u8 *buf, size_t buf_size)
 
 /*
  * Partial EEPROM Vital Product Data structure.  Includes only the ID and
- * VPD-R header.
+ * VPD-R sections.
  */
 struct t4_vpd_hdr {
 	u8  id_tag;
@@ -2475,14 +2599,65 @@ struct t4_vpd_hdr {
 /*
  * EEPROM reads take a few tens of us while writes can take a bit over 5 ms.
  */
-#define EEPROM_MAX_RD_POLL 40
-#define EEPROM_MAX_WR_POLL 6
-#define EEPROM_STAT_ADDR   0x7bfc
-#define VPD_BASE           0x400
-#define VPD_BASE_OLD       0
-#define VPD_LEN            1024
+#define EEPROM_DELAY		10		/* 10us per poll spin */
+#define EEPROM_MAX_POLL		5000		/* x 5000 == 50ms */
+
+#define EEPROM_STAT_ADDR	0x7bfc
+#define VPD_BASE		0x400
+#define VPD_BASE_OLD		0
+#define VPD_LEN			1024
 #define VPD_INFO_FLD_HDR_SIZE	3
-#define CHELSIO_VPD_UNIQUE_ID 0x82
+#define CHELSIO_VPD_UNIQUE_ID	0x82
+
+/*
+ * Small utility function to wait till any outstanding VPD Access is complete.
+ * We have a per-adapter state variable "VPD Busy" to indicate when we have a
+ * VPD Access in flight.  This allows us to handle the problem of having a
+ * previous VPD Access time out and prevent an attempt to inject a new VPD
+ * Request before any in-flight VPD reguest has completed.
+ */
+static int t4_seeprom_wait(struct adapter *adapter)
+{
+	unsigned int base = adapter->params.pci.vpd_cap_addr;
+	int max_poll;
+
+	/*
+	 * If no VPD Access is in flight, we can just return success right
+	 * away.
+	 */
+	if (!adapter->vpd_busy)
+		return 0;
+
+	/*
+	 * Poll the VPD Capability Address/Flag register waiting for it
+	 * to indicate that the operation is complete.
+	 */
+	max_poll = EEPROM_MAX_POLL;
+	do {
+		u16 val;
+
+		udelay(EEPROM_DELAY);
+		t4_os_pci_read_cfg2(adapter, base + PCI_VPD_ADDR, &val);
+
+		/*
+		 * If the operation is complete, mark the VPD as no longer
+		 * busy and return success.
+		 */
+		if ((val & PCI_VPD_ADDR_F) == adapter->vpd_flag) {
+			adapter->vpd_busy = 0;
+			return 0;
+		}
+	} while (--max_poll);
+
+	/*
+	 * Failure!  Note that we leave the VPD Busy status set in order to
+	 * avoid pushing a new VPD Access request into the VPD Capability till
+	 * the current operation eventually succeeds.  It's a bug to issue a
+	 * new request when an existing request is in flight and will result
+	 * in corrupt hardware state.
+	 */
+	return -ETIMEDOUT;
+}
 
 /**
  *	t4_seeprom_read - read a serial EEPROM location
@@ -2496,23 +2671,44 @@ struct t4_vpd_hdr {
  */
 int t4_seeprom_read(struct adapter *adapter, u32 addr, u32 *data)
 {
-	u16 val;
-	int attempts = EEPROM_MAX_RD_POLL;
 	unsigned int base = adapter->params.pci.vpd_cap_addr;
+	int ret;
 
+	/*
+	 * VPD Accesses must alway be 4-byte aligned!
+	 */
 	if (addr >= EEPROMVSIZE || (addr & 3))
 		return -EINVAL;
 
-	t4_os_pci_write_cfg2(adapter, base + PCI_VPD_ADDR, (u16)addr);
-	do {
-		udelay(10);
-		t4_os_pci_read_cfg2(adapter, base + PCI_VPD_ADDR, &val);
-	} while (!(val & PCI_VPD_ADDR_F) && --attempts);
-
-	if (!(val & PCI_VPD_ADDR_F)) {
-		CH_ERR(adapter, "reading EEPROM address 0x%x failed\n", addr);
-		return -EIO;
+	/*
+	 * Wait for any previous operation which may still be in flight to
+	 * complete.
+	 */
+	ret = t4_seeprom_wait(adapter);
+	if (ret) {
+		CH_ERR(adapter, "VPD still busy from previous operation\n");
+		return ret;
 	}
+
+	/*
+	 * Issue our new VPD Read request, mark the VPD as being busy and wait
+	 * for our request to complete.  If it doesn't complete, note the
+	 * error and return it to our caller.  Note that we do not reset the
+	 * VPD Busy status!
+	 */
+	t4_os_pci_write_cfg2(adapter, base + PCI_VPD_ADDR, (u16)addr);
+	adapter->vpd_busy = 1;
+	adapter->vpd_flag = PCI_VPD_ADDR_F;
+	ret = t4_seeprom_wait(adapter);
+	if (ret) {
+		CH_ERR(adapter, "VPD read of address %#x failed\n", addr);
+		return ret;
+	}
+
+	/*
+	 * Grab the returned data, swizzle it into our endianess and
+	 * return success.
+	 */
 	t4_os_pci_read_cfg4(adapter, base + PCI_VPD_DATA, data);
 	*data = le32_to_cpu(*data);
 	return 0;
@@ -2530,26 +2726,59 @@ int t4_seeprom_read(struct adapter *adapter, u32 addr, u32 *data)
  */
 int t4_seeprom_write(struct adapter *adapter, u32 addr, u32 data)
 {
-	u16 val;
-	int attempts = EEPROM_MAX_WR_POLL;
 	unsigned int base = adapter->params.pci.vpd_cap_addr;
+	int ret;
+	u32 stats_reg;
+	int max_poll;
 
+	/*
+	 * VPD Accesses must alway be 4-byte aligned!
+	 */
 	if (addr >= EEPROMVSIZE || (addr & 3))
 		return -EINVAL;
 
+	/*
+	 * Wait for any previous operation which may still be in flight to
+	 * complete.
+	 */
+	ret = t4_seeprom_wait(adapter);
+	if (ret) {
+		CH_ERR(adapter, "VPD still busy from previous operation\n");
+		return ret;
+	}
+
+	/*
+	 * Issue our new VPD Read request, mark the VPD as being busy and wait
+	 * for our request to complete.  If it doesn't complete, note the
+	 * error and return it to our caller.  Note that we do not reset the
+	 * VPD Busy status!
+	 */
 	t4_os_pci_write_cfg4(adapter, base + PCI_VPD_DATA,
 				 cpu_to_le32(data));
 	t4_os_pci_write_cfg2(adapter, base + PCI_VPD_ADDR,
 				 (u16)addr | PCI_VPD_ADDR_F);
-	do {
-		msleep(1);
-		t4_os_pci_read_cfg2(adapter, base + PCI_VPD_ADDR, &val);
-	} while ((val & PCI_VPD_ADDR_F) && --attempts);
-
-	if (val & PCI_VPD_ADDR_F) {
-		CH_ERR(adapter, "write to EEPROM address 0x%x failed\n", addr);
-		return -EIO;
+	adapter->vpd_busy = 1;
+	adapter->vpd_flag = 0;
+	ret = t4_seeprom_wait(adapter);
+	if (ret) {
+		CH_ERR(adapter, "VPD write of address %#x failed\n", addr);
+		return ret;
 	}
+
+	/*
+	 * Reset PCI_VPD_DATA register after a transaction and wait for our
+	 * request to complete. If it doesn't complete, return error.
+	 */
+	t4_os_pci_write_cfg4(adapter, base + PCI_VPD_DATA, 0);
+	max_poll = EEPROM_MAX_POLL;
+	do {
+		udelay(EEPROM_DELAY);
+		t4_seeprom_read(adapter, EEPROM_STAT_ADDR, &stats_reg);
+	} while ((stats_reg & 0x1) && --max_poll);
+	if (!max_poll)
+		return -ETIMEDOUT;
+
+	/* Return success! */
 	return 0;
 }
 
@@ -2598,33 +2827,33 @@ int t4_seeprom_wp(struct adapter *adapter, int enable)
  *	get_vpd_keyword_val - Locates an information field keyword in the VPD
  *	@v: Pointer to buffered vpd data structure
  *	@kw: The keyword to search for
- *	
+ *
  *	Returns the value of the information field keyword or
  *	-ENOENT otherwise.
  */
 static int get_vpd_keyword_val(const struct t4_vpd_hdr *v, const char *kw)
 {
-         int i;
-	 unsigned int offset , len;
-	 const u8 *buf = &v->id_tag;
-	 const u8 *vpdr_len = &v->vpdr_tag; 
-	 offset = sizeof(struct t4_vpd_hdr);
-	 len =  (u16)vpdr_len[1] + ((u16)vpdr_len[2] << 8);
-	 
-	 if (len + sizeof(struct t4_vpd_hdr) > VPD_LEN) {
-		 return -ENOENT;
-	 }
+	int i;
+	unsigned int offset , len;
+	const u8 *buf = (const u8 *)v;
+	const u8 *vpdr_len = &v->vpdr_len[0];
+	offset = sizeof(struct t4_vpd_hdr);
+	len =  (u16)vpdr_len[0] + ((u16)vpdr_len[1] << 8);
 
-         for (i = offset; i + VPD_INFO_FLD_HDR_SIZE <= offset + len;) {
-		 if(memcmp(buf + i , kw , 2) == 0){
-			 i += VPD_INFO_FLD_HDR_SIZE;
-                         return i;
-		  }
+	if (len + sizeof(struct t4_vpd_hdr) > VPD_LEN) {
+		return -ENOENT;
+	}
 
-                 i += VPD_INFO_FLD_HDR_SIZE + buf[i+2];
-         }
+	for (i = offset; i + VPD_INFO_FLD_HDR_SIZE <= offset + len;) {
+		if(memcmp(buf + i , kw , 2) == 0){
+			i += VPD_INFO_FLD_HDR_SIZE;
+			return i;
+		}
 
-         return -ENOENT;
+		i += VPD_INFO_FLD_HDR_SIZE + buf[i+2];
+	}
+
+	return -ENOENT;
 }
 
 
@@ -2632,14 +2861,16 @@ static int get_vpd_keyword_val(const struct t4_vpd_hdr *v, const char *kw)
  *	get_vpd_params - read VPD parameters from VPD EEPROM
  *	@adapter: adapter to read
  *	@p: where to store the parameters
+ *	@vpd: caller provided temporary space to read the VPD into
  *
  *	Reads card parameters stored in VPD EEPROM.
  */
-static int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
+static int get_vpd_params(struct adapter *adapter, struct vpd_params *p,
+    u8 *vpd)
 {
 	int i, ret, addr;
 	int ec, sn, pn, na;
-	u8 vpd[VPD_LEN], csum;
+	u8 csum;
 	const struct t4_vpd_hdr *v;
 
 	/*
@@ -2647,31 +2878,43 @@ static int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
 	 * it at 0.
 	 */
 	ret = t4_seeprom_read(adapter, VPD_BASE, (u32 *)(vpd));
+	if (ret)
+		return (ret);
+
+	/*
+	 * The VPD shall have a unique identifier specified by the PCI SIG.
+	 * For chelsio adapters, the identifier is 0x82. The first byte of a VPD
+	 * shall be CHELSIO_VPD_UNIQUE_ID (0x82). The VPD programming software
+	 * is expected to automatically put this entry at the
+	 * beginning of the VPD.
+	 */
 	addr = *vpd == CHELSIO_VPD_UNIQUE_ID ? VPD_BASE : VPD_BASE_OLD;
 
-	for (i = 0; i < sizeof(vpd); i += 4) {
+	for (i = 0; i < VPD_LEN; i += 4) {
 		ret = t4_seeprom_read(adapter, addr + i, (u32 *)(vpd + i));
 		if (ret)
 			return ret;
 	}
  	v = (const struct t4_vpd_hdr *)vpd;
-	
+
 #define FIND_VPD_KW(var,name) do { \
 	var = get_vpd_keyword_val(v , name); \
 	if (var < 0) { \
 		CH_ERR(adapter, "missing VPD keyword " name "\n"); \
 		return -EINVAL; \
 	} \
-} while (0)	
+} while (0)
 
 	FIND_VPD_KW(i, "RV");
 	for (csum = 0; i >= 0; i--)
 		csum += vpd[i];
 
 	if (csum) {
-		CH_ERR(adapter, "corrupted VPD EEPROM, actual csum %u\n", csum);
+		CH_ERR(adapter,
+			"corrupted VPD EEPROM, actual csum %u\n", csum);
 		return -EINVAL;
 	}
+
 	FIND_VPD_KW(ec, "EC");
 	FIND_VPD_KW(sn, "SN");
 	FIND_VPD_KW(pn, "PN");
@@ -2697,16 +2940,16 @@ static int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
 
 /* serial flash and firmware constants and flash config file constants */
 enum {
-	SF_ATTEMPTS = 10,             /* max retries for SF operations */
+	SF_ATTEMPTS = 10,	/* max retries for SF operations */
 
 	/* flash command opcodes */
-	SF_PROG_PAGE    = 2,          /* program page */
-	SF_WR_DISABLE   = 4,          /* disable writes */
-	SF_RD_STATUS    = 5,          /* read status register */
-	SF_WR_ENABLE    = 6,          /* enable writes */
-	SF_RD_DATA_FAST = 0xb,        /* read flash */
-	SF_RD_ID        = 0x9f,       /* read ID */
-	SF_ERASE_SECTOR = 0xd8,       /* erase sector */
+	SF_PROG_PAGE    = 2,	/* program page */
+	SF_WR_DISABLE   = 4,	/* disable writes */
+	SF_RD_STATUS    = 5,	/* read status register */
+	SF_WR_ENABLE    = 6,	/* enable writes */
+	SF_RD_DATA_FAST = 0xb,	/* read flash */
+	SF_RD_ID	= 0x9f,	/* read ID */
+	SF_ERASE_SECTOR = 0xd8,	/* erase sector */
 };
 
 /**
@@ -2800,7 +3043,7 @@ static int flash_wait_op(struct adapter *adapter, int attempts, int delay)
  *	Read the specified number of 32-bit words from the serial flash.
  *	If @byte_oriented is set the read data is stored as a byte array
  *	(i.e., big-endian), otherwise as 32-bit words in the platform's
- *	natural endianess.
+ *	natural endianness.
  */
 int t4_read_flash(struct adapter *adapter, unsigned int addr,
 		  unsigned int nwords, u32 *data, int byte_oriented)
@@ -2823,7 +3066,7 @@ int t4_read_flash(struct adapter *adapter, unsigned int addr,
 		if (ret)
 			return ret;
 		if (byte_oriented)
-			*data = htonl(*data);
+			*data = (__force __u32)(cpu_to_be32(*data));
 	}
 	return 0;
 }
@@ -2838,10 +3081,10 @@ int t4_read_flash(struct adapter *adapter, unsigned int addr,
  *
  *	Writes up to a page of data (256 bytes) to the serial flash starting
  *	at the given address.  All the data must be written to the same page.
- *	If @byte_oriented is set the write data is stored as byte stream 
+ *	If @byte_oriented is set the write data is stored as byte stream
  *	(i.e. matches what on disk), otherwise in big-endian.
  */
-static int t4_write_flash(struct adapter *adapter, unsigned int addr,
+int t4_write_flash(struct adapter *adapter, unsigned int addr,
 			  unsigned int n, const u8 *data, int byte_oriented)
 {
 	int ret;
@@ -2863,7 +3106,7 @@ static int t4_write_flash(struct adapter *adapter, unsigned int addr,
 			val = (val << 8) + *data++;
 
 		if (!byte_oriented)
-			val = htonl(val);
+			val = cpu_to_be32(val);
 
 		ret = sf1_write(adapter, c, c != left, 1, val);
 		if (ret)
@@ -2882,8 +3125,9 @@ static int t4_write_flash(struct adapter *adapter, unsigned int addr,
 		return ret;
 
 	if (memcmp(data - n, (u8 *)buf + offset, n)) {
-		CH_ERR(adapter, "failed to correctly write the flash page "
-		       "at %#x\n", addr);
+		CH_ERR(adapter,
+			"failed to correctly write the flash page at %#x\n",
+			addr);
 		return -EIO;
 	}
 	return 0;
@@ -2919,6 +3163,43 @@ int t4_get_tp_version(struct adapter *adapter, u32 *vers)
 	return t4_read_flash(adapter, FLASH_FW_START + offsetof(struct fw_hdr,
 							      tp_microcode_ver),
 			     1, vers, 0);
+}
+
+/**
+ *	t4_get_exprom_version - return the Expansion ROM version (if any)
+ *	@adapter: the adapter
+ *	@vers: where to place the version
+ *
+ *	Reads the Expansion ROM header from FLASH and returns the version
+ *	number (if present) through the @vers return value pointer.  We return
+ *	this in the Firmware Version Format since it's convenient.  Return
+ *	0 on success, -ENOENT if no Expansion ROM is present.
+ */
+int t4_get_exprom_version(struct adapter *adap, u32 *vers)
+{
+	struct exprom_header {
+		unsigned char hdr_arr[16];	/* must start with 0x55aa */
+		unsigned char hdr_ver[4];	/* Expansion ROM version */
+	} *hdr;
+	u32 exprom_header_buf[DIV_ROUND_UP(sizeof(struct exprom_header),
+					   sizeof(u32))];
+	int ret;
+
+	ret = t4_read_flash(adap, FLASH_EXP_ROM_START,
+			    ARRAY_SIZE(exprom_header_buf), exprom_header_buf,
+			    0);
+	if (ret)
+		return ret;
+
+	hdr = (struct exprom_header *)exprom_header_buf;
+	if (hdr->hdr_arr[0] != 0x55 || hdr->hdr_arr[1] != 0xaa)
+		return -ENOENT;
+
+	*vers = (V_FW_HDR_FW_VER_MAJOR(hdr->hdr_ver[0]) |
+		 V_FW_HDR_FW_VER_MINOR(hdr->hdr_ver[1]) |
+		 V_FW_HDR_FW_VER_MICRO(hdr->hdr_ver[2]) |
+		 V_FW_HDR_FW_VER_BUILD(hdr->hdr_ver[3]));
+	return 0;
 }
 
 /**
@@ -2983,17 +3264,21 @@ int t4_check_fw_version(struct adapter *adapter)
  *
  *	Erases the sectors in the given inclusive range.
  */
-static int t4_flash_erase_sectors(struct adapter *adapter, int start, int end)
+int t4_flash_erase_sectors(struct adapter *adapter, int start, int end)
 {
 	int ret = 0;
+
+	if (end >= adapter->params.sf_nsec)
+		return -EINVAL;
 
 	while (start <= end) {
 		if ((ret = sf1_write(adapter, 1, 0, 1, SF_WR_ENABLE)) != 0 ||
 		    (ret = sf1_write(adapter, 4, 0, 1,
 				     SF_ERASE_SECTOR | (start << 8))) != 0 ||
 		    (ret = flash_wait_op(adapter, 14, 500)) != 0) {
-			CH_ERR(adapter, "erase of flash sector %d failed, "
-			       "error %d\n", start, ret);
+			CH_ERR(adapter,
+				"erase of flash sector %d failed, error %d\n",
+				start, ret);
 			break;
 		}
 		start++;
@@ -3020,66 +3305,6 @@ int t4_flash_cfg_addr(struct adapter *adapter)
 		return -ENOSPC;
 
 	return FLASH_CFG_START;
-}
-
-/**
- *	t4_load_cfg - download config file
- *	@adap: the adapter
- *	@cfg_data: the cfg text file to write
- *	@size: text file size
- *
- *	Write the supplied config text file to the card's serial flash.
- */
-int t4_load_cfg(struct adapter *adap, const u8 *cfg_data, unsigned int size)
-{
-	int ret, i, n, cfg_addr;
-	unsigned int addr;
-	unsigned int flash_cfg_start_sec;
-	unsigned int sf_sec_size = adap->params.sf_size / adap->params.sf_nsec;
-
-	cfg_addr = t4_flash_cfg_addr(adap);
-	if (cfg_addr < 0)
-		return cfg_addr;
-
-	addr = cfg_addr;
-	flash_cfg_start_sec = addr / SF_SEC_SIZE;
-
-	if (size > FLASH_CFG_MAX_SIZE) {
-		CH_ERR(adap, "cfg file too large, max is %u bytes\n",
-		       FLASH_CFG_MAX_SIZE);
-		return -EFBIG;
-	}
-
-	i = DIV_ROUND_UP(FLASH_CFG_MAX_SIZE,	/* # of sectors spanned */
-			 sf_sec_size);
-	ret = t4_flash_erase_sectors(adap, flash_cfg_start_sec,
-				     flash_cfg_start_sec + i - 1);
-	/*
-	 * If size == 0 then we're simply erasing the FLASH sectors associated
-	 * with the on-adapter Firmware Configuration File.
-	 */
-	if (ret || size == 0)
-		goto out;
-
-	/* this will write to the flash up to SF_PAGE_SIZE at a time */
-	for (i = 0; i< size; i+= SF_PAGE_SIZE) {
-		if ( (size - i) <  SF_PAGE_SIZE) 
-			n = size - i;
-		else 
-			n = SF_PAGE_SIZE;
-		ret = t4_write_flash(adap, addr, n, cfg_data, 1);
-		if (ret)
-			goto out;
-		
-		addr += SF_PAGE_SIZE;
-		cfg_data += SF_PAGE_SIZE;
-	} 
-                
-out:
-	if (ret)
-		CH_ERR(adap, "config file %s failed %d\n",
-		       (size == 0 ? "clear" : "download"), ret);
-	return ret;
 }
 
 
@@ -3180,281 +3405,28 @@ out:
 	return ret;
 }
 
-/* BIOS boot headers */
-typedef struct pci_expansion_rom_header {
-	u8	signature[2]; /* ROM Signature. Should be 0xaa55 */
-	u8	reserved[22]; /* Reserved per processor Architecture data */
-	u8	pcir_offset[2]; /* Offset to PCI Data Structure */
-} pci_exp_rom_header_t; /* PCI_EXPANSION_ROM_HEADER */
-
-/* Legacy PCI Expansion ROM Header */
-typedef struct legacy_pci_expansion_rom_header {
-	u8	signature[2]; /* ROM Signature. Should be 0xaa55 */
-	u8	size512; /* Current Image Size in units of 512 bytes */
-	u8	initentry_point[4];
-	u8	cksum; /* Checksum computed on the entire Image */
-	u8	reserved[16]; /* Reserved */
-	u8	pcir_offset[2]; /* Offset to PCI Data Struture */
-} legacy_pci_exp_rom_header_t; /* LEGACY_PCI_EXPANSION_ROM_HEADER */
-
-/* EFI PCI Expansion ROM Header */
-typedef struct efi_pci_expansion_rom_header {
-	u8	signature[2]; // ROM signature. The value 0xaa55
-	u8	initialization_size[2]; /* Units 512. Includes this header */
-	u8	efi_signature[4]; /* Signature from EFI image header. 0x0EF1 */
-	u8	efi_subsystem[2]; /* Subsystem value for EFI image header */
-	u8	efi_machine_type[2]; /* Machine type from EFI image header */
-	u8	compression_type[2]; /* Compression type. */
-		/* 
-		 * Compression type definition
-		 * 0x0: uncompressed
-		 * 0x1: Compressed
-		 * 0x2-0xFFFF: Reserved
-		 */
-	u8	reserved[8]; /* Reserved */
-	u8	efi_image_header_offset[2]; /* Offset to EFI Image */
-	u8	pcir_offset[2]; /* Offset to PCI Data Structure */
-} efi_pci_exp_rom_header_t; /* EFI PCI Expansion ROM Header */
-
-/* PCI Data Structure Format */
-typedef struct pcir_data_structure { /* PCI Data Structure */
-	u8	signature[4]; /* Signature. The string "PCIR" */
-	u8	vendor_id[2]; /* Vendor Identification */
-	u8	device_id[2]; /* Device Identification */
-	u8	vital_product[2]; /* Pointer to Vital Product Data */
-	u8	length[2]; /* PCIR Data Structure Length */
-	u8	revision; /* PCIR Data Structure Revision */
-	u8	class_code[3]; /* Class Code */
-	u8	image_length[2]; /* Image Length. Multiple of 512B */
-	u8	code_revision[2]; /* Revision Level of Code/Data */
-	u8	code_type; /* Code Type. */
-		/*
-		 * PCI Expansion ROM Code Types
-		 * 0x00: Intel IA-32, PC-AT compatible. Legacy
-		 * 0x01: Open Firmware standard for PCI. FCODE
-		 * 0x02: Hewlett-Packard PA RISC. HP reserved
-		 * 0x03: EFI Image. EFI
-		 * 0x04-0xFF: Reserved.
-		 */
-	u8	indicator; /* Indicator. Identifies the last image in the ROM */
-	u8	reserved[2]; /* Reserved */
-} pcir_data_t; /* PCI__DATA_STRUCTURE */
-
-/* BOOT constants */
-enum {
-	BOOT_FLASH_BOOT_ADDR = 0x0,/* start address of boot image in flash */
-	BOOT_SIGNATURE = 0xaa55,   /* signature of BIOS boot ROM */
-	BOOT_SIZE_INC = 512,       /* image size measured in 512B chunks */
-	BOOT_MIN_SIZE = sizeof(pci_exp_rom_header_t), /* basic header */
-	BOOT_MAX_SIZE = 1024*BOOT_SIZE_INC, /* 1 byte * length increment  */
-	VENDOR_ID = 0x1425, /* Vendor ID */
-	PCIR_SIGNATURE = 0x52494350 /* PCIR signature */
-};
-
-/*
- *	modify_device_id - Modifies the device ID of the Boot BIOS image 
- *	@adatper: the device ID to write.
- *	@boot_data: the boot image to modify.
- *
- *	Write the supplied device ID to the boot BIOS image.
+/**
+ *	t4_fwcache - firmware cache operation
+ *	@adap: the adapter
+ *	@op  : the operation (flush or flush and invalidate)
  */
-static void modify_device_id(int device_id, u8 *boot_data)
+int t4_fwcache(struct adapter *adap, enum fw_params_param_dev_fwcache op)
 {
-	legacy_pci_exp_rom_header_t *header;
-	pcir_data_t *pcir_header;
-	u32 cur_header = 0;
+	struct fw_params_cmd c;
 
-	/*
-	 * Loop through all chained images and change the device ID's
-	 */
-	while (1) {
-		header = (legacy_pci_exp_rom_header_t *) &boot_data[cur_header];
-		pcir_header = (pcir_data_t *) &boot_data[cur_header +
-		    le16_to_cpu(*(u16*)header->pcir_offset)];
+	memset(&c, 0, sizeof(c));
+	c.op_to_vfn =
+	    cpu_to_be32(V_FW_CMD_OP(FW_PARAMS_CMD) |
+			    F_FW_CMD_REQUEST | F_FW_CMD_WRITE |
+				V_FW_PARAMS_CMD_PFN(adap->pf) |
+				V_FW_PARAMS_CMD_VFN(0));
+	c.retval_len16 = cpu_to_be32(FW_LEN16(c));
+	c.param[0].mnem =
+	    cpu_to_be32(V_FW_PARAMS_MNEM(FW_PARAMS_MNEM_DEV) |
+			    V_FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DEV_FWCACHE));
+	c.param[0].val = (__force __be32)op;
 
-		/*
-		 * Only modify the Device ID if code type is Legacy or HP.
-		 * 0x00: Okay to modify
-		 * 0x01: FCODE. Do not be modify
-		 * 0x03: Okay to modify
-		 * 0x04-0xFF: Do not modify
-		 */
-		if (pcir_header->code_type == 0x00) {
-			u8 csum = 0;
-			int i;
-
-			/*
-			 * Modify Device ID to match current adatper
-			 */
-			*(u16*) pcir_header->device_id = device_id;
-
-			/*
-			 * Set checksum temporarily to 0.
-			 * We will recalculate it later.
-			 */
-			header->cksum = 0x0;
-
-			/*
-			 * Calculate and update checksum
-			 */
-			for (i = 0; i < (header->size512 * 512); i++)
-				csum += (u8)boot_data[cur_header + i];
-
-			/*
-			 * Invert summed value to create the checksum
-			 * Writing new checksum value directly to the boot data
-			 */
-			boot_data[cur_header + 7] = -csum;
-
-		} else if (pcir_header->code_type == 0x03) {
-
-			/*
-			 * Modify Device ID to match current adatper
-			 */
-			*(u16*) pcir_header->device_id = device_id;
-
-		}
-
-
-		/*
-		 * Check indicator element to identify if this is the last
-		 * image in the ROM.
-		 */
-		if (pcir_header->indicator & 0x80)
-			break;
-
-		/*
-		 * Move header pointer up to the next image in the ROM.
-		 */
-		cur_header += header->size512 * 512;
-	}
-}
-
-/*
- *	t4_load_boot - download boot flash
- *	@adapter: the adapter
- *	@boot_data: the boot image to write
- *	@boot_addr: offset in flash to write boot_data
- *	@size: image size
- *
- *	Write the supplied boot image to the card's serial flash.
- *	The boot image has the following sections: a 28-byte header and the
- *	boot image.
- */
-int t4_load_boot(struct adapter *adap, u8 *boot_data, 
-		 unsigned int boot_addr, unsigned int size)
-{
-	pci_exp_rom_header_t *header;
-	int pcir_offset ;
-	pcir_data_t *pcir_header;
-	int ret, addr;
-	uint16_t device_id;
-	unsigned int i;
-	unsigned int boot_sector = boot_addr * 1024;
-	unsigned int sf_sec_size = adap->params.sf_size / adap->params.sf_nsec;
-
-	/*
-	 * Make sure the boot image does not encroach on the firmware region
-	 */
-	if ((boot_sector + size) >> 16 > FLASH_FW_START_SEC) {
-		CH_ERR(adap, "boot image encroaching on firmware region\n");
-		return -EFBIG;
-	}
-
-	/*
-	 * Number of sectors spanned
-	 */
-	i = DIV_ROUND_UP(size ? size : FLASH_BOOTCFG_MAX_SIZE,
-			sf_sec_size);
-	ret = t4_flash_erase_sectors(adap, boot_sector >> 16,
-				     (boot_sector >> 16) + i - 1);
-
-	/*
-	 * If size == 0 then we're simply erasing the FLASH sectors associated
-	 * with the on-adapter option ROM file
-	 */
-	if (ret || (size == 0))
-		goto out;
-
-	/* Get boot header */
-	header = (pci_exp_rom_header_t *)boot_data;
-	pcir_offset = le16_to_cpu(*(u16 *)header->pcir_offset);
-	/* PCIR Data Structure */
-	pcir_header = (pcir_data_t *) &boot_data[pcir_offset];
-
-	/*
-	 * Perform some primitive sanity testing to avoid accidentally
-	 * writing garbage over the boot sectors.  We ought to check for
-	 * more but it's not worth it for now ...
-	 */
-	if (size < BOOT_MIN_SIZE || size > BOOT_MAX_SIZE) {
-		CH_ERR(adap, "boot image too small/large\n");
-		return -EFBIG;
-	}
-
-	/*
-	 * Check BOOT ROM header signature
-	 */
-	if (le16_to_cpu(*(u16*)header->signature) != BOOT_SIGNATURE ) {
-		CH_ERR(adap, "Boot image missing signature\n");
-		return -EINVAL;
-	}
-
-	/*
-	 * Check PCI header signature
-	 */
-	if (le32_to_cpu(*(u32*)pcir_header->signature) != PCIR_SIGNATURE) {
-		CH_ERR(adap, "PCI header missing signature\n");
-		return -EINVAL;
-	}
-
-	/*
-	 * Check Vendor ID matches Chelsio ID
-	 */
-	if (le16_to_cpu(*(u16*)pcir_header->vendor_id) != VENDOR_ID) {
-		CH_ERR(adap, "Vendor ID missing signature\n");
-		return -EINVAL;
-	}
-
-	/*
-	 * Retrieve adapter's device ID
-	 */
-	t4_os_pci_read_cfg2(adap, PCI_DEVICE_ID, &device_id);
-	/* Want to deal with PF 0 so I strip off PF 4 indicator */
-	device_id = (device_id & 0xff) | 0x4000;
-
-	/*
-	 * Check PCIE Device ID
-	 */
-	if (le16_to_cpu(*(u16*)pcir_header->device_id) != device_id) {
-		/*
-		 * Change the device ID in the Boot BIOS image to match
-		 * the Device ID of the current adapter.
-		 */
-		modify_device_id(device_id, boot_data);
-	}
-
-	/*
-	 * Skip over the first SF_PAGE_SIZE worth of data and write it after
-	 * we finish copying the rest of the boot image. This will ensure
-	 * that the BIOS boot header will only be written if the boot image
-	 * was written in full.
-	 */
-	addr = boot_sector;
-	for (size -= SF_PAGE_SIZE; size; size -= SF_PAGE_SIZE) {
-		addr += SF_PAGE_SIZE; 
-		boot_data += SF_PAGE_SIZE;
-		ret = t4_write_flash(adap, addr, SF_PAGE_SIZE, boot_data, 0);
-		if (ret)
-			goto out;
-	}
-
-	ret = t4_write_flash(adap, boot_sector, SF_PAGE_SIZE, boot_data, 0);
-
-out:
-	if (ret)
-		CH_ERR(adap, "boot image download failed, error %d\n", ret);
-	return ret;
+	return t4_wr_mbox(adap, adap->mbox, &c, sizeof(c), NULL);
 }
 
 /**
@@ -5368,7 +5340,7 @@ void t4_tp_get_cpl_stats(struct adapter *adap, struct tp_cpl_stats *st)
  */
 void t4_tp_get_rdma_stats(struct adapter *adap, struct tp_rdma_stats *st)
 {
-	t4_read_indirect(adap, A_TP_MIB_INDEX, A_TP_MIB_DATA, &st->rqe_dfr_mod,
+	t4_read_indirect(adap, A_TP_MIB_INDEX, A_TP_MIB_DATA, &st->rqe_dfr_pkt,
 			 2, A_TP_MIB_RQE_DFR_PKT);
 }
 
@@ -5498,7 +5470,7 @@ void t4_tp_wr_bits_indirect(struct adapter *adap, unsigned int addr,
  *
  *	Initialize the congestion control parameters.
  */
-static void __devinit init_cong_ctrl(unsigned short *a, unsigned short *b)
+static void init_cong_ctrl(unsigned short *a, unsigned short *b)
 {
 	a[0] = a[1] = a[2] = a[3] = a[4] = a[5] = a[6] = a[7] = a[8] = 1;
 	a[9] = 2;
@@ -5955,7 +5927,7 @@ void t4_pmrx_get_stats(struct adapter *adap, u32 cnt[], u64 cycles[])
 }
 
 /**
- *	get_mps_bg_map - return the buffer groups associated with a port
+ *	t4_get_mps_bg_map - return the buffer groups associated with a port
  *	@adap: the adapter
  *	@idx: the port index
  *
@@ -5963,7 +5935,7 @@ void t4_pmrx_get_stats(struct adapter *adap, u32 cnt[], u64 cycles[])
  *	with the given port.  Bit i is set if buffer group i is used by the
  *	port.
  */
-static unsigned int get_mps_bg_map(struct adapter *adap, int idx)
+static unsigned int t4_get_mps_bg_map(struct adapter *adap, int idx)
 {
 	u32 n = G_NUMPORTS(t4_read_reg(adap, A_MPS_CMN_CTL));
 
@@ -6036,7 +6008,7 @@ void t4_get_port_stats_offset(struct adapter *adap, int idx,
  */
 void t4_get_port_stats(struct adapter *adap, int idx, struct port_stats *p)
 {
-	u32 bgmap = get_mps_bg_map(adap, idx);
+	u32 bgmap = t4_get_mps_bg_map(adap, idx);
 
 #define GET_STAT(name) \
 	t4_read_reg64(adap, \
@@ -6119,7 +6091,7 @@ void t4_get_port_stats(struct adapter *adap, int idx, struct port_stats *p)
 void t4_clr_port_stats(struct adapter *adap, int idx)
 {
 	unsigned int i;
-	u32 bgmap = get_mps_bg_map(adap, idx);
+	u32 bgmap = t4_get_mps_bg_map(adap, idx);
 	u32 port_base_addr;
 
 	if (is_t4(adap))
@@ -6152,7 +6124,7 @@ void t4_clr_port_stats(struct adapter *adap, int idx)
  */
 void t4_get_lb_stats(struct adapter *adap, int idx, struct lb_port_stats *p)
 {
-	u32 bgmap = get_mps_bg_map(adap, idx);
+	u32 bgmap = t4_get_mps_bg_map(adap, idx);
 
 #define GET_STAT(name) \
 	t4_read_reg64(adap, \
@@ -6387,6 +6359,163 @@ int t4_mdio_wr(struct adapter *adap, unsigned int mbox, unsigned int phy_addr,
 	c.u.mdio.rval = htons(val);
 
 	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
+}
+
+/**
+ *
+ *	t4_sge_decode_idma_state - decode the idma state
+ *	@adap: the adapter
+ *	@state: the state idma is stuck in
+ */
+void t4_sge_decode_idma_state(struct adapter *adapter, int state)
+{
+	static const char * const t4_decode[] = {
+		"IDMA_IDLE",
+		"IDMA_PUSH_MORE_CPL_FIFO",
+		"IDMA_PUSH_CPL_MSG_HEADER_TO_FIFO",
+		"Not used",
+		"IDMA_PHYSADDR_SEND_PCIEHDR",
+		"IDMA_PHYSADDR_SEND_PAYLOAD_FIRST",
+		"IDMA_PHYSADDR_SEND_PAYLOAD",
+		"IDMA_SEND_FIFO_TO_IMSG",
+		"IDMA_FL_REQ_DATA_FL_PREP",
+		"IDMA_FL_REQ_DATA_FL",
+		"IDMA_FL_DROP",
+		"IDMA_FL_H_REQ_HEADER_FL",
+		"IDMA_FL_H_SEND_PCIEHDR",
+		"IDMA_FL_H_PUSH_CPL_FIFO",
+		"IDMA_FL_H_SEND_CPL",
+		"IDMA_FL_H_SEND_IP_HDR_FIRST",
+		"IDMA_FL_H_SEND_IP_HDR",
+		"IDMA_FL_H_REQ_NEXT_HEADER_FL",
+		"IDMA_FL_H_SEND_NEXT_PCIEHDR",
+		"IDMA_FL_H_SEND_IP_HDR_PADDING",
+		"IDMA_FL_D_SEND_PCIEHDR",
+		"IDMA_FL_D_SEND_CPL_AND_IP_HDR",
+		"IDMA_FL_D_REQ_NEXT_DATA_FL",
+		"IDMA_FL_SEND_PCIEHDR",
+		"IDMA_FL_PUSH_CPL_FIFO",
+		"IDMA_FL_SEND_CPL",
+		"IDMA_FL_SEND_PAYLOAD_FIRST",
+		"IDMA_FL_SEND_PAYLOAD",
+		"IDMA_FL_REQ_NEXT_DATA_FL",
+		"IDMA_FL_SEND_NEXT_PCIEHDR",
+		"IDMA_FL_SEND_PADDING",
+		"IDMA_FL_SEND_COMPLETION_TO_IMSG",
+		"IDMA_FL_SEND_FIFO_TO_IMSG",
+		"IDMA_FL_REQ_DATAFL_DONE",
+		"IDMA_FL_REQ_HEADERFL_DONE",
+	};
+	static const char * const t5_decode[] = {
+		"IDMA_IDLE",
+		"IDMA_ALMOST_IDLE",
+		"IDMA_PUSH_MORE_CPL_FIFO",
+		"IDMA_PUSH_CPL_MSG_HEADER_TO_FIFO",
+		"IDMA_SGEFLRFLUSH_SEND_PCIEHDR",
+		"IDMA_PHYSADDR_SEND_PCIEHDR",
+		"IDMA_PHYSADDR_SEND_PAYLOAD_FIRST",
+		"IDMA_PHYSADDR_SEND_PAYLOAD",
+		"IDMA_SEND_FIFO_TO_IMSG",
+		"IDMA_FL_REQ_DATA_FL",
+		"IDMA_FL_DROP",
+		"IDMA_FL_DROP_SEND_INC",
+		"IDMA_FL_H_REQ_HEADER_FL",
+		"IDMA_FL_H_SEND_PCIEHDR",
+		"IDMA_FL_H_PUSH_CPL_FIFO",
+		"IDMA_FL_H_SEND_CPL",
+		"IDMA_FL_H_SEND_IP_HDR_FIRST",
+		"IDMA_FL_H_SEND_IP_HDR",
+		"IDMA_FL_H_REQ_NEXT_HEADER_FL",
+		"IDMA_FL_H_SEND_NEXT_PCIEHDR",
+		"IDMA_FL_H_SEND_IP_HDR_PADDING",
+		"IDMA_FL_D_SEND_PCIEHDR",
+		"IDMA_FL_D_SEND_CPL_AND_IP_HDR",
+		"IDMA_FL_D_REQ_NEXT_DATA_FL",
+		"IDMA_FL_SEND_PCIEHDR",
+		"IDMA_FL_PUSH_CPL_FIFO",
+		"IDMA_FL_SEND_CPL",
+		"IDMA_FL_SEND_PAYLOAD_FIRST",
+		"IDMA_FL_SEND_PAYLOAD",
+		"IDMA_FL_REQ_NEXT_DATA_FL",
+		"IDMA_FL_SEND_NEXT_PCIEHDR",
+		"IDMA_FL_SEND_PADDING",
+		"IDMA_FL_SEND_COMPLETION_TO_IMSG",
+	};
+	static const char * const t6_decode[] = {
+		"IDMA_IDLE",
+		"IDMA_PUSH_MORE_CPL_FIFO",
+		"IDMA_PUSH_CPL_MSG_HEADER_TO_FIFO",
+		"IDMA_SGEFLRFLUSH_SEND_PCIEHDR",
+		"IDMA_PHYSADDR_SEND_PCIEHDR",
+		"IDMA_PHYSADDR_SEND_PAYLOAD_FIRST",
+		"IDMA_PHYSADDR_SEND_PAYLOAD",
+		"IDMA_FL_REQ_DATA_FL",
+		"IDMA_FL_DROP",
+		"IDMA_FL_DROP_SEND_INC",
+		"IDMA_FL_H_REQ_HEADER_FL",
+		"IDMA_FL_H_SEND_PCIEHDR",
+		"IDMA_FL_H_PUSH_CPL_FIFO",
+		"IDMA_FL_H_SEND_CPL",
+		"IDMA_FL_H_SEND_IP_HDR_FIRST",
+		"IDMA_FL_H_SEND_IP_HDR",
+		"IDMA_FL_H_REQ_NEXT_HEADER_FL",
+		"IDMA_FL_H_SEND_NEXT_PCIEHDR",
+		"IDMA_FL_H_SEND_IP_HDR_PADDING",
+		"IDMA_FL_D_SEND_PCIEHDR",
+		"IDMA_FL_D_SEND_CPL_AND_IP_HDR",
+		"IDMA_FL_D_REQ_NEXT_DATA_FL",
+		"IDMA_FL_SEND_PCIEHDR",
+		"IDMA_FL_PUSH_CPL_FIFO",
+		"IDMA_FL_SEND_CPL",
+		"IDMA_FL_SEND_PAYLOAD_FIRST",
+		"IDMA_FL_SEND_PAYLOAD",
+		"IDMA_FL_REQ_NEXT_DATA_FL",
+		"IDMA_FL_SEND_NEXT_PCIEHDR",
+		"IDMA_FL_SEND_PADDING",
+		"IDMA_FL_SEND_COMPLETION_TO_IMSG",
+	};
+	static const u32 sge_regs[] = {
+		A_SGE_DEBUG_DATA_LOW_INDEX_2,
+		A_SGE_DEBUG_DATA_LOW_INDEX_3,
+		A_SGE_DEBUG_DATA_HIGH_INDEX_10,
+	};
+	const char * const *sge_idma_decode;
+	int sge_idma_decode_nstates;
+	int i;
+	unsigned int chip_version = chip_id(adapter);
+
+	/* Select the right set of decode strings to dump depending on the
+	 * adapter chip type.
+	 */
+	switch (chip_version) {
+	case CHELSIO_T4:
+		sge_idma_decode = (const char * const *)t4_decode;
+		sge_idma_decode_nstates = ARRAY_SIZE(t4_decode);
+		break;
+
+	case CHELSIO_T5:
+		sge_idma_decode = (const char * const *)t5_decode;
+		sge_idma_decode_nstates = ARRAY_SIZE(t5_decode);
+		break;
+
+	case CHELSIO_T6:
+		sge_idma_decode = (const char * const *)t6_decode;
+		sge_idma_decode_nstates = ARRAY_SIZE(t6_decode);
+		break;
+
+	default:
+		CH_ERR(adapter,	"Unsupported chip version %d\n", chip_version);
+		return;
+	}
+
+	if (state < sge_idma_decode_nstates)
+		CH_WARN(adapter, "idma state %s\n", sge_idma_decode[state]);
+	else
+		CH_WARN(adapter, "idma state %d unknown\n", state);
+
+	for (i = 0; i < ARRAY_SIZE(sge_regs); i++)
+		CH_WARN(adapter, "SGE register %#x value %#x\n",
+			sge_regs[i], t4_read_reg(adapter, sge_regs[i]));
 }
 
 /**
@@ -6914,7 +7043,7 @@ int t4_fw_initialize(struct adapter *adap, unsigned int mbox)
 }
 
 /**
- *	t4_query_params - query FW or device parameters
+ *	t4_query_params_rw - query FW or device parameters
  *	@adap: the adapter
  *	@mbox: mailbox to use for the FW command
  *	@pf: the PF
@@ -6922,13 +7051,14 @@ int t4_fw_initialize(struct adapter *adap, unsigned int mbox)
  *	@nparams: the number of parameters
  *	@params: the parameter names
  *	@val: the parameter values
+ *	@rw: Write and read flag
  *
  *	Reads the value of FW or device parameters.  Up to 7 parameters can be
  *	queried at once.
  */
-int t4_query_params(struct adapter *adap, unsigned int mbox, unsigned int pf,
-		    unsigned int vf, unsigned int nparams, const u32 *params,
-		    u32 *val)
+int t4_query_params_rw(struct adapter *adap, unsigned int mbox, unsigned int pf,
+		       unsigned int vf, unsigned int nparams, const u32 *params,
+		       u32 *val, int rw)
 {
 	int i, ret;
 	struct fw_params_cmd c;
@@ -6938,19 +7068,71 @@ int t4_query_params(struct adapter *adap, unsigned int mbox, unsigned int pf,
 		return -EINVAL;
 
 	memset(&c, 0, sizeof(c));
-	c.op_to_vfn = htonl(V_FW_CMD_OP(FW_PARAMS_CMD) | F_FW_CMD_REQUEST |
-			    F_FW_CMD_READ | V_FW_PARAMS_CMD_PFN(pf) |
-			    V_FW_PARAMS_CMD_VFN(vf));
-	c.retval_len16 = htonl(FW_LEN16(c));
+	c.op_to_vfn = cpu_to_be32(V_FW_CMD_OP(FW_PARAMS_CMD) |
+				  F_FW_CMD_REQUEST | F_FW_CMD_READ |
+				  V_FW_PARAMS_CMD_PFN(pf) |
+				  V_FW_PARAMS_CMD_VFN(vf));
+	c.retval_len16 = cpu_to_be32(FW_LEN16(c));
 
-	for (i = 0; i < nparams; i++, p += 2, params++)
-		*p = htonl(*params);
+	for (i = 0; i < nparams; i++) {
+		*p++ = cpu_to_be32(*params++);
+		if (rw)
+			*p = cpu_to_be32(*(val + i));
+		p++;
+	}
 
 	ret = t4_wr_mbox(adap, mbox, &c, sizeof(c), &c);
 	if (ret == 0)
 		for (i = 0, p = &c.param[0].val; i < nparams; i++, p += 2)
-			*val++ = ntohl(*p);
+			*val++ = be32_to_cpu(*p);
 	return ret;
+}
+
+int t4_query_params(struct adapter *adap, unsigned int mbox, unsigned int pf,
+		    unsigned int vf, unsigned int nparams, const u32 *params,
+		    u32 *val)
+{
+	return t4_query_params_rw(adap, mbox, pf, vf, nparams, params, val, 0);
+}
+
+/**
+ *      t4_set_params_timeout - sets FW or device parameters
+ *      @adap: the adapter
+ *      @mbox: mailbox to use for the FW command
+ *      @pf: the PF
+ *      @vf: the VF
+ *      @nparams: the number of parameters
+ *      @params: the parameter names
+ *      @val: the parameter values
+ *      @timeout: the timeout time
+ *
+ *      Sets the value of FW or device parameters.  Up to 7 parameters can be
+ *      specified at once.
+ */
+int t4_set_params_timeout(struct adapter *adap, unsigned int mbox,
+			  unsigned int pf, unsigned int vf,
+			  unsigned int nparams, const u32 *params,
+			  const u32 *val, int timeout)
+{
+	struct fw_params_cmd c;
+	__be32 *p = &c.param[0].mnem;
+
+	if (nparams > 7)
+		return -EINVAL;
+
+	memset(&c, 0, sizeof(c));
+	c.op_to_vfn = cpu_to_be32(V_FW_CMD_OP(FW_PARAMS_CMD) |
+				  F_FW_CMD_REQUEST | F_FW_CMD_WRITE |
+				  V_FW_PARAMS_CMD_PFN(pf) |
+				  V_FW_PARAMS_CMD_VFN(vf));
+	c.retval_len16 = cpu_to_be32(FW_LEN16(c));
+
+	while (nparams--) {
+		*p++ = cpu_to_be32(*params++);
+		*p++ = cpu_to_be32(*val++);
+	}
+
+	return t4_wr_mbox_timeout(adap, mbox, &c, sizeof(c), NULL, timeout);
 }
 
 /**
@@ -6970,26 +7152,8 @@ int t4_set_params(struct adapter *adap, unsigned int mbox, unsigned int pf,
 		  unsigned int vf, unsigned int nparams, const u32 *params,
 		  const u32 *val)
 {
-	struct fw_params_cmd c;
-	__be32 *p = &c.param[0].mnem;
-
-	if (nparams > 7)
-		return -EINVAL;
-
-	memset(&c, 0, sizeof(c));
-	c.op_to_vfn = htonl(V_FW_CMD_OP(FW_PARAMS_CMD) | F_FW_CMD_REQUEST |
-			    F_FW_CMD_WRITE | V_FW_PARAMS_CMD_PFN(pf) |
-			    V_FW_PARAMS_CMD_VFN(vf));
-	c.retval_len16 = htonl(FW_LEN16(c));
-
-	while (nparams--) {
-		*p++ = htonl(*params);
-		params++;
-		*p++ = htonl(*val);
-		val++;
-	}
-
-	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
+	return t4_set_params_timeout(adap, mbox, pf, vf, nparams, params, val,
+				     FW_CMD_MAX_TIMEOUT);
 }
 
 /**
@@ -7364,6 +7528,34 @@ int t4_set_addr_hash(struct adapter *adap, unsigned int mbox, unsigned int viid,
 }
 
 /**
+ *      t4_enable_vi_params - enable/disable a virtual interface
+ *      @adap: the adapter
+ *      @mbox: mailbox to use for the FW command
+ *      @viid: the VI id
+ *      @rx_en: 1=enable Rx, 0=disable Rx
+ *      @tx_en: 1=enable Tx, 0=disable Tx
+ *      @dcb_en: 1=enable delivery of Data Center Bridging messages.
+ *
+ *      Enables/disables a virtual interface.  Note that setting DCB Enable
+ *      only makes sense when enabling a Virtual Interface ...
+ */
+int t4_enable_vi_params(struct adapter *adap, unsigned int mbox,
+			unsigned int viid, bool rx_en, bool tx_en, bool dcb_en)
+{
+	struct fw_vi_enable_cmd c;
+
+	memset(&c, 0, sizeof(c));
+	c.op_to_viid = cpu_to_be32(V_FW_CMD_OP(FW_VI_ENABLE_CMD) |
+				   F_FW_CMD_REQUEST | F_FW_CMD_EXEC |
+				   V_FW_VI_ENABLE_CMD_VIID(viid));
+	c.ien_to_len16 = cpu_to_be32(V_FW_VI_ENABLE_CMD_IEN(rx_en) |
+				     V_FW_VI_ENABLE_CMD_EEN(tx_en) |
+				     V_FW_VI_ENABLE_CMD_DCB_INFO(dcb_en) |
+				     FW_LEN16(c));
+	return t4_wr_mbox_ns(adap, mbox, &c, sizeof(c), NULL);
+}
+
+/**
  *	t4_enable_vi - enable/disable a virtual interface
  *	@adap: the adapter
  *	@mbox: mailbox to use for the FW command
@@ -7371,19 +7563,13 @@ int t4_set_addr_hash(struct adapter *adap, unsigned int mbox, unsigned int viid,
  *	@rx_en: 1=enable Rx, 0=disable Rx
  *	@tx_en: 1=enable Tx, 0=disable Tx
  *
- *	Enables/disables a virtual interface.
+ *	Enables/disables a virtual interface.  Note that setting DCB Enable
+ *	only makes sense when enabling a Virtual Interface ...
  */
 int t4_enable_vi(struct adapter *adap, unsigned int mbox, unsigned int viid,
 		 bool rx_en, bool tx_en)
 {
-	struct fw_vi_enable_cmd c;
-
-	memset(&c, 0, sizeof(c));
-	c.op_to_viid = htonl(V_FW_CMD_OP(FW_VI_ENABLE_CMD) | F_FW_CMD_REQUEST |
-			     F_FW_CMD_EXEC | V_FW_VI_ENABLE_CMD_VIID(viid));
-	c.ien_to_len16 = htonl(V_FW_VI_ENABLE_CMD_IEN(rx_en) |
-			       V_FW_VI_ENABLE_CMD_EEN(tx_en) | FW_LEN16(c));
-	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
+	return t4_enable_vi_params(adap, mbox, viid, rx_en, tx_en, 0);
 }
 
 /**
@@ -7405,6 +7591,39 @@ int t4_identify_port(struct adapter *adap, unsigned int mbox, unsigned int viid,
 			     F_FW_CMD_EXEC | V_FW_VI_ENABLE_CMD_VIID(viid));
 	c.ien_to_len16 = htonl(F_FW_VI_ENABLE_CMD_LED | FW_LEN16(c));
 	c.blinkdur = htons(nblinks);
+	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
+}
+
+/**
+ *	t4_iq_stop - stop an ingress queue and its FLs
+ *	@adap: the adapter
+ *	@mbox: mailbox to use for the FW command
+ *	@pf: the PF owning the queues
+ *	@vf: the VF owning the queues
+ *	@iqtype: the ingress queue type (FW_IQ_TYPE_FL_INT_CAP, etc.)
+ *	@iqid: ingress queue id
+ *	@fl0id: FL0 queue id or 0xffff if no attached FL0
+ *	@fl1id: FL1 queue id or 0xffff if no attached FL1
+ *
+ *	Stops an ingress queue and its associated FLs, if any.  This causes
+ *	any current or future data/messages destined for these queues to be
+ *	tossed.
+ */
+int t4_iq_stop(struct adapter *adap, unsigned int mbox, unsigned int pf,
+	       unsigned int vf, unsigned int iqtype, unsigned int iqid,
+	       unsigned int fl0id, unsigned int fl1id)
+{
+	struct fw_iq_cmd c;
+
+	memset(&c, 0, sizeof(c));
+	c.op_to_vfn = cpu_to_be32(V_FW_CMD_OP(FW_IQ_CMD) | F_FW_CMD_REQUEST |
+				  F_FW_CMD_EXEC | V_FW_IQ_CMD_PFN(pf) |
+				  V_FW_IQ_CMD_VFN(vf));
+	c.alloc_to_len16 = cpu_to_be32(F_FW_IQ_CMD_IQSTOP | FW_LEN16(c));
+	c.type_to_iqandstindex = cpu_to_be32(V_FW_IQ_CMD_TYPE(iqtype));
+	c.iqid = cpu_to_be16(iqid);
+	c.fl0id = cpu_to_be16(fl0id);
+	c.fl1id = cpu_to_be16(fl1id);
 	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
 }
 
@@ -7512,6 +7731,31 @@ int t4_ofld_eq_free(struct adapter *adap, unsigned int mbox, unsigned int pf,
 }
 
 /**
+ *	t4_link_down_rc_str - return a string for a Link Down Reason Code
+ *	@link_down_rc: Link Down Reason Code
+ *
+ *	Returns a string representation of the Link Down Reason Code.
+ */
+const char *t4_link_down_rc_str(unsigned char link_down_rc)
+{
+	static const char *reason[] = {
+		"Link Down",
+		"Remote Fault",
+		"Auto-negotiation Failure",
+		"Reserved3",
+		"Insufficient Airflow",
+		"Unable To Determine Reason",
+		"No RX Signal Detected",
+		"Reserved7",
+	};
+
+	if (link_down_rc >= ARRAY_SIZE(reason))
+		return "Bad Reason Code";
+
+	return reason[link_down_rc];
+}
+
+/**
  *	t4_handle_fw_rpl - process a FW reply message
  *	@adap: the adapter
  *	@rpl: start of the FW message
@@ -7539,13 +7783,13 @@ int t4_handle_fw_rpl(struct adapter *adap, const __be64 *rpl)
 		if (stat & F_FW_PORT_CMD_TXPAUSE)
 			fc |= PAUSE_TX;
 		if (stat & V_FW_PORT_CMD_LSPEED(FW_PORT_CAP_SPEED_100M))
-			speed = SPEED_100;
+			speed = 100;
 		else if (stat & V_FW_PORT_CMD_LSPEED(FW_PORT_CAP_SPEED_1G))
-			speed = SPEED_1000;
+			speed = 1000;
 		else if (stat & V_FW_PORT_CMD_LSPEED(FW_PORT_CAP_SPEED_10G))
-			speed = SPEED_10000;
+			speed = 10000;
 		else if (stat & V_FW_PORT_CMD_LSPEED(FW_PORT_CAP_SPEED_40G))
-			speed = SPEED_40000;
+			speed = 40000;
 
 		for_each_port(adap, i) {
 			pi = adap2pinfo(adap, i);
@@ -7589,7 +7833,7 @@ int t4_handle_fw_rpl(struct adapter *adap, const __be64 *rpl)
  *	Determines a card's PCI mode and associated parameters, such as speed
  *	and width.
  */
-static void __devinit get_pci_mode(struct adapter *adapter,
+static void get_pci_mode(struct adapter *adapter,
 				   struct pci_params *p)
 {
 	u16 val;
@@ -7611,8 +7855,7 @@ static void __devinit get_pci_mode(struct adapter *adapter,
  *	Initializes the SW state maintained for each link, including the link's
  *	capabilities and default speed/flow-control/autonegotiation settings.
  */
-static void __devinit init_link_config(struct link_config *lc,
-				       unsigned int caps)
+static void init_link_config(struct link_config *lc, unsigned int caps)
 {
 	lc->supported = caps;
 	lc->requested_speed = 0;
@@ -7628,21 +7871,43 @@ static void __devinit init_link_config(struct link_config *lc,
 	}
 }
 
-static int __devinit get_flash_params(struct adapter *adapter)
+struct flash_desc {
+	u32 vendor_and_model_id;
+	u32 size_mb;
+};
+
+int t4_get_flash_params(struct adapter *adapter)
 {
+	/*
+	 * Table for non-Numonix supported flash parts.  Numonix parts are left
+	 * to the preexisting well-tested code.  All flash parts have 64KB
+	 * sectors.
+	 */
+	static struct flash_desc supported_flash[] = {
+		{ 0x150201, 4 << 20 },       /* Spansion 4MB S25FL032P */
+	};
+
 	int ret;
 	u32 info = 0;
 
 	ret = sf1_write(adapter, 1, 1, 0, SF_RD_ID);
 	if (!ret)
 		ret = sf1_read(adapter, 3, 0, 1, &info);
-	t4_write_reg(adapter, A_SF_OP, 0);               /* unlock SF */
+	t4_write_reg(adapter, A_SF_OP, 0);	/* unlock SF */
 	if (ret < 0)
 		return ret;
 
-	if ((info & 0xff) != 0x20)             /* not a Numonix flash */
+	for (ret = 0; ret < ARRAY_SIZE(supported_flash); ++ret)
+		if (supported_flash[ret].vendor_and_model_id == info) {
+			adapter->params.sf_size = supported_flash[ret].size_mb;
+			adapter->params.sf_nsec =
+				adapter->params.sf_size / SF_SEC_SIZE;
+			return 0;
+		}
+
+	if ((info & 0xff) != 0x20)		/* not a Numonix flash */
 		return -EINVAL;
-	info >>= 16;                           /* log2 of size */
+	info >>= 16;				/* log2 of size */
 	if (info >= 0x14 && info < 0x18)
 		adapter->params.sf_nsec = 1 << (info - 16);
 	else if (info == 0x18)
@@ -7650,10 +7915,20 @@ static int __devinit get_flash_params(struct adapter *adapter)
 	else
 		return -EINVAL;
 	adapter->params.sf_size = 1 << info;
+
+	/*
+	 * We should ~probably~ reject adapters with FLASHes which are too
+	 * small but we have some legacy FPGAs with small FLASHes that we'd
+	 * still like to use.  So instead we emit a scary message ...
+	 */
+	if (adapter->params.sf_size < FLASH_MIN_SIZE)
+		CH_WARN(adapter, "WARNING!!! FLASH size %#x < %#x!!!\n",
+			adapter->params.sf_size, FLASH_MIN_SIZE);
+
 	return 0;
 }
 
-static void __devinit set_pcie_completion_timeout(struct adapter *adapter,
+static void set_pcie_completion_timeout(struct adapter *adapter,
 						  u8 range)
 {
 	u16 val;
@@ -7719,13 +7994,13 @@ static const struct chip_params *get_chip_params(int chipid)
 /**
  *	t4_prep_adapter - prepare SW and HW for operation
  *	@adapter: the adapter
- *	@reset: if true perform a HW reset
+ *	@buf: temporary space of at least VPD_LEN size provided by the caller.
  *
  *	Initialize adapter SW state for the various HW modules, set initial
  *	values for some adapter tunables, take PHYs out of reset, and
  *	initialize the MDIO interface.
  */
-int __devinit t4_prep_adapter(struct adapter *adapter)
+int t4_prep_adapter(struct adapter *adapter, u8 *buf)
 {
 	int ret;
 	uint16_t device_id;
@@ -7754,11 +8029,11 @@ int __devinit t4_prep_adapter(struct adapter *adapter)
 	adapter->params.pci.vpd_cap_addr =
 	    t4_os_find_pci_capability(adapter, PCI_CAP_ID_VPD);
 
-	ret = get_flash_params(adapter);
+	ret = t4_get_flash_params(adapter);
 	if (ret < 0)
 		return ret;
 
-	ret = get_vpd_params(adapter, &adapter->params.vpd);
+	ret = get_vpd_params(adapter, &adapter->params.vpd, buf);
 	if (ret < 0)
 		return ret;
 
@@ -7783,6 +8058,106 @@ int __devinit t4_prep_adapter(struct adapter *adapter)
 
 	/* Set pci completion timeout value to 4 seconds. */
 	set_pcie_completion_timeout(adapter, 0xd);
+	return 0;
+}
+
+/**
+ *	t4_shutdown_adapter - shut down adapter, host & wire
+ *	@adapter: the adapter
+ *
+ *	Perform an emergency shutdown of the adapter and stop it from
+ *	continuing any further communication on the ports or DMA to the
+ *	host.  This is typically used when the adapter and/or firmware
+ *	have crashed and we want to prevent any further accidental
+ *	communication with the rest of the world.  This will also force
+ *	the port Link Status to go down -- if register writes work --
+ *	which should help our peers figure out that we're down.
+ */
+int t4_shutdown_adapter(struct adapter *adapter)
+{
+	int port;
+
+	t4_intr_disable(adapter);
+	t4_write_reg(adapter, A_DBG_GPIO_EN, 0);
+	for_each_port(adapter, port) {
+		u32 a_port_cfg = PORT_REG(port,
+					  is_t4(adapter)
+					  ? A_XGMAC_PORT_CFG
+					  : A_MAC_PORT_CFG);
+
+		t4_write_reg(adapter, a_port_cfg,
+			     t4_read_reg(adapter, a_port_cfg)
+			     & ~V_SIGNAL_DET(1));
+	}
+	t4_set_reg_field(adapter, A_SGE_CONTROL, F_GLOBALENABLE, 0);
+
+	return 0;
+}
+
+/**
+ *	t4_init_devlog_params - initialize adapter->params.devlog
+ *	@adap: the adapter
+ *	@fw_attach: whether we can talk to the firmware
+ *
+ *	Initialize various fields of the adapter's Firmware Device Log
+ *	Parameters structure.
+ */
+int t4_init_devlog_params(struct adapter *adap, int fw_attach)
+{
+	struct devlog_params *dparams = &adap->params.devlog;
+	u32 pf_dparams;
+	unsigned int devlog_meminfo;
+	struct fw_devlog_cmd devlog_cmd;
+	int ret;
+
+	/* If we're dealing with newer firmware, the Device Log Paramerters
+	 * are stored in a designated register which allows us to access the
+	 * Device Log even if we can't talk to the firmware.
+	 */
+	pf_dparams =
+		t4_read_reg(adap, PCIE_FW_REG(A_PCIE_FW_PF, PCIE_FW_PF_DEVLOG));
+	if (pf_dparams) {
+		unsigned int nentries, nentries128;
+
+		dparams->memtype = G_PCIE_FW_PF_DEVLOG_MEMTYPE(pf_dparams);
+		dparams->start = G_PCIE_FW_PF_DEVLOG_ADDR16(pf_dparams) << 4;
+
+		nentries128 = G_PCIE_FW_PF_DEVLOG_NENTRIES128(pf_dparams);
+		nentries = (nentries128 + 1) * 128;
+		dparams->size = nentries * sizeof(struct fw_devlog_e);
+
+		return 0;
+	}
+
+	/*
+	 * For any failing returns ...
+	 */
+	memset(dparams, 0, sizeof *dparams);
+
+	/*
+	 * If we can't talk to the firmware, there's really nothing we can do
+	 * at this point.
+	 */
+	if (!fw_attach)
+		return -ENXIO;
+
+	/* Otherwise, ask the firmware for it's Device Log Parameters.
+	 */
+	memset(&devlog_cmd, 0, sizeof devlog_cmd);
+	devlog_cmd.op_to_write = cpu_to_be32(V_FW_CMD_OP(FW_DEVLOG_CMD) |
+					     F_FW_CMD_REQUEST | F_FW_CMD_READ);
+	devlog_cmd.retval_len16 = cpu_to_be32(FW_LEN16(devlog_cmd));
+	ret = t4_wr_mbox(adap, adap->mbox, &devlog_cmd, sizeof(devlog_cmd),
+			 &devlog_cmd);
+	if (ret)
+		return ret;
+
+	devlog_meminfo =
+		be32_to_cpu(devlog_cmd.memtype_devlog_memaddr16_devlog);
+	dparams->memtype = G_FW_DEVLOG_CMD_MEMTYPE_DEVLOG(devlog_meminfo);
+	dparams->start = G_FW_DEVLOG_CMD_MEMADDR16_DEVLOG(devlog_meminfo) << 4;
+	dparams->size = be32_to_cpu(devlog_cmd.memsize_devlog);
+
 	return 0;
 }
 
@@ -7986,13 +8361,13 @@ int t4_filter_field_shift(const struct adapter *adap, int filter_sel)
 	return field_shift;
 }
 
-int __devinit t4_port_init(struct port_info *p, int mbox, int pf, int vf)
+int t4_port_init(struct adapter *adap, int mbox, int pf, int vf, int port_id)
 {
 	u8 addr[6];
 	int ret, i, j;
 	struct fw_port_cmd c;
 	u16 rss_size;
-	adapter_t *adap = p->adapter;
+	struct port_info *p = adap2pinfo(adap, port_id);
 	u32 param, val;
 
 	memset(&c, 0, sizeof(c));
@@ -8019,18 +8394,18 @@ int __devinit t4_port_init(struct port_info *p, int mbox, int pf, int vf)
 
 	p->vi[0].viid = ret;
 	p->tx_chan = j;
-	p->rx_chan_map = get_mps_bg_map(adap, j);
+	p->rx_chan_map = t4_get_mps_bg_map(adap, j);
 	p->lport = j;
 	p->vi[0].rss_size = rss_size;
 	t4_os_set_hw_addr(adap, p->port_id, addr);
 
-	ret = ntohl(c.u.info.lstatus_to_modtype);
+	ret = be32_to_cpu(c.u.info.lstatus_to_modtype);
 	p->mdio_addr = (ret & F_FW_PORT_CMD_MDIOCAP) ?
 		G_FW_PORT_CMD_MDIOADDR(ret) : -1;
 	p->port_type = G_FW_PORT_CMD_PTYPE(ret);
 	p->mod_type = G_FW_PORT_CMD_MODTYPE(ret);
 
-	init_link_config(&p->link_cfg, ntohs(c.u.info.pcap));
+	init_link_config(&p->link_cfg, be16_to_cpu(c.u.info.pcap));
 
 	param = V_FW_PARAMS_MNEM(FW_PARAMS_MNEM_DEV) |
 	    V_FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DEV_RSSINFO) |
@@ -8044,6 +8419,511 @@ int __devinit t4_port_init(struct port_info *p, int mbox, int pf, int vf)
 	}
 
 	return 0;
+}
+
+/*
+ * SGE Hung Ingress DMA Warning Threshold time and Warning Repeat Rate (in
+ * seconds).  If we find one of the SGE Ingress DMA State Machines in the same
+ * state for more than the Warning Threshold then we'll issue a warning about
+ * a potential hang.  We'll repeat the warning as the SGE Ingress DMA Channel
+ * appears to be hung every Warning Repeat second till the situation clears.
+ * If the situation clears, we'll note that as well.
+ */
+#define SGE_IDMA_WARN_THRESH 1
+#define SGE_IDMA_WARN_REPEAT 300
+
+/**
+ *	t4_idma_monitor_init - initialize SGE Ingress DMA Monitor
+ *	@adapter: the adapter
+ *	@idma: the adapter IDMA Monitor state
+ *
+ *	Initialize the state of an SGE Ingress DMA Monitor.
+ */
+void t4_idma_monitor_init(struct adapter *adapter,
+			  struct sge_idma_monitor_state *idma)
+{
+	/* Initialize the state variables for detecting an SGE Ingress DMA
+	 * hang.  The SGE has internal counters which count up on each clock
+	 * tick whenever the SGE finds its Ingress DMA State Engines in the
+	 * same state they were on the previous clock tick.  The clock used is
+	 * the Core Clock so we have a limit on the maximum "time" they can
+	 * record; typically a very small number of seconds.  For instance,
+	 * with a 600MHz Core Clock, we can only count up to a bit more than
+	 * 7s.  So we'll synthesize a larger counter in order to not run the
+	 * risk of having the "timers" overflow and give us the flexibility to
+	 * maintain a Hung SGE State Machine of our own which operates across
+	 * a longer time frame.
+	 */
+	idma->idma_1s_thresh = core_ticks_per_usec(adapter) * 1000000; /* 1s */
+	idma->idma_stalled[0] = idma->idma_stalled[1] = 0;
+}
+
+/**
+ *	t4_idma_monitor - monitor SGE Ingress DMA state
+ *	@adapter: the adapter
+ *	@idma: the adapter IDMA Monitor state
+ *	@hz: number of ticks/second
+ *	@ticks: number of ticks since the last IDMA Monitor call
+ */
+void t4_idma_monitor(struct adapter *adapter,
+		     struct sge_idma_monitor_state *idma,
+		     int hz, int ticks)
+{
+	int i, idma_same_state_cnt[2];
+
+	 /* Read the SGE Debug Ingress DMA Same State Count registers.  These
+	  * are counters inside the SGE which count up on each clock when the
+	  * SGE finds its Ingress DMA State Engines in the same states they
+	  * were in the previous clock.  The counters will peg out at
+	  * 0xffffffff without wrapping around so once they pass the 1s
+	  * threshold they'll stay above that till the IDMA state changes.
+	  */
+	t4_write_reg(adapter, A_SGE_DEBUG_INDEX, 13);
+	idma_same_state_cnt[0] = t4_read_reg(adapter, A_SGE_DEBUG_DATA_HIGH);
+	idma_same_state_cnt[1] = t4_read_reg(adapter, A_SGE_DEBUG_DATA_LOW);
+
+	for (i = 0; i < 2; i++) {
+		u32 debug0, debug11;
+
+		/* If the Ingress DMA Same State Counter ("timer") is less
+		 * than 1s, then we can reset our synthesized Stall Timer and
+		 * continue.  If we have previously emitted warnings about a
+		 * potential stalled Ingress Queue, issue a note indicating
+		 * that the Ingress Queue has resumed forward progress.
+		 */
+		if (idma_same_state_cnt[i] < idma->idma_1s_thresh) {
+			if (idma->idma_stalled[i] >= SGE_IDMA_WARN_THRESH*hz)
+				CH_WARN(adapter, "SGE idma%d, queue %u, "
+					"resumed after %d seconds\n",
+					i, idma->idma_qid[i],
+					idma->idma_stalled[i]/hz);
+			idma->idma_stalled[i] = 0;
+			continue;
+		}
+
+		/* Synthesize an SGE Ingress DMA Same State Timer in the Hz
+		 * domain.  The first time we get here it'll be because we
+		 * passed the 1s Threshold; each additional time it'll be
+		 * because the RX Timer Callback is being fired on its regular
+		 * schedule.
+		 *
+		 * If the stall is below our Potential Hung Ingress Queue
+		 * Warning Threshold, continue.
+		 */
+		if (idma->idma_stalled[i] == 0) {
+			idma->idma_stalled[i] = hz;
+			idma->idma_warn[i] = 0;
+		} else {
+			idma->idma_stalled[i] += ticks;
+			idma->idma_warn[i] -= ticks;
+		}
+
+		if (idma->idma_stalled[i] < SGE_IDMA_WARN_THRESH*hz)
+			continue;
+
+		/* We'll issue a warning every SGE_IDMA_WARN_REPEAT seconds.
+		 */
+		if (idma->idma_warn[i] > 0)
+			continue;
+		idma->idma_warn[i] = SGE_IDMA_WARN_REPEAT*hz;
+
+		/* Read and save the SGE IDMA State and Queue ID information.
+		 * We do this every time in case it changes across time ...
+		 * can't be too careful ...
+		 */
+		t4_write_reg(adapter, A_SGE_DEBUG_INDEX, 0);
+		debug0 = t4_read_reg(adapter, A_SGE_DEBUG_DATA_LOW);
+		idma->idma_state[i] = (debug0 >> (i * 9)) & 0x3f;
+
+		t4_write_reg(adapter, A_SGE_DEBUG_INDEX, 11);
+		debug11 = t4_read_reg(adapter, A_SGE_DEBUG_DATA_LOW);
+		idma->idma_qid[i] = (debug11 >> (i * 16)) & 0xffff;
+
+		CH_WARN(adapter, "SGE idma%u, queue %u, potentially stuck in "
+			" state %u for %d seconds (debug0=%#x, debug11=%#x)\n",
+			i, idma->idma_qid[i], idma->idma_state[i],
+			idma->idma_stalled[i]/hz,
+			debug0, debug11);
+		t4_sge_decode_idma_state(adapter, idma->idma_state[i]);
+	}
+}
+
+/**
+ *	t5_fw_init_extern_mem - initialize the external memory
+ *	@adap: the adapter
+ *
+ *	Initializes the external memory on T5.
+ */
+int t5_fw_init_extern_mem(struct adapter *adap)
+{
+	u32 params[1], val[1];
+	int ret;
+
+	if (!is_t5(adap))
+		return 0;
+
+	val[0] = 0xff; /* Initialize all MCs */
+	params[0] = (V_FW_PARAMS_MNEM(FW_PARAMS_MNEM_DEV) |
+			V_FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DEV_MCINIT));
+	ret = t4_set_params_timeout(adap, adap->mbox, adap->pf, 0, 1, params, val,
+			FW_CMD_MAX_TIMEOUT);
+
+	return ret;
+}
+
+/* BIOS boot headers */
+typedef struct pci_expansion_rom_header {
+	u8	signature[2]; /* ROM Signature. Should be 0xaa55 */
+	u8	reserved[22]; /* Reserved per processor Architecture data */
+	u8	pcir_offset[2]; /* Offset to PCI Data Structure */
+} pci_exp_rom_header_t; /* PCI_EXPANSION_ROM_HEADER */
+
+/* Legacy PCI Expansion ROM Header */
+typedef struct legacy_pci_expansion_rom_header {
+	u8	signature[2]; /* ROM Signature. Should be 0xaa55 */
+	u8	size512; /* Current Image Size in units of 512 bytes */
+	u8	initentry_point[4];
+	u8	cksum; /* Checksum computed on the entire Image */
+	u8	reserved[16]; /* Reserved */
+	u8	pcir_offset[2]; /* Offset to PCI Data Struture */
+} legacy_pci_exp_rom_header_t; /* LEGACY_PCI_EXPANSION_ROM_HEADER */
+
+/* EFI PCI Expansion ROM Header */
+typedef struct efi_pci_expansion_rom_header {
+	u8	signature[2]; // ROM signature. The value 0xaa55
+	u8	initialization_size[2]; /* Units 512. Includes this header */
+	u8	efi_signature[4]; /* Signature from EFI image header. 0x0EF1 */
+	u8	efi_subsystem[2]; /* Subsystem value for EFI image header */
+	u8	efi_machine_type[2]; /* Machine type from EFI image header */
+	u8	compression_type[2]; /* Compression type. */
+		/*
+		 * Compression type definition
+		 * 0x0: uncompressed
+		 * 0x1: Compressed
+		 * 0x2-0xFFFF: Reserved
+		 */
+	u8	reserved[8]; /* Reserved */
+	u8	efi_image_header_offset[2]; /* Offset to EFI Image */
+	u8	pcir_offset[2]; /* Offset to PCI Data Structure */
+} efi_pci_exp_rom_header_t; /* EFI PCI Expansion ROM Header */
+
+/* PCI Data Structure Format */
+typedef struct pcir_data_structure { /* PCI Data Structure */
+	u8	signature[4]; /* Signature. The string "PCIR" */
+	u8	vendor_id[2]; /* Vendor Identification */
+	u8	device_id[2]; /* Device Identification */
+	u8	vital_product[2]; /* Pointer to Vital Product Data */
+	u8	length[2]; /* PCIR Data Structure Length */
+	u8	revision; /* PCIR Data Structure Revision */
+	u8	class_code[3]; /* Class Code */
+	u8	image_length[2]; /* Image Length. Multiple of 512B */
+	u8	code_revision[2]; /* Revision Level of Code/Data */
+	u8	code_type; /* Code Type. */
+		/*
+		 * PCI Expansion ROM Code Types
+		 * 0x00: Intel IA-32, PC-AT compatible. Legacy
+		 * 0x01: Open Firmware standard for PCI. FCODE
+		 * 0x02: Hewlett-Packard PA RISC. HP reserved
+		 * 0x03: EFI Image. EFI
+		 * 0x04-0xFF: Reserved.
+		 */
+	u8	indicator; /* Indicator. Identifies the last image in the ROM */
+	u8	reserved[2]; /* Reserved */
+} pcir_data_t; /* PCI__DATA_STRUCTURE */
+
+/* BOOT constants */
+enum {
+	BOOT_FLASH_BOOT_ADDR = 0x0,/* start address of boot image in flash */
+	BOOT_SIGNATURE = 0xaa55,   /* signature of BIOS boot ROM */
+	BOOT_SIZE_INC = 512,       /* image size measured in 512B chunks */
+	BOOT_MIN_SIZE = sizeof(pci_exp_rom_header_t), /* basic header */
+	BOOT_MAX_SIZE = 1024*BOOT_SIZE_INC, /* 1 byte * length increment  */
+	VENDOR_ID = 0x1425, /* Vendor ID */
+	PCIR_SIGNATURE = 0x52494350 /* PCIR signature */
+};
+
+/*
+ *	modify_device_id - Modifies the device ID of the Boot BIOS image
+ *	@adatper: the device ID to write.
+ *	@boot_data: the boot image to modify.
+ *
+ *	Write the supplied device ID to the boot BIOS image.
+ */
+static void modify_device_id(int device_id, u8 *boot_data)
+{
+	legacy_pci_exp_rom_header_t *header;
+	pcir_data_t *pcir_header;
+	u32 cur_header = 0;
+
+	/*
+	 * Loop through all chained images and change the device ID's
+	 */
+	while (1) {
+		header = (legacy_pci_exp_rom_header_t *) &boot_data[cur_header];
+		pcir_header = (pcir_data_t *) &boot_data[cur_header +
+			      le16_to_cpu(*(u16*)header->pcir_offset)];
+
+		/*
+		 * Only modify the Device ID if code type is Legacy or HP.
+		 * 0x00: Okay to modify
+		 * 0x01: FCODE. Do not be modify
+		 * 0x03: Okay to modify
+		 * 0x04-0xFF: Do not modify
+		 */
+		if (pcir_header->code_type == 0x00) {
+			u8 csum = 0;
+			int i;
+
+			/*
+			 * Modify Device ID to match current adatper
+			 */
+			*(u16*) pcir_header->device_id = device_id;
+
+			/*
+			 * Set checksum temporarily to 0.
+			 * We will recalculate it later.
+			 */
+			header->cksum = 0x0;
+
+			/*
+			 * Calculate and update checksum
+			 */
+			for (i = 0; i < (header->size512 * 512); i++)
+				csum += (u8)boot_data[cur_header + i];
+
+			/*
+			 * Invert summed value to create the checksum
+			 * Writing new checksum value directly to the boot data
+			 */
+			boot_data[cur_header + 7] = -csum;
+
+		} else if (pcir_header->code_type == 0x03) {
+
+			/*
+			 * Modify Device ID to match current adatper
+			 */
+			*(u16*) pcir_header->device_id = device_id;
+
+		}
+
+
+		/*
+		 * Check indicator element to identify if this is the last
+		 * image in the ROM.
+		 */
+		if (pcir_header->indicator & 0x80)
+			break;
+
+		/*
+		 * Move header pointer up to the next image in the ROM.
+		 */
+		cur_header += header->size512 * 512;
+	}
+}
+
+/*
+ *	t4_load_boot - download boot flash
+ *	@adapter: the adapter
+ *	@boot_data: the boot image to write
+ *	@boot_addr: offset in flash to write boot_data
+ *	@size: image size
+ *
+ *	Write the supplied boot image to the card's serial flash.
+ *	The boot image has the following sections: a 28-byte header and the
+ *	boot image.
+ */
+int t4_load_boot(struct adapter *adap, u8 *boot_data,
+		 unsigned int boot_addr, unsigned int size)
+{
+	pci_exp_rom_header_t *header;
+	int pcir_offset ;
+	pcir_data_t *pcir_header;
+	int ret, addr;
+	uint16_t device_id;
+	unsigned int i;
+	unsigned int boot_sector = (boot_addr * 1024 );
+	unsigned int sf_sec_size = adap->params.sf_size / adap->params.sf_nsec;
+
+	/*
+	 * Make sure the boot image does not encroach on the firmware region
+	 */
+	if ((boot_sector + size) >> 16 > FLASH_FW_START_SEC) {
+		CH_ERR(adap, "boot image encroaching on firmware region\n");
+		return -EFBIG;
+	}
+
+	/*
+	 * The boot sector is comprised of the Expansion-ROM boot, iSCSI boot,
+	 * and Boot configuration data sections. These 3 boot sections span
+	 * sectors 0 to 7 in flash and live right before the FW image location.
+	 */
+	i = DIV_ROUND_UP(size ? size : FLASH_FW_START,
+			sf_sec_size);
+	ret = t4_flash_erase_sectors(adap, boot_sector >> 16,
+				     (boot_sector >> 16) + i - 1);
+
+	/*
+	 * If size == 0 then we're simply erasing the FLASH sectors associated
+	 * with the on-adapter option ROM file
+	 */
+	if (ret || (size == 0))
+		goto out;
+
+	/* Get boot header */
+	header = (pci_exp_rom_header_t *)boot_data;
+	pcir_offset = le16_to_cpu(*(u16 *)header->pcir_offset);
+	/* PCIR Data Structure */
+	pcir_header = (pcir_data_t *) &boot_data[pcir_offset];
+
+	/*
+	 * Perform some primitive sanity testing to avoid accidentally
+	 * writing garbage over the boot sectors.  We ought to check for
+	 * more but it's not worth it for now ...
+	 */
+	if (size < BOOT_MIN_SIZE || size > BOOT_MAX_SIZE) {
+		CH_ERR(adap, "boot image too small/large\n");
+		return -EFBIG;
+	}
+
+#ifndef CHELSIO_T4_DIAGS
+	/*
+	 * Check BOOT ROM header signature
+	 */
+	if (le16_to_cpu(*(u16*)header->signature) != BOOT_SIGNATURE ) {
+		CH_ERR(adap, "Boot image missing signature\n");
+		return -EINVAL;
+	}
+
+	/*
+	 * Check PCI header signature
+	 */
+	if (le32_to_cpu(*(u32*)pcir_header->signature) != PCIR_SIGNATURE) {
+		CH_ERR(adap, "PCI header missing signature\n");
+		return -EINVAL;
+	}
+
+	/*
+	 * Check Vendor ID matches Chelsio ID
+	 */
+	if (le16_to_cpu(*(u16*)pcir_header->vendor_id) != VENDOR_ID) {
+		CH_ERR(adap, "Vendor ID missing signature\n");
+		return -EINVAL;
+	}
+#endif
+
+	/*
+	 * Retrieve adapter's device ID
+	 */
+	t4_os_pci_read_cfg2(adap, PCI_DEVICE_ID, &device_id);
+	/* Want to deal with PF 0 so I strip off PF 4 indicator */
+	device_id = device_id & 0xf0ff;
+
+	/*
+	 * Check PCIE Device ID
+	 */
+	if (le16_to_cpu(*(u16*)pcir_header->device_id) != device_id) {
+		/*
+		 * Change the device ID in the Boot BIOS image to match
+		 * the Device ID of the current adapter.
+		 */
+		modify_device_id(device_id, boot_data);
+	}
+
+	/*
+	 * Skip over the first SF_PAGE_SIZE worth of data and write it after
+	 * we finish copying the rest of the boot image. This will ensure
+	 * that the BIOS boot header will only be written if the boot image
+	 * was written in full.
+	 */
+	addr = boot_sector;
+	for (size -= SF_PAGE_SIZE; size; size -= SF_PAGE_SIZE) {
+		addr += SF_PAGE_SIZE;
+		boot_data += SF_PAGE_SIZE;
+		ret = t4_write_flash(adap, addr, SF_PAGE_SIZE, boot_data, 0);
+		if (ret)
+			goto out;
+	}
+
+	ret = t4_write_flash(adap, boot_sector, SF_PAGE_SIZE,
+			     (const u8 *)header, 0);
+
+out:
+	if (ret)
+		CH_ERR(adap, "boot image download failed, error %d\n", ret);
+	return ret;
+}
+
+/*
+ *	t4_flash_bootcfg_addr - return the address of the flash optionrom configuration
+ *	@adapter: the adapter
+ *
+ *	Return the address within the flash where the OptionROM Configuration
+ *	is stored, or an error if the device FLASH is too small to contain
+ *	a OptionROM Configuration.
+ */
+static int t4_flash_bootcfg_addr(struct adapter *adapter)
+{
+	/*
+	 * If the device FLASH isn't large enough to hold a Firmware
+	 * Configuration File, return an error.
+	 */
+	if (adapter->params.sf_size < FLASH_BOOTCFG_START + FLASH_BOOTCFG_MAX_SIZE)
+		return -ENOSPC;
+
+	return FLASH_BOOTCFG_START;
+}
+
+int t4_load_bootcfg(struct adapter *adap,const u8 *cfg_data, unsigned int size)
+{
+	int ret, i, n, cfg_addr;
+	unsigned int addr;
+	unsigned int flash_cfg_start_sec;
+	unsigned int sf_sec_size = adap->params.sf_size / adap->params.sf_nsec;
+
+	cfg_addr = t4_flash_bootcfg_addr(adap);
+	if (cfg_addr < 0)
+		return cfg_addr;
+
+	addr = cfg_addr;
+	flash_cfg_start_sec = addr / SF_SEC_SIZE;
+
+	if (size > FLASH_BOOTCFG_MAX_SIZE) {
+		CH_ERR(adap, "bootcfg file too large, max is %u bytes\n",
+			FLASH_BOOTCFG_MAX_SIZE);
+		return -EFBIG;
+	}
+
+	i = DIV_ROUND_UP(FLASH_BOOTCFG_MAX_SIZE,/* # of sectors spanned */
+			 sf_sec_size);
+	ret = t4_flash_erase_sectors(adap, flash_cfg_start_sec,
+					flash_cfg_start_sec + i - 1);
+
+	/*
+	 * If size == 0 then we're simply erasing the FLASH sectors associated
+	 * with the on-adapter OptionROM Configuration File.
+	 */
+	if (ret || size == 0)
+		goto out;
+
+	/* this will write to the flash up to SF_PAGE_SIZE at a time */
+	for (i = 0; i< size; i+= SF_PAGE_SIZE) {
+		if ( (size - i) <  SF_PAGE_SIZE)
+			n = size - i;
+		else
+			n = SF_PAGE_SIZE;
+		ret = t4_write_flash(adap, addr, n, cfg_data, 0);
+		if (ret)
+			goto out;
+
+		addr += SF_PAGE_SIZE;
+		cfg_data += SF_PAGE_SIZE;
+	}
+
+out:
+	if (ret)
+		CH_ERR(adap, "boot config data %s failed %d\n",
+				(size == 0 ? "clear" : "download"), ret);
+	return ret;
 }
 
 /**
@@ -8124,4 +9004,79 @@ int t4_sched_params(struct adapter *adapter, int type, int level, int mode,
 
 	return t4_wr_mbox_meat(adapter,adapter->mbox, &cmd, sizeof(cmd),
 			       NULL, sleep_ok);
+}
+
+/*
+ *	t4_config_watchdog - configure (enable/disable) a watchdog timer
+ *	@adapter: the adapter
+ * 	@mbox: mailbox to use for the FW command
+ * 	@pf: the PF owning the queue
+ * 	@vf: the VF owning the queue
+ *	@timeout: watchdog timeout in ms
+ *	@action: watchdog timer / action
+ *
+ *	There are separate watchdog timers for each possible watchdog
+ *	action.  Configure one of the watchdog timers by setting a non-zero
+ *	timeout.  Disable a watchdog timer by using a timeout of zero.
+ */
+int t4_config_watchdog(struct adapter *adapter, unsigned int mbox,
+		       unsigned int pf, unsigned int vf,
+		       unsigned int timeout, unsigned int action)
+{
+	struct fw_watchdog_cmd wdog;
+	unsigned int ticks;
+
+	/*
+	 * The watchdog command expects a timeout in units of 10ms so we need
+	 * to convert it here (via rounding) and force a minimum of one 10ms
+	 * "tick" if the timeout is non-zero but the convertion results in 0
+	 * ticks.
+	 */
+	ticks = (timeout + 5)/10;
+	if (timeout && !ticks)
+		ticks = 1;
+
+	memset(&wdog, 0, sizeof wdog);
+	wdog.op_to_vfn = cpu_to_be32(V_FW_CMD_OP(FW_WATCHDOG_CMD) |
+				     F_FW_CMD_REQUEST |
+				     F_FW_CMD_WRITE |
+				     V_FW_PARAMS_CMD_PFN(pf) |
+				     V_FW_PARAMS_CMD_VFN(vf));
+	wdog.retval_len16 = cpu_to_be32(FW_LEN16(wdog));
+	wdog.timeout = cpu_to_be32(ticks);
+	wdog.action = cpu_to_be32(action);
+
+	return t4_wr_mbox(adapter, mbox, &wdog, sizeof wdog, NULL);
+}
+
+int t4_get_devlog_level(struct adapter *adapter, unsigned int *level)
+{
+	struct fw_devlog_cmd devlog_cmd;
+	int ret;
+
+	memset(&devlog_cmd, 0, sizeof(devlog_cmd));
+	devlog_cmd.op_to_write = cpu_to_be32(V_FW_CMD_OP(FW_DEVLOG_CMD) |
+					     F_FW_CMD_REQUEST | F_FW_CMD_READ);
+	devlog_cmd.retval_len16 = cpu_to_be32(FW_LEN16(devlog_cmd));
+	ret = t4_wr_mbox(adapter, adapter->mbox, &devlog_cmd,
+			 sizeof(devlog_cmd), &devlog_cmd);
+	if (ret)
+		return ret;
+
+	*level = devlog_cmd.level;
+	return 0;
+}
+
+int t4_set_devlog_level(struct adapter *adapter, unsigned int level)
+{
+	struct fw_devlog_cmd devlog_cmd;
+
+	memset(&devlog_cmd, 0, sizeof(devlog_cmd));
+	devlog_cmd.op_to_write = cpu_to_be32(V_FW_CMD_OP(FW_DEVLOG_CMD) |
+					     F_FW_CMD_REQUEST |
+					     F_FW_CMD_WRITE);
+	devlog_cmd.level = level;
+	devlog_cmd.retval_len16 = cpu_to_be32(FW_LEN16(devlog_cmd));
+	return t4_wr_mbox(adapter, adapter->mbox, &devlog_cmd,
+			  sizeof(devlog_cmd), &devlog_cmd);
 }
