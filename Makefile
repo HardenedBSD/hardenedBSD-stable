@@ -313,12 +313,11 @@ upgrade_checks:
 #
 MMAKEENV=	MAKEOBJDIRPREFIX=${MYMAKE:H} \
 		DESTDIR= \
-		MK_MAN=no \
 		INSTALL="sh ${.CURDIR}/tools/install.sh"
 MMAKE=		${MMAKEENV} ${MAKE} \
-		-DNO_SHARED \
+		MAN= -DNO_SHARED \
 		-DNO_CPU_CFLAGS -DNO_WERROR \
-		MK_TESTS=no \
+		-DNO_SUBDIR \
 		DESTDIR= PROGNAME=${MYMAKE:T}
 
 bmake: .PHONY
