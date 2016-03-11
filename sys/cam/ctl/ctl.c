@@ -2378,9 +2378,7 @@ ctl_copyin_alloc(void *user_addr, int len, char *error_str,
 	kptr = malloc(len, M_CTL, M_WAITOK | M_ZERO);
 
 	if (copyin(user_addr, kptr, len) != 0) {
-		snprintf(error_str, error_str_len, "Error copying %d bytes "
-			 "from user address %p to kernel address %p", len,
-			 user_addr, kptr);
+		snprintf(error_str, error_str_len, "Error copying %d bytes", len);
 		free(kptr, M_CTL);
 		return (NULL);
 	}
@@ -2445,6 +2443,8 @@ ctl_copyin_args(int num_args, struct ctl_be_arg *uargs,
 			 && (tmpptr[args[i].vallen - 1] != '\0')) {
 				snprintf(error_str, error_str_len, "Argument "
 				    "%d value is not NUL-terminated", i);
+				free(tmpptr, M_CTL);
+				tmpptr = NULL;
 				goto bailout;
 			}
 			args[i].kvalue = tmpptr;

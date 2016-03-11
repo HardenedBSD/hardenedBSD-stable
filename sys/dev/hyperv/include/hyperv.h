@@ -828,6 +828,7 @@ typedef struct hv_vmbus_channel {
 	 */
 	void				*hv_chan_priv1;
 	void				*hv_chan_priv2;
+	void				*hv_chan_priv3;
 } hv_vmbus_channel;
 
 #define HV_VMBUS_CHAN_ISPRIMARY(chan)	((chan)->primary_channel == NULL)
@@ -909,6 +910,8 @@ int		hv_vmbus_channel_teardown_gpdal(
 				uint32_t		gpadl_handle);
 
 struct hv_vmbus_channel* vmbus_select_outgoing_channel(struct hv_vmbus_channel *promary);
+
+void		vmbus_channel_cpu_set(struct hv_vmbus_channel *chan, int cpu);
 
 /**
  * @brief Get physical address from virtual

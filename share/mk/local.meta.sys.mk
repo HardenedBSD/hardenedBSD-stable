@@ -205,15 +205,18 @@ CSU_DIR := ${CSU_DIR.${MACHINE_ARCH}}
 .if !empty(TIME_STAMP)
 TRACER= ${TIME_STAMP} ${:U}
 .endif
+.if !defined(_RECURSING_PROGS)
 WITH_META_STATS= t
+.endif
 
 # toolchains can be a pain - especially bootstrappping them
 .if ${MACHINE} == "host"
 MK_SHARED_TOOLCHAIN= no
 .endif
 TOOLCHAIN_VARS=	AS AR CC CLANG_TBLGEN CXX CPP LD NM OBJDUMP OBJCOPY RANLIB \
-		STRINGS SIZE TBLGEN
+		STRINGS SIZE LLVM_TBLGEN
 _toolchain_bin_CLANG_TBLGEN=	/usr/bin/clang-tblgen
+_toolchain_bin_LLVM_TBLGEN=	/usr/bin/llvm-tblgen
 _toolchain_bin_CXX=		/usr/bin/c++
 .ifdef WITH_TOOLSDIR
 TOOLSDIR?= ${HOST_OBJTOP}/tools
