@@ -409,6 +409,7 @@ static int validate_mem_range(struct adapter *, uint32_t, int);
 static int fwmtype_to_hwmtype(int);
 static int validate_mt_off_len(struct adapter *, int, uint32_t, int,
     uint32_t *);
+static int fixup_devlog_params(struct adapter *);
 static int cfg_itype_and_nqueues(struct adapter *, int, int, int,
     struct intrs_and_queues *);
 static int prep_firmware(struct adapter *);
@@ -475,6 +476,7 @@ static int sysctl_rdma_stats(SYSCTL_HANDLER_ARGS);
 static int sysctl_tcp_stats(SYSCTL_HANDLER_ARGS);
 static int sysctl_tids(SYSCTL_HANDLER_ARGS);
 static int sysctl_tp_err_stats(SYSCTL_HANDLER_ARGS);
+static int sysctl_tp_la_mask(SYSCTL_HANDLER_ARGS);
 static int sysctl_tp_la(SYSCTL_HANDLER_ARGS);
 static int sysctl_tx_rate(SYSCTL_HANDLER_ARGS);
 static int sysctl_ulprx_la(SYSCTL_HANDLER_ARGS);
@@ -733,6 +735,8 @@ t4_attach(device_t dev)
 	 * will work even in "recovery mode".
 	 */
 	setup_memwin(sc);
+	if (t4_init_devlog_params(sc, 0) == 0)
+		fixup_devlog_params(sc);
 	sc->cdev = make_dev(is_t4(sc) ? &t4_cdevsw : &t5_cdevsw,
 	    device_get_unit(dev), UID_ROOT, GID_WHEEL, 0600, "%s",
 	    device_get_nameunit(dev));
@@ -2333,6 +2337,18 @@ validate_mt_off_len(struct adapter *sc, int mtype, uint32_t off, int len,
 }
 
 static int
+fixup_devlog_params(struct adapter *sc)
+{
+	struct devlog_params *dparams = &sc->params.devlog;
+	int rc;
+
+	rc = validate_mt_off_len(sc, dparams->memtype, dparams->start,
+	    dparams->size, &dparams->addr);
+
+	return (rc);
+}
+
+static int
 cfg_itype_and_nqueues(struct adapter *sc, int n10g, int n1g, int num_vis,
     struct intrs_and_queues *iaq)
 {
@@ -2810,7 +2826,24 @@ prep_firmware(struct adapter *sc)
 	    G_FW_HDR_FW_VER_MINOR(sc->params.fw_vers),
 	    G_FW_HDR_FW_VER_MICRO(sc->params.fw_vers),
 	    G_FW_HDR_FW_VER_BUILD(sc->params.fw_vers));
+
 	t4_get_tp_version(sc, &sc->params.tp_vers);
+	snprintf(sc->tp_version, sizeof(sc->tp_version), "%u.%u.%u.%u",
+	    G_FW_HDR_FW_VER_MAJOR(sc->params.tp_vers),
+	    G_FW_HDR_FW_VER_MINOR(sc->params.tp_vers),
+	    G_FW_HDR_FW_VER_MICRO(sc->params.tp_vers),
+	    G_FW_HDR_FW_VER_BUILD(sc->params.tp_vers));
+
+	if (t4_get_exprom_version(sc, &sc->params.exprom_vers) != 0)
+		sc->params.exprom_vers = 0;
+	else {
+		snprintf(sc->exprom_version, sizeof(sc->exprom_version),
+		    "%u.%u.%u.%u",
+		    G_FW_HDR_FW_VER_MAJOR(sc->params.exprom_vers),
+		    G_FW_HDR_FW_VER_MINOR(sc->params.exprom_vers),
+		    G_FW_HDR_FW_VER_MICRO(sc->params.exprom_vers),
+		    G_FW_HDR_FW_VER_BUILD(sc->params.exprom_vers));
+	}
 
 	/* Reset device */
 	if (need_fw_reset &&
@@ -3052,8 +3085,6 @@ get_params__pre_init(struct adapter *sc)
 {
 	int rc;
 	uint32_t param[2], val[2];
-	struct fw_devlog_cmd cmd;
-	struct devlog_params *dlog = &sc->params.devlog;
 
 	param[0] = FW_PARAM_DEV(PORTVEC);
 	param[1] = FW_PARAM_DEV(CCLK);
@@ -3069,21 +3100,13 @@ get_params__pre_init(struct adapter *sc)
 	sc->params.vpd.cclk = val[1];
 
 	/* Read device log parameters. */
-	bzero(&cmd, sizeof(cmd));
-	cmd.op_to_write = htobe32(V_FW_CMD_OP(FW_DEVLOG_CMD) |
-	    F_FW_CMD_REQUEST | F_FW_CMD_READ);
-	cmd.retval_len16 = htobe32(FW_LEN16(cmd));
-	rc = -t4_wr_mbox(sc, sc->mbox, &cmd, sizeof(cmd), &cmd);
-	if (rc != 0) {
+	rc = -t4_init_devlog_params(sc, 1);
+	if (rc == 0)
+		fixup_devlog_params(sc);
+	else {
 		device_printf(sc->dev,
 		    "failed to get devlog parameters: %d.\n", rc);
-		bzero(dlog, sizeof (*dlog));
 		rc = 0;	/* devlog isn't critical for device operation */
-	} else {
-		val[0] = be32toh(cmd.memtype_devlog_memaddr16_devlog);
-		dlog->memtype = G_FW_DEVLOG_CMD_MEMTYPE_DEVLOG(val[0]);
-		dlog->start = G_FW_DEVLOG_CMD_MEMADDR16_DEVLOG(val[0]) << 4;
-		dlog->size = be32toh(cmd.memsize_devlog);
 	}
 
 	return (rc);
@@ -4588,6 +4611,14 @@ t4_sysctls(struct adapter *sc)
 	SYSCTL_ADD_INT(ctx, children, OID_AUTO, "hw_revision", CTLFLAG_RD,
 	    NULL, chip_rev(sc), "chip hardware revision");
 
+	SYSCTL_ADD_STRING(ctx, children, OID_AUTO, "tp_version",
+	    CTLFLAG_RD, sc->tp_version, 0, "TP microcode version");
+
+	if (sc->params.exprom_vers != 0) {
+		SYSCTL_ADD_STRING(ctx, children, OID_AUTO, "exprom_version",
+		    CTLFLAG_RD, sc->exprom_version, 0, "expansion ROM version");
+	}
+
 	SYSCTL_ADD_STRING(ctx, children, OID_AUTO, "firmware_version",
 	    CTLFLAG_RD, sc->fw_version, 0, "firmware version");
 
@@ -4802,6 +4833,10 @@ t4_sysctls(struct adapter *sc)
 	SYSCTL_ADD_PROC(ctx, children, OID_AUTO, "tp_err_stats",
 	    CTLTYPE_STRING | CTLFLAG_RD, sc, 0,
 	    sysctl_tp_err_stats, "A", "TP error statistics");
+
+	SYSCTL_ADD_PROC(ctx, children, OID_AUTO, "tp_la_mask",
+	    CTLTYPE_INT | CTLFLAG_RW, sc, 0, sysctl_tp_la_mask, "I",
+	    "TP logic analyzer event capture mask");
 
 	SYSCTL_ADD_PROC(ctx, children, OID_AUTO, "tp_la",
 	    CTLTYPE_STRING | CTLFLAG_RD, sc, 0,
@@ -5875,7 +5910,7 @@ sysctl_ddp_stats(SYSCTL_HANDLER_ARGS)
 	return (rc);
 }
 
-const char *devlog_level_strings[] = {
+static const char * const devlog_level_strings[] = {
 	[FW_DEVLOG_LEVEL_EMERG]		= "EMERG",
 	[FW_DEVLOG_LEVEL_CRIT]		= "CRIT",
 	[FW_DEVLOG_LEVEL_ERR]		= "ERR",
@@ -5884,7 +5919,7 @@ const char *devlog_level_strings[] = {
 	[FW_DEVLOG_LEVEL_DEBUG]		= "DEBUG"
 };
 
-const char *devlog_facility_strings[] = {
+static const char * const devlog_facility_strings[] = {
 	[FW_DEVLOG_FACILITY_CORE]	= "CORE",
 	[FW_DEVLOG_FACILITY_CF]		= "CF",
 	[FW_DEVLOG_FACILITY_SCHED]	= "SCHED",
@@ -5908,7 +5943,8 @@ const char *devlog_facility_strings[] = {
 	[FW_DEVLOG_FACILITY_ISCSI]	= "ISCSI",
 	[FW_DEVLOG_FACILITY_FCOE]	= "FCOE",
 	[FW_DEVLOG_FACILITY_FOISCSI]	= "FOISCSI",
-	[FW_DEVLOG_FACILITY_FOFCOE]	= "FOFCOE"
+	[FW_DEVLOG_FACILITY_FOFCOE]	= "FOFCOE",
+	[FW_DEVLOG_FACILITY_CHNET]	= "CHNET",
 };
 
 static int
@@ -5917,27 +5953,22 @@ sysctl_devlog(SYSCTL_HANDLER_ARGS)
 	struct adapter *sc = arg1;
 	struct devlog_params *dparams = &sc->params.devlog;
 	struct fw_devlog_e *buf, *e;
-	int i, j, rc, nentries, first = 0, m;
+	int i, j, rc, nentries, first = 0;
 	struct sbuf *sb;
 	uint64_t ftstamp = UINT64_MAX;
 
-	if (dparams->start == 0) {
-		dparams->memtype = FW_MEMTYPE_EDC0;
-		dparams->start = 0x84000;
-		dparams->size = 32768;
-	}
-
-	nentries = dparams->size / sizeof(struct fw_devlog_e);
+	if (dparams->addr == 0)
+		return (ENXIO);
 
 	buf = malloc(dparams->size, M_CXGBE, M_NOWAIT);
 	if (buf == NULL)
 		return (ENOMEM);
 
-	m = fwmtype_to_hwmtype(dparams->memtype);
-	rc = -t4_mem_read(sc, m, dparams->start, dparams->size, (void *)buf);
+	rc = read_via_memwin(sc, 1, dparams->addr, (void *)buf, dparams->size);
 	if (rc != 0)
 		goto done;
 
+	nentries = dparams->size / sizeof(struct fw_devlog_e);
 	for (i = 0; i < nentries; i++) {
 		e = &buf[i];
 
@@ -6991,6 +7022,26 @@ sysctl_tp_err_stats(SYSCTL_HANDLER_ARGS)
 	sbuf_delete(sb);
 
 	return (rc);
+}
+
+static int
+sysctl_tp_la_mask(SYSCTL_HANDLER_ARGS)
+{
+	struct adapter *sc = arg1;
+	struct tp_params *tpp = &sc->params.tp;
+	u_int mask;
+	int rc;
+
+	mask = tpp->la_mask >> 16;
+	rc = sysctl_handle_int(oidp, &mask, 0, req);
+	if (rc != 0 || req->newptr == NULL)
+		return (rc);
+	if (mask > 0xffff)
+		return (EINVAL);
+	tpp->la_mask = mask << 16;
+	t4_set_reg_field(sc, A_TP_DBG_LA_CONFIG, 0xffff0000U, tpp->la_mask);
+
+	return (0);
 }
 
 struct field_desc {
