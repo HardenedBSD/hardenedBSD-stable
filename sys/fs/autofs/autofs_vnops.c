@@ -41,6 +41,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/mutex.h>
 #include <sys/namei.h>
 #include <sys/signalvar.h>
+#include <sys/stat.h>
 #include <sys/systm.h>
 #include <sys/taskqueue.h>
 #include <sys/vnode.h>
@@ -110,8 +111,8 @@ autofs_getattr(struct vop_getattr_args *ap)
 	vap->va_rdev = NODEV;
 	vap->va_fsid = mp->mnt_stat.f_fsid.val[0];
 	vap->va_fileid = anp->an_fileno;
-	vap->va_size = 512; /* XXX */
-	vap->va_blocksize = 512;
+	vap->va_size = S_BLKSIZE;
+	vap->va_blocksize = S_BLKSIZE;
 	vap->va_mtime = anp->an_ctime;
 	vap->va_atime = anp->an_ctime;
 	vap->va_ctime = anp->an_ctime;
@@ -119,7 +120,7 @@ autofs_getattr(struct vop_getattr_args *ap)
 	vap->va_gen = 0;
 	vap->va_flags = 0;
 	vap->va_rdev = 0;
-	vap->va_bytes = 512; /* XXX */
+	vap->va_bytes = S_BLKSIZE;
 	vap->va_filerev = 0;
 	vap->va_spare = 0;
 
@@ -214,7 +215,7 @@ autofs_lookup(struct vop_lookup_args *ap)
 	struct autofs_mount *amp;
 	struct autofs_node *anp, *child;
 	struct componentname *cnp;
-	int error, lock_flags;
+	int error;
 
 	dvp = ap->a_dvp;
 	vpp = ap->a_vpp;
@@ -257,23 +258,13 @@ autofs_lookup(struct vop_lookup_args *ap)
 			return (error);
 
 		if (newvp != NULL) {
-			error = VOP_LOOKUP(newvp, ap->a_vpp, ap->a_cnp);
-
 			/*
-			 * Instead of figuring out whether our vnode should
-			 * be locked or not given the error and cnp flags,
-			 * just "copy" the lock status from vnode returned
-			 * by mounted filesystem's VOP_LOOKUP().  Get rid
-			 * of that new vnode afterwards.
+			 * The target filesystem got automounted.
+			 * Let the lookup(9) go around with the same
+			 * path component.
 			 */
-			lock_flags = VOP_ISLOCKED(newvp);
-			if (lock_flags == 0) {
-				VOP_UNLOCK(dvp, 0);
-				vrele(newvp);
-			} else {
-				vput(newvp);
-			}
-			return (error);
+			vput(newvp);
+			return (ERELOOKUP);
 		}
 	}
 
