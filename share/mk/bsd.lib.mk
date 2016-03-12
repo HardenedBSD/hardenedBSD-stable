@@ -141,6 +141,8 @@ SHLIB_NAME_FULL=${SHLIB_NAME}.full
 DEBUGFILEDIR=${DEBUGDIR}${_SHLIBDIR}
 .else
 DEBUGFILEDIR=${_SHLIBDIR}/.debug
+.endif
+.if !exists(${DESTDIR}${DEBUGFILEDIR})
 DEBUGMKDIR=
 .endif
 .else
@@ -197,7 +199,7 @@ CLEANFILES+=	${SOBJS}
 .if defined(SHLIB_NAME)
 _LIBS+=		${SHLIB_NAME}
 
-SOLINKOPTS=	-shared -Wl,-x
+SOLINKOPTS+=	-shared -Wl,-x
 .if !defined(ALLOW_SHARED_TEXTREL)
 .if defined(LD_FATAL_WARNINGS) && ${LD_FATAL_WARNINGS} == "no"
 SOLINKOPTS+=	-Wl,--no-fatal-warnings
@@ -417,30 +419,35 @@ lint: ${SRCS:M*.c}
 
 .if defined(LIB) && !empty(LIB)
 OBJS_DEPEND_GUESS+= ${SRCS:M*.h}
-.if ${MK_FAST_DEPEND} == "no" && !exists(${.OBJDIR}/${DEPENDFILE})
-${OBJS} ${STATICOBJS} ${POBJS}: ${OBJS_DEPEND_GUESS}
-.endif
 .for _S in ${SRCS:N*.[hly]}
 OBJS_DEPEND_GUESS.${_S:R}.po=	${_S}
-.if ${MK_FAST_DEPEND} == "no" && !exists(${.OBJDIR}/${DEPENDFILE})
-${_S:R}.po: ${OBJS_DEPEND_GUESS.${_S:R}.po}
-.endif
 .endfor
 .endif
 .if defined(SHLIB_NAME) || \
     defined(INSTALL_PIC_ARCHIVE) && defined(LIB) && !empty(LIB)
-.if ${MK_FAST_DEPEND} == "no" && !exists(${.OBJDIR}/${DEPENDFILE})
-${SOBJS}: ${OBJS_DEPEND_GUESS}
-.endif
 .for _S in ${SRCS:N*.[hly]}
 OBJS_DEPEND_GUESS.${_S:R}.So=	${_S}
-.if ${MK_FAST_DEPEND} == "no" && !exists(${.OBJDIR}/${DEPENDFILE})
-${_S:R}.So: ${OBJS_DEPEND_GUESS.${_S:R}.So}
-.endif
 .endfor
 .endif
 
 .include <bsd.dep.mk>
+
+.if ${MK_FAST_DEPEND} == "no" && !exists(${.OBJDIR}/${DEPENDFILE})
+.if defined(LIB) && !empty(LIB)
+${OBJS} ${STATICOBJS} ${POBJS}: ${OBJS_DEPEND_GUESS}
+.for _S in ${SRCS:N*.[hly]}
+${_S:R}.po: ${OBJS_DEPEND_GUESS.${_S:R}.po}
+.endfor
+.endif
+.if defined(SHLIB_NAME) || \
+    defined(INSTALL_PIC_ARCHIVE) && defined(LIB) && !empty(LIB)
+${SOBJS}: ${OBJS_DEPEND_GUESS}
+.for _S in ${SRCS:N*.[hly]}
+${_S:R}.So: ${OBJS_DEPEND_GUESS.${_S:R}.So}
+.endfor
+.endif
+.endif
+
 .include <bsd.clang-analyze.mk>
 .include <bsd.obj.mk>
 .include <bsd.sys.mk>

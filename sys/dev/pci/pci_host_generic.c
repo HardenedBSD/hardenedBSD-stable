@@ -143,6 +143,10 @@ generic_pcie_probe(device_t dev)
 		device_set_desc(dev, "Generic PCI host controller");
 		return (BUS_PROBE_GENERIC);
 	}
+	if (ofw_bus_is_compatible(dev, "arm,gem5_pcie")) {
+		device_set_desc(dev, "GEM5 PCIe host controller");
+		return (BUS_PROBE_DEFAULT);
+	}
 
 	return (ENXIO);
 }
@@ -208,12 +212,11 @@ pci_host_generic_attach(device_t dev)
 			continue; /* empty range element */
 		if (sc->ranges[tuple].flags & FLAG_MEM) {
 			error = rman_manage_region(&sc->mem_rman,
-						phys_base,
-						phys_base + size);
+			   phys_base, phys_base + size - 1);
 		} else if (sc->ranges[tuple].flags & FLAG_IO) {
 			error = rman_manage_region(&sc->io_rman,
-					pci_base + PCI_IO_WINDOW_OFFSET,
-					pci_base + PCI_IO_WINDOW_OFFSET + size);
+			   pci_base + PCI_IO_WINDOW_OFFSET,
+			   pci_base + PCI_IO_WINDOW_OFFSET + size - 1);
 		} else
 			continue;
 		if (error) {
@@ -710,7 +713,7 @@ generic_pcie_alloc_resource_ofw(device_t bus, device_t child, int type, int *rid
 
 	sc = device_get_softc(bus);
 
-	if ((start == 0UL) && (end == ~0UL)) {
+	if (RMAN_IS_DEFAULT_RANGE(start, end)) {
 		if ((di = device_get_ivars(child)) == NULL)
 			return (NULL);
 		if (type == SYS_RES_IOPORT)
