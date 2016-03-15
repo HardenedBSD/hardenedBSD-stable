@@ -1,5 +1,5 @@
 #-
-# Copyright 2016 Michal Meloun <mmel@FreeBSD.org>
+# Copyright (c) 2016 Michal Meloun <mmel@FreeBSD.org>
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -26,65 +26,57 @@
 # $FreeBSD$
 #
 
-#include <machine/bus.h>
-
-INTERFACE clkdev;
-
-CODE {
-	#include <sys/systm.h>
-	static void
-	clkdev_default_device_lock(device_t dev)
-	{
-
-		panic("clkdev_device_lock() is not implemented");
-	}
-
-	static void
-	clkdev_default_device_unlock(device_t dev)
-	{
-
-		panic("clkdev_device_unlock() is not implemented");
-	}
+INTERFACE regnode;
+HEADER {
+	struct regnode;
 }
 
 #
-# Write single register
+# Initialize regulator
+# Returns 0 on success or a standard errno value.
 #
-METHOD int write_4 {
-	device_t	dev;
-	bus_addr_t	addr;
-	uint32_t	val;
+METHOD int init {
+	struct regnode	*regnode;
 };
 
 #
-# Read single register
+# Enable/disable regulator
+# Returns 0 on success or a standard errno value.
+#  - enable - input.
+#  - delay - output, delay needed to stabilize voltage (in us)
 #
-METHOD int read_4 {
-	device_t	dev;
-	bus_addr_t	addr;
-	uint32_t	*val;
+METHOD int enable {
+	struct regnode	*regnode;
+	bool		enable;
+	int		*udelay;
 };
 
 #
-# Modify single register
+# Get regulator status
+# Returns 0 on success or a standard errno value.
 #
-METHOD int modify_4 {
-	device_t	dev;
-	bus_addr_t	addr;
-	uint32_t	clear_mask;
-	uint32_t	set_mask;
+METHOD int status {
+	struct regnode	*regnode;
+	int		*status;	/* REGULATOR_STATUS_* */
 };
 
 #
-# Get exclusive access to underlying device
-#
-METHOD void device_lock {
-	device_t	dev;
-} DEFAULT clkdev_default_device_lock;
+# Set regulator voltage
+# Returns 0 on success or a standard errno value.
+#  - min_uvolt, max_uvolt - input, requested voltage range (in uV)
+#  - delay - output, delay needed to stabilize voltage (in us)
+METHOD int set_voltage {
+	struct regnode	*regnode;
+	int		min_uvolt;
+	int		max_uvolt;
+	int		*udelay;
+};
 
 #
-# Release exclusive access to underlying device
+# Get regulator voltage
+# Returns 0 on success or a standard errno value.
 #
-METHOD void device_unlock {
-	device_t	dev;
-} DEFAULT clkdev_default_device_unlock;
+METHOD int get_voltage {
+	struct regnode	*regnode;
+	int		*uvolt;
+};

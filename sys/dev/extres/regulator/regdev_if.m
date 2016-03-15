@@ -26,65 +26,31 @@
 # $FreeBSD$
 #
 
+#ifdef FDT
+#include <sys/types.h>
+#include <dev/ofw/ofw_bus.h>
+#endif
+
 #include <machine/bus.h>
 
-INTERFACE clkdev;
+INTERFACE regdev;
 
-CODE {
-	#include <sys/systm.h>
-	static void
-	clkdev_default_device_lock(device_t dev)
-	{
+#ifdef FDT
 
-		panic("clkdev_device_lock() is not implemented");
-	}
-
-	static void
-	clkdev_default_device_unlock(device_t dev)
-	{
-
-		panic("clkdev_device_unlock() is not implemented");
-	}
+HEADER {
+int regdev_default_ofw_map(device_t , phandle_t, int, pcell_t *, intptr_t *);
 }
 
 #
-# Write single register
+# map fdt property cells to regulator number
+# Returns 0 on success or a standard errno value.
 #
-METHOD int write_4 {
-	device_t	dev;
-	bus_addr_t	addr;
-	uint32_t	val;
-};
+METHOD int map {
+	device_t	provider_dev;
+	phandle_t 	xref;
+	int		ncells;
+	pcell_t		*cells;
+	intptr_t	*id;
+} DEFAULT regdev_default_ofw_map;
 
-#
-# Read single register
-#
-METHOD int read_4 {
-	device_t	dev;
-	bus_addr_t	addr;
-	uint32_t	*val;
-};
-
-#
-# Modify single register
-#
-METHOD int modify_4 {
-	device_t	dev;
-	bus_addr_t	addr;
-	uint32_t	clear_mask;
-	uint32_t	set_mask;
-};
-
-#
-# Get exclusive access to underlying device
-#
-METHOD void device_lock {
-	device_t	dev;
-} DEFAULT clkdev_default_device_lock;
-
-#
-# Release exclusive access to underlying device
-#
-METHOD void device_unlock {
-	device_t	dev;
-} DEFAULT clkdev_default_device_unlock;
+#endif

@@ -26,65 +26,59 @@
 # $FreeBSD$
 #
 
-#include <machine/bus.h>
+#ifdef FDT
+#include <sys/types.h>
+#include <dev/ofw/ofw_bus.h>
+#endif
 
-INTERFACE clkdev;
+INTERFACE phy;
 
-CODE {
-	#include <sys/systm.h>
-	static void
-	clkdev_default_device_lock(device_t dev)
-	{
-
-		panic("clkdev_device_lock() is not implemented");
-	}
-
-	static void
-	clkdev_default_device_unlock(device_t dev)
-	{
-
-		panic("clkdev_device_unlock() is not implemented");
-	}
+#ifdef FDT
+HEADER {
+int phy_default_map(device_t , phandle_t, int, pcell_t *, intptr_t *);
 }
 
 #
-# Write single register
+# map fdt property cells to phy number
+# Returns 0 on success or a standard errno value.
 #
-METHOD int write_4 {
-	device_t	dev;
-	bus_addr_t	addr;
-	uint32_t	val;
+METHOD int map {
+	device_t	provider_dev;
+	phandle_t 	xref;
+	int		ncells;
+	pcell_t		*cells;
+	intptr_t	*id;
+} DEFAULT phy_default_map;
+#endif
+
+#
+# Init/deinit phy
+# Returns 0 on success or a standard errno value.
+#
+METHOD int init {
+	device_t	provider_dev;
+	intptr_t	id;
+	bool		inti;
 };
 
 #
-# Read single register
+# Enable/disable phy
+# Returns 0 on success or a standard errno value.
 #
-METHOD int read_4 {
-	device_t	dev;
-	bus_addr_t	addr;
-	uint32_t	*val;
+METHOD int enable {
+	device_t	provider_dev;
+	intptr_t	id;
+	bool		enable;
 };
 
 #
-# Modify single register
+# Get phy status
+# Returns 0 on success or a standard errno value.
 #
-METHOD int modify_4 {
-	device_t	dev;
-	bus_addr_t	addr;
-	uint32_t	clear_mask;
-	uint32_t	set_mask;
+METHOD int status {
+	device_t	provider_dev;
+	intptr_t	id;
+	int		*status;    /* PHY_STATUS_* */
 };
 
-#
-# Get exclusive access to underlying device
-#
-METHOD void device_lock {
-	device_t	dev;
-} DEFAULT clkdev_default_device_lock;
 
-#
-# Release exclusive access to underlying device
-#
-METHOD void device_unlock {
-	device_t	dev;
-} DEFAULT clkdev_default_device_unlock;

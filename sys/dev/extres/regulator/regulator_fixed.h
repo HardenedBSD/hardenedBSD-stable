@@ -26,27 +26,19 @@
  * $FreeBSD$
  */
 
-#ifndef _DEV_EXTRES_CLK_FIXED_H_
-#define _DEV_EXTRES_CLK_FIXED_H_
+#ifndef _DEV_EXTRES_REGULATOR_FIXED_H_
+#define _DEV_EXTRES_REGULATOR_FIXED_H_
 
-#include <dev/extres/clk/clk.h>
+#include <dev/gpio/gpiobusvar.h>
+#include <dev/extres/regulator/regulator.h>
 
-/*
- * A fixed clock can represent several different real-world objects, including
- * an oscillator with a fixed output frequency, a fixed divider (multiplier and
- * divisor must both be > 0), or a phase-fractional divider within a PLL
- * (however the code currently divides first, then multiplies, potentially
- * leading to different roundoff errors than the hardware PLL).
- */
-
-struct clk_fixed_def {
-	struct clknode_init_def clkdef;
-	uint64_t		freq;
-	uint32_t		mult;
-	uint32_t		div;
-	int			fixed_flags;
+struct regnode_fixed_init_def {
+	struct regnode_init_def	reg_init_def;
+	bool			gpio_open_drain;
+	struct gpiobus_pin	*gpio_pin;
 };
 
-int clknode_fixed_register(struct clkdom *clkdom, struct clk_fixed_def *clkdef);
+int regnode_fixed_register(device_t dev,
+    struct regnode_fixed_init_def *init_def);
 
-#endif /*_DEV_EXTRES_CLK_FIXED_H_*/
+#endif /*_DEV_EXTRES_REGULATOR_FIXED_H_*/
