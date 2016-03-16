@@ -450,7 +450,6 @@ pax_aslr_init_vmspace32(struct proc *p)
 	vm = p->p_vmspace;
 	KASSERT(vm != NULL, ("%s: vm is null", __func__));
 
-	pr = pax_get_prison(p);
 	arc4rand(&rand_buf, sizeof(rand_buf), 0);
 	vm->vm_aslr_delta_mmap = PAX_ASLR_DELTA(rand_buf,
 	    PAX_ASLR_COMPAT_DELTA_MMAP_LSB,
