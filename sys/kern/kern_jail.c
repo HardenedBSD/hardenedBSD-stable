@@ -4770,24 +4770,8 @@ db_show_prison(struct prison *pr)
 	db_printf("  .aslr = {\n");
 	db_printf("   .status             = %d\n",
 	    pr->pr_hbsd.aslr.status);
-	db_printf("   .mmap_len           = %d\n",
-	    pax_aslr_get_mmap_len());
-	db_printf("   .stack_len          = %d\n",
-	    pax_aslr_get_stack_len());
-	db_printf("   .exec_len           = %d\n",
-	    pax_aslr_get_exec_len());
-	db_printf("   .vdso_len           = %d\n",
-	    pax_aslr_get_vdso_len());
 	db_printf("   .compat_status      = %d\n",
 	    pr->pr_hbsd.aslr.compat_status);
-	db_printf("   .compat_mmap_len    = %d\n",
-	    pax_aslr_compat_get_mmap_len());
-	db_printf("   .compat_stack_len   = %d\n",
-	    pax_aslr_compat_get_stack_len());
-	db_printf("   .compat_exec_len    = %d\n",
-	    pax_aslr_compat_get_exec_len());
-	db_printf("   .compat_vdso_len    = %d\n",
-	    pax_aslr_compat_get_vdso_len());
 	db_printf("   .disallow_map32bit_status    = %d\n",
 	   pr->pr_hbsd.aslr.disallow_map32bit_status);
 	db_printf("  }\n");
