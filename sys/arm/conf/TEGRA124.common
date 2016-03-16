@@ -1,5 +1,5 @@
 #
-# Kernel configuration for i.MX53 boards
+# Kernel configuration for NVIDIA Tegra124 based boards.
 #
 # For more information on this file, please read the config(5) manual page,
 # and/or the handbook section on Kernel Configuration Files:
@@ -18,72 +18,76 @@
 #
 # $FreeBSD$
 
-ident		IMX53
+include  	"std.armv6"
+include 	"../nvidia/tegra124/std.tegra124"
 
-include 	"std.armv6"
-include 	"../freescale/imx/std.imx53"
-
-options 	SOC_IMX53
-
-options 	SCHED_4BSD		# 4BSD scheduler
-#options 	NFSD			# Network Filesystem Server
-options 	PLATFORM
-options 	INCLUDE_CONFIG_FILE	# Include this file in kernel
+options 	HZ=100			# Scheduling quantum is 10 milliseconds.
+options 	SCHED_ULE		# ULE scheduler
+options 	PLATFORM		# Platform based SoC
+options 	PLATFORM_SMP
+options 	SMP			# Enable multiple cores
 
 # Debugging for use in -current
 makeoptions	DEBUG=-g		# Build kernel with gdb(1) debug symbols
+options 	BREAK_TO_DEBUGGER
+options 	ALT_BREAK_TO_DEBUGGER
+#options 	VERBOSE_SYSINIT		# Enable verbose sysinit messages
 options 	KDB			# Enable kernel debugger support
 # For minimum debugger support (stable branch) use:
 #options 	KDB_TRACE		# Print a stack trace for a panic
 # For full debugger support use this instead:
 options 	DDB			# Enable the kernel debugger
-#options 	GDB			# Support remote GDB
-options 	DEADLKRES		# Enable the deadlock resolver
 options 	INVARIANTS		# Enable calls of extra sanity checking
 options 	INVARIANT_SUPPORT	# Extra sanity checks of internal structures, required by INVARIANTS
 options 	WITNESS			# Enable checks to detect deadlocks and cycles
-#options 	WITNESS_SKIPSPIN	# Don't run witness on spinlocks for speed
+options 	WITNESS_SKIPSPIN	# Don't run witness on spinlocks for speed
 
-# kernel/memory size reduction
-#options 	MUTEX_NOINLINE
-#options 	NO_FFS_SNAPSHOT
-#options 	NO_SWAPPING
-#options 	NO_SYSCTL_DESCR
-#options 	RWLOCK_NOINLINE
+# Interrupt controller
+device		gic
 
-# The `bpf' device enables the Berkeley Packet Filter.
-# Be aware of the administrative consequences of enabling this!
-# Note that 'bpf' is required for DHCP.
-device		bpf			# Berkeley packet filter
+# ARM Generic Timer
+device		generic_timer
+
+# EXT_RESOURCES pseudo devices
+options 	EXT_RESOURCES
+device		clk
+device		phy
+device		hwreset
+device		regulator
 
 # Pseudo devices.
 device		loop			# Network loopback
 device		random			# Entropy device
-device		ether			# Ethernet support
-#device		vlan			# 802.1Q VLAN support
+device		vlan			# 802.1Q VLAN support
 #device		tun			# Packet tunnel.
 device		md			# Memory "disks"
 #device		gif			# IPv6 and IPv4 tunneling
 #device		firmware		# firmware assist module
+device		ether			# Ethernet support
+device		miibus			# Required for ethernet
+device		bpf			# Berkeley packet filter (required for DHCP)
 
-# Ethernet
-device		ffec			# Freescale Fast Ethernet Controller
-device		miibus			# Standard mii bus
+
+# General-purpose input/output
+device		gpio
+#device		gpioled
+
+# I2C support
+device		iic
+device		iicbus
+device		icee
 
 # Serial (COM) ports
 device		uart			# Multi-uart driver
-options 	ALT_BREAK_TO_DEBUGGER
+device		uart_ns8250
 
-device		ata
-device		atapci			# Only for helper functions
-device		imxata
+# MMC/SD/SDIO Card slot support
+device		sdhci			# SD controller
+device		mmc			# SD/MMC protocol
+device		mmcsd			# SDCard disk device
 
-device		gpio
-device		gpioled
-
-device		fsliic
-device		iic
-device		iicbus
+# ATA controllers
+device		ahci			# AHCI-compatible SATA controllers
 
 # SCSI peripherals
 device		scbus			# SCSI bus (required for ATA/SCSI)
@@ -94,15 +98,15 @@ device		pass			# Passthrough device (direct ATA/SCSI access)
 # USB support
 options 	USB_HOST_ALIGN=64	# Align usb buffers to cache line size.
 options 	USB_DEBUG		# enable debug msgs
-device		ehci			# OHCI USB interface
+device		ehci			# EHCI USB interface
 device		usb			# USB Bus (required)
 device		umass			# Disks/Mass storage - Requires scbus and da
 device		uhid			# "Human Interface Devices"
-#device		ukbd			# Allow keyboard like HIDs to control console
-device		ums
+#device		u3g			# USB modems
+device		ukbd			# Allow keyboard like HIDs to control console
+device		ums			# USB mouse
 
 # USB Ethernet, requires miibus
-#device		miibus
 #device		aue			# ADMtek USB Ethernet
 #device		axe			# ASIX Electronics USB Ethernet
 #device		cdce			# Generic USB over Ethernet
@@ -114,22 +118,37 @@ device		ums
 # USB Wireless
 #device		rum			# Ralink Technology RT2501USB wireless NICs
 
-# Watchdog timer.
-# WARNING: can't be disabled!!!
-device		imxwdt			# Watchdog
-
 # Wireless NIC cards
-device		wlan			# 802.11 support
-device		wlan_wep		# 802.11 WEP support
-device		wlan_ccmp		# 802.11 CCMP support
-device		wlan_tkip		# 802.11 TKIP support
-device		wlan_amrr		# AMRR transmit rate control algorithm
+#device		wlan			# 802.11 support
+#device		wlan_wep		# 802.11 WEP support
+#device		wlan_ccmp		# 802.11 CCMP support
+#device		wlan_tkip		# 802.11 TKIP support
+#device		wlan_amrr		# AMRR transmit rate control algorithm
 
-# MMC
-#device  	sdhci			# SD controller
-#device  	mmc			# SD/MMC protocol
-#device  	mmcsd			# SDCard disk device
+# PCI
+options 	NEW_PCIB
+device		pci
 
+# PCI Ethernet NICs that use the common MII bus controller code.
+# NOTE: Be sure to keep the 'device miibus' line in order to use these NICs!
+device		re			# RealTek 8139C+/8169/8169S/8110S
+
+# DRM2
+#device		fbd
+#device		vt
+#device		splash
+#device		kbdmux
+#device		drm2
+
+# Sound
+#device		sound
+#device		snd_hda
 
 # Flattened Device Tree
 options 	FDT			# Configure using FDT/DTB data
+device  	fdt_pinctrl
+
+# SoC-specific devices
+
+#device  	hwpmc
+#options 	HWPMC_HOOKS
