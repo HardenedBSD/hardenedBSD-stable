@@ -127,22 +127,6 @@ void pax_aslr_vdso(struct proc *p, vm_offset_t *addr);
 pax_flag_t pax_disallow_map32bit_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_t mode);
 bool pax_disallow_map32bit_active(struct thread *td, int mmap_flags);
 
-int pax_aslr_get_stack_len(void);
-int pax_aslr_get_mmap_len(void);
-int pax_aslr_get_exec_len(void);
-int pax_aslr_get_vdso_len(void);
-#ifdef COMPAT_FREEBSD32
-int pax_aslr_compat_get_stack_len(void);
-int pax_aslr_compat_get_mmap_len(void);
-int pax_aslr_compat_get_exec_len(void);
-int pax_aslr_compat_get_vdso_len(void);
-#else
-#define	pax_aslr_compat_get_stack_len()	0
-#define	pax_aslr_compat_get_mmap_len()	0
-#define	pax_aslr_compat_get_exec_len()	0
-#define	pax_aslr_compat_get_vdso_len()	0
-#endif
-
 /*
  * Log related functions
  */
