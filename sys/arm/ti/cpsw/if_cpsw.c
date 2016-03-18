@@ -153,7 +153,7 @@ static int cpsw_stats_sysctl(SYSCTL_HANDLER_ARGS);
  * Packets with more segments than this will be defragmented before
  * they are queued.
  */
-#define	CPSW_TXFRAGS		8
+#define	CPSW_TXFRAGS		16
 
 /* Shared resources. */
 static device_method_t cpsw_methods[] = {
@@ -1196,6 +1196,7 @@ cpsw_rx_teardown_locked(struct cpsw_softc *sc)
 			received->m_nextpkt = NULL;
 			ifp = received->m_pkthdr.rcvif;
 			(*ifp->if_input)(ifp, received);
+			if_inc_counter(ifp, IFCOUNTER_IPACKETS, 1);
 			received = next;
 		}
 		CPSW_GLOBAL_LOCK(sc);
@@ -1536,6 +1537,7 @@ cpsw_intr_rx(void *arg)
 		received->m_nextpkt = NULL;
 		ifp = received->m_pkthdr.rcvif;
 		(*ifp->if_input)(ifp, received);
+		if_inc_counter(ifp, IFCOUNTER_IPACKETS, 1);
 		received = next;
 	}
 }
@@ -1730,8 +1732,13 @@ cpswp_tx_enqueue(struct cpswp_softc *sc)
 	struct cpsw_slot *slot, *prev_slot = NULL;
 	struct cpsw_slot *last_old_slot, *first_new_slot;
 	struct mbuf *m0;
-	int error, nsegs, seg, added = 0, padlen;
+	int error, flags, nsegs, seg, added = 0, padlen;
 
+	flags = 0;
+	if (sc->swsc->dualemac) {
+		flags = CPDMA_BD_TO_PORT |
+		    ((sc->unit + 1) & CPDMA_BD_PORT_MASK);
+	}
 	/* Pull pending packets from IF queue and prep them for DMA. */
 	while ((slot = STAILQ_FIRST(&sc->swsc->tx.avail)) != NULL) {
 		IF_DEQUEUE(&sc->ifp->if_snd, m0);
@@ -1784,6 +1791,7 @@ cpswp_tx_enqueue(struct cpswp_softc *sc)
 		    ("Queueing TX packet: %d segments + %d pad bytes",
 		    nsegs, padlen));
 
+		slot->ifp = sc->ifp;
 		/* If there is only one segment, the for() loop
 		 * gets skipped and the single buffer gets set up
 		 * as both SOP and EOP. */
@@ -1793,11 +1801,7 @@ cpswp_tx_enqueue(struct cpswp_softc *sc)
 		bd.bufoff = 0;
 		bd.buflen = segs[0].ds_len;
 		bd.pktlen = m_length(slot->mbuf, NULL) + padlen;
-		bd.flags =  CPDMA_BD_SOP | CPDMA_BD_OWNER;
-		if (sc->swsc->dualemac) {
-			bd.flags |= CPDMA_BD_TO_PORT |
-			    ((sc->unit + 1) & CPDMA_BD_PORT_MASK);
-		}
+		bd.flags =  CPDMA_BD_SOP | CPDMA_BD_OWNER | flags;
 		for (seg = 1; seg < nsegs; ++seg) {
 			/* Save the previous buffer (which isn't EOP) */
 			cpsw_cpdma_write_bd(sc->swsc, slot, &bd);
@@ -1818,7 +1822,7 @@ cpswp_tx_enqueue(struct cpswp_softc *sc)
 			bd.bufoff = 0;
 			bd.buflen = segs[seg].ds_len;
 			bd.pktlen = 0;
-			bd.flags = CPDMA_BD_OWNER;
+			bd.flags = CPDMA_BD_OWNER | flags;
 		}
 		/* Save the final buffer. */
 		if (padlen <= 0)
@@ -1847,7 +1851,7 @@ cpswp_tx_enqueue(struct cpswp_softc *sc)
 			bd.bufoff = 0;
 			bd.buflen = padlen;
 			bd.pktlen = 0;
-			bd.flags = CPDMA_BD_EOP | CPDMA_BD_OWNER;
+			bd.flags = CPDMA_BD_EOP | CPDMA_BD_OWNER | flags;
 			cpsw_cpdma_write_bd(sc->swsc, slot, &bd);
 			++nsegs;
 		}
@@ -1912,6 +1916,8 @@ cpsw_tx_dequeue(struct cpsw_softc *sc)
 		bus_dmamap_unload(sc->mbuf_dtag, slot->dmamap);
 		m_freem(slot->mbuf);
 		slot->mbuf = NULL;
+		if (slot->ifp)
+			if_inc_counter(slot->ifp, IFCOUNTER_OPACKETS, 1);
 
 		/* Dequeue any additional buffers used by this packet. */
 		while (slot != NULL && slot->mbuf == NULL) {
