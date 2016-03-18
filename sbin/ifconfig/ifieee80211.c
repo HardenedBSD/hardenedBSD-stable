@@ -2727,6 +2727,26 @@ printbssload(const char *tag, const uint8_t *ie, size_t ielen, int maxlen)
 	}
 }
 
+static void
+printapchanrep(const char *tag, const u_int8_t *ie, size_t ielen, int maxlen)
+{
+	printf("%s", tag);
+	if (verbose) {
+		const struct ieee80211_ap_chan_report_ie *ap =
+		    (const struct ieee80211_ap_chan_report_ie *) ie;
+		const char *sep = "";
+		int i;
+
+		printf("<class %u, chan:[", ap->i_class);
+
+		for (i = 3; i < ielen; i++) {
+			printf("%s%u", sep, ie[i]);
+			sep = ",";
+		}
+		printf("]>");
+	}
+}
+
 static const char *
 wpa_cipher(const u_int8_t *sel)
 {
@@ -3071,14 +3091,6 @@ printcountry(const char *tag, const u_int8_t *ie, size_t ielen, int maxlen)
 	printf(">");
 }
 
-/* unaligned little endian access */     
-#define LE_READ_4(p)					\
-	((u_int32_t)					\
-	 ((((const u_int8_t *)(p))[0]      ) |		\
-	  (((const u_int8_t *)(p))[1] <<  8) |		\
-	  (((const u_int8_t *)(p))[2] << 16) |		\
-	  (((const u_int8_t *)(p))[3] << 24)))
-
 static __inline int
 iswpaoui(const u_int8_t *frm)
 {
@@ -3137,11 +3149,8 @@ iename(int elemid)
 	case IEEE80211_ELEMID_MEASREP:	return " MEASREP";
 	case IEEE80211_ELEMID_QUIET:	return " QUIET";
 	case IEEE80211_ELEMID_IBSSDFS:	return " IBSSDFS";
-	case IEEE80211_ELEMID_APCHANREP:return " APCHANREP";
 	case IEEE80211_ELEMID_TPC:	return " TPC";
 	case IEEE80211_ELEMID_CCKM:	return " CCKM";
-	case IEEE80211_ELEMID_VHT_CAP:	return " VHTCAP";
-	case IEEE80211_ELEMID_VHT_OPMODE:	return " VHTOPMODE";
 	case IEEE80211_ELEMID_VHT_PWR_ENV:	return " VHTPWRENV";
 	}
 	return " ???";
@@ -3215,6 +3224,9 @@ printies(const u_int8_t *vp, int ielen, int maxcols)
 			break;
 		case IEEE80211_ELEMID_BSSLOAD:
 			printbssload(" BSSLOAD", vp, 2+vp[1], maxcols);
+			break;
+		case IEEE80211_ELEMID_APCHANREP:
+			printapchanrep(" APCHANREP", vp, 2+vp[1], maxcols);
 			break;
 		default:
 			if (verbose)
