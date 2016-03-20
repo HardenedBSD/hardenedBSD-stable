@@ -85,16 +85,20 @@
 /* Check hostid on import? */
 static int check_hostid = 1;
 
-SYSCTL_DECL(_vfs_zfs);
-TUNABLE_INT("vfs.zfs.check_hostid", &check_hostid);
-SYSCTL_INT(_vfs_zfs, OID_AUTO, check_hostid, CTLFLAG_RW, &check_hostid, 0,
-    "Check hostid on import?");
-
 /*
  * The interval, in seconds, at which failed configuration cache file writes
  * should be retried.
  */
 static int zfs_ccw_retry_interval = 300;
+
+SYSCTL_DECL(_vfs_zfs);
+TUNABLE_INT("vfs.zfs.check_hostid", &check_hostid);
+SYSCTL_INT(_vfs_zfs, OID_AUTO, check_hostid, CTLFLAG_RWTUN, &check_hostid, 0,
+    "Check hostid on import?");
+TUNABLE_INT("vfs.zfs.ccw_retry_interval", &zfs_ccw_retry_interval);
+SYSCTL_INT(_vfs_zfs, OID_AUTO, ccw_retry_interval, CTLFLAG_RW,
+    &zfs_ccw_retry_interval, 0,
+    "Configuration cache file write, retry after failure, interval (seconds)");
 
 typedef enum zti_modes {
 	ZTI_MODE_FIXED,			/* value is # of threads (min 1) */
@@ -3807,7 +3811,7 @@ spa_create(const char *pool, nvlist_t *nvroot, nvlist_t *props,
 }
 
 #ifdef _KERNEL
-#if defined(sun)
+#ifdef illumos
 /*
  * Get the root pool information from the root disk, then import the root pool
  * during the system boot up time.
@@ -4008,7 +4012,7 @@ out:
 	return (error);
 }
 
-#else
+#else	/* !illumos */
 
 extern int vdev_geom_read_pool_label(const char *name, nvlist_t ***configs,
     uint64_t *count);
@@ -4204,8 +4208,8 @@ spa_import_rootpool(const char *name)
 	return (0);
 }
 
-#endif	/* sun */
-#endif
+#endif	/* illumos */
+#endif	/* _KERNEL */
 
 /*
  * Import a non-root pool into the system.
@@ -5381,13 +5385,13 @@ spa_vdev_split_mirror(spa_t *spa, char *newname, nvlist_t *config,
 	spa_activate(newspa, spa_mode_global);
 	spa_async_suspend(newspa);
 
-#ifndef sun
+#ifndef illumos
 	/* mark that we are creating new spa by splitting */
 	newspa->spa_splitting_newspa = B_TRUE;
 #endif
 	/* create the new pool from the disks of the original pool */
 	error = spa_load(newspa, SPA_LOAD_IMPORT, SPA_IMPORT_ASSEMBLE, B_TRUE);
-#ifndef sun
+#ifndef illumos
 	newspa->spa_splitting_newspa = B_FALSE;
 #endif
 	if (error)
@@ -6644,12 +6648,12 @@ spa_sync(spa_t *spa, uint64_t txg)
 #ifdef illumos
 	VERIFY(cyclic_reprogram(spa->spa_deadman_cycid,
 	    spa->spa_sync_starttime + spa->spa_deadman_synctime));
-#else	/* FreeBSD */
+#else	/* !illumos */
 #ifdef _KERNEL
 	callout_reset(&spa->spa_deadman_cycid,
 	    hz * spa->spa_deadman_synctime / NANOSEC, spa_deadman, spa);
 #endif
-#endif
+#endif	/* illumos */
 
 	/*
 	 * If we are upgrading to SPA_VERSION_RAIDZ_DEFLATE this txg,
@@ -6794,11 +6798,11 @@ spa_sync(spa_t *spa, uint64_t txg)
 
 #ifdef illumos
 	VERIFY(cyclic_reprogram(spa->spa_deadman_cycid, CY_INFINITY));
-#else	/* FreeBSD */
+#else	/* !illumos */
 #ifdef _KERNEL
 	callout_drain(&spa->spa_deadman_cycid);
 #endif
-#endif
+#endif	/* illumos */
 
 	/*
 	 * Clear the dirty config list.
