@@ -76,7 +76,7 @@ static char *vmbus_ids[] = { "VMBUS", NULL };
  * the hypervisor.
  */
 static void
-vmbus_msg_swintr(void *arg)
+vmbus_msg_swintr(void *arg, int pending __unused)
 {
 	int 			cpu;
 	void*			page_addr;
@@ -175,11 +175,14 @@ hv_vmbus_isr(struct trapframe *frame)
 
 	/* Check if there are actual msgs to be process */
 	page_addr = hv_vmbus_g_context.syn_ic_msg_page[cpu];
-	msg = (hv_vmbus_message*) page_addr + HV_VMBUS_MESSAGE_SINT;
+	msg = (hv_vmbus_message*) page_addr + HV_VMBUS_TIMER_SINT;
 
 	/* we call eventtimer process the message */
 	if (msg->header.message_type == HV_MESSAGE_TIMER_EXPIRED) {
 		msg->header.message_type = HV_MESSAGE_TYPE_NONE;
+
+		/* call intrrupt handler of event timer */
+		hv_et_intr(frame);
 
 		/*
 		 * Make sure the write to message_type (ie set to
@@ -197,12 +200,11 @@ hv_vmbus_isr(struct trapframe *frame)
 			 */
 			wrmsr(HV_X64_MSR_EOM, 0);
 		}
-		hv_et_intr(frame);
-		return (FILTER_HANDLED);
 	}
 
+	msg = (hv_vmbus_message*) page_addr + HV_VMBUS_MESSAGE_SINT;
 	if (msg->header.message_type != HV_MESSAGE_TYPE_NONE) {
-		swi_sched(hv_vmbus_g_context.msg_swintr[cpu], 0);
+		taskqueue_enqueue(taskqueue_fast, &hv_vmbus_g_context.hv_msg_task[cpu]);
 	}
 
 	return (FILTER_HANDLED);
@@ -508,9 +510,6 @@ vmbus_bus_init(void)
 	setup_args.vector = hv_vmbus_g_context.hv_cb_vector;
 
 	CPU_FOREACH(j) {
-		hv_vmbus_g_context.hv_msg_intr_event[j] = NULL;
-		hv_vmbus_g_context.msg_swintr[j] = NULL;
-
 		snprintf(buf, sizeof(buf), "cpu%d:hyperv", j);
 		intrcnt_add(buf, &hv_vmbus_intr_cpu[j]);
 
@@ -527,40 +526,14 @@ vmbus_bus_init(void)
 		 */
 		hv_vmbus_g_context.hv_event_queue[j] = taskqueue_create_fast("hyperv event", M_WAITOK,
 			taskqueue_thread_enqueue, &hv_vmbus_g_context.hv_event_queue[j]);
-		if (hv_vmbus_g_context.hv_event_queue[j] == NULL) {
-			if (bootverbose)
-				printf("VMBUS: failed to setup taskqueue\n");
-			goto cleanup1;
-		}
 		CPU_SETOF(j, &cpu_mask);
 		taskqueue_start_threads_cpuset(&hv_vmbus_g_context.hv_event_queue[j], 1, PI_NET, &cpu_mask,
 			"hvevent%d", j);
 
 		/*
-		 * Setup software interrupt thread and handler for msg handling.
+		 * Setup tasks to handle msg
 		 */
-		ret = swi_add(&hv_vmbus_g_context.hv_msg_intr_event[j],
-		    "hv_msg", vmbus_msg_swintr, (void *)(long)j, SWI_CLOCK, 0,
-		    &hv_vmbus_g_context.msg_swintr[j]);
-		if (ret) {
-			if(bootverbose)
-				printf("VMBUS: failed to setup msg swi for "
-				    "cpu %d\n", j);
-			goto cleanup1;
-		}
-
-		/*
-		 * Bind the swi thread to the cpu.
-		 */
-		ret = intr_event_bind(hv_vmbus_g_context.hv_msg_intr_event[j],
-		    j);
-		if (ret) {
-			if(bootverbose)
-				printf("VMBUS: failed to bind msg swi thread "
-				    "to cpu %d\n", j);
-			goto cleanup1;
-		}
-
+		TASK_INIT(&hv_vmbus_g_context.hv_msg_task[j], 0, vmbus_msg_swintr, (void *)(long)j);
 		/*
 		 * Prepare the per cpu msg and event pages to be called on each cpu.
 		 */
@@ -599,11 +572,10 @@ vmbus_bus_init(void)
 	 * remove swi and vmbus callback vector;
 	 */
 	CPU_FOREACH(j) {
-		if (hv_vmbus_g_context.hv_event_queue[j] != NULL)
+		if (hv_vmbus_g_context.hv_event_queue[j] != NULL) {
 			taskqueue_free(hv_vmbus_g_context.hv_event_queue[j]);
-		if (hv_vmbus_g_context.msg_swintr[j] != NULL)
-			swi_remove(hv_vmbus_g_context.msg_swintr[j]);
-		hv_vmbus_g_context.hv_msg_intr_event[j] = NULL;	
+			hv_vmbus_g_context.hv_event_queue[j] = NULL;
+		}
 	}
 
 	vmbus_vector_free(hv_vmbus_g_context.hv_cb_vector);
@@ -668,11 +640,10 @@ vmbus_bus_exit(void)
 
 	/* remove swi */
 	CPU_FOREACH(i) {
-		if (hv_vmbus_g_context.hv_event_queue[i] != NULL)
+		if (hv_vmbus_g_context.hv_event_queue[i] != NULL) {
 			taskqueue_free(hv_vmbus_g_context.hv_event_queue[i]);
-		if (hv_vmbus_g_context.msg_swintr[i] != NULL)
-			swi_remove(hv_vmbus_g_context.msg_swintr[i]);
-		hv_vmbus_g_context.hv_msg_intr_event[i] = NULL;	
+			hv_vmbus_g_context.hv_event_queue[i] = NULL;
+		}
 	}
 
 	vmbus_vector_free(hv_vmbus_g_context.hv_cb_vector);
