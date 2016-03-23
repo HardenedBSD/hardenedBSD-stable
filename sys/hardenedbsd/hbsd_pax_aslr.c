@@ -329,7 +329,6 @@ pax_aslr_active(struct proc *p)
 void
 pax_aslr_init_vmspace(struct proc *p)
 {
-	struct prison *pr;
 	struct vmspace *vm;
 	unsigned long rand_buf;
 	int try;
@@ -337,16 +336,15 @@ pax_aslr_init_vmspace(struct proc *p)
 	vm = p->p_vmspace;
 	KASSERT(vm != NULL, ("%s: vm is null", __func__));
 
-	pr = pax_get_prison(p);
 	arc4rand(&rand_buf, sizeof(rand_buf), 0);
 	vm->vm_aslr_delta_mmap = PAX_ASLR_DELTA(rand_buf,
 	    PAX_ASLR_DELTA_MMAP_LSB,
-	    pr->pr_hbsd.aslr.mmap_len);
+	    pax_aslr_mmap_len);
 
 	arc4rand(&rand_buf, sizeof(rand_buf), 0);
 	vm->vm_aslr_delta_exec = PAX_ASLR_DELTA(rand_buf,
 	    PAX_ASLR_DELTA_EXEC_LSB,
-	    pr->pr_hbsd.aslr.exec_len);
+	    pax_aslr_exec_len);
 
 	try = 3;
 try_again:
@@ -360,13 +358,13 @@ try_again:
 	arc4rand(&rand_buf, sizeof(rand_buf), 0);
 	vm->vm_aslr_delta_stack = PAX_ASLR_DELTA(rand_buf,
 	    PAX_ASLR_DELTA_STACK_WITH_GAP_LSB,
-	    pr->pr_hbsd.aslr.stack_len);
+	    pax_aslr_stack_len);
 	vm->vm_aslr_delta_stack = ALIGN(vm->vm_aslr_delta_stack);
 
 	arc4rand(&rand_buf, sizeof(rand_buf), 0);
 	rand_buf = PAX_ASLR_DELTA(rand_buf,
 	    PAX_ASLR_DELTA_VDSO_LSB,
-	    pr->pr_hbsd.aslr.vdso_len);
+	    pax_aslr_vdso_len);
 
 	/*
 	 * Place the vdso between the stacktop and
@@ -401,7 +399,7 @@ try_again:
 	arc4rand(&rand_buf, sizeof(rand_buf), 0);
 	vm->vm_aslr_delta_map32bit = PAX_ASLR_DELTA(rand_buf,
 	    PAX_ASLR_DELTA_MAP32BIT_LSB,
-	    pr->pr_hbsd.aslr.map32bit_len);
+	    pax_aslr_map32bit_len);
 #endif
 
 	CTR2(KTR_PAX, "%s: vm_aslr_delta_mmap=%p\n",
@@ -446,34 +444,32 @@ SYSINIT(pax_compat_aslr, SI_SUB_PAX, SI_ORDER_SECOND, pax_compat_aslr_sysinit, N
 void
 pax_aslr_init_vmspace32(struct proc *p)
 {
-	struct prison *pr;
 	struct vmspace *vm;
 	long rand_buf;
 
 	vm = p->p_vmspace;
 	KASSERT(vm != NULL, ("%s: vm is null", __func__));
 
-	pr = pax_get_prison(p);
 	arc4rand(&rand_buf, sizeof(rand_buf), 0);
 	vm->vm_aslr_delta_mmap = PAX_ASLR_DELTA(rand_buf,
 	    PAX_ASLR_COMPAT_DELTA_MMAP_LSB,
-	    pr->pr_hbsd.aslr.compat_mmap_len);
+	    pax_aslr_compat_mmap_len);
 
 	arc4rand(&rand_buf, sizeof(rand_buf), 0);
 	vm->vm_aslr_delta_stack = PAX_ASLR_DELTA(rand_buf,
 	    PAX_ASLR_COMPAT_DELTA_STACK_LSB,
-	    pr->pr_hbsd.aslr.compat_stack_len);
+	    pax_aslr_compat_stack_len);
 	vm->vm_aslr_delta_stack = ALIGN(vm->vm_aslr_delta_stack);
 
 	arc4rand(&rand_buf, sizeof(rand_buf), 0);
 	vm->vm_aslr_delta_exec = PAX_ASLR_DELTA(rand_buf,
 	    PAX_ASLR_COMPAT_DELTA_EXEC_LSB,
-	    pr->pr_hbsd.aslr.compat_exec_len);
+	    pax_aslr_compat_exec_len);
 
 	arc4rand(&rand_buf, sizeof(rand_buf), 0);
 	vm->vm_aslr_delta_vdso = PAX_ASLR_DELTA(rand_buf,
 	    PAX_ASLR_COMPAT_DELTA_VDSO_LSB,
-	    pr->pr_hbsd.aslr.compat_vdso_len);
+	    pax_aslr_compat_vdso_len);
 
 	CTR2(KTR_PAX, "%s: vm_aslr_delta_mmap=%p\n",
 	    __func__, (void *)vm->vm_aslr_delta_mmap);
@@ -512,12 +508,7 @@ pax_aslr_init_prison(struct prison *pr)
 	if (pr == &prison0) {
 		/* prison0 has no parent, use globals */
 		pr->pr_hbsd.aslr.status = pax_aslr_status;
-		pr->pr_hbsd.aslr.mmap_len = pax_aslr_mmap_len;
-		pr->pr_hbsd.aslr.stack_len = pax_aslr_stack_len;
-		pr->pr_hbsd.aslr.exec_len = pax_aslr_exec_len;
-		pr->pr_hbsd.aslr.vdso_len = pax_aslr_vdso_len;
 #ifdef MAP_32BIT
-		pr->pr_hbsd.aslr.map32bit_len = pax_aslr_map32bit_len;
 		pr->pr_hbsd.aslr.disallow_map32bit_status =
 		    pax_disallow_map32bit_status_global;
 #endif
@@ -527,13 +518,7 @@ pax_aslr_init_prison(struct prison *pr)
 		pr_p = pr->pr_parent;
 
 		pr->pr_hbsd.aslr.status = pr_p->pr_hbsd.aslr.status;
-		pr->pr_hbsd.aslr.mmap_len = pr_p->pr_hbsd.aslr.mmap_len;
-		pr->pr_hbsd.aslr.stack_len = pr_p->pr_hbsd.aslr.stack_len;
-		pr->pr_hbsd.aslr.exec_len = pr_p->pr_hbsd.aslr.exec_len;
-		pr->pr_hbsd.aslr.vdso_len = pr_p->pr_hbsd.aslr.vdso_len;
 #ifdef MAP_32BIT
-		pr->pr_hbsd.aslr.map32bit_len =
-		    pr_p->pr_hbsd.aslr.map32bit_len;
 		pr->pr_hbsd.aslr.disallow_map32bit_status =
 		    pr_p->pr_hbsd.aslr.disallow_map32bit_status;
 #endif
@@ -553,20 +538,12 @@ pax_aslr_init_prison32(struct prison *pr)
 		/* prison0 has no parent, use globals */
 
 		pr->pr_hbsd.aslr.compat_status = pax_aslr_compat_status;
-		pr->pr_hbsd.aslr.compat_mmap_len = pax_aslr_compat_mmap_len;
-		pr->pr_hbsd.aslr.compat_stack_len = pax_aslr_compat_stack_len;
-		pr->pr_hbsd.aslr.compat_exec_len = pax_aslr_compat_exec_len;
-		pr->pr_hbsd.aslr.compat_vdso_len = pax_aslr_compat_vdso_len;
 	} else {
 		KASSERT(pr->pr_parent != NULL,
 		   ("%s: pr->pr_parent == NULL", __func__));
 		pr_p = pr->pr_parent;
 
 		pr->pr_hbsd.aslr.compat_status = pr_p->pr_hbsd.aslr.compat_status;
-		pr->pr_hbsd.aslr.compat_mmap_len = pr_p->pr_hbsd.aslr.compat_mmap_len;
-		pr->pr_hbsd.aslr.compat_stack_len = pr_p->pr_hbsd.aslr.compat_stack_len;
-		pr->pr_hbsd.aslr.compat_exec_len = pr_p->pr_hbsd.aslr.compat_exec_len;
-		pr->pr_hbsd.aslr.compat_vdso_len = pr_p->pr_hbsd.aslr.compat_vdso_len;
 	}
 }
 #endif /* COMPAT_FREEBSD32 */

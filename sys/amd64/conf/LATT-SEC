@@ -12,4 +12,4 @@ nooptions WITNESS_SKIPSPIN
 nooptions MALLOC_DEBUG_MAXZONES
 
 # Virtual networking for jails
-#options VIMAGE
+options VIMAGE

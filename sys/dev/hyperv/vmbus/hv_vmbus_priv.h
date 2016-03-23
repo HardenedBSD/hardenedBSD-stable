@@ -180,7 +180,8 @@ enum {
 	HV_VMBUS_EVENT_PORT_ID		= 2,
 	HV_VMBUS_MONITOR_CONNECTION_ID	= 3,
 	HV_VMBUS_MONITOR_PORT_ID	= 3,
-	HV_VMBUS_MESSAGE_SINT		= 2
+	HV_VMBUS_MESSAGE_SINT		= 2,
+	HV_VMBUS_TIMER_SINT		= 4,
 };
 
 #define HV_PRESENT_BIT		0x80000000
@@ -203,8 +204,7 @@ typedef struct {
 	 * event and msg handling.
 	 */
 	struct taskqueue		*hv_event_queue[MAXCPU];
-	struct intr_event		*hv_msg_intr_event[MAXCPU];
-	void				*msg_swintr[MAXCPU];
+	struct task			hv_msg_task[MAXCPU];
 	/*
 	 * Host use this vector to intrrupt guest for vmbus channel
 	 * event and msg.

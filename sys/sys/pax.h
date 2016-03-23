@@ -32,22 +32,13 @@
 #ifndef	_SYS_PAX_H
 #define	_SYS_PAX_H
 
-#define	__HardenedBSD_version	42UL
+#define	__HardenedBSD_version	43UL
 
 #if defined(_KERNEL) || defined(_WANT_PRISON)
 struct hbsd_features {
 	struct hbsd_aslr {
 		int	 status;	/* (p) PaX ASLR enabled */
-		int	 mmap_len;	/* (p) num of bits randomized with mmap */
-		int	 stack_len;	/* (p) num of bits randomized with stack */
-		int	 exec_len;	/* (p) num of bits randomized with execbase */
-		int	 vdso_len;	/* (p) num of bits randomized with VDSO */
-		int	 map32bit_len;	/* (p) num of bits randomized with MAP_32BIT mmap */
 		int	 compat_status;	/* (p) PaX ASLR enabled (compat32) */
-		int	 compat_mmap_len; /* (p) num of bits randomized with mmap (compat32) */
-		int	 compat_stack_len;/* (p) num of bits randomized with stack (compat32) */
-		int	 compat_exec_len; /* (p) num of bits randomized with execbase (compat32) */
-		int	 compat_vdso_len; /* (p) num of bits randomized with VDSO (compat32) */
 		int	 disallow_map32bit_status; /* (p) MAP_32BIT protection (__LP64__ only) */
 	} aslr;
 	struct hbsd_segvguard {

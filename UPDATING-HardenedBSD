@@ -1,3 +1,13 @@
+[20160316] ASLR cleanup
+__HardenedBSD_version = 43
+
+	Since the hardening.pax.aslr.*_len variables are no longer
+	available outside of loader.conf(5), remove them from
+	struct hbsd_features, which gets embedded in struct
+	prison. This change makes the hardening.pax.aslr.*_len
+	variables a global setting, rather than a per-jail setting.
+
+
 [20160225] RTLD noexec
 __HardenedBSD_version = 42
 
