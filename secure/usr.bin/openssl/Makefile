@@ -1,6 +1,6 @@
 # $FreeBSD$
 
-.if "${WITH_LIBRESSL}" != "yes"
+.if !defined(WITH_LIBRESSL)
 
 PROG=	openssl
 

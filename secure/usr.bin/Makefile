@@ -5,7 +5,7 @@
 SUBDIR=
 .if ${MK_OPENSSL} != "no"
 SUBDIR+=bdes openssl
-.if "${WITH_LIBRESSL}" == "yes"
+.if defined(WITH_LIBRESSL)
 SUBDIR+=netcat
 .endif
 .if ${MK_OPENSSH} != "no"

@@ -10,7 +10,7 @@ SUBDIR+=libssh
 .endif
 .endif
 
-.if "${WITH_LIBRESSL}" == "yes"
+.if defined(WITH_LIBRESSL)
 SUBDIR+=libtls
 .endif
 
