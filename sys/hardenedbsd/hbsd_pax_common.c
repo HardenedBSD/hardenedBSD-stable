@@ -287,8 +287,7 @@ pax_elf(struct image_params *imgp, struct thread *td, pax_flag_t mode)
 #endif
 
 #ifdef PAX_NOEXEC
-	flags |= pax_pageexec_setup_flags(imgp, td, mode);
-	flags |= pax_mprotect_setup_flags(imgp, td, mode);
+	flags |= pax_noexec_setup_flags(imgp, td, mode);
 #endif
 
 #ifdef PAX_SEGVGUARD
