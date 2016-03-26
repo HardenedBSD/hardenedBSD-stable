@@ -57,6 +57,10 @@
 
 FEATURE(hbsd_noexec, "PAX PAGEEXEC and MPROTECT hardening");
 
+
+static pax_flag_t pax_pageexec_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_t mode);
+static pax_flag_t pax_mprotect_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_t flags, pax_flag_t mode);
+
 #ifdef PAX_HARDENING
 static int pax_pageexec_status = PAX_FEATURE_OPTOUT;
 static int pax_mprotect_status = PAX_FEATURE_OPTOUT;
@@ -148,7 +152,7 @@ pax_noexec_init_prison(struct prison *pr)
 	}
 }
 
-pax_flag_t
+static pax_flag_t
 pax_pageexec_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_t mode)
 {
 	struct prison *pr;
@@ -275,14 +279,12 @@ pax_mprotect_active(struct proc *p)
 	return (true);
 }
 
-pax_flag_t
-pax_mprotect_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_t mode)
+static pax_flag_t
+pax_mprotect_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_t flags, pax_flag_t mode)
 {
 	struct prison *pr;
-	pax_flag_t flags;
 	uint32_t status;
 
-	flags = 0;
 	status = 0;
 
 	pr = pax_get_prison_td(td);
@@ -296,8 +298,8 @@ pax_mprotect_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_
 	}
 
 	if (status == PAX_FEATURE_FORCE_ENABLED) {
-		flags |= PAX_NOTE_MPROTECT;
-		flags &= ~PAX_NOTE_NOMPROTECT;
+		flags |= (PAX_NOTE_MPROTECT | PAX_NOTE_PAGEEXEC);
+		flags &= ~(PAX_NOTE_NOMPROTECT | PAX_NOTE_NOPAGEEXEC);
 
 		return (flags);
 	}
@@ -329,8 +331,8 @@ pax_mprotect_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_
 	/*
 	 * unknown status, force MPROTECT
 	 */
-	flags |= PAX_NOTE_MPROTECT;
-	flags &= ~PAX_NOTE_NOMPROTECT;
+	flags |= (PAX_NOTE_MPROTECT | PAX_NOTE_PAGEEXEC);
+	flags &= ~(PAX_NOTE_NOMPROTECT | PAX_NOTE_NOPAGEEXEC);
 
 	return (flags);
 }
@@ -367,6 +369,17 @@ pax_mprotect_enforce(struct proc *p, vm_map_t map, vm_prot_t old_prot, vm_prot_t
 	}
 
 	return (0);
+}
+
+pax_flag_t
+pax_noexec_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_t mode)
+{
+	pax_flag_t	flags;
+
+	flags = pax_pageexec_setup_flags(imgp, td, mode);
+	flags = pax_mprotect_setup_flags(imgp, td, flags, mode);
+
+	return (flags);
 }
 
 
