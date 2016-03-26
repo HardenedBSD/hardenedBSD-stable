@@ -360,7 +360,6 @@ KTMAKE=		TOOLS_PREFIX=${WORLDTMP} MAKEOBJDIRPREFIX=${WORLDTMP} \
 
 # world stage
 WMAKEENV=	${CROSSENV} \
-		_LDSCRIPTROOT= \
 		INSTALL="sh ${.CURDIR}/tools/install.sh" \
 		PATH=${TMPPATH}
 
@@ -414,15 +413,16 @@ CROSSENV+=	CC="${XCC} ${XCFLAGS}" CXX="${XCXX} ${XCFLAGS} ${XCXXFLAGS}" \
 		RANLIB=${XRANLIB} STRINGS=${XSTRINGS} \
 		SIZE="${XSIZE}"
 
-.if ${XCC:N${CCACHE_BIN}:M/*}
-.if defined(CROSS_BINUTILS_PREFIX)
+.if defined(CROSS_BINUTILS_PREFIX) && exists(${CROSS_BINUTILS_PREFIX})
 # In the case of xdev-build tools, CROSS_BINUTILS_PREFIX won't be a
-# directory, but the compiler will look in the right place for it's
+# directory, but the compiler will look in the right place for its
 # tools so we don't need to tell it where to look.
-.if exists(${CROSS_BINUTILS_PREFIX})
 BFLAGS+=	-B${CROSS_BINUTILS_PREFIX}
 .endif
-.else
+
+# External compiler needs sysroot and target flags.
+.if ${XCC:N${CCACHE_BIN}:M/*} || ${MK_CROSS_COMPILER} == "no"
+.if !defined(CROSS_BINUTILS_PREFIX) || !exists(${CROSS_BINUTILS_PREFIX})
 BFLAGS+=	-B${WORLDTMP}/usr/bin
 .endif
 .if ${TARGET} == "arm"
@@ -433,8 +433,11 @@ TARGET_ABI=	gnueabi
 .endif
 .endif
 .if defined(X_COMPILER_TYPE) && ${X_COMPILER_TYPE} == gcc
-XCFLAGS+=	-isystem ${WORLDTMP}/usr/include -L${WORLDTMP}/usr/lib
-XCXXFLAGS+=	-I${WORLDTMP}/usr/include/c++/v1 -std=gnu++11 -L${WORLDTMP}/../lib/libc++
+# GCC requires -isystem when using a cross-compiler.
+XCFLAGS+=	-isystem ${WORLDTMP}/usr/include
+# Force using libc++ for external GCC.
+XCXXFLAGS+=	-isystem ${WORLDTMP}/usr/include/c++/v1 -std=c++11 \
+		-nostdinc++ -L${WORLDTMP}/../lib/libc++
 # XXX: DEPFLAGS is a workaround for not properly passing CXXFLAGS to sub-makes
 # due to CXX="${XCXX} ${XCXXFLAGS}".  bsd.dep.mk does use CXXFLAGS when
 # building C++ files so this can come out if passing CXXFLAGS down is fixed.
@@ -444,15 +447,13 @@ TARGET_ABI?=	unknown
 TARGET_TRIPLE?=	${TARGET_ARCH:C/amd64/x86_64/}-${TARGET_ABI}-freebsd11.0
 XCFLAGS+=	-target ${TARGET_TRIPLE}
 .endif
-XCFLAGS+=	--sysroot=${WORLDTMP} ${BFLAGS}
-XCXXFLAGS+=	--sysroot=${WORLDTMP} ${BFLAGS}
+XCFLAGS+=	--sysroot=${WORLDTMP}
 .else
-.if defined(CROSS_BINUTILS_PREFIX) && exists(${CROSS_BINUTILS_PREFIX})
-BFLAGS+=	-B${CROSS_BINUTILS_PREFIX}
+.endif # ${XCC:M/*} || ${MK_CROSS_COMPILER} == "no"
+
+.if !empty(BFLAGS)
 XCFLAGS+=	${BFLAGS}
-XCXXFLAGS+=	${BFLAGS}
 .endif
-.endif # ${XCC:M/*}
 
 .if ${MK_LIB32} != "no" && (${TARGET_ARCH} == "amd64" || \
     ${TARGET_ARCH} == "powerpc64")
@@ -622,9 +623,9 @@ _includes:
 # Special handling for SUBDIR_OVERRIDE in buildworld as they most likely need
 # headers from default SUBDIR.  Do SUBDIR_OVERRIDE includes last.
 	${_+_}cd ${.CURDIR}; ${WMAKE} SUBDIR_OVERRIDE= SHARED=symlinks \
-	    includes
+	    MK_INCLUDES=yes includes
 .if !empty(SUBDIR_OVERRIDE) && make(buildworld)
-	${_+_}cd ${.CURDIR}; ${WMAKE} SHARED=symlinks includes
+	${_+_}cd ${.CURDIR}; ${WMAKE} MK_INCLUDES=yes SHARED=symlinks includes
 .endif
 _libraries:
 	@echo
