@@ -1,3 +1,10 @@
+[201603XX] noexec and ASLR changes
+__HardenedBSD_version = 44
+
+	Fixed noexec's paxflags parser to get usable system on
+	bronen setups too.
+	Changed ASLR stack randomization settings on 32 machines.
+
 [20160316] ASLR cleanup
 __HardenedBSD_version = 43
 
