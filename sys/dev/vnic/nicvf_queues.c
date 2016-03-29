@@ -48,7 +48,6 @@ __FBSDID("$FreeBSD$");
 #include <sys/proc.h>
 #include <sys/sockio.h>
 #include <sys/socket.h>
-#include <sys/stdatomic.h>
 #include <sys/cpuset.h>
 #include <sys/lock.h>
 #include <sys/mutex.h>
@@ -1048,7 +1047,7 @@ nicvf_init_snd_queue(struct nicvf *nic, struct snd_queue *sq, int q_len,
 
 	sq->desc = sq->dmem.base;
 	sq->head = sq->tail = 0;
-	atomic_store_rel_int(&sq->free_cnt, q_len - 1);
+	sq->free_cnt = q_len - 1;
 	sq->thresh = SND_QUEUE_THRESH;
 	sq->idx = qidx;
 	sq->nic = nic;
@@ -1640,7 +1639,7 @@ nicvf_get_sq_desc(struct snd_queue *sq, int desc_cnt)
 	int qentry;
 
 	qentry = sq->tail;
-	atomic_subtract_int(&sq->free_cnt, desc_cnt);
+	sq->free_cnt -= desc_cnt;
 	sq->tail += desc_cnt;
 	sq->tail &= (sq->dmem.q_len - 1);
 
@@ -1652,7 +1651,7 @@ static void
 nicvf_put_sq_desc(struct snd_queue *sq, int desc_cnt)
 {
 
-	atomic_add_int(&sq->free_cnt, desc_cnt);
+	sq->free_cnt += desc_cnt;
 	sq->head += desc_cnt;
 	sq->head &= (sq->dmem.q_len - 1);
 }
@@ -1772,7 +1771,6 @@ nicvf_sq_add_hdr_subdesc(struct snd_queue *sq, int qentry,
 		}
 
 		ip = (struct ip *)(mbuf->m_data + ehdrlen);
-		ip->ip_sum = 0;
 		iphlen = ip->ip_hl << 2;
 		poff = ehdrlen + iphlen;
 
@@ -1985,19 +1983,23 @@ nicvf_get_rcv_mbuf(struct nicvf *nic, struct cqe_rx_t *cqe_rx)
 			/*
 			 * HW by default verifies IP & TCP/UDP/SCTP checksums
 			 */
-
-			/* XXX: Do we need to include IP with options too? */
-			if (__predict_true(cqe_rx->l3_type == L3TYPE_IPV4 ||
-			    cqe_rx->l3_type == L3TYPE_IPV6)) {
+			if (__predict_true(cqe_rx->l3_type == L3TYPE_IPV4)) {
 				mbuf->m_pkthdr.csum_flags =
 				    (CSUM_IP_CHECKED | CSUM_IP_VALID);
 			}
-			if (cqe_rx->l4_type == L4TYPE_TCP ||
-			    cqe_rx->l4_type == L4TYPE_UDP ||
-			    cqe_rx->l4_type == L4TYPE_SCTP) {
+
+			switch (cqe_rx->l4_type) {
+			case L4TYPE_UDP:
+			case L4TYPE_TCP: /* fall through */
 				mbuf->m_pkthdr.csum_flags |=
 				    (CSUM_DATA_VALID | CSUM_PSEUDO_HDR);
-				mbuf->m_pkthdr.csum_data = htons(0xffff);
+				mbuf->m_pkthdr.csum_data = 0xffff;
+				break;
+			case L4TYPE_SCTP:
+				mbuf->m_pkthdr.csum_flags |= CSUM_SCTP_VALID;
+				break;
+			default:
+				break;
 			}
 		}
 	}
