@@ -122,6 +122,8 @@ SDT_PROBE_DEFINE3(racct, , rusage, set,
     "struct proc *", "int", "uint64_t");
 SDT_PROBE_DEFINE3(racct, , rusage, set__failure,
     "struct proc *", "int", "uint64_t");
+SDT_PROBE_DEFINE3(racct, , rusage, set__force,
+    "struct proc *", "int", "uint64_t");
 SDT_PROBE_DEFINE3(racct, , rusage, sub,
     "struct proc *", "int", "uint64_t");
 SDT_PROBE_DEFINE3(racct, , rusage, sub__cred,
@@ -540,15 +542,13 @@ racct_adjust_resource(struct racct *racct, int resource,
 }
 
 static int
-racct_add_locked(struct proc *p, int resource, uint64_t amount)
+racct_add_locked(struct proc *p, int resource, uint64_t amount, int force)
 {
 #ifdef RCTL
 	int error;
 #endif
 
 	ASSERT_RACCT_ENABLED();
-
-	SDT_PROBE3(racct, , rusage, add, p, resource, amount);
 
 	/*
 	 * We need proc lock to dereference p->p_ucred.
@@ -557,7 +557,7 @@ racct_add_locked(struct proc *p, int resource, uint64_t amount)
 
 #ifdef RCTL
 	error = rctl_enforce(p, resource, amount);
-	if (error && RACCT_IS_DENIABLE(resource)) {
+	if (error && !force && RACCT_IS_DENIABLE(resource)) {
 		SDT_PROBE3(racct, , rusage, add__failure, p, resource, amount);
 		return (error);
 	}
@@ -580,10 +580,30 @@ racct_add(struct proc *p, int resource, uint64_t amount)
 	if (!racct_enable)
 		return (0);
 
+	SDT_PROBE3(racct, , rusage, add, p, resource, amount);
+
 	mtx_lock(&racct_lock);
-	error = racct_add_locked(p, resource, amount);
+	error = racct_add_locked(p, resource, amount, 0);
 	mtx_unlock(&racct_lock);
 	return (error);
+}
+
+/*
+ * Increase allocation of 'resource' by 'amount' for process 'p'.
+ * Doesn't check for limits and never fails.
+ */
+void
+racct_add_force(struct proc *p, int resource, uint64_t amount)
+{
+
+	if (!racct_enable)
+		return;
+
+	SDT_PROBE3(racct, , rusage, add__force, p, resource, amount);
+
+	mtx_lock(&racct_lock);
+	racct_add_locked(p, resource, amount, 1);
+	mtx_unlock(&racct_lock);
 }
 
 static void
@@ -605,8 +625,6 @@ racct_add_cred_locked(struct ucred *cred, int resource, uint64_t amount)
 /*
  * Increase allocation of 'resource' by 'amount' for credential 'cred'.
  * Doesn't check for limits and never fails.
- *
- * XXX: Shouldn't this ever return an error?
  */
 void
 racct_add_cred(struct ucred *cred, int resource, uint64_t amount)
@@ -620,32 +638,8 @@ racct_add_cred(struct ucred *cred, int resource, uint64_t amount)
 	mtx_unlock(&racct_lock);
 }
 
-/*
- * Increase allocation of 'resource' by 'amount' for process 'p'.
- * Doesn't check for limits and never fails.
- */
-void
-racct_add_force(struct proc *p, int resource, uint64_t amount)
-{
-
-	if (!racct_enable)
-		return;
-
-	SDT_PROBE3(racct, , rusage, add__force, p, resource, amount);
-
-	/*
-	 * We need proc lock to dereference p->p_ucred.
-	 */
-	PROC_LOCK_ASSERT(p, MA_OWNED);
-
-	mtx_lock(&racct_lock);
-	racct_adjust_resource(p->p_racct, resource, amount);
-	racct_add_cred_locked(p->p_ucred, resource, amount);
-	mtx_unlock(&racct_lock);
-}
-
 static int
-racct_set_locked(struct proc *p, int resource, uint64_t amount)
+racct_set_locked(struct proc *p, int resource, uint64_t amount, int force)
 {
 	int64_t old_amount, decayed_amount;
 	int64_t diff_proc, diff_cred;
@@ -654,8 +648,6 @@ racct_set_locked(struct proc *p, int resource, uint64_t amount)
 #endif
 
 	ASSERT_RACCT_ENABLED();
-
-	SDT_PROBE3(racct, , rusage, set, p, resource, amount);
 
 	/*
 	 * We need proc lock to dereference p->p_ucred.
@@ -686,7 +678,7 @@ racct_set_locked(struct proc *p, int resource, uint64_t amount)
 #ifdef RCTL
 	if (diff_proc > 0) {
 		error = rctl_enforce(p, resource, diff_proc);
-		if (error && RACCT_IS_DENIABLE(resource)) {
+		if (error && !force && RACCT_IS_DENIABLE(resource)) {
 			SDT_PROBE3(racct, , rusage, set__failure, p, resource,
 			    amount);
 			return (error);
@@ -717,49 +709,12 @@ racct_set(struct proc *p, int resource, uint64_t amount)
 	if (!racct_enable)
 		return (0);
 
+	SDT_PROBE3(racct, , rusage, set__force, p, resource, amount);
+
 	mtx_lock(&racct_lock);
-	error = racct_set_locked(p, resource, amount);
+	error = racct_set_locked(p, resource, amount, 0);
 	mtx_unlock(&racct_lock);
 	return (error);
-}
-
-static void
-racct_set_force_locked(struct proc *p, int resource, uint64_t amount)
-{
-	int64_t old_amount, decayed_amount;
-	int64_t diff_proc, diff_cred;
-
-	ASSERT_RACCT_ENABLED();
-
-	SDT_PROBE3(racct, , rusage, set, p, resource, amount);
-
-	/*
-	 * We need proc lock to dereference p->p_ucred.
-	 */
-	PROC_LOCK_ASSERT(p, MA_OWNED);
-
-	old_amount = p->p_racct->r_resources[resource];
-	/*
-	 * The diffs may be negative.
-	 */
-	diff_proc = amount - old_amount;
-	if (RACCT_IS_DECAYING(resource)) {
-		/*
-		 * Resources in per-credential racct containers may decay.
-		 * If this is the case, we need to calculate the difference
-		 * between the new amount and the proportional value of the
-		 * old amount that has decayed in the ucred racct containers.
-		 */
-		decayed_amount = old_amount * RACCT_DECAY_FACTOR / FSCALE;
-		diff_cred = amount - decayed_amount;
-	} else
-		diff_cred = diff_proc;
-
-	racct_adjust_resource(p->p_racct, resource, diff_proc);
-	if (diff_cred > 0)
-		racct_add_cred_locked(p->p_ucred, resource, diff_cred);
-	else if (diff_cred < 0)
-		racct_sub_cred_locked(p->p_ucred, resource, -diff_cred);
 }
 
 void
@@ -769,8 +724,10 @@ racct_set_force(struct proc *p, int resource, uint64_t amount)
 	if (!racct_enable)
 		return;
 
+	SDT_PROBE3(racct, , rusage, set, p, resource, amount);
+
 	mtx_lock(&racct_lock);
-	racct_set_force_locked(p, resource, amount);
+	racct_set_locked(p, resource, amount, 1);
 	mtx_unlock(&racct_lock);
 }
 
@@ -938,13 +895,13 @@ racct_proc_fork(struct proc *parent, struct proc *child)
 			continue;
 
 		error = racct_set_locked(child, i,
-		    parent->p_racct->r_resources[i]);
+		    parent->p_racct->r_resources[i], 0);
 		if (error != 0)
 			goto out;
 	}
 
-	error = racct_add_locked(child, RACCT_NPROC, 1);
-	error += racct_add_locked(child, RACCT_NTHR, 1);
+	error = racct_add_locked(child, RACCT_NPROC, 1, 0);
+	error += racct_add_locked(child, RACCT_NTHR, 1, 0);
 
 out:
 	mtx_unlock(&racct_lock);
@@ -1010,7 +967,7 @@ racct_proc_exit(struct proc *p)
 	pct = racct_getpcpu(p, pct_estimate);
 
 	mtx_lock(&racct_lock);
-	racct_set_locked(p, RACCT_CPU, runtime);
+	racct_set_locked(p, RACCT_CPU, runtime, 0);
 	racct_add_cred_locked(p->p_ucred, RACCT_PCTCPU, pct);
 
 	for (i = 0; i <= RACCT_MAX; i++) {
@@ -1018,7 +975,7 @@ racct_proc_exit(struct proc *p)
 			continue;
 	    	if (!RACCT_IS_RECLAIMABLE(i))
 			continue;
-		racct_set_locked(p, i, 0);
+		racct_set_locked(p, i, 0, 0);
 	}
 
 	mtx_unlock(&racct_lock);
@@ -1158,23 +1115,21 @@ racct_proc_wakeup(struct proc *p)
 }
 
 static void
-racct_decay_resource(struct racct *racct, void * res, void* dummy)
+racct_decay_callback(struct racct *racct, void *dummy1, void *dummy2)
 {
-	int resource;
 	int64_t r_old, r_new;
 
 	ASSERT_RACCT_ENABLED();
 	mtx_assert(&racct_lock, MA_OWNED);
 
-	resource = *(int *)res;
-	r_old = racct->r_resources[resource];
+	r_old = racct->r_resources[RACCT_PCTCPU];
 
 	/* If there is nothing to decay, just exit. */
 	if (r_old <= 0)
 		return;
 
 	r_new = r_old * RACCT_DECAY_FACTOR / FSCALE;
-	racct->r_resources[resource] = r_new;
+	racct->r_resources[RACCT_PCTCPU] = r_new;
 }
 
 static void
@@ -1192,17 +1147,17 @@ racct_decay_post(void)
 }
 
 static void
-racct_decay(int resource)
+racct_decay(void)
 {
 
 	ASSERT_RACCT_ENABLED();
 
-	ui_racct_foreach(racct_decay_resource, racct_decay_pre,
-	    racct_decay_post, &resource, NULL);
-	loginclass_racct_foreach(racct_decay_resource, racct_decay_pre,
-	    racct_decay_post, &resource, NULL);
-	prison_racct_foreach(racct_decay_resource, racct_decay_pre,
-	    racct_decay_post, &resource, NULL);
+	ui_racct_foreach(racct_decay_callback, racct_decay_pre,
+	    racct_decay_post, NULL, NULL);
+	loginclass_racct_foreach(racct_decay_callback, racct_decay_pre,
+	    racct_decay_post, NULL, NULL);
+	prison_racct_foreach(racct_decay_callback, racct_decay_pre,
+	    racct_decay_post, NULL, NULL);
 }
 
 static void
@@ -1217,7 +1172,7 @@ racctd(void)
 	ASSERT_RACCT_ENABLED();
 
 	for (;;) {
-		racct_decay(RACCT_PCTCPU);
+		racct_decay();
 
 		sx_slock(&allproc_lock);
 
@@ -1257,11 +1212,11 @@ racctd(void)
 				pct_estimate = 0;
 			pct = racct_getpcpu(p, pct_estimate);
 			mtx_lock(&racct_lock);
-			racct_set_force_locked(p, RACCT_PCTCPU, pct);
-			racct_set_locked(p, RACCT_CPU, runtime);
+			racct_set_locked(p, RACCT_PCTCPU, pct, 1);
+			racct_set_locked(p, RACCT_CPU, runtime, 0);
 			racct_set_locked(p, RACCT_WALLCLOCK,
 			    (uint64_t)wallclock.tv_sec * 1000000 +
-			    wallclock.tv_usec);
+			    wallclock.tv_usec, 0);
 			mtx_unlock(&racct_lock);
 			PROC_UNLOCK(p);
 		}
