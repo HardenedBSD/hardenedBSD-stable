@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2014 Ian Lepore <ian@freebsd.org>
+ * Copyright (c) 2016 John Baldwin <jhb@FreeBSD.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,16 +26,13 @@
  * $FreeBSD$
  */
 
-/*
- * The kernel build machinery wants the file containing the entry point to be
- * named locore.S, but we want separate files for v4 and v6 builds, so just
- * include the arch-appropriate file from this properly-named file.
- */
+#ifndef	_ACPI_PCIVAR_H_
+#define	_ACPI_PCIVAR_H_
 
-#include <machine/acle-compat.h>
+#ifdef _KERNEL
 
-#if __ARM_ARCH >= 6
-#include "locore-v6.S"
-#else
-#include "locore-v4.S"
+void	acpi_pci_child_added(device_t dev, device_t child);
+
 #endif
+
+#endif /* !_ACPI_PCIVAR_H_ */
