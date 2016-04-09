@@ -126,6 +126,8 @@ static int isp_send_change_request(ispsoftc_t *, int);
 static int isp_register_fc4_type(ispsoftc_t *, int);
 static int isp_register_fc4_type_24xx(ispsoftc_t *, int);
 static int isp_register_fc4_features_24xx(ispsoftc_t *, int);
+static int isp_register_port_name_24xx(ispsoftc_t *, int);
+static int isp_register_node_name_24xx(ispsoftc_t *, int);
 static uint16_t isp_next_handle(ispsoftc_t *, uint16_t *);
 static int isp_fw_state(ispsoftc_t *, int);
 static void isp_mboxcmd_qnw(ispsoftc_t *, mbreg_t *, int);
@@ -3073,6 +3075,8 @@ isp_fclink_test(ispsoftc_t *isp, int chan, int usdelay)
 			r = isp_register_fc4_type_24xx(isp, chan);
 			if (r == 0)
 				isp_register_fc4_features_24xx(isp, chan);
+			isp_register_port_name_24xx(isp, chan);
+			isp_register_node_name_24xx(isp, chan);
 		} else {
 			fcp->isp_sns_hdl = SNS_ID;
 			r = isp_register_fc4_type(isp, chan);
@@ -3494,25 +3498,16 @@ isp_gid_ft_sns(ispsoftc_t *isp, int chan)
 }
 
 static int
-isp_gid_ft_ct_passthru(ispsoftc_t *isp, int chan)
+isp_ct_passthru(ispsoftc_t *isp, int chan, uint32_t cmd_bcnt, uint32_t rsp_bcnt)
 {
 	mbreg_t mbs;
 	fcparam *fcp = FCPARAM(isp, chan);
 	union {
 		isp_ct_pt_t plocal;
-		ct_hdr_t clocal;
 		uint8_t q[QENTRY_LEN];
 	} un;
 	isp_ct_pt_t *pt;
-	ct_hdr_t *ct;
-	uint32_t *rp;
 	uint8_t *scp = fcp->isp_scratch;
-
-	isp_prt(isp, ISP_LOGDEBUG0, "Chan %d requesting GID_FT via CT", chan);
-	if (FC_SCRATCH_ACQUIRE(isp, chan)) {
-		isp_prt(isp, ISP_LOGERR, sacq);
-		return (-1);
-	}
 
 	/*
 	 * Build a Passthrough IOCB in memory.
@@ -3527,39 +3522,21 @@ isp_gid_ft_ct_passthru(ispsoftc_t *isp, int chan)
 	pt->ctp_vpidx = ISP_GET_VPIDX(isp, chan);
 	pt->ctp_time = 10;
 	pt->ctp_rsp_cnt = 1;
-	pt->ctp_rsp_bcnt = GIDLEN;
-	pt->ctp_cmd_bcnt = sizeof (*ct) + sizeof (uint32_t);
+	pt->ctp_rsp_bcnt = rsp_bcnt;
+	pt->ctp_cmd_bcnt = cmd_bcnt;
 	pt->ctp_dataseg[0].ds_base = DMA_LO32(fcp->isp_scdma+XTXOFF);
 	pt->ctp_dataseg[0].ds_basehi = DMA_HI32(fcp->isp_scdma+XTXOFF);
-	pt->ctp_dataseg[0].ds_count = sizeof (*ct) + sizeof (uint32_t);
+	pt->ctp_dataseg[0].ds_count = cmd_bcnt;
 	pt->ctp_dataseg[1].ds_base = DMA_LO32(fcp->isp_scdma);
 	pt->ctp_dataseg[1].ds_basehi = DMA_HI32(fcp->isp_scdma);
-	pt->ctp_dataseg[1].ds_count = GIDLEN;
-	if (isp->isp_dblev & ISP_LOGDEBUG1) {
-		isp_print_bytes(isp, "ct IOCB", QENTRY_LEN, pt);
-	}
-	isp_put_ct_pt(isp, pt, (isp_ct_pt_t *) &scp[CTXOFF]);
+	pt->ctp_dataseg[1].ds_count = rsp_bcnt;
+	isp_put_ct_pt(isp, pt, (isp_ct_pt_t *)&scp[CTXOFF]);
+	if (isp->isp_dblev & ISP_LOGDEBUG1)
+		isp_print_bytes(isp, "CT IOCB request", QENTRY_LEN, &scp[CTXOFF]);
 
 	/*
-	 * Build the CT header and command in memory.
-	 *
-	 * Note that the CT header has to end up as Big Endian format in memory.
+	 * Execute the Passthrough IOCB.
 	 */
-	ct = &un.clocal;
-	ISP_MEMZERO(ct, sizeof (*ct));
-	ct->ct_revision = CT_REVISION;
-	ct->ct_fcs_type = CT_FC_TYPE_FC;
-	ct->ct_fcs_subtype = CT_FC_SUBTYPE_NS;
-	ct->ct_cmd_resp = SNS_GID_FT;
-	ct->ct_bcnt_resid = (GIDLEN - 16) >> 2;
-
-	isp_put_ct_hdr(isp, ct, (ct_hdr_t *) &scp[XTXOFF]);
-	rp = (uint32_t *) &scp[XTXOFF+sizeof (*ct)];
-	ISP_IOZPUT_32(isp, FC4_SCSI, rp);
-	if (isp->isp_dblev & ISP_LOGDEBUG1) {
-		isp_print_bytes(isp, "CT HDR + payload after put",
-		    sizeof (*ct) + sizeof (uint32_t), &scp[XTXOFF]);
-	}
 	ISP_MEMZERO(&scp[ZTXOFF], QENTRY_LEN);
 	MBSINIT(&mbs, MBOX_EXEC_COMMAND_IOCB_A64, MBLOGALL,
 	    MBCMD_DEFAULT_TIMEOUT + pt->ctp_time * 1000000);
@@ -3574,18 +3551,56 @@ isp_gid_ft_ct_passthru(ispsoftc_t *isp, int chan)
 		return (-1);
 	}
 	MEMORYBARRIER(isp, SYNC_SFORCPU, 0, ISP_FC_SCRLEN, chan);
+	if (isp->isp_dblev & ISP_LOGDEBUG1)
+		isp_print_bytes(isp, "CT IOCB response", QENTRY_LEN, &scp[ZTXOFF]);
 	pt = &un.plocal;
 	isp_get_ct_pt(isp, (isp_ct_pt_t *) &scp[ZTXOFF], pt);
-	if (isp->isp_dblev & ISP_LOGDEBUG1) {
-		isp_print_bytes(isp, "IOCB response", QENTRY_LEN, pt);
-	}
-
 	if (pt->ctp_status && pt->ctp_status != RQCS_DATA_UNDERRUN) {
 		isp_prt(isp, ISP_LOGWARN,
 		    "Chan %d GID_FT CT Passthrough returned 0x%x",
 		    chan, pt->ctp_status);
 		return (-1);
 	}
+
+	return (0);
+}
+
+static int
+isp_gid_ft_ct_passthru(ispsoftc_t *isp, int chan)
+{
+	fcparam *fcp = FCPARAM(isp, chan);
+	ct_hdr_t ct;
+	uint32_t *rp;
+	uint8_t *scp = fcp->isp_scratch;
+
+	isp_prt(isp, ISP_LOGDEBUG0, "Chan %d requesting GID_FT via CT", chan);
+	if (FC_SCRATCH_ACQUIRE(isp, chan)) {
+		isp_prt(isp, ISP_LOGERR, sacq);
+		return (-1);
+	}
+
+	/*
+	 * Build the CT header and command in memory.
+	 */
+	ISP_MEMZERO(&ct, sizeof (ct));
+	ct.ct_revision = CT_REVISION;
+	ct.ct_fcs_type = CT_FC_TYPE_FC;
+	ct.ct_fcs_subtype = CT_FC_SUBTYPE_NS;
+	ct.ct_cmd_resp = SNS_GID_FT;
+	ct.ct_bcnt_resid = (GIDLEN - 16) >> 2;
+	isp_put_ct_hdr(isp, &ct, (ct_hdr_t *) &scp[XTXOFF]);
+	rp = (uint32_t *) &scp[XTXOFF + sizeof(ct)];
+	ISP_IOZPUT_32(isp, FC4_SCSI, rp);
+	if (isp->isp_dblev & ISP_LOGDEBUG1) {
+		isp_print_bytes(isp, "CT request",
+		    sizeof(ct) + sizeof(uint32_t), &scp[XTXOFF]);
+	}
+
+	if (isp_ct_passthru(isp, chan, sizeof(ct) + sizeof(uint32_t), GIDLEN)) {
+		FC_SCRATCH_RELEASE(isp, chan);
+		return (-1);
+	}
+
 	if (isp->isp_dblev & ISP_LOGDEBUG1)
 		isp_print_bytes(isp, "CT response", GIDLEN, scp);
 	isp_get_gid_ft_response(isp, (sns_gid_ft_rsp_t *)scp,
@@ -3957,16 +3972,9 @@ isp_register_fc4_type(ispsoftc_t *isp, int chan)
 static int
 isp_register_fc4_type_24xx(ispsoftc_t *isp, int chan)
 {
-	mbreg_t mbs;
 	fcparam *fcp = FCPARAM(isp, chan);
-	union {
-		isp_ct_pt_t plocal;
-		rft_id_t clocal;
-		uint8_t q[QENTRY_LEN];
-	} un;
-	isp_ct_pt_t *pt;
 	ct_hdr_t *ct;
-	rft_id_t *rp;
+	rft_id_t rp;
 	uint8_t *scp = fcp->isp_scratch;
 
 	if (FC_SCRATCH_ACQUIRE(isp, chan)) {
@@ -3975,110 +3983,48 @@ isp_register_fc4_type_24xx(ispsoftc_t *isp, int chan)
 	}
 
 	/*
-	 * Build a Passthrough IOCB in memory.
-	 */
-	ISP_MEMZERO(un.q, QENTRY_LEN);
-	pt = &un.plocal;
-	pt->ctp_header.rqs_entry_count = 1;
-	pt->ctp_header.rqs_entry_type = RQSTYPE_CT_PASSTHRU;
-	pt->ctp_handle = 0xffffffff;
-	pt->ctp_nphdl = fcp->isp_sns_hdl;
-	pt->ctp_cmd_cnt = 1;
-	pt->ctp_vpidx = ISP_GET_VPIDX(isp, chan);
-	pt->ctp_time = 4;
-	pt->ctp_rsp_cnt = 1;
-	pt->ctp_rsp_bcnt = sizeof (ct_hdr_t);
-	pt->ctp_cmd_bcnt = sizeof (rft_id_t);
-	pt->ctp_dataseg[0].ds_base = DMA_LO32(fcp->isp_scdma+XTXOFF);
-	pt->ctp_dataseg[0].ds_basehi = DMA_HI32(fcp->isp_scdma+XTXOFF);
-	pt->ctp_dataseg[0].ds_count = sizeof (rft_id_t);
-	pt->ctp_dataseg[1].ds_base = DMA_LO32(fcp->isp_scdma);
-	pt->ctp_dataseg[1].ds_basehi = DMA_HI32(fcp->isp_scdma);
-	pt->ctp_dataseg[1].ds_count = sizeof (ct_hdr_t);
-	isp_put_ct_pt(isp, pt, (isp_ct_pt_t *) &scp[CTXOFF]);
-	if (isp->isp_dblev & ISP_LOGDEBUG1) {
-		isp_print_bytes(isp, "IOCB CT Request", QENTRY_LEN, pt);
-	}
-
-	/*
 	 * Build the CT header and command in memory.
-	 *
-	 * Note that the CT header has to end up as Big Endian format in memory.
 	 */
-	ISP_MEMZERO(&un.clocal, sizeof (un.clocal));
-	ct = &un.clocal.rftid_hdr;
+	ISP_MEMZERO(&rp, sizeof(rp));
+	ct = &rp.rftid_hdr;
 	ct->ct_revision = CT_REVISION;
 	ct->ct_fcs_type = CT_FC_TYPE_FC;
 	ct->ct_fcs_subtype = CT_FC_SUBTYPE_NS;
 	ct->ct_cmd_resp = SNS_RFT_ID;
 	ct->ct_bcnt_resid = (sizeof (rft_id_t) - sizeof (ct_hdr_t)) >> 2;
-	rp = &un.clocal;
-	rp->rftid_portid[0] = fcp->isp_portid >> 16;
-	rp->rftid_portid[1] = fcp->isp_portid >> 8;
-	rp->rftid_portid[2] = fcp->isp_portid;
-	rp->rftid_fc4types[FC4_SCSI >> 5] = 1 << (FC4_SCSI & 0x1f);
-	isp_put_rft_id(isp, rp, (rft_id_t *) &scp[XTXOFF]);
-	if (isp->isp_dblev & ISP_LOGDEBUG1) {
-		isp_print_bytes(isp, "CT Header", QENTRY_LEN, &scp[XTXOFF]);
-	}
+	rp.rftid_portid[0] = fcp->isp_portid >> 16;
+	rp.rftid_portid[1] = fcp->isp_portid >> 8;
+	rp.rftid_portid[2] = fcp->isp_portid;
+	rp.rftid_fc4types[FC4_SCSI >> 5] = 1 << (FC4_SCSI & 0x1f);
+	isp_put_rft_id(isp, &rp, (rft_id_t *)&scp[XTXOFF]);
+	if (isp->isp_dblev & ISP_LOGDEBUG1)
+		isp_print_bytes(isp, "CT request", sizeof(rft_id_t), &scp[XTXOFF]);
 
-	ISP_MEMZERO(&scp[ZTXOFF], sizeof (ct_hdr_t));
-
-	MBSINIT(&mbs, MBOX_EXEC_COMMAND_IOCB_A64, MBLOGALL,
-	    MBCMD_DEFAULT_TIMEOUT + pt->ctp_time * 1000000);
-	mbs.param[1] = QENTRY_LEN;
-	mbs.param[2] = DMA_WD1(fcp->isp_scdma + CTXOFF);
-	mbs.param[3] = DMA_WD0(fcp->isp_scdma + CTXOFF);
-	mbs.param[6] = DMA_WD3(fcp->isp_scdma + CTXOFF);
-	mbs.param[7] = DMA_WD2(fcp->isp_scdma + CTXOFF);
-	MEMORYBARRIER(isp, SYNC_SFORDEV, XTXOFF, 2 * QENTRY_LEN, chan);
-	isp_mboxcmd(isp, &mbs);
-	if (mbs.param[0] != MBOX_COMMAND_COMPLETE) {
+	if (isp_ct_passthru(isp, chan, sizeof(rft_id_t), sizeof(ct_hdr_t))) {
 		FC_SCRATCH_RELEASE(isp, chan);
 		return (-1);
-	}
-	MEMORYBARRIER(isp, SYNC_SFORCPU, ZTXOFF, QENTRY_LEN, chan);
-	pt = &un.plocal;
-	isp_get_ct_pt(isp, (isp_ct_pt_t *) &scp[ZTXOFF], pt);
-	if (isp->isp_dblev & ISP_LOGDEBUG1) {
-		isp_print_bytes(isp, "IOCB response", QENTRY_LEN, pt);
-	}
-	if (pt->ctp_status) {
-		FC_SCRATCH_RELEASE(isp, chan);
-		isp_prt(isp, ISP_LOGWARN,
-		    "Chan %d Register FC4 Type CT Passthrough returned 0x%x",
-		    chan, pt->ctp_status);
-		return (1);
 	}
 
 	isp_get_ct_hdr(isp, (ct_hdr_t *) scp, ct);
 	FC_SCRATCH_RELEASE(isp, chan);
-
 	if (ct->ct_cmd_resp == LS_RJT) {
 		isp_prt(isp, ISP_LOG_SANCFG|ISP_LOG_WARN1, "Chan %d Register FC4 Type rejected", chan);
 		return (-1);
 	} else if (ct->ct_cmd_resp == LS_ACC) {
 		isp_prt(isp, ISP_LOG_SANCFG, "Chan %d Register FC4 Type accepted", chan);
-		return (0);
 	} else {
 		isp_prt(isp, ISP_LOGWARN, "Chan %d Register FC4 Type: 0x%x", chan, ct->ct_cmd_resp);
 		return (-1);
 	}
+	return (0);
 }
 
 static int
 isp_register_fc4_features_24xx(ispsoftc_t *isp, int chan)
 {
-	mbreg_t mbs;
 	fcparam *fcp = FCPARAM(isp, chan);
-	union {
-		isp_ct_pt_t plocal;
-		rff_id_t clocal;
-		uint8_t q[QENTRY_LEN];
-	} un;
-	isp_ct_pt_t *pt;
 	ct_hdr_t *ct;
-	rff_id_t *rp;
+	rff_id_t rp;
 	uint8_t *scp = fcp->isp_scratch;
 
 	if (FC_SCRATCH_ACQUIRE(isp, chan)) {
@@ -4087,90 +4033,35 @@ isp_register_fc4_features_24xx(ispsoftc_t *isp, int chan)
 	}
 
 	/*
-	 * Build a Passthrough IOCB in memory.
-	 */
-	ISP_MEMZERO(un.q, QENTRY_LEN);
-	pt = &un.plocal;
-	pt->ctp_header.rqs_entry_count = 1;
-	pt->ctp_header.rqs_entry_type = RQSTYPE_CT_PASSTHRU;
-	pt->ctp_handle = 0xffffffff;
-	pt->ctp_nphdl = fcp->isp_sns_hdl;
-	pt->ctp_cmd_cnt = 1;
-	pt->ctp_vpidx = ISP_GET_VPIDX(isp, chan);
-	pt->ctp_time = 4;
-	pt->ctp_rsp_cnt = 1;
-	pt->ctp_rsp_bcnt = sizeof (ct_hdr_t);
-	pt->ctp_cmd_bcnt = sizeof (rff_id_t);
-	pt->ctp_dataseg[0].ds_base = DMA_LO32(fcp->isp_scdma+XTXOFF);
-	pt->ctp_dataseg[0].ds_basehi = DMA_HI32(fcp->isp_scdma+XTXOFF);
-	pt->ctp_dataseg[0].ds_count = sizeof (rff_id_t);
-	pt->ctp_dataseg[1].ds_base = DMA_LO32(fcp->isp_scdma);
-	pt->ctp_dataseg[1].ds_basehi = DMA_HI32(fcp->isp_scdma);
-	pt->ctp_dataseg[1].ds_count = sizeof (ct_hdr_t);
-	isp_put_ct_pt(isp, pt, (isp_ct_pt_t *) &scp[CTXOFF]);
-	if (isp->isp_dblev & ISP_LOGDEBUG1) {
-		isp_print_bytes(isp, "IOCB CT Request", QENTRY_LEN, pt);
-	}
-
-	/*
 	 * Build the CT header and command in memory.
-	 *
-	 * Note that the CT header has to end up as Big Endian format in memory.
 	 */
-	ISP_MEMZERO(&un.clocal, sizeof (un.clocal));
-	ct = &un.clocal.rffid_hdr;
+	ISP_MEMZERO(&rp, sizeof(rp));
+	ct = &rp.rffid_hdr;
 	ct->ct_revision = CT_REVISION;
 	ct->ct_fcs_type = CT_FC_TYPE_FC;
 	ct->ct_fcs_subtype = CT_FC_SUBTYPE_NS;
 	ct->ct_cmd_resp = SNS_RFF_ID;
 	ct->ct_bcnt_resid = (sizeof (rff_id_t) - sizeof (ct_hdr_t)) >> 2;
-	rp = &un.clocal;
-	rp->rffid_portid[0] = fcp->isp_portid >> 16;
-	rp->rffid_portid[1] = fcp->isp_portid >> 8;
-	rp->rffid_portid[2] = fcp->isp_portid;
-	rp->rffid_fc4features = 0;
+	rp.rffid_portid[0] = fcp->isp_portid >> 16;
+	rp.rffid_portid[1] = fcp->isp_portid >> 8;
+	rp.rffid_portid[2] = fcp->isp_portid;
+	rp.rffid_fc4features = 0;
 	if (fcp->role & ISP_ROLE_TARGET)
-		rp->rffid_fc4features |= 1;
+		rp.rffid_fc4features |= 1;
 	if (fcp->role & ISP_ROLE_INITIATOR)
-		rp->rffid_fc4features |= 2;
-	rp->rffid_fc4type = FC4_SCSI;
-	isp_put_rff_id(isp, rp, (rff_id_t *) &scp[XTXOFF]);
-	if (isp->isp_dblev & ISP_LOGDEBUG1) {
-		isp_print_bytes(isp, "CT Header", QENTRY_LEN, &scp[XTXOFF]);
-	}
+		rp.rffid_fc4features |= 2;
+	rp.rffid_fc4type = FC4_SCSI;
+	isp_put_rff_id(isp, &rp, (rff_id_t *)&scp[XTXOFF]);
+	if (isp->isp_dblev & ISP_LOGDEBUG1)
+		isp_print_bytes(isp, "CT request", sizeof(rft_id_t), &scp[XTXOFF]);
 
-	ISP_MEMZERO(&scp[ZTXOFF], sizeof (ct_hdr_t));
-
-	MBSINIT(&mbs, MBOX_EXEC_COMMAND_IOCB_A64, MBLOGALL,
-	    MBCMD_DEFAULT_TIMEOUT + pt->ctp_time * 1000000);
-	mbs.param[1] = QENTRY_LEN;
-	mbs.param[2] = DMA_WD1(fcp->isp_scdma + CTXOFF);
-	mbs.param[3] = DMA_WD0(fcp->isp_scdma + CTXOFF);
-	mbs.param[6] = DMA_WD3(fcp->isp_scdma + CTXOFF);
-	mbs.param[7] = DMA_WD2(fcp->isp_scdma + CTXOFF);
-	MEMORYBARRIER(isp, SYNC_SFORDEV, XTXOFF, 2 * QENTRY_LEN, chan);
-	isp_mboxcmd(isp, &mbs);
-	if (mbs.param[0] != MBOX_COMMAND_COMPLETE) {
+	if (isp_ct_passthru(isp, chan, sizeof(rft_id_t), sizeof(ct_hdr_t))) {
 		FC_SCRATCH_RELEASE(isp, chan);
 		return (-1);
-	}
-	MEMORYBARRIER(isp, SYNC_SFORCPU, ZTXOFF, QENTRY_LEN, chan);
-	pt = &un.plocal;
-	isp_get_ct_pt(isp, (isp_ct_pt_t *) &scp[ZTXOFF], pt);
-	if (isp->isp_dblev & ISP_LOGDEBUG1) {
-		isp_print_bytes(isp, "IOCB response", QENTRY_LEN, pt);
-	}
-	if (pt->ctp_status) {
-		FC_SCRATCH_RELEASE(isp, chan);
-		isp_prt(isp, ISP_LOGWARN,
-		    "Chan %d Register FC4 Features CT Passthrough returned 0x%x",
-		    chan, pt->ctp_status);
-		return (1);
 	}
 
 	isp_get_ct_hdr(isp, (ct_hdr_t *) scp, ct);
 	FC_SCRATCH_RELEASE(isp, chan);
-
 	if (ct->ct_cmd_resp == LS_RJT) {
 		isp_prt(isp, ISP_LOG_SANCFG|ISP_LOG_WARN1,
 		    "Chan %d Register FC4 Features rejected", chan);
@@ -4178,12 +4069,136 @@ isp_register_fc4_features_24xx(ispsoftc_t *isp, int chan)
 	} else if (ct->ct_cmd_resp == LS_ACC) {
 		isp_prt(isp, ISP_LOG_SANCFG,
 		    "Chan %d Register FC4 Features accepted", chan);
-		return (0);
 	} else {
 		isp_prt(isp, ISP_LOGWARN,
 		    "Chan %d Register FC4 Features: 0x%x", chan, ct->ct_cmd_resp);
 		return (-1);
 	}
+	return (0);
+}
+
+static int
+isp_register_port_name_24xx(ispsoftc_t *isp, int chan)
+{
+	fcparam *fcp = FCPARAM(isp, chan);
+	ct_hdr_t *ct;
+	rspn_id_t rp;
+	uint8_t *scp = fcp->isp_scratch;
+	int len;
+
+	if (FC_SCRATCH_ACQUIRE(isp, chan)) {
+		isp_prt(isp, ISP_LOGERR, sacq);
+		return (-1);
+	}
+
+	/*
+	 * Build the CT header and command in memory.
+	 */
+	ISP_MEMZERO(&rp, sizeof(rp));
+	ct = &rp.rspnid_hdr;
+	ct->ct_revision = CT_REVISION;
+	ct->ct_fcs_type = CT_FC_TYPE_FC;
+	ct->ct_fcs_subtype = CT_FC_SUBTYPE_NS;
+	ct->ct_cmd_resp = SNS_RSPN_ID;
+	rp.rspnid_portid[0] = fcp->isp_portid >> 16;
+	rp.rspnid_portid[1] = fcp->isp_portid >> 8;
+	rp.rspnid_portid[2] = fcp->isp_portid;
+	rp.rspnid_length = 0;
+	len = offsetof(rspn_id_t, rspnid_name);
+	mtx_lock(&prison0.pr_mtx);
+	rp.rspnid_length += sprintf(&scp[XTXOFF + len + rp.rspnid_length],
+	    "%s", prison0.pr_hostname[0] ? prison0.pr_hostname : "FreeBSD");
+	mtx_unlock(&prison0.pr_mtx);
+	rp.rspnid_length += sprintf(&scp[XTXOFF + len + rp.rspnid_length],
+	    ":%s", device_get_nameunit(isp->isp_dev));
+	if (chan != 0) {
+		rp.rspnid_length += sprintf(&scp[XTXOFF + len +
+		    rp.rspnid_length], "/%d", chan);
+	}
+	len += rp.rspnid_length;
+	ct->ct_bcnt_resid = (len - sizeof(ct_hdr_t)) >> 2;
+	isp_put_rspn_id(isp, &rp, (rspn_id_t *)&scp[XTXOFF]);
+	if (isp->isp_dblev & ISP_LOGDEBUG1)
+		isp_print_bytes(isp, "CT request", len, &scp[XTXOFF]);
+
+	if (isp_ct_passthru(isp, chan, len, sizeof(ct_hdr_t))) {
+		FC_SCRATCH_RELEASE(isp, chan);
+		return (-1);
+	}
+
+	isp_get_ct_hdr(isp, (ct_hdr_t *) scp, ct);
+	FC_SCRATCH_RELEASE(isp, chan);
+	if (ct->ct_cmd_resp == LS_RJT) {
+		isp_prt(isp, ISP_LOG_SANCFG|ISP_LOG_WARN1,
+		    "Chan %d Register Symbolic Port Name rejected", chan);
+		return (-1);
+	} else if (ct->ct_cmd_resp == LS_ACC) {
+		isp_prt(isp, ISP_LOG_SANCFG,
+		    "Chan %d Register Symbolic Port Name accepted", chan);
+	} else {
+		isp_prt(isp, ISP_LOGWARN,
+		    "Chan %d Register Symbolic Port Name: 0x%x", chan, ct->ct_cmd_resp);
+		return (-1);
+	}
+	return (0);
+}
+
+static int
+isp_register_node_name_24xx(ispsoftc_t *isp, int chan)
+{
+	fcparam *fcp = FCPARAM(isp, chan);
+	ct_hdr_t *ct;
+	rsnn_nn_t rp;
+	uint8_t *scp = fcp->isp_scratch;
+	int len;
+
+	if (FC_SCRATCH_ACQUIRE(isp, chan)) {
+		isp_prt(isp, ISP_LOGERR, sacq);
+		return (-1);
+	}
+
+	/*
+	 * Build the CT header and command in memory.
+	 */
+	ISP_MEMZERO(&rp, sizeof(rp));
+	ct = &rp.rsnnnn_hdr;
+	ct->ct_revision = CT_REVISION;
+	ct->ct_fcs_type = CT_FC_TYPE_FC;
+	ct->ct_fcs_subtype = CT_FC_SUBTYPE_NS;
+	ct->ct_cmd_resp = SNS_RSNN_NN;
+	MAKE_NODE_NAME_FROM_WWN(rp.rsnnnn_nodename, fcp->isp_wwnn);
+	rp.rsnnnn_length = 0;
+	len = offsetof(rsnn_nn_t, rsnnnn_name);
+	mtx_lock(&prison0.pr_mtx);
+	rp.rsnnnn_length += sprintf(&scp[XTXOFF + len + rp.rsnnnn_length],
+	    "%s", prison0.pr_hostname[0] ? prison0.pr_hostname : "FreeBSD");
+	mtx_unlock(&prison0.pr_mtx);
+	len += rp.rsnnnn_length;
+	ct->ct_bcnt_resid = (len - sizeof(ct_hdr_t)) >> 2;
+	isp_put_rsnn_nn(isp, &rp, (rsnn_nn_t *)&scp[XTXOFF]);
+	if (isp->isp_dblev & ISP_LOGDEBUG1)
+		isp_print_bytes(isp, "CT request", len, &scp[XTXOFF]);
+
+	if (isp_ct_passthru(isp, chan, len, sizeof(ct_hdr_t))) {
+		FC_SCRATCH_RELEASE(isp, chan);
+		return (-1);
+	}
+
+	isp_get_ct_hdr(isp, (ct_hdr_t *) scp, ct);
+	FC_SCRATCH_RELEASE(isp, chan);
+	if (ct->ct_cmd_resp == LS_RJT) {
+		isp_prt(isp, ISP_LOG_SANCFG|ISP_LOG_WARN1,
+		    "Chan %d Register Symbolic Node Name rejected", chan);
+		return (-1);
+	} else if (ct->ct_cmd_resp == LS_ACC) {
+		isp_prt(isp, ISP_LOG_SANCFG,
+		    "Chan %d Register Symbolic Node Name accepted", chan);
+	} else {
+		isp_prt(isp, ISP_LOGWARN,
+		    "Chan %d Register Symbolic Node Name: 0x%x", chan, ct->ct_cmd_resp);
+		return (-1);
+	}
+	return (0);
 }
 
 static uint16_t
