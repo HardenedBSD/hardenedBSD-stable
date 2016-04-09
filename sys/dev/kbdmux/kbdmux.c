@@ -56,6 +56,7 @@
 #include <sys/uio.h>
 #include <dev/kbd/kbdreg.h>
 
+/* the initial key map, accent map and fkey strings */
 #ifdef KBDMUX_DFLT_KEYMAP
 #define KBD_DFLT_KEYMAP
 #include "kbdmuxmap.h"
