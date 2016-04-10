@@ -5,7 +5,7 @@ SHLIBDIR?=      /lib
 .include <bsd.own.mk>
 
 LIB=            crypto
-SHLIB_MAJOR=    38
+SHLIB_MAJOR=    37
 ALLOW_SHARED_TEXTREL=
 
 NO_LINT=
