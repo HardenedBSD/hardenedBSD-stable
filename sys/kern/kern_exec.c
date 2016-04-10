@@ -1632,8 +1632,6 @@ exec_register(execsw_arg)
 		for (es = execsw; *es; es++)
 			count++;
 	newexecsw = malloc(count * sizeof(*es), M_TEMP, M_WAITOK);
-	if (newexecsw == NULL)
-		return (ENOMEM);
 	xs = newexecsw;
 	if (execsw)
 		for (es = execsw; *es; es++)
@@ -1666,8 +1664,6 @@ exec_unregister(execsw_arg)
 		if (*es != execsw_arg)
 			count++;
 	newexecsw = malloc(count * sizeof(*es), M_TEMP, M_WAITOK);
-	if (newexecsw == NULL)
-		return (ENOMEM);
 	xs = newexecsw;
 	for (es = execsw; *es; es++)
 		if (*es != execsw_arg)

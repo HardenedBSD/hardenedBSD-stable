@@ -424,6 +424,7 @@ mb_ctor_mbuf(void *mem, int size, void *arg, int how)
 
 	m = (struct mbuf *)mem;
 	flags = args->flags;
+	MPASS((flags & M_NOFREE) == 0);
 
 	error = m_init(m, how, type, flags);
 
@@ -572,6 +573,7 @@ mb_ctor_pack(void *mem, int size, void *arg, int how)
 	args = (struct mb_args *)arg;
 	flags = args->flags;
 	type = args->type;
+	MPASS((flags & M_NOFREE) == 0);
 
 #ifdef INVARIANTS
 	trash_ctor(m->m_ext.ext_buf, MCLBYTES, arg, how);
@@ -747,7 +749,7 @@ m_cljget(struct mbuf *m, int how, int size)
 {
 	uma_zone_t zone;
 	void *retval;
-	
+
 	if (m != NULL) {
 		KASSERT((m->m_flags & M_EXT) == 0, ("%s: mbuf %p has M_EXT",
 		    __func__, m));
@@ -939,8 +941,8 @@ m_extadd(struct mbuf *mb, caddr_t buf, u_int size,
 void
 m_freem(struct mbuf *mb)
 {
-	MBUF_PROBE1(m__freem, mb);
 
+	MBUF_PROBE1(m__freem, mb);
 	while (mb != NULL)
 		mb = m_free(mb);
 }

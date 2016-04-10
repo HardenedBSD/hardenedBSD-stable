@@ -160,7 +160,6 @@
 #define	DMAP_MIN_ADDRESS	(0xffffffc000000000UL)
 #define	DMAP_MAX_ADDRESS	(0xffffffdfffffffffUL)
 
-extern vm_paddr_t dmap_phys_base;
 #define	DMAP_MIN_PHYSADDR	(dmap_phys_base)
 #define	DMAP_MAX_PHYSADDR	(dmap_phys_base + (DMAP_MAX_ADDRESS - DMAP_MIN_ADDRESS))
 
@@ -188,7 +187,7 @@ extern vm_paddr_t dmap_phys_base;
 })
 
 #define	VM_MIN_USER_ADDRESS	(0x0000000000000000UL)
-#define	VM_MAX_USER_ADDRESS	(0x0000008000000000UL)
+#define	VM_MAX_USER_ADDRESS	(0x0001000000000000UL)
 
 #define	VM_MINUSER_ADDRESS	(VM_MIN_USER_ADDRESS)
 #define	VM_MAXUSER_ADDRESS	(VM_MAX_USER_ADDRESS)
@@ -229,9 +228,14 @@ extern vm_paddr_t dmap_phys_base;
 
 #define	UMA_MD_SMALL_ALLOC
 
+#ifndef LOCORE
+
+extern vm_paddr_t dmap_phys_base;
 extern u_int tsb_kernel_ldd_phys;
 extern vm_offset_t vm_max_kernel_address;
 extern vm_offset_t init_pt_va;
+
+#endif
 
 #define	ZERO_REGION_SIZE	(64 * 1024)	/* 64KB */
 

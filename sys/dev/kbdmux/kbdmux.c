@@ -57,12 +57,11 @@
 #include <dev/kbd/kbdreg.h>
 
 /* the initial key map, accent map and fkey strings */
-#if defined(KBDMUX_DFLT_KEYMAP) && !defined(KLD_MODULE)
-#define	KBD_DFLT_KEYMAP
+#ifdef KBDMUX_DFLT_KEYMAP
+#define KBD_DFLT_KEYMAP
 #include "kbdmuxmap.h"
 #endif
 
-/* the following file must be included after "ukbdmap.h" */
 #include <dev/kbd/kbdtables.h>
 
 #define KEYBOARD_NAME	"kbdmux"

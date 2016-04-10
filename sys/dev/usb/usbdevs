@@ -1700,6 +1700,7 @@ product DISPLAYLINK UM7X0	0x401a	nanovision MiMo
 product DISPLAYLINK LT1421	0x03e0	Lenovo ThinkVision LT1421
 product DISPLAYLINK POLARIS2	0x0117	Polaris2 USB dock
 product DISPLAYLINK PLUGABLE	0x0377	Plugable docking station
+product DISPLAYLINK ITEC	0x02e9  i-tec USB 2.0 Docking Station
 
 /* DMI products */
 product DMI CFSM_RW		0xa109	CF/SM Reader/Writer
@@ -2266,6 +2267,9 @@ product HIDGLOBAL CM6020	0x1784	Omnikey Cardman 6020
 /* Hitachi, Ltd. products */
 product HITACHI DVDCAM_DZ_MV100A	0x0004	DVD-CAM DZ-MV100A Camcorder
 product HITACHI DVDCAM_USB	0x001e	DVDCAM USB HS Interface
+
+/* Holtek products */
+product HOLTEK F85		0xa030	Holtek USB gaming keyboard
 
 /* HP products */
 product HP 895C			0x0004	DeskJet 895C

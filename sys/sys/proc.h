@@ -254,6 +254,7 @@ struct thread {
 	int		td_slptick;	/* (t) Time at sleep. */
 	int		td_blktick;	/* (t) Time spent blocked. */
 	int		td_swvoltick;	/* (t) Time at last SW_VOL switch. */
+	int		td_swinvoltick;	/* (t) Time at last SW_INVOL switch. */
 	u_int		td_cow;		/* (*) Number of copy-on-write faults */
 	struct rusage	td_ru;		/* (t) rusage information. */
 	struct rusage_ext td_rux;	/* (t) Internal rusage information. */
@@ -629,7 +630,7 @@ struct proc {
 					   after fork. */
 	uint64_t	p_prev_runtime;	/* (c) Resource usage accounting. */
 	struct racct	*p_racct;	/* (b) Resource accounting. */
-	u_char		p_throttled;	/* (c) Flag for racct pcpu throttling */
+	int		p_throttled;	/* (c) Flag for racct pcpu throttling */
 	struct vm_domain_policy p_vm_dom_policy;	/* (c) process default VM domain, or -1 */
 	/*
 	 * An orphan is the child that has beed re-parented to the

@@ -32,7 +32,7 @@
 #ifndef	_SYS_PAX_H
 #define	_SYS_PAX_H
 
-#define	__HardenedBSD_version	43UL
+#define	__HardenedBSD_version	44UL
 
 #if defined(_KERNEL) || defined(_WANT_PRISON)
 struct hbsd_features {
@@ -179,12 +179,11 @@ void pax_noexec_init_prison(struct prison *pr);
 #else
 #define	pax_noexec_init_prison(pr)	do {} while (0)
 #endif
+pax_flag_t pax_noexec_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_t mode);
 void pax_noexec_nw(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot);
 void pax_noexec_nx(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot);
 bool pax_pageexec_active(struct proc *p);
 bool pax_mprotect_active(struct proc *p);
-pax_flag_t pax_pageexec_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_t mode);
-pax_flag_t pax_mprotect_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_t mode);
 void pax_pageexec(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot);
 void pax_mprotect(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot);
 int pax_mprotect_enforce(struct proc *p, vm_map_t map, vm_prot_t old_prot, vm_prot_t new_prot);

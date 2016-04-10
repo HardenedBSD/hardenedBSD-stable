@@ -48,27 +48,25 @@
 #include <sys/sdt.h>
 
 #define	MBUF_PROBE1(probe, arg0)					\
-	SDT_PROBE1(mbuf, , , probe, arg0)
+	SDT_PROBE1(sdt, , , probe, arg0)
 #define	MBUF_PROBE2(probe, arg0, arg1)					\
-	SDT_PROBE2(mbuf, , , probe, arg0, arg1)
-#define	MBUF_PROBE3(probe, arg0, arg1, arg2)			\
-	SDT_PROBE3(mbuf, , , probe, arg0, arg1, arg2)
-#define	MBUF_PROBE4(probe, arg0, arg1, arg2, arg3)				\
-	SDT_PROBE4(mbuf, , , probe, arg0, arg1, arg2, arg3)
-#define	MBUF_PROBE5(probe, arg0, arg1, arg2, arg3, arg4)			\
-	SDT_PROBE5(mbuf, , , probe, arg0, arg1, arg2, arg3, arg4)
+	SDT_PROBE2(sdt, , , probe, arg0, arg1)
+#define	MBUF_PROBE3(probe, arg0, arg1, arg2)				\
+	SDT_PROBE3(sdt, , , probe, arg0, arg1, arg2)
+#define	MBUF_PROBE4(probe, arg0, arg1, arg2, arg3)			\
+	SDT_PROBE4(sdt, , , probe, arg0, arg1, arg2, arg3)
+#define	MBUF_PROBE5(probe, arg0, arg1, arg2, arg3, arg4)		\
+	SDT_PROBE5(sdt, , , probe, arg0, arg1, arg2, arg3, arg4)
 
-SDT_PROVIDER_DECLARE(mbuf);
-
-SDT_PROBE_DECLARE(mbuf, , , m__init);
-SDT_PROBE_DECLARE(mbuf, , , m__gethdr);
-SDT_PROBE_DECLARE(mbuf, , , m__get);
-SDT_PROBE_DECLARE(mbuf, , , m__getcl);
-SDT_PROBE_DECLARE(mbuf, , , m__clget);
-SDT_PROBE_DECLARE(mbuf, , , m__cljget);
-SDT_PROBE_DECLARE(mbuf, , , m__cljset);
-SDT_PROBE_DECLARE(mbuf, , , m__free);
-SDT_PROBE_DECLARE(mbuf, , , m__freem);
+SDT_PROBE_DECLARE(sdt, , , m__init);
+SDT_PROBE_DECLARE(sdt, , , m__gethdr);
+SDT_PROBE_DECLARE(sdt, , , m__get);
+SDT_PROBE_DECLARE(sdt, , , m__getcl);
+SDT_PROBE_DECLARE(sdt, , , m__clget);
+SDT_PROBE_DECLARE(sdt, , , m__cljget);
+SDT_PROBE_DECLARE(sdt, , , m__cljset);
+SDT_PROBE_DECLARE(sdt, , , m__free);
+SDT_PROBE_DECLARE(sdt, , , m__freem);
 
 #endif /* _KERNEL */
 
@@ -692,7 +690,7 @@ m_getzone(int size)
 static __inline int
 m_init(struct mbuf *m, int how, short type, int flags)
 {
-	int error = 0;
+	int error;
 
 	m->m_next = NULL;
 	m->m_nextpkt = NULL;
@@ -702,6 +700,8 @@ m_init(struct mbuf *m, int how, short type, int flags)
 	m->m_type = type;
 	if (flags & M_PKTHDR)
 		error = m_pkthdr_init(m, how);
+	else
+		error = 0;
 
 	MBUF_PROBE5(m__init, m, how, type, flags, error);
 	return (error);

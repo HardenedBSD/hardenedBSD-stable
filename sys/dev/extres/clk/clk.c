@@ -487,10 +487,10 @@ clkdom_dump(struct clkdom * clkdom)
 	CLK_TOPO_SLOCK();
 	TAILQ_FOREACH(clknode, &clkdom->clknode_list, clkdom_link) {
 		rv = clknode_get_freq(clknode, &freq);
-		printf("Clock: %s, parent: %s(%d), freq: %llu\n", clknode->name,
+		printf("Clock: %s, parent: %s(%d), freq: %ju\n", clknode->name,
 		    clknode->parent == NULL ? "(NULL)" : clknode->parent->name,
 		    clknode->parent_idx,
-		    ((rv == 0) ? freq: rv));
+		    (uintmax_t)((rv == 0) ? freq: rv));
 	}
 	CLK_TOPO_UNLOCK();
 }
@@ -817,6 +817,10 @@ clknode_set_freq(struct clknode *clknode, uint64_t freq, int flags,
 
 	/* We have exclusive topology lock, node lock is not needed. */
 	CLK_TOPO_XASSERT();
+
+	/* Check for no change */
+	if (clknode->freq == freq)
+		return (0);
 
 	parent_freq = 0;
 
@@ -1272,12 +1276,12 @@ clk_get_by_ofw_name(device_t dev, const char *name, clk_t *clk)
  */
 int
 clk_parse_ofw_out_names(device_t dev, phandle_t node, const char ***out_names,
-	uint32_t *indices)
+	uint32_t **indices)
 {
 	int name_items, rv;
 
 	*out_names = NULL;
-	indices = NULL;
+	*indices = NULL;
 	if (!OF_hasprop(node, "clock-output-names"))
 		return (0);
 	rv = ofw_bus_string_list_to_array(node, "clock-output-names",
@@ -1294,7 +1298,7 @@ clk_parse_ofw_out_names(device_t dev, phandle_t node, const char ***out_names,
 		device_printf(dev, " Size of 'clock-output-names' and "
 		    "'clock-indices' differs\n");
 		free(*out_names, M_OFWPROP);
-		free(indices, M_OFWPROP);
+		free(*indices, M_OFWPROP);
 		return (0);
 	}
 	return (name_items);

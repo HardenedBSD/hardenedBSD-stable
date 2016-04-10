@@ -654,14 +654,13 @@ tcp_init(void)
 		    hashsize);
 	}
 	in_pcbinfo_init(&V_tcbinfo, "tcp", &V_tcb, hashsize, hashsize,
-	    "tcp_inpcb", tcp_inpcb_init, NULL, UMA_ZONE_NOFREE,
-	    IPI_HASHFIELDS_4TUPLE);
+	    "tcp_inpcb", tcp_inpcb_init, NULL, 0, IPI_HASHFIELDS_4TUPLE);
 
 	/*
 	 * These have to be type stable for the benefit of the timers.
 	 */
 	V_tcpcb_zone = uma_zcreate("tcpcb", sizeof(struct tcpcb_mem),
-	    NULL, NULL, NULL, NULL, UMA_ALIGN_PTR, UMA_ZONE_NOFREE);
+	    NULL, NULL, NULL, NULL, UMA_ALIGN_PTR, 0);
 	uma_zone_set_max(V_tcpcb_zone, maxsockets);
 	uma_zone_set_warning(V_tcpcb_zone, "kern.ipc.maxsockets limit reached");
 
@@ -671,7 +670,7 @@ tcp_init(void)
 
 	TUNABLE_INT_FETCH("net.inet.tcp.sack.enable", &V_tcp_do_sack);
 	V_sack_hole_zone = uma_zcreate("sackhole", sizeof(struct sackhole),
-	    NULL, NULL, NULL, NULL, UMA_ALIGN_PTR, UMA_ZONE_NOFREE);
+	    NULL, NULL, NULL, NULL, UMA_ALIGN_PTR, 0);
 
 	/* Skip initialization of globals for non-default instances. */
 	if (!IS_DEFAULT_VNET(curvnet))
@@ -738,15 +737,31 @@ tcp_destroy(void)
 {
 	int error;
 
-#ifdef TCP_RFC7413
-	tcp_fastopen_destroy();
-#endif
+	/*
+	 * All our processes are gone, all our sockets should be cleaned
+	 * up, which means, we should be past the tcp_discardcb() calls.
+	 * Sleep to let all tcpcb timers really disappear and then cleanup.
+	 * Timewait will cleanup its queue and will be ready to go.
+	 * XXX-BZ In theory a few ticks should be good enough to make sure
+	 * the timers are all really gone.  We should see if we could use a
+	 * better metric here and, e.g., check a tcbcb count as an optimization?
+	 */
+	DELAY(1000000 / hz);
 	tcp_hc_destroy();
 	syncache_destroy();
 	tcp_tw_destroy();
 	in_pcbinfo_destroy(&V_tcbinfo);
+	/* tcp_discardcb() clears the sack_holes up. */
 	uma_zdestroy(V_sack_hole_zone);
 	uma_zdestroy(V_tcpcb_zone);
+
+#ifdef TCP_RFC7413
+	/*
+	 * Cannot free the zone until all tcpcbs are released as we attach
+	 * the allocations to them.
+	 */
+	tcp_fastopen_destroy();
+#endif
 
 	error = hhook_head_deregister(V_tcp_hhh[HHOOK_TCP_EST_IN]);
 	if (error != 0) {
@@ -1632,6 +1647,10 @@ tcp_notify(struct inpcb *inp, int error)
 	if (tp->t_state == TCPS_ESTABLISHED &&
 	    (error == EHOSTUNREACH || error == ENETUNREACH ||
 	     error == EHOSTDOWN)) {
+		if (inp->inp_route.ro_rt) {
+			RTFREE(inp->inp_route.ro_rt);
+			inp->inp_route.ro_rt = (struct rtentry *)NULL;
+		}
 		return (inp);
 	} else if (tp->t_state < TCPS_ESTABLISHED && tp->t_rxtshift > 3 &&
 	    tp->t_softerror) {
@@ -1702,8 +1721,6 @@ tcp_pcblist(SYSCTL_HANDLER_ARGS)
 		return (error);
 
 	inp_list = malloc(n * sizeof *inp_list, M_TEMP, M_WAITOK);
-	if (inp_list == NULL)
-		return (ENOMEM);
 
 	INP_INFO_WLOCK(&V_tcbinfo);
 	for (inp = LIST_FIRST(V_tcbinfo.ipi_listhead), i = 0;
@@ -1926,11 +1943,11 @@ tcp_ctlinput(int cmd, struct sockaddr *sa, void *vip)
 	else if (V_icmp_may_rst && (cmd == PRC_UNREACH_ADMIN_PROHIB ||
 		cmd == PRC_UNREACH_PORT || cmd == PRC_TIMXCEED_INTRANS) && ip)
 		notify = tcp_drop_syn_sent;
-	/*
-	 * Redirects don't need to be handled up here.
-	 */
-	else if (PRC_IS_REDIRECT(cmd))
+	else if (PRC_IS_REDIRECT(cmd)) {
+		/* signal EHOSTDOWN, as it flushes the cached route */
+		in_pcbnotifyall(&V_tcbinfo, faddr, EHOSTDOWN, notify);
 		return;
+	}
 	/*
 	 * Hostdead is ugly because it goes linearly through all PCBs.
 	 * XXX: We never get this from ICMP, otherwise it makes an
