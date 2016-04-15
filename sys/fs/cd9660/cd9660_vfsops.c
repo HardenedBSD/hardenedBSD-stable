@@ -709,7 +709,7 @@ cd9660_vget_internal(mp, ino, flags, vpp, relocated, isodir)
 	if (error || *vpp != NULL)
 		return (error);
 
-	if (isodir == 0) {
+	if (isodir == NULL) {
 		int lbn, off;
 
 		lbn = lblkno(imp, ino);
@@ -761,7 +761,7 @@ cd9660_vget_internal(mp, ino, flags, vpp, relocated, isodir)
 		}
 #endif
 	} else
-		bp = 0;
+		bp = NULL;
 
 	ip->i_mnt = imp;
 

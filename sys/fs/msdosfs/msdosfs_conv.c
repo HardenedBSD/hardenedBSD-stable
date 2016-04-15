@@ -361,7 +361,7 @@ unix2dosfn(un, dn, unlen, gen, pmp)
 	 *	 ignores all dots before extension, and use all
 	 * 	 chars as filename except for dots.
 	 */
-	dp = dp1 = 0;
+	dp = dp1 = NULL;
 	for (cp = un + 1, i = unlen - 1; --i >= 0;) {
 		switch (*cp++) {
 		case '.':
@@ -373,7 +373,7 @@ unix2dosfn(un, dn, unlen, gen, pmp)
 		default:
 			if (dp1)
 				dp = dp1;
-			dp1 = 0;
+			dp1 = NULL;
 			break;
 		}
 	}
