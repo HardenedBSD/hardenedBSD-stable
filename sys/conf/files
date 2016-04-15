@@ -68,6 +68,7 @@ usbdevs_data.h			optional usb				   \
 	clean		"usbdevs_data.h"
 cam/cam.c			optional scbus
 cam/cam_compat.c		optional scbus
+cam/cam_iosched.c		optional scbus
 cam/cam_periph.c		optional scbus
 cam/cam_queue.c			optional scbus
 cam/cam_sim.c			optional scbus
@@ -3755,6 +3756,7 @@ netpfil/ipfw/ip_dn_io.c		optional inet dummynet
 netpfil/ipfw/ip_dn_glue.c	optional inet dummynet
 netpfil/ipfw/ip_fw2.c		optional inet ipfirewall
 netpfil/ipfw/ip_fw_dynamic.c	optional inet ipfirewall
+netpfil/ipfw/ip_fw_eaction.c	optional inet ipfirewall
 netpfil/ipfw/ip_fw_log.c	optional inet ipfirewall
 netpfil/ipfw/ip_fw_pfil.c	optional inet ipfirewall
 netpfil/ipfw/ip_fw_sockopt.c	optional inet ipfirewall

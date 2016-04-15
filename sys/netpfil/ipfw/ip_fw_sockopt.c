@@ -100,10 +100,11 @@ struct namedobj_instance {
 };
 #define	BLOCK_ITEMS	(8 * sizeof(u_long))	/* Number of items for ffsl() */
 
-static uint32_t objhash_hash_name(struct namedobj_instance *ni, void *key,
-    uint32_t kopt);
+static uint32_t objhash_hash_name(struct namedobj_instance *ni,
+    const void *key, uint32_t kopt);
 static uint32_t objhash_hash_idx(struct namedobj_instance *ni, uint32_t val);
-static int objhash_cmp_name(struct named_object *no, void *name, uint32_t set);
+static int objhash_cmp_name(struct named_object *no, const void *name,
+    uint32_t set);
 
 MALLOC_DEFINE(M_IPFW, "IpFw/IpAcct", "IpFw/IpAcct chain's");
 
@@ -155,13 +156,14 @@ static struct ipfw_sopt_handler	scodes[] = {
 
 static int
 set_legacy_obj_kidx(struct ip_fw_chain *ch, struct ip_fw_rule0 *rule);
-struct opcode_obj_rewrite *ipfw_find_op_rw(uint16_t opcode);
+static struct opcode_obj_rewrite *find_op_rw(ipfw_insn *cmd,
+    uint16_t *puidx, uint8_t *ptype);
 static int mark_object_kidx(struct ip_fw_chain *ch, struct ip_fw *rule,
     uint32_t *bmask);
 static int ref_rule_objects(struct ip_fw_chain *ch, struct ip_fw *rule,
     struct rule_check_info *ci, struct obj_idx *oib, struct tid_info *ti);
 static int ref_opcode_object(struct ip_fw_chain *ch, ipfw_insn *cmd,
-    struct tid_info *ti, struct obj_idx *pidx, int *found, int *unresolved);
+    struct tid_info *ti, struct obj_idx *pidx, int *unresolved);
 static void unref_rule_objects(struct ip_fw_chain *chain, struct ip_fw *rule);
 static void unref_oib_objects(struct ip_fw_chain *ch, ipfw_insn *cmd,
     struct obj_idx *oib, struct obj_idx *end);
@@ -1491,6 +1493,35 @@ check_ipfw_rule_body(ipfw_insn *cmd, int cmd_len, struct rule_check_info *ci)
 				goto bad_size;
 			break;
 
+		case O_EXTERNAL_ACTION:
+			if (cmd->arg1 == 0 ||
+			    cmdlen != F_INSN_SIZE(ipfw_insn)) {
+				printf("ipfw: invalid external "
+				    "action opcode\n");
+				return (EINVAL);
+			}
+			ci->object_opcodes++;
+			/* Do we have O_EXTERNAL_INSTANCE opcode? */
+			if (l != cmdlen) {
+				l -= cmdlen;
+				cmd += cmdlen;
+				cmdlen = F_LEN(cmd);
+				if (cmd->opcode != O_EXTERNAL_INSTANCE) {
+					printf("ipfw: invalid opcode "
+					    "next to external action %u\n",
+					    cmd->opcode);
+					return (EINVAL);
+				}
+				if (cmd->arg1 == 0 ||
+				    cmdlen != F_INSN_SIZE(ipfw_insn)) {
+					printf("ipfw: invalid external "
+					    "action instance opcode\n");
+					return (EINVAL);
+				}
+				ci->object_opcodes++;
+			}
+			goto check_action;
+
 		case O_FIB:
 			if (cmdlen != F_INSN_SIZE(ipfw_insn))
 				goto bad_size;
@@ -2008,11 +2039,10 @@ static int
 mark_object_kidx(struct ip_fw_chain *ch, struct ip_fw *rule,
     uint32_t *bmask)
 {
-	int cmdlen, l, count;
-	ipfw_insn *cmd;
-	uint16_t kidx;
 	struct opcode_obj_rewrite *rw;
-	int bidx;
+	ipfw_insn *cmd;
+	int bidx, cmdlen, l, count;
+	uint16_t kidx;
 	uint8_t subtype;
 
 	l = rule->cmd_len;
@@ -2022,15 +2052,15 @@ mark_object_kidx(struct ip_fw_chain *ch, struct ip_fw *rule,
 	for ( ;	l > 0 ; l -= cmdlen, cmd += cmdlen) {
 		cmdlen = F_LEN(cmd);
 
-		rw = ipfw_find_op_rw(cmd->opcode);
+		rw = find_op_rw(cmd, &kidx, &subtype);
 		if (rw == NULL)
 			continue;
 
-		if (rw->classifier(cmd, &kidx, &subtype) != 0)
-			continue;
-
 		bidx = kidx / 32;
-		/* Maintain separate bitmasks for table and non-table objects */
+		/*
+		 * Maintain separate bitmasks for table and
+		 * non-table objects.
+		 */
 		if (rw->etlv != IPFW_TLV_TBL_NAME)
 			bidx += IPFW_TABLES_MAX / 32;
 
@@ -2202,7 +2232,7 @@ create_objects_compat(struct ip_fw_chain *ch, ipfw_insn *cmd,
 		ti->type = p->type;
 		ti->atype = 0;
 
-		rw = ipfw_find_op_rw((cmd + p->off)->opcode);
+		rw = find_op_rw(cmd + p->off, NULL, NULL);
 		KASSERT(rw != NULL, ("Unable to find handler for op %d",
 		    (cmd + p->off)->opcode));
 
@@ -2237,14 +2267,14 @@ create_objects_compat(struct ip_fw_chain *ch, ipfw_insn *cmd,
 static int
 set_legacy_obj_kidx(struct ip_fw_chain *ch, struct ip_fw_rule0 *rule)
 {
-	int cmdlen, error, l;
-	ipfw_insn *cmd;
-	uint16_t kidx, uidx;
-	struct named_object *no;
 	struct opcode_obj_rewrite *rw;
-	uint8_t subtype;
+	struct named_object *no;
+	ipfw_insn *cmd;
 	char *end;
 	long val;
+	int cmdlen, error, l;
+	uint16_t kidx, uidx;
+	uint8_t subtype;
 
 	error = 0;
 
@@ -2254,12 +2284,9 @@ set_legacy_obj_kidx(struct ip_fw_chain *ch, struct ip_fw_rule0 *rule)
 	for ( ;	l > 0 ; l -= cmdlen, cmd += cmdlen) {
 		cmdlen = F_LEN(cmd);
 
-		rw = ipfw_find_op_rw(cmd->opcode);
-		if (rw == NULL)
-			continue;
-
 		/* Check if is index in given opcode */
-		if (rw->classifier(cmd, &kidx, &subtype) != 0)
+		rw = find_op_rw(cmd, &kidx, &subtype);
+		if (rw == NULL)
 			continue;
 
 		/* Try to find referenced kernel object */
@@ -2308,7 +2335,7 @@ unref_oib_objects(struct ip_fw_chain *ch, ipfw_insn *cmd, struct obj_idx *oib,
 		if (p->kidx == 0)
 			continue;
 
-		rw = ipfw_find_op_rw((cmd + p->off)->opcode);
+		rw = find_op_rw(cmd + p->off, NULL, NULL);
 		KASSERT(rw != NULL, ("Unable to find handler for op %d",
 		    (cmd + p->off)->opcode));
 
@@ -2326,11 +2353,11 @@ unref_oib_objects(struct ip_fw_chain *ch, ipfw_insn *cmd, struct obj_idx *oib,
 static void
 unref_rule_objects(struct ip_fw_chain *ch, struct ip_fw *rule)
 {
-	int cmdlen, l;
-	ipfw_insn *cmd;
-	struct named_object *no;
-	uint16_t kidx;
 	struct opcode_obj_rewrite *rw;
+	struct named_object *no;
+	ipfw_insn *cmd;
+	int cmdlen, l;
+	uint16_t kidx;
 	uint8_t subtype;
 
 	IPFW_UH_WLOCK_ASSERT(ch);
@@ -2341,12 +2368,9 @@ unref_rule_objects(struct ip_fw_chain *ch, struct ip_fw *rule)
 	for ( ;	l > 0 ; l -= cmdlen, cmd += cmdlen) {
 		cmdlen = F_LEN(cmd);
 
-		rw = ipfw_find_op_rw(cmd->opcode);
+		rw = find_op_rw(cmd, &kidx, &subtype);
 		if (rw == NULL)
 			continue;
-		if (rw->classifier(cmd, &kidx, &subtype) != 0)
-			continue;
-
 		no = rw->find_bykidx(ch, kidx);
 
 		KASSERT(no != NULL, ("table id %d not found", kidx));
@@ -2368,29 +2392,21 @@ unref_rule_objects(struct ip_fw_chain *ch, struct ip_fw *rule)
  * Find and reference object (if any) stored in instruction @cmd.
  *
  * Saves object info in @pidx, sets
- *  - @found to 1 if object was found and references
  *  - @unresolved to 1 if object should exists but not found
  *
  * Returns non-zero value in case of error.
  */
-int
+static int
 ref_opcode_object(struct ip_fw_chain *ch, ipfw_insn *cmd, struct tid_info *ti,
-    struct obj_idx *pidx, int *found, int *unresolved)
+    struct obj_idx *pidx, int *unresolved)
 {
 	struct named_object *no;
 	struct opcode_obj_rewrite *rw;
 	int error;
 
-	*found = 0;
-	*unresolved = 0;
-
 	/* Check if this opcode is candidate for rewrite */
-	rw = ipfw_find_op_rw(cmd->opcode);
+	rw = find_op_rw(cmd, &ti->uidx, &ti->type);
 	if (rw == NULL)
-		return (0);
-
-	/* Check if we need to rewrite this opcode */
-	if (rw->classifier(cmd, &ti->uidx, &ti->type) != 0)
 		return (0);
 
 	/* Need to rewrite. Save necessary fields */
@@ -2402,15 +2418,17 @@ ref_opcode_object(struct ip_fw_chain *ch, ipfw_insn *cmd, struct tid_info *ti,
 	if (error != 0)
 		return (error);
 	if (no == NULL) {
+		/*
+		 * Report about unresolved object for automaic
+		 * creation.
+		 */
 		*unresolved = 1;
 		return (0);
 	}
 
-	/* Found. bump refcount */
-	*found = 1;
+	/* Found. Bump refcount and update kidx. */
 	no->refcnt++;
-	pidx->kidx = no->kidx;
-
+	rw->update(cmd, no->kidx);
 	return (0);
 }
 
@@ -2425,40 +2443,34 @@ static int
 ref_rule_objects(struct ip_fw_chain *ch, struct ip_fw *rule,
     struct rule_check_info *ci, struct obj_idx *oib, struct tid_info *ti)
 {
-	int cmdlen, error, l, numnew;
-	ipfw_insn *cmd;
 	struct obj_idx *pidx;
-	int found, unresolved;
+	ipfw_insn *cmd;
+	int cmdlen, error, l, unresolved;
 
 	pidx = oib;
 	l = rule->cmd_len;
 	cmd = rule->cmd;
 	cmdlen = 0;
 	error = 0;
-	numnew = 0;
-	found = 0;
-	unresolved = 0;
 
 	IPFW_UH_WLOCK(ch);
 
 	/* Increase refcount on each existing referenced table. */
 	for ( ;	l > 0 ; l -= cmdlen, cmd += cmdlen) {
 		cmdlen = F_LEN(cmd);
+		unresolved = 0;
 
-		error = ref_opcode_object(ch, cmd, ti, pidx, &found,
-		    &unresolved);
+		error = ref_opcode_object(ch, cmd, ti, pidx, &unresolved);
 		if (error != 0)
 			break;
-		if (found || unresolved) {
+		/*
+		 * Compability stuff for old clients:
+		 * prepare to automaitcally create non-existing objects.
+		 */
+		if (unresolved != 0) {
 			pidx->off = rule->cmd_len - l;
 			pidx++;
 		}
-		/*
-		 * Compability stuff for old clients:
-		 * prepare to manually create non-existing objects.
-		 */
-		if (unresolved)
-			numnew++;
 	}
 
 	if (error != 0) {
@@ -2470,7 +2482,7 @@ ref_rule_objects(struct ip_fw_chain *ch, struct ip_fw *rule,
 	IPFW_UH_WUNLOCK(ch);
 
 	/* Perform auto-creation for non-existing objects */
-	if (numnew != 0)
+	if (pidx != oib)
 		error = create_objects_compat(ch, rule->cmd, oib, pidx, ti);
 
 	/* Calculate real number of dynamic objects */
@@ -2530,7 +2542,7 @@ rewrite_rule_uidx(struct ip_fw_chain *chain, struct rule_check_info *ci)
 	 * to reflect actual number of object opcodes.
 	 */
 
-	/* Perform rule rewrite */
+	/* Perform rewrite of remaining opcodes */
 	p = pidx_first;
 	pidx_last = pidx_first + ci->object_opcodes;
 	for (p = pidx_first; p < pidx_last; p++) {
@@ -2819,35 +2831,73 @@ compare_opcodes(const void *_a, const void *_b)
 }
 
 /*
+ * XXX: Rewrite bsearch()
+ */
+static int
+find_op_rw_range(uint16_t op, struct opcode_obj_rewrite **plo,
+    struct opcode_obj_rewrite **phi)
+{
+	struct opcode_obj_rewrite *ctl3_max, *lo, *hi, h, *rw;
+
+	memset(&h, 0, sizeof(h));
+	h.opcode = op;
+
+	rw = (struct opcode_obj_rewrite *)bsearch(&h, ctl3_rewriters,
+	    ctl3_rsize, sizeof(h), compare_opcodes);
+	if (rw == NULL)
+		return (1);
+
+	/* Find the first element matching the same opcode */
+	lo = rw;
+	for ( ; lo > ctl3_rewriters && (lo - 1)->opcode == op; lo--)
+		;
+
+	/* Find the last element matching the same opcode */
+	hi = rw;
+	ctl3_max = ctl3_rewriters + ctl3_rsize;
+	for ( ; (hi + 1) < ctl3_max && (hi + 1)->opcode == op; hi++)
+		;
+
+	*plo = lo;
+	*phi = hi;
+
+	return (0);
+}
+
+/*
  * Finds opcode object rewriter based on @code.
  *
  * Returns pointer to handler or NULL.
  */
-struct opcode_obj_rewrite *
-ipfw_find_op_rw(uint16_t opcode)
+static struct opcode_obj_rewrite *
+find_op_rw(ipfw_insn *cmd, uint16_t *puidx, uint8_t *ptype)
 {
-	struct opcode_obj_rewrite *rw, h;
+	struct opcode_obj_rewrite *rw, *lo, *hi;
+	uint16_t uidx;
+	uint8_t subtype;
 
-	memset(&h, 0, sizeof(h));
-	h.opcode = opcode;
+	if (find_op_rw_range(cmd->opcode, &lo, &hi) != 0)
+		return (NULL);
 
-	rw = (struct opcode_obj_rewrite *)bsearch(&h, ctl3_rewriters,
-	    ctl3_rsize, sizeof(h), compare_opcodes);
+	for (rw = lo; rw <= hi; rw++) {
+		if (rw->classifier(cmd, &uidx, &subtype) == 0) {
+			if (puidx != NULL)
+				*puidx = uidx;
+			if (ptype != NULL)
+				*ptype = subtype;
+			return (rw);
+		}
+	}
 
-	return (rw);
+	return (NULL);
 }
-
 int
 classify_opcode_kidx(ipfw_insn *cmd, uint16_t *puidx)
 {
-	struct opcode_obj_rewrite *rw;
-	uint8_t subtype;
 
-	rw = ipfw_find_op_rw(cmd->opcode);
-	if (rw == NULL)
+	if (find_op_rw(cmd, puidx, NULL) == 0)
 		return (1);
-
-	return (rw->classifier(cmd, puidx, &subtype));
+	return (0);
 }
 
 void
@@ -2855,7 +2905,7 @@ update_opcode_kidx(ipfw_insn *cmd, uint16_t idx)
 {
 	struct opcode_obj_rewrite *rw;
 
-	rw = ipfw_find_op_rw(cmd->opcode);
+	rw = find_op_rw(cmd, NULL, NULL);
 	KASSERT(rw != NULL, ("No handler to update opcode %d", cmd->opcode));
 	rw->update(cmd, idx);
 }
@@ -2923,20 +2973,26 @@ int
 ipfw_del_obj_rewriter(struct opcode_obj_rewrite *rw, size_t count)
 {
 	size_t sz;
-	struct opcode_obj_rewrite *tmp, *h;
+	struct opcode_obj_rewrite *ctl3_max, *ktmp, *lo, *hi;
 	int i;
 
 	CTL3_LOCK();
 
 	for (i = 0; i < count; i++) {
-		tmp = &rw[i];
-		h = ipfw_find_op_rw(tmp->opcode);
-		if (h == NULL)
+		if (find_op_rw_range(rw[i].opcode, &lo, &hi) != 0)
 			continue;
 
-		sz = (ctl3_rewriters + ctl3_rsize - (h + 1)) * sizeof(*h);
-		memmove(h, h + 1, sz);
-		ctl3_rsize--;
+		for (ktmp = lo; ktmp <= hi; ktmp++) {
+			if (ktmp->classifier != rw[i].classifier)
+				continue;
+
+			ctl3_max = ctl3_rewriters + ctl3_rsize;
+			sz = (ctl3_max - (ktmp + 1)) * sizeof(*ktmp);
+			memmove(ktmp, ktmp + 1, sz);
+			ctl3_rsize--;
+			break;
+		}
+
 	}
 
 	if (ctl3_rsize == 0) {
@@ -2967,7 +3023,7 @@ export_objhash_ntlv_internal(struct namedobj_instance *ni,
 /*
  * Lists all service objects.
  * Data layout (v0)(current):
- * Request: [ ipfw_obj_lheader ] size = ipfw_cfg_lheader.size
+ * Request: [ ipfw_obj_lheader ] size = ipfw_obj_lheader.size
  * Reply: [ ipfw_obj_lheader [ ipfw_obj_ntlv x N ] (optional) ]
  * Returns 0 on success
  */
@@ -3982,17 +4038,17 @@ ipfw_objhash_set_funcs(struct namedobj_instance *ni, objhash_hash_f *hash_f,
 }
 
 static uint32_t
-objhash_hash_name(struct namedobj_instance *ni, void *name, uint32_t set)
+objhash_hash_name(struct namedobj_instance *ni, const void *name, uint32_t set)
 {
 
-	return (fnv_32_str((char *)name, FNV1_32_INIT));
+	return (fnv_32_str((const char *)name, FNV1_32_INIT));
 }
 
 static int
-objhash_cmp_name(struct named_object *no, void *name, uint32_t set)
+objhash_cmp_name(struct named_object *no, const void *name, uint32_t set)
 {
 
-	if ((strcmp(no->name, (char *)name) == 0) && (no->set == set))
+	if ((strcmp(no->name, (const char *)name) == 0) && (no->set == set))
 		return (0);
 
 	return (1);
@@ -4025,11 +4081,90 @@ ipfw_objhash_lookup_name(struct namedobj_instance *ni, uint32_t set, char *name)
 }
 
 /*
+ * Find named object by @uid.
+ * Check @tlvs for valid data inside.
+ *
+ * Returns pointer to found TLV or NULL.
+ */
+static ipfw_obj_ntlv *
+find_name_tlv_type(void *tlvs, int len, uint16_t uidx, uint32_t etlv)
+{
+	ipfw_obj_ntlv *ntlv;
+	uintptr_t pa, pe;
+	int l;
+
+	pa = (uintptr_t)tlvs;
+	pe = pa + len;
+	l = 0;
+	for (; pa < pe; pa += l) {
+		ntlv = (ipfw_obj_ntlv *)pa;
+		l = ntlv->head.length;
+
+		if (l != sizeof(*ntlv))
+			return (NULL);
+
+		if (ntlv->idx != uidx)
+			continue;
+		/*
+		 * When userland has specified zero TLV type, do
+		 * not compare it with eltv. In some cases userland
+		 * doesn't know what type should it have. Use only
+		 * uidx and name for search named_object.
+		 */
+		if (ntlv->head.type != 0 &&
+		    ntlv->head.type != (uint16_t)etlv)
+			continue;
+
+		if (ipfw_check_object_name_generic(ntlv->name) != 0)
+			return (NULL);
+
+		return (ntlv);
+	}
+
+	return (NULL);
+}
+
+/*
+ * Finds object config based on either legacy index
+ * or name in ntlv.
+ * Note @ti structure contains unchecked data from userland.
+ *
+ * Returns 0 in success and fills in @pno with found config
+ */
+int
+ipfw_objhash_find_type(struct namedobj_instance *ni, struct tid_info *ti,
+    uint32_t etlv, struct named_object **pno)
+{
+	char *name;
+	ipfw_obj_ntlv *ntlv;
+	uint32_t set;
+
+	if (ti->tlvs == NULL)
+		return (EINVAL);
+
+	ntlv = find_name_tlv_type(ti->tlvs, ti->tlen, ti->uidx, etlv);
+	if (ntlv == NULL)
+		return (EINVAL);
+	name = ntlv->name;
+
+	/*
+	 * Use set provided by @ti instead of @ntlv one.
+	 * This is needed due to different sets behavior
+	 * controlled by V_fw_tables_sets.
+	 */
+	set = ti->set;
+	*pno = ipfw_objhash_lookup_name(ni, set, name);
+	if (*pno == NULL)
+		return (ESRCH);
+	return (0);
+}
+
+/*
  * Find named object by name, considering also its TLV type.
  */
 struct named_object *
 ipfw_objhash_lookup_name_type(struct namedobj_instance *ni, uint32_t set,
-    uint32_t type, char *name)
+    uint32_t type, const char *name)
 {
 	struct named_object *no;
 	uint32_t hash;
@@ -4037,7 +4172,8 @@ ipfw_objhash_lookup_name_type(struct namedobj_instance *ni, uint32_t set,
 	hash = ni->hash_f(ni, name, set) % ni->nn_size;
 
 	TAILQ_FOREACH(no, &ni->names[hash], nn_next) {
-		if (ni->cmp_f(no, name, set) == 0 && no->etlv == type)
+		if (ni->cmp_f(no, name, set) == 0 &&
+		    no->etlv == (uint16_t)type)
 			return (no);
 	}
 

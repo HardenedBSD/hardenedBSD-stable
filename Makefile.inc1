@@ -144,6 +144,15 @@ CLEANDIR=	clean cleandepend
 CLEANDIR=	cleandir
 .endif
 
+.if ${MK_META_MODE} == "yes"
+# If filemon is used then we can rely on the build being incremental-safe.
+# The .meta files will also track the build command and rebuild should
+# it change.
+.if empty(.MAKE.MODE:Mnofilemon)
+NO_CLEAN=	t
+.endif
+.endif
+
 LOCAL_TOOL_DIRS?=
 PACKAGEDIR?=	${DESTDIR}/${DISTDIR}
 
@@ -296,6 +305,10 @@ CROSSENV+=	MAKEOBJDIRPREFIX=${OBJTREE} \
 		MACHINE_ARCH=${TARGET_ARCH} \
 		MACHINE=${TARGET} \
 		CPUTYPE=${TARGET_CPUTYPE}
+.if ${MK_META_MODE} != "no"
+# Don't rebuild build-tools targets during normal build.
+CROSSENV+=	BUILD_TOOLS_META=.NOMETA_CMP
+.endif
 .if ${MK_GROFF} != "no"
 CROSSENV+=	GROFF_BIN_PATH=${WORLDTMP}/legacy/usr/bin \
 		GROFF_FONT_PATH=${WORLDTMP}/legacy/usr/share/groff_font \
@@ -307,6 +320,7 @@ CROSSENV+=	${TARGET_CFLAGS}
 
 # bootstrap-tools stage
 BMAKEENV=	INSTALL="sh ${.CURDIR}/tools/install.sh" \
+		TOOLS_PREFIX=${WORLDTMP} \
 		PATH=${BPATH}:${PATH} \
 		WORLDTMP=${WORLDTMP} \
 		MAKEFLAGS="-m ${.CURDIR}/tools/build/mk ${.MAKEFLAGS}"
@@ -649,12 +663,12 @@ WMAKE_TGTS+=	build${libcompat}
 buildworld: buildworld_prologue ${WMAKE_TGTS} buildworld_epilogue
 .ORDER: buildworld_prologue ${WMAKE_TGTS} buildworld_epilogue
 
-buildworld_prologue:
+buildworld_prologue: .PHONY
 	@echo "--------------------------------------------------------------"
 	@echo ">>> World build started on `LC_ALL=C date`"
 	@echo "--------------------------------------------------------------"
 
-buildworld_epilogue:
+buildworld_epilogue: .PHONY
 	@echo
 	@echo "--------------------------------------------------------------"
 	@echo ">>> World build completed on `LC_ALL=C date`"
