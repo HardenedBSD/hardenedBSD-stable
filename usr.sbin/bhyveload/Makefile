@@ -5,7 +5,6 @@ SRCS=	bhyveload.c
 MAN=	bhyveload.8
 
 LIBADD=	vmmapi
-WANTS_PIE=	yes
 
 WARNS?=	3
 
