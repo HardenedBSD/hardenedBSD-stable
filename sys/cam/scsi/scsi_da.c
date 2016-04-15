@@ -1271,7 +1271,7 @@ SYSCTL_INT(_kern_cam_da, OID_AUTO, send_ordered, CTLFLAG_RWTUN,
 SYSCTL_PROC(_kern_cam_da, OID_AUTO, default_softtimeout,
     CTLTYPE_UINT | CTLFLAG_RW, NULL, 0, dasysctlsofttimeout, "I",
     "Soft I/O timeout (ms)");
-TUNABLE_LONG("kern.cam.da.default_softtimeout", &da_default_softtimeout);
+TUNABLE_INT64("kern.cam.da.default_softtimeout", &da_default_softtimeout);
 
 /*
  * DA_ORDEREDTAG_INTERVAL determines how often, relative
@@ -3773,24 +3773,22 @@ daerror(union ccb *ccb, u_int32_t cam_flags, u_int32_t sense_flags)
 	if (error == ERESTART)
 		return (ERESTART);
 
+#ifdef CAM_IO_STATS
 	switch (ccb->ccb_h.status & CAM_STATUS_MASK) {
 	case CAM_CMD_TIMEOUT:
-#ifdef CAM_IO_STATS
 		softc->timeouts++;
-#endif
 		break;
 	case CAM_REQ_ABORTED:
 	case CAM_REQ_CMP_ERR:
 	case CAM_REQ_TERMIO:
 	case CAM_UNREC_HBA_ERROR:
 	case CAM_DATA_RUN_ERR:
-#ifdef CAM_IO_STATS
 		softc->errors++;
-#endif
 		break;
 	default:
 		break;
 	}
+#endif
 
 	/*
 	 * XXX
