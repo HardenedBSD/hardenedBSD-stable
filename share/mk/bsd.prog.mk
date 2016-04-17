@@ -76,6 +76,16 @@ LDFLAGS+= -pie
 .endif
 .endif
 
+.if defined(MK_RELRO)
+.if ${MK_RELRO} != "no"
+LDFLAGS+=	-Wl,-z,relro
+.endif
+
+.if ${MK_BIND_NOW} != "no"
+LDFLAGS+=	-Wl,-z,now
+.endif
+.endif
+
 .if ${MK_DEBUG_FILES} != "no"
 PROG_FULL=${PROG}.full
 # Use ${DEBUGDIR} for base system debug files, else .debug subdirectory
