@@ -256,7 +256,7 @@ BROKEN_OPTIONS+=LLDB
 BROKEN_OPTIONS+=LIBSOFT
 .endif
 
-.if ${__T} == "amd64" || ${__T} == "i386"
+.if ${__T} == "amd64" || ${__T} == "i386" || ${__T} == "aarch64"
 __DEFAULT_YES_OPTIONS+=PIE
 .else
 __DEFAULT_NO_OPTIONS+=PIE

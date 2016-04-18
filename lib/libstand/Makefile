@@ -9,6 +9,7 @@
 PACKAGE=lib${LIB}
 MK_PROFILE=	no
 MK_SSP=		no
+NO_PIC=
 
 .include <src.opts.mk>
 
@@ -17,7 +18,6 @@ LIBSTAND_CPUARCH?=${MACHINE_CPUARCH}
 LIBC_SRC=	${LIBSTAND_SRC}/../libc
 
 LIB=		stand
-NO_PIC=
 INCS?=		stand.h
 MAN?=		libstand.3
 
