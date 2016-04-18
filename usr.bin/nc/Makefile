@@ -7,7 +7,6 @@ SRCS=	netcat.c atomicio.c socks.c
 
 CFLAGS+=-DIPSEC
 LIBADD=	ipsec
-WANTS_PIE=	yes
 
 WARNS?=	2
 

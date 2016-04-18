@@ -1610,13 +1610,11 @@ endword:
  */
 
 parsesub: {
-	char buf[10];
 	int subtype;
 	int typeloc;
 	int flags;
 	char *p;
 	static const char types[] = "}-+?=";
-	int bracketed_name = 0; /* used to handle ${[0-9]*} variables */
 	int linno;
 	int length;
 	int c1;
@@ -1640,7 +1638,6 @@ parsesub: {
 		subtype = VSNORMAL;
 		flags = 0;
 		if (c == '{') {
-			bracketed_name = 1;
 			c = pgetc_linecont();
 			subtype = 0;
 		}
@@ -1656,16 +1653,19 @@ varname:
 			    strncmp(out - length, "LINENO", length) == 0) {
 				/* Replace the variable name with the
 				 * current line number. */
+				STADJUST(-6, out);
+				CHECKSTRSPACE(11, out);
 				linno = plinno;
 				if (funclinno != 0)
 					linno -= funclinno - 1;
-				snprintf(buf, sizeof(buf), "%d", linno);
-				STADJUST(-6, out);
-				STPUTS(buf, out);
+				length = snprintf(out, 11, "%d", linno);
+				if (length > 10)
+					length = 10;
+				out += length;
 				flags |= VSLINENO;
 			}
 		} else if (is_digit(c)) {
-			if (bracketed_name) {
+			if (subtype != VSNORMAL) {
 				do {
 					STPUTC(c, out);
 					c = pgetc_linecont();

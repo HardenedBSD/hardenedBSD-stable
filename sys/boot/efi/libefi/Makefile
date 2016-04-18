@@ -9,6 +9,7 @@ SRCS=	delay.c efi_console.c efinet.c efipart.c errno.c handles.c \
 
 .if ${MACHINE_CPUARCH} == "aarch64"
 CFLAGS+=	-msoft-float -mgeneral-regs-only
+NOPIE=		1
 .endif
 .if ${MACHINE_ARCH} == "amd64"
 CFLAGS+= -fPIC -mno-red-zone

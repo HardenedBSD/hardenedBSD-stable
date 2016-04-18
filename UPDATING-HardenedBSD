@@ -1,3 +1,12 @@
+[20160408] PIEified base for amd64 and i386
+__HardenedBSD_version = 45
+
+	Remove WANTS_PIE.
+	Default PIE for base for amd64 and i386 only.
+	When PIE is enabled, compile non-static libraries with -fPIC.
+	Default WITH_SHARED_TOOLCHAIN to enabled by default.
+
+
 [201603XX] noexec and ASLR changes
 __HardenedBSD_version = 44
 

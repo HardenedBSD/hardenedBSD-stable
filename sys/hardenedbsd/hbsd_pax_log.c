@@ -96,6 +96,7 @@ prefix##_log_##name(struct proc *p, pax_log_settings_t flags,		\
 	const char *prefix = "["#MAIN" "#SUBJECT"]";			\
 	va_list args;							\
 									\
+	/* XXXOP convert to per-jail status */				\
 	if (hardening_log_log == 0)					\
 		return;							\
 									\
@@ -110,6 +111,7 @@ prefix##_ulog_##name(const char* fmt, ...)				\
 	const char *prefix = "["#MAIN" "#SUBJECT"]";			\
 	va_list args;							\
 									\
+	/* XXXOP convert to per-jail status */				\
 	if (hardening_log_ulog == 0)					\
 		return;							\
 									\

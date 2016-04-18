@@ -26,5 +26,9 @@ CFLAGS+=	-m32
 
 CFLAGS+=	-Wformat -Wall
 
+.if ${MACHINE_CPUARCH} == "aarch64"
+NOPIE=		1
+.endif
+
 .include <bsd.stand.mk>
 .include <bsd.lib.mk>

@@ -3,6 +3,7 @@
 #
 
 PROG=	bhyve
+PACKAGE=	bhyve
 
 DEBUG_FLAGS= -g -O0
 
@@ -48,7 +49,6 @@ SRCS=	\
 SRCS+=	vmm_instruction_emul.c
 
 LIBADD=	vmmapi md pthread
-WANTS_PIE=	yes
 
 WARNS?=	2
 

@@ -180,7 +180,8 @@ isp_send_cmd(ispsoftc_t *isp, void *fqe, void *segp, uint32_t nsegs, uint32_t to
 			isp_put_cont_req(isp, (ispcontreq_t *)storage, qe1);
 		}
 		if (isp->isp_dblev & ISP_LOGDEBUG1) {
-			isp_print_bytes(isp, "additional queue entry", QENTRY_LEN, storage);
+			isp_print_bytes(isp, "additional queue entry",
+			    QENTRY_LEN, qe1);
 		}
 		nqe++;
         }
@@ -241,7 +242,7 @@ copy_and_sync:
 		return (CMD_COMPLETE);
 	}
 	if (isp->isp_dblev & ISP_LOGDEBUG1) {
-		isp_print_bytes(isp, "first queue entry", QENTRY_LEN, fqe);
+		isp_print_bytes(isp, "first queue entry", QENTRY_LEN, qe0);
 	}
 	ISP_ADD_REQUEST(isp, nxt);
 	return (CMD_QUEUED);
@@ -531,6 +532,7 @@ isp_fc_loop_statename(int state)
 	switch (state) {
 	case LOOP_NIL:                  return "NIL";
 	case LOOP_HAVE_LINK:            return "Have Link";
+	case LOOP_HAVE_ADDR:            return "Have Address";
 	case LOOP_TESTING_LINK:         return "Testing Link";
 	case LOOP_LTEST_DONE:           return "Link Test Done";
 	case LOOP_SCANNING_LOOP:        return "Scanning Loop";
@@ -547,7 +549,7 @@ const char *
 isp_fc_toponame(fcparam *fcp)
 {
 
-	if (fcp->isp_loopstate < LOOP_LTEST_DONE) {
+	if (fcp->isp_loopstate < LOOP_HAVE_ADDR) {
 		return "Unavailable";
 	}
 	switch (fcp->isp_topo) {
@@ -2193,7 +2195,8 @@ isp_send_tgt_cmd(ispsoftc_t *isp, void *fqe, void *segp, uint32_t nsegs, uint32_
 			isp_put_cont_req(isp, (ispcontreq_t *)storage, qe1);
 		}
 		if (isp->isp_dblev & ISP_LOGTDEBUG1) {
-			isp_print_bytes(isp, "additional queue entry", QENTRY_LEN, storage);
+			isp_print_bytes(isp, "additional queue entry",
+			    QENTRY_LEN, qe1);
 		}
 		nqe++;
         }
@@ -2230,7 +2233,7 @@ isp_send_tgt_cmd(ispsoftc_t *isp, void *fqe, void *segp, uint32_t nsegs, uint32_
 		return (CMD_COMPLETE);
 	}
 	if (isp->isp_dblev & ISP_LOGTDEBUG1) {
-		isp_print_bytes(isp, "first queue entry", QENTRY_LEN, fqe);
+		isp_print_bytes(isp, "first queue entry", QENTRY_LEN, qe0);
 	}
 	ISP_ADD_REQUEST(isp, nxt);
 	return (CMD_QUEUED);
@@ -2327,7 +2330,7 @@ isp_find_chan_by_did(ispsoftc_t *isp, uint32_t did, uint16_t *cp)
 	for (chan = 0; chan < isp->isp_nchan; chan++) {
 		fcparam *fcp = FCPARAM(isp, chan);
 		if ((fcp->role & ISP_ROLE_TARGET) == 0 ||
-		    fcp->isp_loopstate < LOOP_LTEST_DONE) {
+		    fcp->isp_loopstate < LOOP_HAVE_ADDR) {
 			continue;
 		}
 		if (fcp->isp_portid == did) {

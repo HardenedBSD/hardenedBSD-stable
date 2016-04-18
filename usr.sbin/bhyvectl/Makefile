@@ -4,11 +4,11 @@
 
 PROG=	bhyvectl
 SRCS=	bhyvectl.c
+PACKAGE=	bhyve
 
 MAN=	bhyvectl.8
 
 LIBADD=	vmmapi util
-WANTS_PIE=	yes
 
 WARNS?=	3
 

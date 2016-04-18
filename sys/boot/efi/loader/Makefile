@@ -2,6 +2,10 @@
 
 MAN=
 
+.if ${MACHINE_CPUARCH} == "aarch64"
+NOPIE=	1
+.endif
+
 .include <src.opts.mk>
 
 MK_SSP=		no

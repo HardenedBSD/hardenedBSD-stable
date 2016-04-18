@@ -38,6 +38,21 @@
 #   xargs -n1 | sort | uniq -d;
 # done
 
+# 20160419: remove Big5HKSCS locales
+OLD_FILES+=usr/share/locale/zh_HK.Big5HKSCS/LC_COLLATE
+OLD_FILES+=usr/share/locale/zh_HK.Big5HKSCS/LC_CTYPE
+OLD_FILES+=usr/share/locale/zh_HK.Big5HKSCS/LC_MESSAGES
+OLD_FILES+=usr/share/locale/zh_HK.Big5HKSCS/LC_MONETARY
+OLD_FILES+=usr/share/locale/zh_HK.Big5HKSCS/LC_NUMERIC
+OLD_FILES+=usr/share/locale/zh_HK.Big5HKSCS/LC_TIME
+OLD_DIRS+=usr/share/locale/zh_HK.Big5HKSCS
+OLD_FILES+=usr/share/locale/zh_Hant_HK.Big5HKSCS/LC_COLLATE
+OLD_FILES+=usr/share/locale/zh_Hant_HK.Big5HKSCS/LC_CTYPE
+OLD_FILES+=usr/share/locale/zh_Hant_HK.Big5HKSCS/LC_MESSAGES
+OLD_FILES+=usr/share/locale/zh_Hant_HK.Big5HKSCS/LC_MONETARY
+OLD_FILES+=usr/share/locale/zh_Hant_HK.Big5HKSCS/LC_NUMERIC
+OLD_FILES+=usr/share/locale/zh_Hant_HK.Big5HKSCS/LC_TIME
+OLD_DIRS+=usr/share/locale/zh_Hant_HK.Big5HKSCS
 # 20160317: rman_res_t size bump to uintmax_t
 OLD_LIBS+=usr/lib/libdevinfo.so.5
 OLD_LIBS+=usr/lib32/libdevinfo.so.5
@@ -1738,7 +1753,6 @@ OLD_FILES+=usr/share/man/man4/lindev.4.gz
 # 20140425
 OLD_FILES+=usr/lib/libssp_p.a
 OLD_FILES+=usr/lib/libstand_p.a
-OLD_FILES+=usr/lib32/libc_pic.a
 OLD_FILES+=usr/lib32/libssp_p.a
 OLD_FILES+=usr/lib32/libstand_p.a
 # 20140314: AppleTalk

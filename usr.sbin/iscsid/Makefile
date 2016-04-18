@@ -1,5 +1,6 @@
 # $FreeBSD$
 
+PACKAGE=	iscsi
 PROG=		iscsid
 SRCS=		chap.c discovery.c iscsid.c keys.c log.c login.c pdu.c
 CFLAGS+=	-I${.CURDIR}
@@ -10,7 +11,6 @@ MAN=		iscsid.8
 
 LIBADD=		md util
 
-WANTS_PIE=	yes
 
 WARNS=		6
 

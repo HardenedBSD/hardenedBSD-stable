@@ -60,7 +60,6 @@ __DEFAULT_YES_OPTIONS = \
     NIS \
     NLS \
     OPENSSH \
-    PIE \
     PROFILE \
     SSP \
     SYMVER \
@@ -77,7 +76,6 @@ __DEFAULT_NO_OPTIONS = \
 __DEFAULT_DEPENDENT_OPTIONS = \
     STAGING_MAN/STAGING \
     STAGING_PROG/STAGING \
-
 
 .include <bsd.mkopt.mk>
 
