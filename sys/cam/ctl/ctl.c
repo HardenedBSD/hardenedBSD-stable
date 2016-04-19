@@ -2444,7 +2444,10 @@ ctl_copyin_args(int num_args, struct ctl_be_arg *uargs,
 				snprintf(error_str, error_str_len, "Argument "
 				    "%d value is not NUL-terminated", i);
 				free(tmpptr, M_CTL);
+<<<<<<< HEAD
 				tmpptr = NULL;
+=======
+>>>>>>> origin/freebsd/current/master
 				goto bailout;
 			}
 			args[i].kvalue = tmpptr;
