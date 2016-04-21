@@ -59,11 +59,6 @@ ukbdmap.h			optional	ukbd_dflt_keymap	\
 	no-obj no-implicit-rule before-depend				\
 	clean		"ukbdmap.h"
 #
-kbdmuxmap.h			optional	kbdmux_dflt_keymap	\
-	compile-with	"/usr/sbin/kbdcontrol -L ${KBDMUX_DFLT_KEYMAP} | sed -e 's/^static keymap_t.* = /static keymap_t key_map = /' -e 's/^static accentmap_t.* = /static accentmap_t accent_map = /' > kbdmuxmap.h"			\
-	no-obj no-implicit-rule before-depend				\
-	clean		"kbdmuxmap.h"
-#
 nvenetlib.o			optional	nve pci			\
 	dependency	"$S/contrib/dev/nve/amd64/nvenetlib.o.bz2.uu"	\
 	compile-with	"uudecode $S/contrib/dev/nve/amd64/nvenetlib.o.bz2.uu ; bzip2 -df nvenetlib.o.bz2" \
