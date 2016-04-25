@@ -4,7 +4,7 @@
 PACKAGE=lib${LIB}
 INTERNALLIB=
 
-ELFTCDIR=	${.CURDIR}/../../contrib/elftoolchain
+ELFTCDIR=	${SRCTOP}/contrib/elftoolchain
 
 .PATH:	${ELFTCDIR}/libelftc
 

@@ -133,8 +133,8 @@ SYSCTL_INT(__CONCAT(_kern_elf, __ELF_WORD_SIZE), OID_AUTO,
 
 static Elf_Brandinfo *elf_brand_list[MAX_BRANDS];
 
-#define	trunc_page_ps(va, ps)	((va) & ~(ps - 1))
-#define	round_page_ps(va, ps)	(((va) + (ps - 1)) & ~(ps - 1))
+#define	trunc_page_ps(va, ps)	rounddown2(va, ps)
+#define	round_page_ps(va, ps)	roundup2(va, ps)
 #define	aligned(a, t)	(trunc_page_ps((u_long)(a), sizeof(t)) == (u_long)(a))
 
 static const char FREEBSD_ABI_VENDOR[] = "FreeBSD";

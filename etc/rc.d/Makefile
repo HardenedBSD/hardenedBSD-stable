@@ -71,7 +71,6 @@ FILES=	DAEMON \
 	mdconfig \
 	mdconfig2 \
 	mountd \
-	mroute6d \
 	msgs \
 	natd \
 	netif \

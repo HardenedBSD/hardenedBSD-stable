@@ -102,6 +102,16 @@ CFLAGS+= ${PICFLAG}
 .endif
 .endif
 
+.if defined(MK_RELRO)
+.if ${MK_RELRO} != "no"
+LDFLAGS+=	-Wl,-z,relro
+.endif
+
+.if ${MK_BIND_NOW} != "no"
+LDFLAGS+=	-Wl,-z,now
+.endif
+.endif
+
 PO_FLAG=-pg
 
 .c.o:

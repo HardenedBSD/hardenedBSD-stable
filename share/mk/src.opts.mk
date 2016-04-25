@@ -54,6 +54,7 @@ __DEFAULT_YES_OPTIONS = \
     AUTHPF \
     AUTOFS \
     BHYVE \
+    BIND_NOW \
     BINUTILS \
     BINUTILS_BOOTSTRAP \
     BLUETOOTH \
@@ -145,6 +146,7 @@ __DEFAULT_YES_OPTIONS = \
     RCMDS \
     RBOOTD \
     RCS \
+    RELRO \
     RESCUE \
     ROUTED \
     SENDMAIL \
