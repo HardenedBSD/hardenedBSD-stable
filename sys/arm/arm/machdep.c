@@ -62,6 +62,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/cons.h>
 #include <sys/cpu.h>
 #include <sys/ctype.h>
+#include <sys/devmap.h>
 #include <sys/efi.h>
 #include <sys/exec.h>
 #include <sys/imgact.h>
@@ -102,7 +103,6 @@ __FBSDID("$FreeBSD$");
 #include <machine/cpuinfo.h>
 #include <machine/debug_monitor.h>
 #include <machine/db_machdep.h>
-#include <machine/devmap.h>
 #include <machine/frame.h>
 #include <machine/intr.h>
 #include <machine/machdep.h>
@@ -457,7 +457,7 @@ cpu_startup(void *dummy)
 	    (uintmax_t)arm32_ptob(vm_cnt.v_free_count) / mbyte);
 	if (bootverbose) {
 		arm_physmem_print_tables();
-		arm_devmap_print_table();
+		devmap_print_table();
 	}
 
 	bufinit();
@@ -1694,7 +1694,7 @@ initarm(struct arm_boot_params *abp)
 
 	/* Establish static device mappings. */
 	err_devmap = platform_devmap_init();
-	arm_devmap_bootstrap(l1pagetable, NULL);
+	devmap_bootstrap(l1pagetable, NULL);
 	vm_max_kernel_address = platform_lastaddr();
 
 	cpu_domains((DOMAIN_CLIENT << (PMAP_DOMAIN_KERNEL * 2)) | DOMAIN_CLIENT);
@@ -1915,7 +1915,7 @@ initarm(struct arm_boot_params *abp)
 
 	/* Establish static device mappings. */
 	err_devmap = platform_devmap_init();
-	arm_devmap_bootstrap(0, NULL);
+	devmap_bootstrap(0, NULL);
 	vm_max_kernel_address = platform_lastaddr();
 
 	/*

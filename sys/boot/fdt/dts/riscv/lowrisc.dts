@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2015-2016 Ruslan Bukin <br@bsdpad.com>
+ * Copyright (c) 2016 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
  * Portions of this software were developed by SRI International and the
@@ -34,35 +34,75 @@
  * $FreeBSD$
  */
 
-#ifndef	_MACHINE_INTR_MACHDEP_H_
-#define	_MACHINE_INTR_MACHDEP_H_
+/dts-v1/;
 
-struct trapframe;
+/ {
+	model = "UC Berkeley Spike Simulator RV64I";
+	compatible = "riscv,rv64i";
+	#address-cells = <1>;
+	#size-cells = <1>;
+	#interrupt-cells = <1>;
 
-void riscv_init_interrupts(void);
-int riscv_teardown_intr(void *);
-int riscv_config_intr(u_int, enum intr_trigger, enum intr_polarity);
-int riscv_setup_intr(const char *, driver_filter_t *, driver_intr_t *,
-    void *, int, int, void **);
-void riscv_cpu_intr(struct trapframe *);
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
 
-typedef unsigned long * riscv_intrcnt_t;
+		cpu@0 {
+			device_type = "cpu";
+			compatible = "riscv,rv64i";
+			reg = <0x40002000>;
+		};
+	};
 
-riscv_intrcnt_t riscv_intrcnt_create(const char *);
-void riscv_intrcnt_setname(riscv_intrcnt_t, const char *);
+	aliases {
+		serial0 = &serial0;
+	};
 
-#ifdef SMP
-void riscv_setup_ipihandler(driver_filter_t *);
-void riscv_unmask_ipi(void);
-#endif
+	memory {
+		device_type = "memory";
+		reg = <0x0 0x8000000>; /* 128MB at 0x0 */
+	};
 
-enum {
-	IRQ_SOFTWARE,
-	IRQ_TIMER,
-	IRQ_HTIF,
-	IRQ_COP,	/* lowRISC only */
-	IRQ_UART,	/* lowRISC only */
-	NIRQS
+	soc {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		#interrupt-cells = <1>;
+
+		compatible = "simple-bus";
+		ranges;
+
+		pic0: pic@0 {
+			compatible = "riscv,pic";
+			interrupt-controller;
+		};
+
+		serial0: serial@80001000 {
+			compatible = "ns16550";
+			reg = <0x80001000 0x1000>;
+			reg-shift = <2>;
+			interrupts = < 4 >;
+			interrupt-parent = <&pic0>;
+			current-speed = <115200>;
+			clock-frequency = < 1000000 >;
+			status = "okay";
+		};
+
+		spi0: spi@80010000 {
+			compatible = "xlnx,xps-spi-3.2";
+			reg = <0x80010000 0x1000>;
+		};
+
+		timer0: timer@0 {
+			compatible = "riscv,timer";
+			interrupts = < 1 >;
+			interrupt-parent = < &pic0 >;
+			clock-frequency = < 1000000 >;
+		};
+	};
+
+	chosen {
+		bootargs = "-v";
+		stdin = "serial0";
+		stdout = "serial0";
+	};
 };
-
-#endif /* !_MACHINE_INTR_MACHDEP_H_ */

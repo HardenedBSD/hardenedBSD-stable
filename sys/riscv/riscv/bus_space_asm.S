@@ -1,6 +1,14 @@
 /*-
- * Copyright (c) 2013 Ruslan Bukin <br@bsdpad.com>
+ * Copyright (c) 2016 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
+ *
+ * Portions of this software were developed by SRI International and the
+ * University of Cambridge Computer Laboratory under DARPA/AFRL contract
+ * FA8750-10-C-0237 ("CTSRD"), as part of the DARPA CRASH research programme.
+ *
+ * Portions of this software were developed by the University of Cambridge
+ * Computer Laboratory as part of the CTSRD Project, with support from the
+ * UK Higher Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,76 +32,54 @@
  * SUCH DAMAGE.
  */
 
-#include "opt_ddb.h"
-#include "opt_platform.h"
+#include <machine/asm.h>
 
-#include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
-#define	_ARM32_BUS_DMA_PRIVATE
-#include <sys/param.h>
-#include <sys/systm.h>
-#include <sys/bus.h>
-#include <sys/devmap.h>
+ENTRY(generic_bs_r_1)
+	add	a3, a1, a2
+	lb	a0, 0(a3)
+	ret
+END(generic_bs_r_1)
 
-#include <vm/vm.h>
+ENTRY(generic_bs_r_2)
+	add	a3, a1, a2
+	lh	a0, 0(a3)
+	ret
+END(generic_bs_r_2)
 
-#include <machine/armreg.h>
-#include <machine/bus.h>
-#include <machine/machdep.h>
-#include <machine/platform.h> 
+ENTRY(generic_bs_r_4)
+	add	a3, a1, a2
+	lw	a0, 0(a3)
+	ret
+END(generic_bs_r_4)
 
-vm_offset_t
-platform_lastaddr(void)
-{
+ENTRY(generic_bs_r_8)
+	add	a3, a1, a2
+	ld	a0, 0(a3)
+	ret
+END(generic_bs_r_8)
 
-	return (devmap_lastaddr());
-}
+ENTRY(generic_bs_w_1)
+	add	a4, a1, a2
+	sb	a3, 0(a4)
+	ret
+END(generic_bs_w_1)
 
-void
-platform_probe_and_attach(void)
-{
+ENTRY(generic_bs_w_2)
+	add	a4, a1, a2
+	sh	a3, 0(a4)
+	ret
+END(generic_bs_w_2)
 
-}
+ENTRY(generic_bs_w_4)
+	add	a4, a1, a2
+	sw	a3, 0(a4)
+	ret
+END(generic_bs_w_4)
 
-void
-platform_gpio_init(void)
-{
-
-}
-
-void
-platform_late_init(void)
-{
-
-}
-
-int
-platform_devmap_init(void)
-{
-
-	/* CHIP ID */
-	devmap_add_entry(0x10000000, 0x100000);
-
-	/* UART */
-	devmap_add_entry(0x12C00000, 0x100000);
-
-	/* DWMMC */
-	devmap_add_entry(0x12200000, 0x100000);
-
-	return (0);
-}
-
-struct arm32_dma_range *
-bus_dma_get_range(void)
-{
-
-	return (NULL);
-}
-
-int
-bus_dma_get_range_nb(void)
-{
-
-	return (0);
-}
+ENTRY(generic_bs_w_8)
+	add	a4, a1, a2
+	sd	a3, 0(a4)
+	ret
+END(generic_bs_w_8)
