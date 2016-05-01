@@ -1,5 +1,5 @@
 \ Copyright (c) 2006-2015 Devin Teske <dteske@FreeBSD.org>
-\ Copyright (c) 2015 Oliver Pinter <op@HardenedBSD.org>
+\ Copyright (c) 2015-2016 Oliver Pinter <op@HardenedBSD.org>
 \ All rights reserved.
 \ 
 \ Redistribution and use in source and binary forms, with or without
@@ -25,7 +25,7 @@
 \ 
 \ $FreeBSD$
 
-46 logoX ! 7 logoY ! \ Initialize logo placement defaults
+46 logoX ! 9 logoY ! \ Initialize logo placement defaults
 
 : logo+ ( x y c-addr/u -- x y' )
 	2swap 2dup at-xy 2swap \ position the cursor
@@ -38,14 +38,12 @@
 	s" uKOS2qsmkfe38kEuXLimP+7XoBiuIt5k" logo+
 	s" BMHardenedBSDxfOL9QwvfA6yxGHkNMG" logo+
 	s" 2I7ADmw7Mp/P8Y4wjnBFDNKvNzdZa/uu" logo+
-	s" iTwpnHhcIEKkmuxHmd4Ffmz/lTXRTknl" logo+
 	s" 7jx0/j28DcHs1oTUiFxDezXj0+bYBAjk" logo+
 	s" M/WeI4vOFPUZQcUiqAhCItlLY/1/YsdU" logo+
 	s" bYCu3JOWsOA/Ctw0oVmHA+jY6Z8RJnsT" logo+
 	s" NTm3YVdJVYQ+O2ltoSwHardenedBSDVD" logo+
 	s" vji9p89gQvsPgS9hh9ekUCw/0TnSeQ1W" logo+
 	s" NHcmBLfiNO7mU9D4rCxiSQfifcIZzC78" logo+
-	s" mTTg+jGB8NJcpmZ6eMQ9iYmAVsOTZlq+" logo+
 	s" uwaNYp+XGq+qEt7pQ+aX2nsJ2juBCGai" logo+
 	s" fTclPrFDFBNSqyrmOEI3Lrkn3eudPbJU" logo+
 	s" NlHardenedBSDvCOXT59dcSRw9mB3bOl" logo+
