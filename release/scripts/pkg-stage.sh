@@ -12,9 +12,9 @@ export REPO_AUTOUPDATE="NO"
 export PKGCMD="/usr/sbin/pkg -d"
 
 _DVD_PACKAGES="archivers/unzip
+devel/git
 devel/subversion
 devel/subversion-static
-emulators/linux_base-f10
 misc/freebsd-doc-all
 net/mpd5
 net/rsync
@@ -24,6 +24,7 @@ shells/bash
 shells/zsh
 security/sudo
 sysutils/screen
+sysutils/tmux
 www/firefox
 www/links
 x11-drivers/xf86-video-vmware
