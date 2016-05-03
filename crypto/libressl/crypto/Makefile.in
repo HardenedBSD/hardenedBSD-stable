@@ -967,7 +967,8 @@ top_srcdir = @top_srcdir@
 AM_CFLAGS = 
 AM_CPPFLAGS = -I$(top_srcdir)/include -I$(top_srcdir)/include/compat \
 	-DLIBRESSL_INTERNAL -I$(top_srcdir)/crypto/asn1 \
-	-I$(top_srcdir)/crypto/evp -I$(top_srcdir)/crypto/modes
+	-I$(top_srcdir)/crypto/evp -I$(top_srcdir)/crypto/modes \
+	-I$(top_srcdir)/crypto
 lib_LTLIBRARIES = libcrypto.la
 
 # needed for a CMake target
@@ -999,19 +1000,20 @@ noinst_HEADERS = compat/arc4random.h compat/arc4random_aix.h \
 	compat/arc4random_freebsd.h compat/arc4random_hpux.h \
 	compat/arc4random_linux.h compat/arc4random_netbsd.h \
 	compat/arc4random_osx.h compat/arc4random_solaris.h \
-	compat/arc4random_win.h compat/chacha_private.h cryptlib.h \
-	md32_common.h o_time.h aes/aes_locl.h asn1/asn1_locl.h \
-	asn1/charmap.h bf/bf_locl.h bf/bf_pi.h bn/bn_lcl.h \
-	bn/bn_prime.h camellia/camellia.h camellia/cmll_locl.h \
-	cast/cast_lcl.h cast/cast_s.h conf/conf_def.h des/des_locl.h \
-	des/spr.h dsa/dsa_locl.h ec/ec_lcl.h ecdh/ech_locl.h \
-	ecdsa/ecs_locl.h engine/eng_int.h evp/evp_locl.h gost/gost.h \
-	gost/gost_asn1.h gost/gost_locl.h idea/idea_lcl.h \
-	md4/md4_locl.h md5/md5_locl.h modes/modes_lcl.h \
-	objects/obj_dat.h objects/obj_xref.h rc2/rc2_locl.h \
-	rc4/rc4_locl.h ripemd/rmd_locl.h ripemd/rmdconst.h \
-	rsa/rsa_locl.h sha/sha_locl.h ui/ui_locl.h whrlpool/wp_locl.h \
-	x509/x509_lcl.h x509v3/ext_dat.h x509v3/pcy_int.h
+	compat/arc4random_win.h compat/chacha_private.h \
+	constant_time_locl.h cryptlib.h md32_common.h o_time.h \
+	aes/aes_locl.h asn1/asn1_locl.h asn1/charmap.h bf/bf_locl.h \
+	bf/bf_pi.h bn/bn_lcl.h bn/bn_prime.h camellia/camellia.h \
+	camellia/cmll_locl.h cast/cast_lcl.h cast/cast_s.h \
+	conf/conf_def.h des/des_locl.h des/spr.h dsa/dsa_locl.h \
+	ec/ec_lcl.h ecdh/ech_locl.h ecdsa/ecs_locl.h engine/eng_int.h \
+	evp/evp_locl.h gost/gost.h gost/gost_asn1.h gost/gost_locl.h \
+	idea/idea_lcl.h md4/md4_locl.h md5/md5_locl.h \
+	modes/modes_lcl.h objects/obj_dat.h objects/obj_xref.h \
+	rc2/rc2_locl.h rc4/rc4_locl.h ripemd/rmd_locl.h \
+	ripemd/rmdconst.h rsa/rsa_locl.h sha/sha_locl.h ui/ui_locl.h \
+	whrlpool/wp_locl.h x509/x509_lcl.h x509v3/ext_dat.h \
+	x509v3/pcy_int.h
 
 # aes
 

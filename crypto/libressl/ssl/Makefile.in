@@ -134,7 +134,7 @@ am__uninstall_files_from_dir = { \
   }
 am__installdirs = "$(DESTDIR)$(libdir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
-libssl_la_DEPENDENCIES = ../crypto/libcrypto.la
+libssl_la_DEPENDENCIES = $(abs_top_builddir)/crypto/libcrypto.la
 am_libssl_la_OBJECTS = bio_ssl.lo bs_ber.lo bs_cbb.lo bs_cbs.lo \
 	d1_both.lo d1_clnt.lo d1_enc.lo d1_lib.lo d1_meth.lo d1_pkt.lo \
 	d1_srtp.lo d1_srvr.lo pqueue.lo s23_clnt.lo s23_lib.lo \
@@ -343,7 +343,7 @@ AM_CPPFLAGS = -I$(top_srcdir)/include -I$(top_srcdir)/include/compat -DLIBRESSL_
 lib_LTLIBRARIES = libssl.la
 EXTRA_DIST = VERSION CMakeLists.txt
 libssl_la_LDFLAGS = -version-info @LIBSSL_VERSION@ -no-undefined
-libssl_la_LIBADD = ../crypto/libcrypto.la
+libssl_la_LIBADD = $(abs_top_builddir)/crypto/libcrypto.la
 libssl_la_SOURCES = bio_ssl.c bs_ber.c bs_cbb.c bs_cbs.c d1_both.c \
 	d1_clnt.c d1_enc.c d1_lib.c d1_meth.c d1_pkt.c d1_srtp.c \
 	d1_srvr.c pqueue.c s23_clnt.c s23_lib.c s23_pkt.c s23_srvr.c \

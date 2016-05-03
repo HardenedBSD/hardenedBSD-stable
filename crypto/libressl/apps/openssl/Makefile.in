@@ -151,8 +151,8 @@ am_openssl_OBJECTS = apps.$(OBJEXT) asn1pars.$(OBJEXT) ca.$(OBJEXT) \
 openssl_OBJECTS = $(am_openssl_OBJECTS)
 am__DEPENDENCIES_1 =
 openssl_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
-	$(top_builddir)/ssl/libssl.la \
-	$(top_builddir)/crypto/libcrypto.la
+	$(abs_top_builddir)/ssl/libssl.la \
+	$(abs_top_builddir)/crypto/libcrypto.la
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
@@ -378,8 +378,8 @@ AM_CFLAGS =
 AM_CPPFLAGS = -I$(top_srcdir)/include -I$(top_srcdir)/include/compat -DLIBRESSL_INTERNAL
 dist_man_MANS = openssl.1
 openssl_LDADD = $(PLATFORM_LDADD) $(PROG_LDADD) \
-	$(top_builddir)/ssl/libssl.la \
-	$(top_builddir)/crypto/libcrypto.la
+	$(abs_top_builddir)/ssl/libssl.la \
+	$(abs_top_builddir)/crypto/libcrypto.la
 openssl_SOURCES = apps.c asn1pars.c ca.c ciphers.c cms.c crl.c \
 	crl2p7.c dgst.c dh.c dhparam.c dsa.c dsaparam.c ec.c ecparam.c \
 	enc.c errstr.c gendh.c gendsa.c genpkey.c genrsa.c nseq.c \

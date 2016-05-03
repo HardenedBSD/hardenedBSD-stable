@@ -4,7 +4,7 @@
 
 /* These will change with each release of LibreSSL-portable */
 #define LIBRESSL_VERSION_NUMBER	0x2030300fL
-#define LIBRESSL_VERSION_TEXT	"LibreSSL 2.3.3"
+#define LIBRESSL_VERSION_TEXT	"LibreSSL 2.3.4"
 
 /* These will never change */
 #define OPENSSL_VERSION_NUMBER	0x20000000L

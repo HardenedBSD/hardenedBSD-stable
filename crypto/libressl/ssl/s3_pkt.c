@@ -956,6 +956,7 @@ start:
 
 		memcpy(buf, &(rr->data[rr->off]), n);
 		if (!peek) {
+			memset(&(rr->data[rr->off]), 0, n);
 			rr->length -= n;
 			rr->off += n;
 			if (rr->length == 0) {
