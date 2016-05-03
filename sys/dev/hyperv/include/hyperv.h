@@ -691,7 +691,6 @@ typedef struct {
 } hv_vmbus_ring_buffer_info;
 
 typedef void (*hv_vmbus_pfn_channel_callback)(void *context);
-typedef void (*hv_vmbus_sc_creation_callback)(void *context);
 
 typedef enum {
 	HV_CHANNEL_OFFER_STATE,
@@ -784,7 +783,7 @@ typedef struct hv_vmbus_channel {
 
 	/*
 	 * From Win8, this field specifies the target virtual process
-	 * on which to deliver the interupt from the host to guest.
+	 * on which to deliver the interrupt from the host to guest.
 	 * Before Win8, all channel interrupts would only be
 	 * delivered on cpu 0. Setting this value to 0 would preserve
 	 * the earlier behavior.
@@ -803,13 +802,6 @@ typedef struct hv_vmbus_channel {
 	 * primary channel. Requests sent on a given channel will result in a
 	 * response on the same channel.
 	 */
-
-	/*
-	 * Multi-channel creation callback. This callback will be called in
-	 * process context when a Multi-channel offer is received from the host.
-	 * The guest can open the Multi-channel in the context of this callback.
-	 */
-	hv_vmbus_sc_creation_callback	sc_creation_callback;
 
 	struct mtx			sc_lock;
 

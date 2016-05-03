@@ -293,6 +293,11 @@ ieee80211_ht_vattach(struct ieee80211vap *vap)
 		vap->iv_flags_ht |= IEEE80211_FHT_AMSDU_RX;
 		if (vap->iv_htcaps & IEEE80211_HTC_AMSDU)
 			vap->iv_flags_ht |= IEEE80211_FHT_AMSDU_TX;
+
+		if (vap->iv_htcaps & IEEE80211_HTCAP_TXSTBC)
+			vap->iv_flags_ht |= IEEE80211_FHT_STBC_TX;
+		if (vap->iv_htcaps & IEEE80211_HTCAP_RXSTBC)
+			vap->iv_flags_ht |= IEEE80211_FHT_STBC_RX;
 	}
 	/* NB: disable default legacy WDS, too many issues right now */
 	if (vap->iv_flags_ext & IEEE80211_FEXT_WDSLEGACY)
@@ -2293,7 +2298,7 @@ bar_timeout(void *arg)
 		 * to make sure we notify the driver that a BAR
 		 * TX did occur and fail.  This gives the driver
 		 * a chance to undo any queue pause that may
-		 * have occured.
+		 * have occurred.
 		 */
 		ic->ic_bar_response(ni, tap, 1);
 		ieee80211_ampdu_stop(ni, tap, IEEE80211_REASON_TIMEOUT);
@@ -2778,6 +2783,13 @@ ieee80211_add_htcap_body(uint8_t *frm, struct ieee80211_node *ni)
 	if ((vap->iv_flags_ht & IEEE80211_FHT_SHORTGI40) == 0 ||
 	    (caps & IEEE80211_HTCAP_CHWIDTH40) == 0)
 		caps &= ~IEEE80211_HTCAP_SHORTGI40;
+
+	/* adjust STBC based on receive capabilities */
+	if ((vap->iv_flags_ht & IEEE80211_FHT_STBC_RX) == 0)
+		caps &= ~IEEE80211_HTCAP_RXSTBC;
+
+	/* XXX TODO: adjust LDPC based on receive capabilities */
+
 	ADDSHORT(frm, caps);
 
 	/* HT parameters */

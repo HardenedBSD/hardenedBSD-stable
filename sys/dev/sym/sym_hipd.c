@@ -2526,11 +2526,11 @@ static int sym_prepare_setting(hcb_p np, struct sym_nvram *nvram)
 	 * Minimum synchronous period factor supported by the chip.
 	 * Btw, 'period' is in tenths of nanoseconds.
 	 */
-	period = (4 * div_10M[0] + np->clock_khz - 1) / np->clock_khz;
+	period = howmany(4 * div_10M[0], np->clock_khz);
 	if	(period <= 250)		np->minsync = 10;
 	else if	(period <= 303)		np->minsync = 11;
 	else if	(period <= 500)		np->minsync = 12;
-	else				np->minsync = (period + 40 - 1) / 40;
+	else				np->minsync = howmany(period, 40);
 
 	/*
 	 * Check against chip SCSI standard support (SCSI-2,ULTRA,ULTRA2).
@@ -4001,7 +4001,7 @@ static void sym_recover_scsi_int (hcb_p np, u_char hsts)
 
 	/*
 	 *  If we haven't been interrupted inside the SCRIPTS
-	 *  critical pathes, we can safely restart the SCRIPTS
+	 *  critical paths, we can safely restart the SCRIPTS
 	 *  and trust the DSA value if it matches a CCB.
 	 */
 	if ((!(dsp > SCRIPTA_BA (np, getjob_begin) &&
@@ -5185,7 +5185,7 @@ static void sym_sir_task_recovery(hcb_p np, int num)
 
 		/*
 		 *  Otherwise, check for the LUN and TASK(s)
-		 *  concerned by the cancelation.
+		 *  concerned by the cancellation.
 		 *  If it is not ABORT_TAG then it is CLEAR_QUEUE
 		 *  or an ABORT message :-)
 		 */
@@ -6134,7 +6134,7 @@ static void sym_int_sir (hcb_p np)
 		}
 		goto out;
 	/*
-	 *  The device wants us to tranfer more data than
+	 *  The device wants us to transfer more data than
 	 *  expected or in the wrong direction.
 	 *  The number of extra bytes is in scratcha.
 	 *  It is a data overrun condition.

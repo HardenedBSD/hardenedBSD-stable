@@ -372,11 +372,6 @@ options 	EISA_SLOTS=12
 device		mca
 
 #
-# PCI bus & PCI options:
-#
-device		pci
-
-#
 # AGP GART support
 device		agp
 

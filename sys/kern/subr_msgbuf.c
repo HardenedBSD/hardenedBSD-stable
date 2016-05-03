@@ -52,7 +52,7 @@ static u_int msgbuf_cksum(struct msgbuf *mbp);
 
 /*
  * Timestamps in msgbuf are useful when trying to diagnose when core dumps
- * or other actions occured.
+ * or other actions occurred.
  */
 #ifdef PAX_HARDENING
 static int msgbuf_show_timestamp = 1;

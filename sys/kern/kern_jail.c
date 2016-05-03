@@ -1334,6 +1334,7 @@ kern_jail_set(struct thread *td, struct uio *optuio, int flags)
 
 		LIST_INIT(&pr->pr_children);
 		mtx_init(&pr->pr_mtx, "jail mutex", NULL, MTX_DEF | MTX_DUPOK);
+		TASK_INIT(&pr->pr_task, 0, prison_complete, pr);
 
 #ifdef VIMAGE
 		/* Allocate a new vnet if specified. */
@@ -2419,7 +2420,6 @@ sys_jail_attach(struct thread *td, struct jail_attach_args *uap)
 static int
 do_jail_attach(struct thread *td, struct prison *pr)
 {
-	struct prison *ppr;
 	struct proc *p;
 	struct ucred *newcred, *oldcred;
 	int error;
@@ -2447,7 +2447,6 @@ do_jail_attach(struct thread *td, struct prison *pr)
 	/*
 	 * Reparent the newly attached process to this jail.
 	 */
-	ppr = td->td_ucred->cr_prison;
 	p = td->td_proc;
 	error = cpuset_setproc_update_set(p, pr->pr_cpuset);
 	if (error)
@@ -2466,23 +2465,23 @@ do_jail_attach(struct thread *td, struct prison *pr)
 
 	newcred = crget();
 	PROC_LOCK(p);
-	oldcred = p->p_ucred;
-	setsugid(p);
-	crcopy(newcred, oldcred);
+	oldcred = crcopysafe(p, newcred);
 	newcred->cr_prison = pr;
 	proc_set_cred(p, newcred);
+	setsugid(p);
 	PROC_UNLOCK(p);
 #ifdef RACCT
 	racct_proc_ucred_changed(p, oldcred, newcred);
 #endif
+	prison_deref(oldcred->cr_prison, PD_DEREF | PD_DEUREF);
 	crfree(oldcred);
-	prison_deref(ppr, PD_DEREF | PD_DEUREF);
 	return (0);
+
  e_unlock:
 	VOP_UNLOCK(pr->pr_root, 0);
  e_revert_osd:
 	/* Tell modules this thread is still in its old jail after all. */
-	(void)osd_jail_call(ppr, PR_METHOD_ATTACH, td);
+	(void)osd_jail_call(td->td_ucred->cr_prison, PR_METHOD_ATTACH, td);
 	prison_deref(pr, PD_DEREF | PD_DEUREF);
 	return (error);
 }
@@ -2591,16 +2590,13 @@ prison_allow(struct ucred *cred, unsigned flag)
 void
 prison_free_locked(struct prison *pr)
 {
+	int ref;
 
 	mtx_assert(&pr->pr_mtx, MA_OWNED);
-	pr->pr_ref--;
-	if (pr->pr_ref == 0) {
-		mtx_unlock(&pr->pr_mtx);
-		TASK_INIT(&pr->pr_task, 0, prison_complete, pr);
-		taskqueue_enqueue(taskqueue_thread, &pr->pr_task);
-		return;
-	}
+	ref = --pr->pr_ref;
 	mtx_unlock(&pr->pr_mtx);
+	if (ref == 0)
+		taskqueue_enqueue(taskqueue_thread, &pr->pr_task);
 }
 
 void
@@ -2611,11 +2607,17 @@ prison_free(struct prison *pr)
 	prison_free_locked(pr);
 }
 
+/*
+ * Complete a call to either prison_free or prison_proc_free.
+ */
 static void
 prison_complete(void *context, int pending)
 {
+	struct prison *pr = context;
 
-	prison_deref((struct prison *)context, 0);
+	mtx_lock(&pr->pr_mtx);
+	prison_deref(pr, pr->pr_uref
+	    ? PD_DEREF | PD_DEUREF | PD_LOCKED : PD_LOCKED);
 }
 
 /*
@@ -2634,6 +2636,9 @@ prison_deref(struct prison *pr, int flags)
 		mtx_lock(&pr->pr_mtx);
 	for (;;) {
 		if (flags & PD_DEUREF) {
+			KASSERT(pr->pr_uref > 0,
+			    ("prison_deref PD_DEUREF on a dead prison (jid=%d)",
+			     pr->pr_id));
 			pr->pr_uref--;
 			lasturef = pr->pr_uref == 0;
 			if (lasturef)
@@ -2641,8 +2646,12 @@ prison_deref(struct prison *pr, int flags)
 			KASSERT(prison0.pr_uref != 0, ("prison0 pr_uref=0"));
 		} else
 			lasturef = 0;
-		if (flags & PD_DEREF)
+		if (flags & PD_DEREF) {
+			KASSERT(pr->pr_ref > 0,
+			    ("prison_deref PD_DEREF on a dead prison (jid=%d)",
+			     pr->pr_id));
 			pr->pr_ref--;
+		}
 		ref = pr->pr_ref;
 		mtx_unlock(&pr->pr_mtx);
 
@@ -2756,7 +2765,20 @@ prison_proc_free(struct prison *pr)
 	mtx_lock(&pr->pr_mtx);
 	KASSERT(pr->pr_uref > 0,
 	    ("Trying to kill a process in a dead prison (jid=%d)", pr->pr_id));
-	prison_deref(pr, PD_DEUREF | PD_LOCKED);
+	if (pr->pr_uref > 1)
+		pr->pr_uref--;
+	else {
+		/*
+		 * Don't remove the last user reference in this context, which
+		 * is expected to be a process that is not only locked, but
+		 * also half dead.
+		 */
+		pr->pr_ref++;
+		mtx_unlock(&pr->pr_mtx);
+		taskqueue_enqueue(taskqueue_thread, &pr->pr_task);
+		return;
+	}
+	mtx_unlock(&pr->pr_mtx);
 }
 
 
@@ -4031,7 +4053,7 @@ prison_priv_check(struct ucred *cred, int priv)
 		return (0);
 
 		/*
-		 * Allow jailed root to set certian IPv4/6 (option) headers.
+		 * Allow jailed root to set certain IPv4/6 (option) headers.
 		 */
 	case PRIV_NETINET_SETHDROPTS:
 		return (0);
@@ -4272,7 +4294,7 @@ SYSCTL_UINT(_security_jail, OID_AUTO, jail_max_af_ips, CTLFLAG_RW,
 #endif
 
 /*
- * Default parameters for jail(2) compatability.  For historical reasons,
+ * Default parameters for jail(2) compatibility.  For historical reasons,
  * the sysctl names have varying similarity to the parameter names.  Prisons
  * just see their own parameters, and can't change them.
  */
