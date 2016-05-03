@@ -717,6 +717,7 @@ ktrsyscall(struct ktr_syscall *ktr, u_int flags)
 			case SYS_chmod:
 			case SYS_fchmod:
 			case SYS_lchmod:
+			case SYS_fchmodat:
 				print_number(ip, narg, c);
 				putchar(',');
 				modename(*ip);
