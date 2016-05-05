@@ -6879,3 +6879,4 @@ MODULE_DEPEND(bwn, siba_bwn, 1, 1, 1);
 MODULE_DEPEND(bwn, wlan, 1, 1, 1);		/* 802.11 media layer */
 MODULE_DEPEND(bwn, firmware, 1, 1, 1);		/* firmware support */
 MODULE_DEPEND(bwn, wlan_amrr, 1, 1, 1);
+MODULE_VERSION(bwn, 1);
