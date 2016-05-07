@@ -1,6 +1,6 @@
 # $FreeBSD$
 
-.include <bsd.opts.mk>
+.include <src.opts.mk>
 
 .if ${MK_LIBRESSL} == "no"
 
