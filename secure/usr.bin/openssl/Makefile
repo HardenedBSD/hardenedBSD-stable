@@ -1,6 +1,8 @@
 # $FreeBSD$
 
-.if !defined(WITH_LIBRESSL)
+.include <bsd.opts.mk>
+
+.if ${MK_LIBRESSL} == "no"
 
 PROG=	openssl
 

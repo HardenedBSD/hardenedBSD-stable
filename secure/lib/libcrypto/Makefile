@@ -1,6 +1,8 @@
 # $FreeBSD$
 
-.if !defined(WITH_LIBRESSL)
+.include <bsd.opts.mk>
+
+.if ${MK_LIBRESSL} == "no"
 
 SHLIBDIR?=	/lib
 SUBDIR=		engines
@@ -482,4 +484,4 @@ _bn_asmpath=	${LCRYPTO_SRC}/crypto/bn/asm
 
 .else
 .include "Makefile.libressl"
-.endif # !defined(WITH_LIBRESSL)
+.endif
