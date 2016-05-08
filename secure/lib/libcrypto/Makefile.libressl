@@ -10,7 +10,7 @@ ALLOW_SHARED_TEXTREL=
 
 NO_LINT=
 
-.if exists(Makefile.man)
+.if exists(Makefile.man.libressl)
 .include "Makefile.man.libressl"
 .endif
 
