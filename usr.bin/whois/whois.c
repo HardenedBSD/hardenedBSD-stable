@@ -313,6 +313,11 @@ whois(const char *query, const char *hostname, int flags)
 				fds[i].fd = s;
 				fds[i].events = POLLERR | POLLHUP |
 						POLLIN | POLLOUT;
+				/*
+				 * From here until a socket connects, the
+				 * socket fd is owned by the fds[] poll array.
+				 */
+				s = -1;
 				count++;
 				i++;
 			} else {
@@ -354,7 +359,7 @@ whois(const char *query, const char *hostname, int flags)
 				 * after a new host have been added.
 				 */
 				if (timeout >= 3)
-					timeout <<= 1;
+					timeout >>= 1;
 
 				break;
 			} else if (n < 0) {
@@ -374,7 +379,7 @@ whois(const char *query, const char *hostname, int flags)
 				    fds[j].revents == 0)
 					continue;
 				if (fds[j].revents & ~(POLLIN | POLLOUT)) {
-					close(s);
+					close(fds[j].fd);
 					fds[j].fd = -1;
 					fds[j].events = 0;
 					count--;
@@ -382,6 +387,7 @@ whois(const char *query, const char *hostname, int flags)
 				} else if (fds[j].revents & (POLLIN | POLLOUT)) {
 					/* Connect succeeded. */
 					s = fds[j].fd;
+					fds[j].fd = -1;
 
 					goto done;
 				}
@@ -398,7 +404,7 @@ whois(const char *query, const char *hostname, int flags)
 done:
 	/* Close all watched fds except the succeeded one */
 	for (j = 0; j < i; j++)
-		if (fds[j].fd != s && fds[j].fd != -1)
+		if (fds[j].fd != -1)
 			close(fds[j].fd);
 
 	if (s != -1) {
