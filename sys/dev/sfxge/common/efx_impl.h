@@ -85,8 +85,6 @@ extern "C" {
 
 typedef enum efx_mac_type_e {
 	EFX_MAC_INVALID = 0,
-	EFX_MAC_FALCON_GMAC,
-	EFX_MAC_FALCON_XMAC,
 	EFX_MAC_SIENA,
 	EFX_MAC_HUNTINGTON,
 	EFX_MAC_MEDFORD,
@@ -248,7 +246,7 @@ typedef struct efx_filter_ops_s {
 	efx_rc_t	(*efo_supported_filters)(efx_nic_t *, uint32_t *, size_t *);
 	efx_rc_t	(*efo_reconfigure)(efx_nic_t *, uint8_t const *, boolean_t,
 				   boolean_t, boolean_t, boolean_t,
-				   uint8_t const *, int);
+				   uint8_t const *, uint32_t);
 } efx_filter_ops_t;
 
 extern	__checkReturn	efx_rc_t
@@ -260,7 +258,7 @@ efx_filter_reconfigure(
 	__in				boolean_t all_mulcst,
 	__in				boolean_t brdcst,
 	__in_ecount(6*count)		uint8_t const *addrs,
-	__in				int count);
+	__in				uint32_t count);
 
 #endif /* EFSYS_OPT_FILTER */
 
@@ -298,9 +296,6 @@ typedef struct efx_port_s {
 	uint32_t		ep_lp_cap_mask;
 	uint32_t		ep_default_adv_cap_mask;
 	uint32_t		ep_phy_cap_mask;
-	boolean_t		ep_mac_poll_needed; /* falcon only */
-	boolean_t		ep_mac_up; /* falcon only */
-	uint32_t		ep_fwver; /* falcon only */
 	boolean_t		ep_mac_drain;
 	boolean_t		ep_mac_stats_pending;
 #if EFSYS_OPT_BIST
@@ -354,7 +349,6 @@ typedef struct efx_nic_ops_s {
 	efx_rc_t	(*eno_get_bar_region)(efx_nic_t *, efx_nic_region_t,
 					uint32_t *, size_t *);
 #if EFSYS_OPT_DIAG
-	efx_rc_t	(*eno_sram_test)(efx_nic_t *, efx_sram_pattern_fn_t);
 	efx_rc_t	(*eno_register_test)(efx_nic_t *);
 #endif	/* EFSYS_OPT_DIAG */
 	void		(*eno_fini)(efx_nic_t *);
@@ -788,10 +782,6 @@ struct efx_txq_s {
 		char rev;						\
 									\
 		switch ((_enp)->en_family) {				\
-		case EFX_FAMILY_FALCON:					\
-			rev = 'B';					\
-			break;						\
-									\
 		case EFX_FAMILY_SIENA:					\
 			rev = 'C';					\
 			break;						\

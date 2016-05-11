@@ -59,7 +59,7 @@ typedef __success(return == 0) int efx_rc_t;
 
 typedef enum efx_family_e {
 	EFX_FAMILY_INVALID,
-	EFX_FAMILY_FALCON,
+	EFX_FAMILY_FALCON,	/* Obsolete and not supported */
 	EFX_FAMILY_SIENA,
 	EFX_FAMILY_HUNTINGTON,
 	EFX_FAMILY_MEDFORD,
@@ -246,7 +246,6 @@ efx_mcdi_fini(
 
 /* INTR */
 
-#define	EFX_NINTR_FALCON 64
 #define	EFX_NINTR_SIENA 1024
 
 typedef enum efx_intr_type_e {
@@ -567,7 +566,7 @@ efx_mon_init(
 #define	EFX_MON_STATS_PAGE_SIZE 0x100
 #define	EFX_MON_MASK_ELEMENT_SIZE 32
 
-/* START MKCONFIG GENERATED MonitorHeaderStatsBlock c09b13f732431f23 */
+/* START MKCONFIG GENERATED MonitorHeaderStatsBlock 5d4ee5185e419abe */
 typedef enum efx_mon_stat_e {
 	EFX_MON_STAT_2_5V,
 	EFX_MON_STAT_VCCP1,
@@ -644,6 +643,8 @@ typedef enum efx_mon_stat_e {
 	EFX_MON_STAT_PHY0_VCC,
 	EFX_MON_STAT_PHY1_VCC,
 	EFX_MON_STAT_CONTROLLER_TDIODE_TEMP,
+	EFX_MON_STAT_BOARD_FRONT_TEMP,
+	EFX_MON_STAT_BOARD_BACK_TEMP,
 	EFX_MON_NSTATS
 } efx_mon_stat_t;
 
