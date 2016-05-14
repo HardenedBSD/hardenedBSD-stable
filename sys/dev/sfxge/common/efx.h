@@ -540,9 +540,6 @@ efx_mac_stats_update(
 
 typedef enum efx_mon_type_e {
 	EFX_MON_INVALID = 0,
-	EFX_MON_NULL,
-	EFX_MON_LM87,
-	EFX_MON_MAX6647,
 	EFX_MON_SFC90X0,
 	EFX_MON_SFC91X0,
 	EFX_MON_SFC92X0,
@@ -685,15 +682,6 @@ efx_mon_fini(
 	__in	efx_nic_t *enp);
 
 /* PHY */
-
-#define	PMA_PMD_MMD	1
-#define	PCS_MMD		3
-#define	PHY_XS_MMD	4
-#define	DTE_XS_MMD	5
-#define	AN_MMD		7
-#define	CL22EXT_MMD	29
-
-#define	MAXMMD		((1 << 5) - 1)
 
 extern	__checkReturn	efx_rc_t
 efx_phy_verify(
@@ -946,33 +934,6 @@ efx_phy_stats_update(
 
 #endif	/* EFSYS_OPT_PHY_STATS */
 
-#if EFSYS_OPT_PHY_PROPS
-
-#if EFSYS_OPT_NAMES
-
-extern		const char *
-efx_phy_prop_name(
-	__in	efx_nic_t *enp,
-	__in	unsigned int id);
-
-#endif	/* EFSYS_OPT_NAMES */
-
-#define	EFX_PHY_PROP_DEFAULT	0x00000001
-
-extern	__checkReturn	efx_rc_t
-efx_phy_prop_get(
-	__in		efx_nic_t *enp,
-	__in		unsigned int id,
-	__in		uint32_t flags,
-	__out		uint32_t *valp);
-
-extern	__checkReturn	efx_rc_t
-efx_phy_prop_set(
-	__in		efx_nic_t *enp,
-	__in		unsigned int id,
-	__in		uint32_t val);
-
-#endif	/* EFSYS_OPT_PHY_PROPS */
 
 #if EFSYS_OPT_BIST
 
@@ -1109,9 +1070,6 @@ typedef struct efx_nic_cfg_s {
 #if EFSYS_OPT_PHY_STATS
 	uint64_t		enc_phy_stat_mask;
 #endif	/* EFSYS_OPT_PHY_STATS */
-#if EFSYS_OPT_PHY_PROPS
-	unsigned int		enc_phy_nprops;
-#endif	/* EFSYS_OPT_PHY_PROPS */
 #if EFSYS_OPT_SIENA
 	uint8_t			enc_mcdi_mdio_channel;
 #if EFSYS_OPT_PHY_STATS

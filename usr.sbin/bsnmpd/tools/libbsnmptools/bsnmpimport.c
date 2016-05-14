@@ -140,9 +140,9 @@ struct input {
 	LIST_ENTRY(input) link;
 };
 
-LIST_HEAD(, input) inputs = LIST_HEAD_INITIALIZER(inputs);
-struct input *input = NULL;
-int32_t pbchar = -1;
+static LIST_HEAD(, input) inputs = LIST_HEAD_INITIALIZER(inputs);
+static struct input *input = NULL;
+static int32_t pbchar = -1;
 
 #define	MAX_PATHS	100
 
@@ -301,18 +301,18 @@ static const struct {
 	{ NULL, 0, 0 }
 };
 
-struct {
+static struct {
 	/* Current OID type, regarding table membership. */
 	enum snmp_tbl_entry	tbl_type;
 	/* A pointer to a structure in table list to add to its members. */
 	struct snmp_index_entry	*table_idx;
 } table_data;
 
-struct asn_oid current_oid;
-char nexttok[MAXSTR];
-u_long val;		/* integer values */
-int32_t	all_cond;	/* all conditions are true */
-int32_t saved_token = -1;
+static struct asn_oid current_oid;
+static char nexttok[MAXSTR];
+static u_long val;		/* integer values */
+static int32_t	all_cond;	/* all conditions are true */
+static int32_t saved_token = -1;
 
 /* Prepare the global data before parsing a new file. */
 static void
@@ -635,12 +635,11 @@ snmp_import_table(struct snmp_toolinfo *snmptoolctx, struct snmp_oid2str *obj)
 	enum tok tok;
 	struct snmp_index_entry *entry;
 
-	if ((entry = malloc(sizeof(struct snmp_index_entry))) == NULL) {
+	if ((entry = calloc(1, sizeof(struct snmp_index_entry))) == NULL) {
 		syslog(LOG_ERR, "malloc() failed: %s", strerror(errno));
 		return (-1);
 	}
 
-	memset(entry, 0, sizeof(struct snmp_index_entry));
 	STAILQ_INIT(&(entry->index_list));
 
 	for (i = 0, tok = gettoken(snmptoolctx); i < SNMP_INDEXES_MAX; i++) {
@@ -764,7 +763,7 @@ snmp_import_object(struct snmp_toolinfo *snmptoolctx)
 	if (snmp_import_head(snmptoolctx) < 0)
 		return (-1);
 
-	if ((oid2str = malloc(sizeof(struct snmp_oid2str))) == NULL) {
+	if ((oid2str = calloc(1, sizeof(struct snmp_oid2str))) == NULL) {
 		syslog(LOG_ERR, "malloc() failed: %s", strerror(errno));
 		return (-1);
 	}
@@ -775,7 +774,6 @@ snmp_import_object(struct snmp_toolinfo *snmptoolctx)
 		return (-1);
 	}
 
-	memset(oid2str, 0, sizeof(struct snmp_oid2str));
 	strlcpy(string, nexttok, strlen(nexttok) + 1);
 	oid2str->string = string;
 	oid2str->strlen = strlen(nexttok);
