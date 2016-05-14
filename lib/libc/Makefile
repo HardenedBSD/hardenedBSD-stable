@@ -3,6 +3,8 @@
 
 SHLIBDIR?= /lib
 
+NOPIE=	yes
+
 .include <bsd.own.mk>
 
 # Pick the current architecture directory for libc. In general, this is

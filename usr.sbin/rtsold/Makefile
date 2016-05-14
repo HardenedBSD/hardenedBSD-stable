@@ -23,6 +23,5 @@ WARNS?=	3
 CFLAGS+= -DHAVE_POLL_H
 DPADD=	${LIBKVM}
 LDADD=	-lkvm
-WANTS_PIE=	yes
 
 .include <bsd.prog.mk>

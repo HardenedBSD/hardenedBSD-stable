@@ -47,7 +47,6 @@ SRCS+=	vmm_instruction_emul.c
 
 DPADD=	${LIBVMMAPI} ${LIBMD} ${LIBUTIL} ${LIBPTHREAD}
 LDADD=	-lvmmapi -lmd -lutil -lpthread
-WANTS_PIE=	yes
 
 WARNS?=	2
 

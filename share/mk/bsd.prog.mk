@@ -11,14 +11,6 @@
 CFLAGS+=${COPTS}
 .endif
 
-.if defined(WANTS_PIE)
-.if ${MK_PIE} != "no"
-CFLAGS+= -fPIE
-CXXFLAGS+= -fPIE
-LDFLAGS+= -pie
-.endif
-.endif
-
 .if ${MK_ASSERT_DEBUG} == "no"
 CFLAGS+= -DNDEBUG
 NO_WERROR=
@@ -61,6 +53,23 @@ LDFLAGS+= -static
 
 .if defined(USEPRIVATELIB)
 LDFLAGS+= -L${_SHLIBDIRPREFIX}${LIBPRIVATEDIR} -rpath ${LIBPRIVATEDIR}
+.endif
+
+.if defined(MK_PIE)
+# Ports will not have MK_PIE defined and the following logic requires
+# it be defined.
+
+.if ${LDFLAGS:M-static}
+NOPIE=yes
+.endif
+
+.if !defined(NOPIE)
+.if ${MK_PIE} != "no"
+CFLAGS+= -fPIE
+CXXFLAGS+= -fPIE
+LDFLAGS+= -pie
+.endif
+.endif
 .endif
 
 .if ${MK_DEBUG_FILES} != "no"

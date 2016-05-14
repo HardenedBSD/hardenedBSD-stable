@@ -9,6 +9,7 @@ __<bsd.init.mk>__:
 .if exists(${.CURDIR}/../Makefile.inc)
 .include "${.CURDIR}/../Makefile.inc"
 .endif
+.sinclude <src.opts.mk>
 .include <bsd.own.mk>
 .MAIN: all
 .endif	# !target(__<bsd.init.mk>__)

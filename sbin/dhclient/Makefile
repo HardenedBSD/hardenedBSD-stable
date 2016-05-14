@@ -43,7 +43,6 @@ MAN=	dhclient.8 dhclient.conf.5 dhclient.leases.5 dhcp-options.5 \
 	dhclient-script.8
 DPADD=	${LIBUTIL}
 LDADD=	-lutil
-WANTS_PIE=	yes
 
 WARNS?=	2
 

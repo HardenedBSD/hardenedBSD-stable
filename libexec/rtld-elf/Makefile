@@ -4,6 +4,8 @@
 # linker:
 # make DEBUG_FLAGS=-g DEBUG=-DDEBUG MK_TESTS=no all
 
+NOPIE=		yes
+
 .include <bsd.own.mk>
 MK_SSP=		no
 

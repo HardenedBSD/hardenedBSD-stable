@@ -7,7 +7,6 @@ SRCS=	if.c input.c main.c output.c parms.c radix.c rdisc.c table.c trace.c
 WARNS?=	3
 DPADD=	${LIBMD}
 LDADD=	-lmd
-WANTS_PIE=	yes
 
 SUBDIR= rtquery
 

@@ -11,7 +11,6 @@ SRCS=	syslogd.c ttymsg.c
 
 DPADD=	${LIBUTIL}
 LDADD=	-lutil
-WANTS_PIE=	yes
 
 WARNS?= 3
 
