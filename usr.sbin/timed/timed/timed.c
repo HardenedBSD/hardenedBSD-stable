@@ -196,7 +196,7 @@ main(int argc, char *argv[])
 	if (0 != goodgroup || 0 != goodhosts)
 		Mflag = 1;
 
-	if (gethostname(hostname, sizeof(hostname)) < 0)
+	if (gethostname(hostname, sizeof(hostname) - 1) < 0)
 		err(1, "gethostname");
 	self.l_bak = &self;
 	self.l_fwd = &self;
