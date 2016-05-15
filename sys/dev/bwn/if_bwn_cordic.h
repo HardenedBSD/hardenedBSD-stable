@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2009-2010 Weongyo Jeong <weongyo@freebsd.org>
+ * Copyright (c) 2016 Adrian Chadd <adrian@FreeBSD.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,40 +28,69 @@
  *
  * $FreeBSD$
  */
-#ifndef	__IF_BWN_MISC_H__
-#define	__IF_BWN_MISC_H__
+#ifndef	__IF_BWN_CORDIC_H__
+#define	__IF_BWN_CORDIC_H__
 
 /*
- * These are the functions used by the PHY code.
- *
- * They currently live in the driver itself; at least until they
- * are broken out into smaller pieces.
+ * These functions are used by the PHY code.
  */
 
-struct bwn_mac;
+/* Complex number using 2 32-bit signed integers */
+struct bwn_c32 {
+	int32_t i;
+	int32_t q;
+};
 
-extern uint64_t	bwn_hf_read(struct bwn_mac *);
-extern void	bwn_hf_write(struct bwn_mac *, uint64_t);
+#define	CORDIC_CONVERT(value)	(((value) >= 0) ?	\
+	    ((((value) >> 15) + 1) >> 1) :		\
+	    -((((-(value)) >> 15) + 1) >> 1))
 
-extern void	bwn_dummy_transmission(struct bwn_mac *mac, int ofdm, int paon);
+static const uint32_t bwn_arctg[] = {
+    2949120, 1740967, 919879, 466945, 234379, 117304, 58666, 29335, 14668,
+    7334, 3667, 1833, 917, 458, 229, 115, 57, 29,
+};
 
-extern void	bwn_ram_write(struct bwn_mac *, uint16_t, uint32_t);
+/* http://bcm-v4.sipsolutions.net/802.11/PHY/Cordic */
+static inline struct bwn_c32
+bwn_cordic(int theta)
+{
+	uint8_t i;
+	int32_t tmp;
+	int8_t signx = 1;
+	uint32_t angle = 0;
+	struct bwn_c32 ret = { .i = 39797, .q = 0, };
 
-extern void	bwn_mac_suspend(struct bwn_mac *);
-extern void	bwn_mac_enable(struct bwn_mac *);
+	while (theta > (180 << 16))
+		theta -= (360 << 16);
+	while (theta < -(180 << 16))
+		theta += (360 << 16);
 
-extern int	bwn_switch_channel(struct bwn_mac *, int);
+	if (theta > (90 << 16)) {
+		theta -= (180 << 16);
+		signx = -1;
+	} else if (theta < -(90 << 16)) {
+		theta += (180 << 16);
+		signx = -1;
+	}
 
-extern uint16_t	bwn_shm_read_2(struct bwn_mac *, uint16_t, uint16_t);
-extern void	bwn_shm_write_2(struct bwn_mac *, uint16_t, uint16_t,
-		    uint16_t);
-extern uint32_t	bwn_shm_read_4(struct bwn_mac *, uint16_t, uint16_t);
-extern void	bwn_shm_write_4(struct bwn_mac *, uint16_t, uint16_t,
-		    uint32_t);
+	for (i = 0; i <= 17; i++) {
+		if (theta > angle) {
+			tmp = ret.i - (ret.q >> i);
+			ret.q += ret.i >> i;
+			ret.i = tmp;
+			angle += bwn_arctg[i];
+		} else {
+			tmp = ret.i + (ret.q >> i);
+			ret.q -= ret.i >> i;
+			ret.i = tmp;
+			angle -= bwn_arctg[i];
+		}
+	}
 
-/* This is only for SIBA core */
-extern	void bwn_reset_core(struct bwn_mac *, int g_mode);
+	ret.i *= signx;
+	ret.q *= signx;
 
-extern void	bwn_psctl(struct bwn_mac *, uint32_t);
+	return ret;
+}
 
-#endif
+#endif	/* __IF_BWN_CORDIC_H__ */

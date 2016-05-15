@@ -513,7 +513,7 @@ snmp_import_update_table(enum snmp_tbl_entry te, struct snmp_index_entry *tbl)
 }
 
 static int32_t
-parse_enum(struct snmp_toolinfo *snmptoolctx, enum tok *tok,
+parse_enum(struct snmp_toolinfo *snmptoolctx, int32_t *tok,
     struct enum_pairs *enums)
 {
 	while ((*tok = gettoken(snmptoolctx)) == TOK_STR) {
@@ -532,7 +532,7 @@ parse_enum(struct snmp_toolinfo *snmptoolctx, enum tok *tok,
 }
 
 static int32_t
-parse_subtype(struct snmp_toolinfo *snmptoolctx, enum tok *tok,
+parse_subtype(struct snmp_toolinfo *snmptoolctx, int32_t *tok,
     enum snmp_tc *tc)
 {
 	if ((*tok = gettoken(snmptoolctx)) != TOK_STR) {
@@ -547,7 +547,7 @@ parse_subtype(struct snmp_toolinfo *snmptoolctx, enum tok *tok,
 }
 
 static int32_t
-parse_type(struct snmp_toolinfo *snmptoolctx, enum tok *tok,
+parse_type(struct snmp_toolinfo *snmptoolctx, int32_t *tok,
     enum snmp_tc *tc, struct enum_pairs **snmp_enum)
 {
 	int32_t syntax, mem;
@@ -630,9 +630,8 @@ snmp_import_head(struct snmp_toolinfo *snmptoolctx)
 static int32_t
 snmp_import_table(struct snmp_toolinfo *snmptoolctx, struct snmp_oid2str *obj)
 {
-	int32_t i;
+	int32_t i, tok;
 	enum snmp_tc tc;
-	enum tok tok;
 	struct snmp_index_entry *entry;
 
 	if ((entry = calloc(1, sizeof(struct snmp_index_entry))) == NULL) {
@@ -704,7 +703,7 @@ snmp_import_table(struct snmp_toolinfo *snmptoolctx, struct snmp_oid2str *obj)
  * Read everything after the syntax type that is certainly a leaf OID info.
  */
 static int32_t
-snmp_import_leaf(struct snmp_toolinfo *snmptoolctx, enum tok *tok,
+snmp_import_leaf(struct snmp_toolinfo *snmptoolctx, int32_t *tok,
     struct snmp_oid2str *oid2str)
 {
 	int32_t i, syntax;
@@ -757,24 +756,23 @@ snmp_import_object(struct snmp_toolinfo *snmptoolctx)
 {
 	char *string;
 	int i;
-	enum tok tok;
+	int32_t tok;
 	struct snmp_oid2str *oid2str;
 
 	if (snmp_import_head(snmptoolctx) < 0)
 		return (-1);
 
 	if ((oid2str = calloc(1, sizeof(struct snmp_oid2str))) == NULL) {
-		syslog(LOG_ERR, "malloc() failed: %s", strerror(errno));
+		syslog(LOG_ERR, "calloc() failed: %s", strerror(errno));
 		return (-1);
 	}
 
-	if ((string = malloc(strlen(nexttok) + 1)) == NULL) {
-		syslog(LOG_ERR, "malloc() failed: %s", strerror(errno));
+	if ((string = strdup(nexttok)) == NULL) {
+		syslog(LOG_ERR, "strdup() failed: %s", strerror(errno));
 		free(oid2str);
 		return (-1);
 	}
 
-	strlcpy(string, nexttok, nitems(string));
 	oid2str->string = string;
 	oid2str->strlen = strlen(nexttok);
 
@@ -855,7 +853,7 @@ error:
 }
 
 static int32_t
-snmp_import_tree(struct snmp_toolinfo *snmptoolctx, enum tok *tok)
+snmp_import_tree(struct snmp_toolinfo *snmptoolctx, int32_t *tok)
 {
 	while (*tok != TOK_EOF) {
 		switch (*tok) {
@@ -881,7 +879,7 @@ snmp_import_tree(struct snmp_toolinfo *snmptoolctx, enum tok *tok)
 }
 
 static int32_t
-snmp_import_top(struct snmp_toolinfo *snmptoolctx, enum tok *tok)
+snmp_import_top(struct snmp_toolinfo *snmptoolctx, int32_t *tok)
 {
 	enum snmp_tc tc;
 	struct enum_type *t;
@@ -938,7 +936,7 @@ static int32_t
 snmp_import(struct snmp_toolinfo *snmptoolctx)
 {
 	int i;
-	enum tok tok;
+	int32_t tok;
 
 	tok = gettoken(snmptoolctx);
 
