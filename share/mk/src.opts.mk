@@ -119,6 +119,7 @@ __DEFAULT_YES_OPTIONS = \
     LEGACY_CONSOLE \
     LIBPTHREAD \
     LIBTHR \
+    LIBRESSL \
     LOCALES \
     LOCATE \
     LPR \
@@ -184,7 +185,6 @@ __DEFAULT_NO_OPTIONS = \
     FREEBSD_UPDATE \
     HESIOD \
     LIB32 \
-    LIBRESSL \
     LIBSOFT \
     NAND \
     OFED \
