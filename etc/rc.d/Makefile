@@ -13,13 +13,6 @@ FILES=	DAEMON \
 	abi \
 	addswap \
 	adjkerntz \
-<<<<<<< HEAD
-	atm1 \
-	atm2 \
-	atm3 \
-=======
-	archdep \
->>>>>>> origin/freebsd/current/master
 	auditd \
 	auditdistd \
 	bgfsck \
