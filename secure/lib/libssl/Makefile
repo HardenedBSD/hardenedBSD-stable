@@ -1,5 +1,9 @@
 # $FreeBSD$
 
+.include <src.opts.mk>
+
+.if ${MK_LIBRESSL} == "no"
+
 LIB=		ssl
 SHLIB_MAJOR=	8
 
@@ -23,9 +27,11 @@ INCSDIR=${INCLUDEDIR}/openssl
 
 LIBADD=	crypto
 
-CFLAGS+=	-I${LCRYPTO_SRC}/crypto
-
 .include <bsd.lib.mk>
 
 .PATH:	${LCRYPTO_SRC}/ssl \
 	${.CURDIR}/man
+
+.else
+.include "Makefile.libressl"
+.endif
