@@ -14,6 +14,15 @@ __HardenedBSD_version = 45
 	When PIE is enabled, compile non-static libraries with -fPIC.
 	Default WITH_SHARED_TOOLCHAIN to enabled by default.
 
+	If you encounter build problems during make buildworld,
+	try to clean the object files directory, which is typically
+	/usr/obj: 
+	
+		cd /usr/obj; rm -rf *
+	
+	And retry to build the world. This will require due to not
+	proper cleaning mechanizm of FreeBSD's build framework.
+
 
 [20160326] noexec and ASLR changes
 __HardenedBSD_version = 44
