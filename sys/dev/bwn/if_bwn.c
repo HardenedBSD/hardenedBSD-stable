@@ -564,6 +564,11 @@ bwn_attach(device_t dev)
 	else
 		device_printf(sc->sc_dev, "PIO\n");
 
+#ifdef	BWN_GPL_PHY
+	device_printf(sc->sc_dev,
+	    "Note: compiled with BWN_GPL_PHY; includes GPLv2 code\n");
+#endif
+
 	/*
 	 * setup PCI resources and interrupt.
 	 */
@@ -2656,8 +2661,21 @@ bwn_dma_ringsetup(struct bwn_mac *mac, int controller_index,
 		dr->dr_curslot = -1;
 	} else {
 		if (dr->dr_index == 0) {
-			dr->dr_rx_bufsize = BWN_DMA0_RX_BUFFERSIZE;
-			dr->dr_frameoffset = BWN_DMA0_RX_FRAMEOFFSET;
+			switch (mac->mac_fw.fw_hdr_format) {
+			case BWN_FW_HDR_351:
+			case BWN_FW_HDR_410:
+				dr->dr_rx_bufsize =
+				    BWN_DMA0_RX_BUFFERSIZE_FW351;
+				dr->dr_frameoffset =
+				    BWN_DMA0_RX_FRAMEOFFSET_FW351;
+				break;
+			case BWN_FW_HDR_598:
+				dr->dr_rx_bufsize =
+				    BWN_DMA0_RX_BUFFERSIZE_FW598;
+				dr->dr_frameoffset =
+				    BWN_DMA0_RX_FRAMEOFFSET_FW598;
+				break;
+			}
 		} else
 			KASSERT(0 == 1, ("%s:%d: fail", __func__, __LINE__));
 	}
@@ -2676,7 +2694,7 @@ bwn_dma_ringsetup(struct bwn_mac *mac, int controller_index,
 
 		dr->dr_txhdr_cache = contigmalloc(
 		    (dr->dr_numslots / BWN_TX_SLOTS_PER_FRAME) *
-		    BWN_HDRSIZE(mac), M_DEVBUF, M_ZERO,
+		    BWN_MAXTXHDRSIZE, M_DEVBUF, M_ZERO,
 		    0, BUS_SPACE_MAXADDR, 8, 0);
 		if (dr->dr_txhdr_cache == NULL) {
 			device_printf(sc->sc_dev,
@@ -2773,7 +2791,7 @@ fail2:
 	if (dr->dr_txhdr_cache != NULL) {
 		contigfree(dr->dr_txhdr_cache,
 		    (dr->dr_numslots / BWN_TX_SLOTS_PER_FRAME) *
-		    BWN_HDRSIZE(mac), M_DEVBUF);
+		    BWN_MAXTXHDRSIZE, M_DEVBUF);
 	}
 fail1:
 	free(dr->dr_meta, M_DEVBUF);
@@ -2795,7 +2813,7 @@ bwn_dma_ringfree(struct bwn_dma_ring **dr)
 	if ((*dr)->dr_txhdr_cache != NULL) {
 		contigfree((*dr)->dr_txhdr_cache,
 		    ((*dr)->dr_numslots / BWN_TX_SLOTS_PER_FRAME) *
-		    BWN_HDRSIZE((*dr)->dr_mac), M_DEVBUF);
+		    BWN_MAXTXHDRSIZE, M_DEVBUF);
 	}
 	free((*dr)->dr_meta, M_DEVBUF);
 	free(*dr, M_DEVBUF);
