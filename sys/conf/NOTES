@@ -1139,12 +1139,6 @@ options 	NFS_DEBUG		# Enable NFS Debugging
 #
 options 	EXT2FS
 
-#
-# Add support for the ReiserFS filesystem (used in Linux). Currently,
-# this is limited to read-only access.
-#
-options 	REISERFS
-
 # Cryptographically secure random number generator; /dev/random
 device		random
 
@@ -3072,3 +3066,5 @@ options 	PAX_SYSCTLS	# Run-time settings for PAX and Hardening
 options 	PAX_INSECURE_MODE	# Allow to override INVARIANTS enforcements
 options 	HBSD_DEBUG
 
+# BHND(4) drivers
+options		BHND_LOGLEVEL	# Logging threshold level
