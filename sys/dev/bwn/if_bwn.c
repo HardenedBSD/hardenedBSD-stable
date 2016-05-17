@@ -34,6 +34,9 @@ __FBSDID("$FreeBSD$");
  * The Broadcom Wireless LAN controller driver.
  */
 
+#include "opt_bwn.h"
+#include "opt_wlan.h"
+
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/kernel.h>
@@ -81,6 +84,7 @@ __FBSDID("$FreeBSD$");
 #include <dev/bwn/if_bwn_phy_common.h>
 #include <dev/bwn/if_bwn_phy_g.h>
 #include <dev/bwn/if_bwn_phy_lp.h>
+#include <dev/bwn/if_bwn_phy_n.h>
 
 static SYSCTL_NODE(_hw, OID_AUTO, bwn, CTLFLAG_RD, 0,
     "Broadcom driver parameters");
@@ -128,7 +132,7 @@ static int	bwn_setup_channels(struct bwn_mac *, int, int);
 static void	bwn_shm_ctlword(struct bwn_mac *, uint16_t,
 		    uint16_t);
 static void	bwn_addchannels(struct ieee80211_channel [], int, int *,
-		    const struct bwn_channelinfo *, int);
+		    const struct bwn_channelinfo *, const uint8_t []);
 static int	bwn_raw_xmit(struct ieee80211_node *, struct mbuf *,
 		    const struct ieee80211_bpf_params *);
 static void	bwn_updateslot(struct ieee80211com *);
@@ -1220,6 +1224,8 @@ bwn_attach_core(struct bwn_mac *mac)
 		have_bg = 1;
 	}
 
+	mac->mac_phy.phy_n = NULL;
+
 	if (mac->mac_phy.type == BWN_PHYTYPE_G) {
 		mac->mac_phy.attach = bwn_phy_g_attach;
 		mac->mac_phy.detach = bwn_phy_g_detach;
@@ -1256,6 +1262,28 @@ bwn_attach_core(struct bwn_mac *mac)
 		mac->mac_phy.get_default_chan = bwn_phy_lp_get_default_chan;
 		mac->mac_phy.set_antenna = bwn_phy_lp_set_antenna;
 		mac->mac_phy.task_60s = bwn_phy_lp_task_60s;
+	} else if (mac->mac_phy.type == BWN_PHYTYPE_N) {
+		mac->mac_phy.attach = bwn_phy_n_attach;
+		mac->mac_phy.detach = bwn_phy_n_detach;
+		mac->mac_phy.prepare_hw = bwn_phy_n_prepare_hw;
+		mac->mac_phy.init_pre = bwn_phy_n_init_pre;
+		mac->mac_phy.init = bwn_phy_n_init;
+		mac->mac_phy.exit = bwn_phy_n_exit;
+		mac->mac_phy.phy_read = bwn_phy_n_read;
+		mac->mac_phy.phy_write = bwn_phy_n_write;
+		mac->mac_phy.rf_read = bwn_phy_n_rf_read;
+		mac->mac_phy.rf_write = bwn_phy_n_rf_write;
+		mac->mac_phy.use_hwpctl = bwn_phy_n_hwpctl;
+		mac->mac_phy.rf_onoff = bwn_phy_n_rf_onoff;
+		mac->mac_phy.switch_analog = bwn_phy_n_switch_analog;
+		mac->mac_phy.switch_channel = bwn_phy_n_switch_channel;
+		mac->mac_phy.get_default_chan = bwn_phy_n_get_default_chan;
+		mac->mac_phy.set_antenna = bwn_phy_n_set_antenna;
+		mac->mac_phy.set_im = bwn_phy_n_im;
+		mac->mac_phy.recalc_txpwr = bwn_phy_n_recalc_txpwr;
+		mac->mac_phy.set_txpwr = bwn_phy_n_set_txpwr;
+		mac->mac_phy.task_15s = bwn_phy_n_task_15s;
+		mac->mac_phy.task_60s = bwn_phy_n_task_60s;
 	} else {
 		device_printf(sc->sc_dev, "unsupported PHY type (%d)\n",
 		    mac->mac_phy.type);
@@ -1459,14 +1487,12 @@ error:
 	return (ENODEV);
 }
 
-#define	IEEE80211_CHAN_HTG	(IEEE80211_CHAN_HT | IEEE80211_CHAN_G)
-#define	IEEE80211_CHAN_HTA	(IEEE80211_CHAN_HT | IEEE80211_CHAN_A)
-
 static int
 bwn_setup_channels(struct bwn_mac *mac, int have_bg, int have_a)
 {
 	struct bwn_softc *sc = mac->mac_sc;
 	struct ieee80211com *ic = &sc->sc_ic;
+	uint8_t bands[howmany(IEEE80211_MODE_MAX, 8)];
 
 	memset(ic->ic_channels, 0, sizeof(ic->ic_channels));
 	ic->ic_nchans = 0;
@@ -1476,26 +1502,20 @@ bwn_setup_channels(struct bwn_mac *mac, int have_bg, int have_a)
 	    have_bg,
 	    have_a);
 
-	if (have_bg)
+	if (have_bg) {
+		memset(bands, 0, sizeof(bands));
+		setbit(bands, IEEE80211_MODE_11B);
+		setbit(bands, IEEE80211_MODE_11G);
 		bwn_addchannels(ic->ic_channels, IEEE80211_CHAN_MAX,
-		    &ic->ic_nchans, &bwn_chantable_bg, IEEE80211_CHAN_G);
-#if 0
-	if (mac->mac_phy.type == BWN_PHYTYPE_N) {
-		if (have_a)
-			bwn_addchannels(ic->ic_channels, IEEE80211_CHAN_MAX,
-			    &ic->ic_nchans, &bwn_chantable_n,
-			    IEEE80211_CHAN_HTA);
-	} else {
-		if (have_a)
-			bwn_addchannels(ic->ic_channels, IEEE80211_CHAN_MAX,
-			    &ic->ic_nchans, &bwn_chantable_a,
-			    IEEE80211_CHAN_A);
+		    &ic->ic_nchans, &bwn_chantable_bg, bands);
 	}
-#endif
-	if (have_a)
+
+	if (have_a) {
+		memset(bands, 0, sizeof(bands));
+		setbit(bands, IEEE80211_MODE_11A);
 		bwn_addchannels(ic->ic_channels, IEEE80211_CHAN_MAX,
-		    &ic->ic_nchans, &bwn_chantable_a,
-		    IEEE80211_CHAN_A);
+		    &ic->ic_nchans, &bwn_chantable_a, bands);
+	}
 
 	mac->mac_phy.supports_2ghz = have_bg;
 	mac->mac_phy.supports_5ghz = have_a;
@@ -1609,63 +1629,16 @@ bwn_shm_write_2(struct bwn_mac *mac, uint16_t way, uint16_t offset,
 }
 
 static void
-bwn_addchan(struct ieee80211_channel *c, int freq, int flags, int ieee,
-    int txpow)
-{
-
-	c->ic_freq = freq;
-	c->ic_flags = flags;
-	c->ic_ieee = ieee;
-	c->ic_minpower = 0;
-	c->ic_maxpower = 2 * txpow;
-	c->ic_maxregpower = txpow;
-}
-
-static void
 bwn_addchannels(struct ieee80211_channel chans[], int maxchans, int *nchans,
-    const struct bwn_channelinfo *ci, int flags)
+    const struct bwn_channelinfo *ci, const uint8_t bands[])
 {
-	struct ieee80211_channel *c;
-	int i;
+	int i, error;
 
-	c = &chans[*nchans];
+	for (i = 0, error = 0; i < ci->nchannels && error == 0; i++) {
+		const struct bwn_channel *hc = &ci->channels[i];
 
-	for (i = 0; i < ci->nchannels; i++) {
-		const struct bwn_channel *hc;
-
-		hc = &ci->channels[i];
-		if (*nchans >= maxchans)
-			break;
-		bwn_addchan(c, hc->freq, flags, hc->ieee, hc->maxTxPow);
-		c++, (*nchans)++;
-		if (flags == IEEE80211_CHAN_G || flags == IEEE80211_CHAN_HTG) {
-			/* g channel have a separate b-only entry */
-			if (*nchans >= maxchans)
-				break;
-			c[0] = c[-1];
-			c[-1].ic_flags = IEEE80211_CHAN_B;
-			c++, (*nchans)++;
-		}
-		if (flags == IEEE80211_CHAN_HTG) {
-			/* HT g channel have a separate g-only entry */
-			if (*nchans >= maxchans)
-				break;
-			c[-1].ic_flags = IEEE80211_CHAN_G;
-			c[0] = c[-1];
-			c[0].ic_flags &= ~IEEE80211_CHAN_HT;
-			c[0].ic_flags |= IEEE80211_CHAN_HT20;	/* HT20 */
-			c++, (*nchans)++;
-		}
-		if (flags == IEEE80211_CHAN_HTA) {
-			/* HT a channel have a separate a-only entry */
-			if (*nchans >= maxchans)
-				break;
-			c[-1].ic_flags = IEEE80211_CHAN_A;
-			c[0] = c[-1];
-			c[0].ic_flags &= ~IEEE80211_CHAN_HT;
-			c[0].ic_flags |= IEEE80211_CHAN_HT20;	/* HT20 */
-			c++, (*nchans)++;
-		}
+		error = ieee80211_add_channel(chans, maxchans, nchans,
+		    hc->ieee, hc->freq, hc->maxTxPow, 0, bands);
 	}
 }
 

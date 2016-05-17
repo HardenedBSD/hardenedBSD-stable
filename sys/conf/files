@@ -1142,6 +1142,9 @@ dev/bhnd/cores/chipc/bhnd_chipc_if.m	optional bhndbus | bhnd
 dev/bhnd/cores/pci/bhnd_pci.c		optional bhndbus pci | bhnd pci
 dev/bhnd/cores/pci/bhnd_pci_hostb.c	optional bhndbus pci | bhndb pci
 dev/bhnd/cores/pci/bhnd_pcib.c		optional bhnd_pcib bhnd pci
+dev/bhnd/cores/pcie2/bhnd_pcie2.c	optional bhndbus pci | bhnd pci
+dev/bhnd/cores/pcie2/bhnd_pcie2_hostb.c	optional bhndbus pci | bhndb pci
+dev/bhnd/cores/pcie2/bhnd_pcie2b.c	optional bhnd_pcie2b bhnd pci
 dev/bhnd/nvram/bhnd_nvram_if.m		optional bhndbus | bhnd
 dev/bhnd/nvram/bhnd_sprom.c		optional bhndbus | bhnd
 dev/bhnd/nvram/nvram_subr.c		optional bhndbus | bhnd
@@ -1176,6 +1179,7 @@ dev/bwn/if_bwn_phy_g.c		optional bwn siba_bwn \
 	compile-with "${NORMAL_C} ${NO_WSOMETIMES_UNINITIALIZED}"
 dev/bwn/if_bwn_phy_lp.c		optional bwn siba_bwn \
 	compile-with "${NORMAL_C} ${NO_WSOMETIMES_UNINITIALIZED}"
+dev/bwn/if_bwn_phy_n.c		optional bwn siba_bwn
 dev/bwn/if_bwn_util.c		optional bwn siba_bwn
 dev/bwn/bwn_mac.c		optional bwn bhnd | bwn bhndbus
 dev/cardbus/cardbus.c		optional cardbus
