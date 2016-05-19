@@ -713,6 +713,8 @@ iscsi_receive_callback(struct icl_pdu *response)
 
 	ISCSI_SESSION_LOCK(is);
 
+	iscsi_pdu_update_statsn(response);
+
 #ifdef ICL_KERNEL_PROXY
 	if (is->is_login_phase) {
 		if (is->is_login_pdu == NULL)
@@ -725,8 +727,6 @@ iscsi_receive_callback(struct icl_pdu *response)
 	}
 #endif
 
-	iscsi_pdu_update_statsn(response);
-	
 	/*
 	 * The handling routine is responsible for freeing the PDU
 	 * when it's no longer needed.
@@ -1620,9 +1620,7 @@ iscsi_ioctl_daemon_send(struct iscsi_softc *sc,
 		KASSERT(error == 0, ("icl_pdu_append_data(..., M_WAITOK) failed"));
 		free(data, M_ISCSI);
 	}
-	ISCSI_SESSION_LOCK(is);
-	icl_pdu_queue(ip);
-	ISCSI_SESSION_UNLOCK(is);
+	iscsi_pdu_queue(ip);
 
 	return (0);
 }
@@ -1634,6 +1632,7 @@ iscsi_ioctl_daemon_receive(struct iscsi_softc *sc,
 	struct iscsi_session *is;
 	struct icl_pdu *ip;
 	void *data;
+	int error;
 
 	sx_slock(&sc->sc_lock);
 	TAILQ_FOREACH(is, &sc->sc_sessions, is_next) {
@@ -1652,8 +1651,13 @@ iscsi_ioctl_daemon_receive(struct iscsi_softc *sc,
 	ISCSI_SESSION_LOCK(is);
 	while (is->is_login_pdu == NULL &&
 	    is->is_terminating == false &&
-	    is->is_reconnecting == false)
-		cv_wait(&is->is_login_cv, &is->is_lock);
+	    is->is_reconnecting == false) {
+		error = cv_wait_sig(&is->is_login_cv, &is->is_lock);
+		if (error != 0) {
+			ISCSI_SESSION_UNLOCK(is);
+			return (error);
+		}
+	}
 	if (is->is_terminating || is->is_reconnecting) {
 		ISCSI_SESSION_UNLOCK(is);
 		return (EIO);
