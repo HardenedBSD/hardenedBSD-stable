@@ -451,8 +451,29 @@ check_sanity() {
 	fi
 }
 
+report_version() {
+	local ver
+	ver=$(get_version)
+	if [ ! ${?} -eq 0 ]; then
+		echo "[-] Could not get remote version number" >&2
+		exit 1
+	fi
+
+	if [ -f ${mountpoint}/var/db/hbsd-update/version ]; then
+		echo "[+] Local version: $(cat ${mountpoint}/var/db/hbsd-update/version)"
+	fi
+
+	echo "[+] Remote version: ${ver}"
+
+	exit 0
+}
+
 main() {
-	while getopts 'hiUVb:c:j:K:t:u:v:' opt; do
+	local do_report_version
+
+	do_report_version=0
+
+	while getopts 'hiCUVb:c:j:K:t:u:v:' opt; do
 		case "${opt}" in
 			b)
 				if ! which -s ${BEADM}; then
@@ -464,6 +485,9 @@ main() {
 				;;
 			c)
 				configfile="${OPTARG}"
+				;;
+			C)
+				do_report_version=1
 				;;
 			i)
 				ignorever=1
@@ -497,6 +521,10 @@ main() {
 	res=${?}
 	if [ ${res} -gt 0 ]; then
 		exit 1
+	fi
+
+	if [ ${do_report_version} -gt 0 ]; then
+		report_version
 	fi
 
 	if [ -z "${tmpdir}" ]; then
