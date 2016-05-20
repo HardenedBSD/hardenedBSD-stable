@@ -334,12 +334,13 @@ amd64_set_ioperm(td, uap)
 	struct thread *td;
 	struct i386_ioperm_args *uap;
 {
-	int i, error;
 	char *iomap;
 	struct amd64tss *tssp;
 	struct system_segment_descriptor *tss_sd;
 	u_long *addr;
 	struct pcb *pcb;
+	u_int i;
+	int error;
 
 	if ((error = priv_check(td, PRIV_IO)) != 0)
 		return (error);
