@@ -1403,6 +1403,7 @@ iscsi_ioctl_daemon_handoff(struct iscsi_softc *sc,
 		ic->ic_data_crc32c = true;
 	else
 		ic->ic_data_crc32c = false;
+	ic->ic_maxtags = maxtags;
 
 	is->is_cmdsn = 0;
 	is->is_expcmdsn = 0;
@@ -1442,7 +1443,7 @@ iscsi_ioctl_daemon_handoff(struct iscsi_softc *sc,
 
 	} else {
 		ISCSI_SESSION_LOCK(is);
-		is->is_devq = cam_simq_alloc(maxtags);
+		is->is_devq = cam_simq_alloc(ic->ic_maxtags);
 		if (is->is_devq == NULL) {
 			ISCSI_SESSION_WARN(is, "failed to allocate simq");
 			iscsi_session_terminate(is);
@@ -1451,7 +1452,7 @@ iscsi_ioctl_daemon_handoff(struct iscsi_softc *sc,
 
 		is->is_sim = cam_sim_alloc(iscsi_action, iscsi_poll, "iscsi",
 		    is, is->is_id /* unit */, &is->is_lock,
-		    1, maxtags, is->is_devq);
+		    1, ic->ic_maxtags, is->is_devq);
 		if (is->is_sim == NULL) {
 			ISCSI_SESSION_UNLOCK(is);
 			ISCSI_SESSION_WARN(is, "failed to allocate SIM");
@@ -1551,6 +1552,10 @@ iscsi_ioctl_daemon_connect(struct iscsi_softc *sc,
 	}
 
 	ISCSI_SESSION_LOCK(is);
+	is->is_statsn = 0;
+	is->is_cmdsn = 0;
+	is->is_expcmdsn = 0;
+	is->is_maxcmdsn = 0;
 	is->is_waiting_for_iscsid = false;
 	is->is_login_phase = true;
 	is->is_timeout = 0;
@@ -2265,6 +2270,14 @@ iscsi_action(struct cam_sim *sim, union ccb *ccb)
 		cpi->hba_inquiry = PI_TAG_ABLE;
 		cpi->target_sprt = 0;
 		cpi->hba_misc = PIM_EXTLUNS;
+		/*
+		 * XXX: It shouldn't ever be NULL; this could be turned
+		 *      into a KASSERT eventually.
+		 */
+		if (is->is_conn == NULL)
+			ISCSI_WARN("NULL conn");
+		else if (is->is_conn->ic_unmapped)
+			cpi->hba_misc |= PIM_UNMAPPED;
 		cpi->hba_eng_cnt = 0;
 		cpi->max_target = 0;
 		/*
