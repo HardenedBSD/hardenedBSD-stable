@@ -190,7 +190,9 @@ __DEFAULT_NO_OPTIONS = \
     OPENLDAP \
     PORTSNAP \
     SORT_THREADS \
-    SVN
+    SVN \
+    SYSTEM_COMPILER \
+
 
 #
 # Default behaviour of some options depends on the architecture.  Unfortunately
