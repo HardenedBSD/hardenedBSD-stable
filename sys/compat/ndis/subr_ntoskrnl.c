@@ -3188,17 +3188,14 @@ atol(str)
 static int
 rand(void)
 {
-	struct timeval		tv;
 
-	microtime(&tv);
-	srandom(tv.tv_usec);
-	return ((int)random());
+	return (random() / 2 + 1);
 }
 
 static void
-srand(seed)
-	unsigned int		seed;
+srand(unsigned int seed)
 {
+
 	srandom(seed);
 }
 
