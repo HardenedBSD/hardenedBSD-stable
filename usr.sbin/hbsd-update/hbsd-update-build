@@ -242,6 +242,15 @@ build_kernel_archives() {
 	done
 }
 
+build_obsolete() {
+	grep '^OLD_FILES+=' ${CHROOTDIR}/usr/src/ObsoleteFiles.inc | \
+	    awk -F '=' '{print $2;}' > ${STAGEDIR}/ObsoleteFiles.txt
+	grep '^OLD_LIBS+=' ${CHROOTDIR}/usr/src/ObsoleteFiles.inc | \
+	    awk -F '=' '{print $2;}' >> ${STAGEDIR}/ObsoleteFiles.txt
+	grep '^OLD_DIRS+=' ${CHROOTDIR}/usr/src/ObsoleteFiles.inc | \
+	    awk -F '=' '{print $2;}' >> ${STAGEDIR}/ObsoleteDirs.txt
+}
+
 add_extra_files() {
 	cat <<EOF > ${STAGEDIR}/skip.txt
 ./etc
@@ -253,9 +262,15 @@ EOF
 
 	cp ${CHROOTDIR}/usr/src/UPDATING ${STAGEDIR}/
 	cp ${CHROOTDIR}/usr/src/UPDATING-HardenedBSD ${STAGEDIR}/
+
+	build_obsolete
 }
 
 sign_artifacts() {
+	local files
+
+	files="skip.txt ObsoleteFiles.txt ObsoleteDirs.txt"
+
 	if [ -z "${PRIVKEY}" ]; then
 		return 0
 	else
@@ -271,10 +286,12 @@ sign_artifacts() {
 			-out ${file}.sig
 	done
 
-	sha512 -q ${STAGEDIR}/skip.txt | openssl rsautl \
-		-sign \
-		-inkey ${PRIVKEY} \
-		-out ${STAGEDIR}/skip.txt.sig
+	for f in ${files}; do
+		sha512 -q ${STAGEDIR}/${f} | openssl rsautl \
+			-sign \
+			-inkey ${PRIVKEY} \
+			-out ${STAGEDIR}/${f}.sig
+	done
 
 	if [ -f ${PUBKEY} ]; then
 		cp ${PUBKEY} ${STAGEDIR}/pubkey.pem
