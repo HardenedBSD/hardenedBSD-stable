@@ -44,6 +44,7 @@ usage() {
 setup_environment() {
 	REPO="git://github.com/HardenedBSD/hardenedBSD.git"
 	BRANCH="hardened/current/master"
+	UNSIGNED=0
 	PRIVKEY="/usr/share/keys/updater/private/updater.key"
 	PUBKEY="/usr/share/keys/updater/certs/updater.crt"
 	SIGNBIN="/usr/bin/openssl"
@@ -394,13 +395,16 @@ main() {
 	set -e
 	setup_environment
 	sanity_check
-	while getopts 'ec:h' opt; do
+	while getopts 'ec:hu' opt; do
 		case ${opt} in
 			c)
 				BUILDCONF="${OPTARG}"
 				;;
 			e)
 				USE_EXISTING=1
+				;;
+			u)
+				UNSIGNED=1
 				;;
 			*)
 				usage
@@ -429,7 +433,10 @@ main() {
 			add_extra_files || exit 1
 		fi
 
-		sign_artifacts || exit 1
+		if [ ${UNSIGNED} -eq 0 ]; then
+			sign_artifacts || exit 1
+		fi
+
 		sanity_check_archive || exit 1
 		build_update_archive || exit 1
 		touch ${STAGEDIR}/success
