@@ -26,45 +26,20 @@
  * $FreeBSD$
  */
 
-#ifndef _VMBUS_VAR_H_
-#define _VMBUS_VAR_H_
+#ifndef _HYPERV_BUSDMA_H_
+#define _HYPERV_BUSDMA_H_
 
-#include <sys/param.h>
-
-struct vmbus_pcpu_data {
-	int		event_flag_cnt;	/* # of event flags */
-} __aligned(CACHE_LINE_SIZE);
-
-struct vmbus_softc {
-	void			(*vmbus_event_proc)(struct vmbus_softc *, int);
-	struct vmbus_pcpu_data	vmbus_pcpu[MAXCPU];
-	device_t		vmbus_dev;
-	int			vmbus_idtvec;
+struct hyperv_dma {
+	bus_addr_t	hv_paddr;
+	bus_dma_tag_t	hv_dtag;
+	bus_dmamap_t	hv_dmap;
 };
 
-extern struct vmbus_softc	*vmbus_sc;
+void	hyperv_dma_map_paddr(void *arg, bus_dma_segment_t *segs, int nseg,
+	    int error);
+void	*hyperv_dmamem_alloc(bus_dma_tag_t parent_dtag, bus_size_t alignment,
+	    bus_addr_t boundary, bus_size_t size, struct hyperv_dma *dma,
+	    int flags);
+void	hyperv_dmamem_free(struct hyperv_dma *dma, void *ptr);
 
-static __inline struct vmbus_softc *
-vmbus_get_softc(void)
-{
-	return vmbus_sc;
-}
-
-static __inline device_t
-vmbus_get_device(void)
-{
-	return vmbus_sc->vmbus_dev;
-}
-
-#define VMBUS_SC_PCPU_GET(sc, field, cpu)	(sc)->vmbus_pcpu[(cpu)].field
-#define VMBUS_SC_PCPU_PTR(sc, field, cpu)	&(sc)->vmbus_pcpu[(cpu)].field
-#define VMBUS_PCPU_GET(field, cpu)		\
-	VMBUS_SC_PCPU_GET(vmbus_get_softc(), field, (cpu))
-#define VMBUS_PCPU_PTR(field, cpu)		\
-	VMBUS_SC_PCPU_PTR(vmbus_get_softc(), field, (cpu))
-
-void	vmbus_on_channel_open(const struct hv_vmbus_channel *);
-void	vmbus_event_proc(struct vmbus_softc *, int);
-void	vmbus_event_proc_compat(struct vmbus_softc *, int);
-
-#endif	/* !_VMBUS_VAR_H_ */
+#endif	/* !_HYPERV_BUSDMA_H_ */
