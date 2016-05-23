@@ -190,7 +190,10 @@ check_pubkey_validity() {
 }
 
 check_set_validity() {
+	local checkfiles
+	local extrafiles
 	checkfiles="base.txz kernel-${kernel}.txz etcupdate.tbz skip.txt"
+	extrafiles="ObsoleteFiles.txt ObsoleteDirs.txt"
 
 	${OPENSSL} x509 \
 		-in ${tmpdir}/pubkey.pem \
@@ -204,6 +207,33 @@ check_set_validity() {
 	fi
 
 	for file in ${checkfiles}; do
+		if [ ${verbose} -gt 0 ]; then
+			debug_print "[*] Checking the validity of ${file}"
+		fi
+
+		signedhash=$(${OPENSSL} rsautl \
+			-verify \
+			-in ${tmpdir}/${file}.sig \
+			-pubin \
+			-inkey ${tmpdir}/pubkey.rsa.pem)
+
+		computedhash=$(sha512 -q ${tmpdir}/${file})
+		res=${?}
+		if [ ${res} -gt 0 ]; then
+			return 1
+		fi
+
+		if [ ! "${signedhash}" = "${computedhash}" ]; then
+			debug_print "[-] Hashes don't match for ${file}. Signed: ${signedhash}. Computed ${computedhash}."
+			return 1
+		fi
+	done
+
+	for file in ${extrafiles}; do
+		if [ ! -f ${tmpdir}/${file} ]; then
+			continue
+		fi
+
 		if [ ${verbose} -gt 0 ]; then
 			debug_print "[*] Checking the validity of ${file}"
 		fi
@@ -381,6 +411,38 @@ apply_kernel() {
 	res=${?}
 	if [ ${res} -gt 0 ]; then
 		return 1
+	fi
+
+	return 0
+}
+
+remove_obsolete() {
+	if [ ${verbose} -gt 0 ]; then
+		debug_print "[*] Removing obsolete files"
+	fi
+
+	if [ -f ${tmpdir}/ObsoleteFiles.txt ]; then
+		for file in $(cat ${tmpdir}/ObsoleteFiles.txt); do
+			if [ -f ${mountpoint}/${file} ]; then
+				if [ ${verbose} -gt 0 ]; then
+					debug_print "    [+] Removing ${mountpoint}/${file}"
+				fi
+
+				rm -f ${mountpoint}/${file}
+			fi
+		done
+	fi
+
+	if [ -f ${tmpdir}/ObsoleteDirs.txt ]; then
+		for file in $(cat ${tmpdir}/ObsoleteDirs.txt); do
+			if [ -e ${mountpoint}/${file} ]; then
+				if [ ${verbose} -gt 0 ]; then
+					debug_print "    [+] Removing ${mountpoint}/${file}"
+				fi
+
+				rm -rf ${mountpoint}/${file}
+			fi
+		done
 	fi
 
 	return 0
@@ -635,6 +697,14 @@ main() {
 	fi
 
 	apply_kernel
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		cleanup
+		destroy_be
+		exit 1
+	fi
+
+	remove_obsolete
 	res=${?}
 	if [ ${res} -gt 0 ]; then
 		cleanup
