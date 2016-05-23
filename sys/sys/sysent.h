@@ -156,8 +156,6 @@ struct sysentvec {
 #define	SV_ABI_UNDEF	255
 
 #ifdef _KERNEL
-extern struct sysentvec elf_freebsd_sysvec;
-extern struct sysentvec null_sysvec;
 extern struct sysent sysent[];
 extern const char *syscallnames[];
 
