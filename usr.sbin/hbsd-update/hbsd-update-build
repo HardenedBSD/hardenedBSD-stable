@@ -44,6 +44,7 @@ usage() {
 setup_environment() {
 	REPO="git://github.com/HardenedBSD/hardenedBSD.git"
 	BRANCH="hardened/current/master"
+	UNSIGNED=0
 	PRIVKEY="/usr/share/keys/updater/private/updater.key"
 	PUBKEY="/usr/share/keys/updater/certs/updater.crt"
 	SIGNBIN="/usr/bin/openssl"
@@ -242,6 +243,15 @@ build_kernel_archives() {
 	done
 }
 
+build_obsolete() {
+	grep '^OLD_FILES+=' ${CHROOTDIR}/usr/src/ObsoleteFiles.inc | \
+	    awk -F '=' '{print $2;}' > ${STAGEDIR}/ObsoleteFiles.txt
+	grep '^OLD_LIBS+=' ${CHROOTDIR}/usr/src/ObsoleteFiles.inc | \
+	    awk -F '=' '{print $2;}' >> ${STAGEDIR}/ObsoleteFiles.txt
+	grep '^OLD_DIRS+=' ${CHROOTDIR}/usr/src/ObsoleteFiles.inc | \
+	    awk -F '=' '{print $2;}' >> ${STAGEDIR}/ObsoleteDirs.txt
+}
+
 add_extra_files() {
 	cat <<EOF > ${STAGEDIR}/skip.txt
 ./etc
@@ -253,9 +263,15 @@ EOF
 
 	cp ${CHROOTDIR}/usr/src/UPDATING ${STAGEDIR}/
 	cp ${CHROOTDIR}/usr/src/UPDATING-HardenedBSD ${STAGEDIR}/
+
+	build_obsolete
 }
 
 sign_artifacts() {
+	local files
+
+	files="skip.txt ObsoleteFiles.txt ObsoleteDirs.txt"
+
 	if [ -z "${PRIVKEY}" ]; then
 		return 0
 	else
@@ -271,10 +287,12 @@ sign_artifacts() {
 			-out ${file}.sig
 	done
 
-	sha512 -q ${STAGEDIR}/skip.txt | openssl rsautl \
-		-sign \
-		-inkey ${PRIVKEY} \
-		-out ${STAGEDIR}/skip.txt.sig
+	for f in ${files}; do
+		sha512 -q ${STAGEDIR}/${f} | openssl rsautl \
+			-sign \
+			-inkey ${PRIVKEY} \
+			-out ${STAGEDIR}/${f}.sig
+	done
 
 	if [ -f ${PUBKEY} ]; then
 		cp ${PUBKEY} ${STAGEDIR}/pubkey.pem
@@ -377,13 +395,16 @@ main() {
 	set -e
 	setup_environment
 	sanity_check
-	while getopts 'ec:h' opt; do
+	while getopts 'ec:hu' opt; do
 		case ${opt} in
 			c)
 				BUILDCONF="${OPTARG}"
 				;;
 			e)
 				USE_EXISTING=1
+				;;
+			u)
+				UNSIGNED=1
 				;;
 			*)
 				usage
@@ -412,7 +433,10 @@ main() {
 			add_extra_files || exit 1
 		fi
 
-		sign_artifacts || exit 1
+		if [ ${UNSIGNED} -eq 0 ]; then
+			sign_artifacts || exit 1
+		fi
+
 		sanity_check_archive || exit 1
 		build_update_archive || exit 1
 		touch ${STAGEDIR}/success
