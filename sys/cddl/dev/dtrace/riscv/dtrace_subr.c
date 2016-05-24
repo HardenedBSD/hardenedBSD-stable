@@ -19,6 +19,8 @@
  *
  * CDDL HEADER END
  *
+ * Portions Copyright 2016 Ruslan Bukin <br@bsdpad.com>
+ *
  * $FreeBSD$
  *
  */
@@ -39,11 +41,12 @@ __FBSDID("$FreeBSD$");
 #include <sys/smp.h>
 #include <sys/dtrace_impl.h>
 #include <sys/dtrace_bsd.h>
-#include <machine/armreg.h>
+#include <machine/vmparam.h>
+#include <machine/riscvreg.h>
+#include <machine/riscv_opcode.h>
 #include <machine/clock.h>
 #include <machine/frame.h>
 #include <machine/trap.h>
-#include <machine/vmparam.h>
 #include <vm/pmap.h>
 
 extern dtrace_id_t	dtrace_probeid_error;
@@ -179,7 +182,7 @@ dtrace_gethrestime(void)
 	return (current_time.tv_sec * 1000000000UL + current_time.tv_nsec);
 }
 
-/* Function to handle DTrace traps during probes. See arm64/arm64/trap.c */
+/* Function to handle DTrace traps during probes. See riscv/riscv/trap.c */
 int
 dtrace_trap(struct trapframe *frame, u_int type)
 {
@@ -200,7 +203,9 @@ dtrace_trap(struct trapframe *frame, u_int type)
 		 * All the rest will be handled in the usual way.
 		 */
 		switch (type) {
-		case EXCP_DATA_ABORT:
+		case EXCP_LOAD_ACCESS_FAULT:
+		case EXCP_STORE_ACCESS_FAULT:
+		case EXCP_INSTR_ACCESS_FAULT:
 			/* Flag a bad address. */
 			cpu_core[curcpu].cpuc_dtrace_flags |= CPU_DTRACE_BADADDR;
 			cpu_core[curcpu].cpuc_dtrace_illval = 0;
@@ -209,7 +214,8 @@ dtrace_trap(struct trapframe *frame, u_int type)
 			 * Offset the instruction pointer to the instruction
 			 * following the one causing the fault.
 			 */
-			frame->tf_elr += 4;
+			frame->tf_sepc += 4;
+
 			return (1);
 		default:
 			/* Handle all other traps in the usual way. */
@@ -237,58 +243,24 @@ dtrace_invop_start(struct trapframe *frame)
 	int data, invop, reg, update_sp;
 	register_t arg1, arg2;
 	register_t *sp;
+	uint32_t imm;
+	InstFmt i;
 	int offs;
 	int tmp;
-	int i;
 
-	invop = dtrace_invop(frame->tf_elr, frame, frame->tf_elr);
+	invop = dtrace_invop(frame->tf_sepc, frame, frame->tf_sepc);
 
-	tmp = (invop & LDP_STP_MASK);
-	if (tmp == STP_64 || tmp == LDP_64) {
-		sp = (register_t *)frame->tf_sp;
-		data = invop;
-		arg1 = (data >> ARG1_SHIFT) & ARG1_MASK;
-		arg2 = (data >> ARG2_SHIFT) & ARG2_MASK;
-
-		offs = (data >> OFFSET_SHIFT) & OFFSET_MASK;
-
-		switch (tmp) {
-		case STP_64:
-			if (offs >> (OFFSET_SIZE - 1))
-				sp -= (~offs & OFFSET_MASK) + 1;
-			else
-				sp += (offs);
-			*(sp + 0) = frame->tf_x[arg1];
-			*(sp + 1) = frame->tf_x[arg2];
-			break;
-		case LDP_64:
-			frame->tf_x[arg1] = *(sp + 0);
-			frame->tf_x[arg2] = *(sp + 1);
-			if (offs >> (OFFSET_SIZE - 1))
-				sp -= (~offs & OFFSET_MASK) + 1;
-			else
-				sp += (offs);
-			break;
-		default:
-			break;
-		}
-
-		/* Update the stack pointer and program counter to continue */
-		frame->tf_sp = (register_t)sp;
-		frame->tf_elr += INSN_SIZE;
+	if (invop == RISCV_INSN_RET) {
+		frame->tf_sepc = frame->tf_ra;
 		return (0);
 	}
 
-	if ((invop & B_MASK) == B_INSTR) {
-		data = (invop & B_DATA_MASK);
-		/* The data is the number of 4-byte words to change the pc */
-		data *= 4;
-		frame->tf_elr += data;
-		return (0);
-	}
-
-	if (invop == RET_INSTR) {
-		frame->tf_elr = frame->tf_lr;
+	if ((invop & SD_RA_SP_MASK) == SD_RA_SP) {
+		i.word = invop;
+		imm = i.SType.imm0_4 | (i.SType.imm5_11 << 5);
+		sp = (register_t *)((uint8_t *)frame->tf_sp + imm);
+		*sp = frame->tf_ra;
+		frame->tf_sepc += INSN_SIZE;
 		return (0);
 	}
 
