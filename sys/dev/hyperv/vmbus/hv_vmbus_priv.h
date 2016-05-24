@@ -203,8 +203,6 @@ union vmbus_event_flags;
 typedef struct {
 	hv_bool_uint8_t	syn_ic_initialized;
 
-	struct vmbus_message	*syn_ic_msg_page[MAXCPU];
-	union vmbus_event_flags	*syn_ic_event_page[MAXCPU];
 	/*
 	 * For FreeBSD cpuid to Hyper-V vcpuid mapping.
 	 */
@@ -727,8 +725,6 @@ uint16_t		hv_vmbus_post_msg_via_msg_ipc(
 				size_t			payload_size);
 
 uint16_t		hv_vmbus_signal_event(void *con_id);
-void			hv_vmbus_synic_init(void *irq_arg);
-void			hv_vmbus_synic_cleanup(void *arg);
 
 struct hv_device*	hv_vmbus_child_device_create(
 				hv_guid			device_type,
@@ -756,9 +752,5 @@ void			hv_et_intr(struct trapframe*);
 
 /* Wait for device creation */
 void			vmbus_scan(void);
-
-typedef struct {
-	void		*page_buffers[2 * MAXCPU];
-} hv_setup_args;
 
 #endif  /* __HYPERV_PRIV_H__ */
