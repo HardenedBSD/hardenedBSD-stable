@@ -360,11 +360,7 @@ op_usm_users(struct snmp_context *ctx, struct snmp_value *val,
 		case LEAF_usmUserPrivKeyChange:
 		case LEAF_usmUserOwnPrivKeyChange:
 			memcpy(uuser->suser.priv_key, ctx->scratch->ptr1,
-<<<<<<< HEAD
-			    SNMP_PRIV_KEY_SIZ);
-=======
 			    sizeof(uuser->suser.priv_key));
->>>>>>> origin/freebsd/10-stable/master
 			free(ctx->scratch->ptr1);
 			break;
 		case LEAF_usmUserPublic:
