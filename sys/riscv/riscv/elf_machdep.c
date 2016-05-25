@@ -36,12 +36,15 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
+#include "opt_pax.h"
+
 #include <sys/param.h>
 #include <sys/kernel.h>
 #include <sys/systm.h>
 #include <sys/exec.h>
 #include <sys/imgact.h>
 #include <sys/linker.h>
+#include <sys/pax.h>
 #include <sys/proc.h>
 #include <sys/sysent.h>
 #include <sys/imgact_elf.h>
