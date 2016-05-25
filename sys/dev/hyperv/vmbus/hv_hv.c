@@ -96,13 +96,6 @@ u_int	hyperv_recommends;
 static u_int	hyperv_pm_features;
 static u_int	hyperv_features3;
 
-/**
- * Globals
- */
-hv_vmbus_context hv_vmbus_g_context = {
-	.syn_ic_initialized = FALSE,
-};
-
 static struct timecounter hv_timecounter = {
 	hv_get_timecount, 0, ~0u, HV_NANOSECONDS_PER_SEC/100, "Hyper-V", HV_NANOSECONDS_PER_SEC/100
 };
@@ -397,11 +390,14 @@ SYSINIT(hypercall_ctor, SI_SUB_DRIVERS, SI_ORDER_FIRST, hypercall_create, NULL);
 static void
 hypercall_destroy(void *arg __unused)
 {
+	uint64_t hc;
+
 	if (hypercall_context.hc_addr == NULL)
 		return;
 
 	/* Disable Hypercall */
-	wrmsr(MSR_HV_HYPERCALL, 0);
+	hc = rdmsr(MSR_HV_HYPERCALL);
+	wrmsr(MSR_HV_HYPERCALL, (hc & MSR_HV_HYPERCALL_RSVD_MASK));
 	hypercall_memfree();
 
 	if (bootverbose)

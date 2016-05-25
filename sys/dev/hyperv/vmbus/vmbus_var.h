@@ -36,20 +36,30 @@
 struct vmbus_pcpu_data {
 	u_long			*intr_cnt;	/* Hyper-V interrupt counter */
 	struct vmbus_message	*message;	/* shared messages */
+	uint32_t		vcpuid;		/* virtual cpuid */
 	int			event_flag_cnt;	/* # of event flags */
 	union vmbus_event_flags	*event_flag;	/* shared event flags */
 
 	/* Rarely used fields */
 	struct hyperv_dma	message_dma;	/* busdma glue */
 	struct hyperv_dma	event_flag_dma;	/* busdma glue */
+	struct taskqueue	*event_tq;	/* event taskq */
+	struct taskqueue	*message_tq;	/* message taskq */
+	struct task		message_task;	/* message task */
 } __aligned(CACHE_LINE_SIZE);
 
 struct vmbus_softc {
 	void			(*vmbus_event_proc)(struct vmbus_softc *, int);
 	struct vmbus_pcpu_data	vmbus_pcpu[MAXCPU];
+
+	/* Rarely used fields */
 	device_t		vmbus_dev;
 	int			vmbus_idtvec;
+	uint32_t		vmbus_flags;	/* see VMBUS_FLAG_ */
 };
+
+#define VMBUS_FLAG_ATTACHED	0x0001	/* vmbus was attached */
+#define VMBUS_FLAG_SYNIC	0x0002	/* SynIC was setup */
 
 extern struct vmbus_softc	*vmbus_sc;
 
