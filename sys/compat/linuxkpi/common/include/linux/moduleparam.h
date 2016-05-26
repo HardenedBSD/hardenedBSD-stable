@@ -50,6 +50,12 @@
 #define	LINUXKPI_PARAM_DESC(name) LINUXKPI_PARAM_CONCAT(linuxkpi_,LINUXKPI_PARAM_PREFIX,name,_desc)
 #define	LINUXKPI_PARAM_NAME(name) LINUXKPI_PARAM_CONCAT(LINUXKPI_PARAM_PREFIX,name,,)
 
+#define	LINUXKPI_PARAM_bool(name, var)					\
+	extern const char LINUXKPI_PARAM_DESC(name)[];			\
+	LINUXKPI_PARAM_PASS(SYSCTL_BOOL(LINUXKPI_PARAM_PARENT, OID_AUTO,\
+	LINUXKPI_PARAM_NAME(name), CTLFLAG_RDTUN, &(var), 0,		\
+	LINUXKPI_PARAM_DESC(name)))
+
 #define	LINUXKPI_PARAM_byte(name, var)					\
 	extern const char LINUXKPI_PARAM_DESC(name)[];			\
 	LINUXKPI_PARAM_PASS(SYSCTL_U8(LINUXKPI_PARAM_PARENT, OID_AUTO,	\
@@ -102,6 +108,12 @@
 	LINUXKPI_PARAM_##type(name, var)
 
 #define	module_param(var, type, mode)	\
+	LINUXKPI_PARAM_##type(var, var)
+
+#define	module_param_named_unsafe(name, var, type, mode) \
+	LINUXKPI_PARAM_##type(name, var)
+
+#define	module_param_unsafe(var, type, mode) \
 	LINUXKPI_PARAM_##type(var, var)
 
 #define	module_param_array(var, type, addr_argc, mode)
