@@ -59,6 +59,7 @@ setup_environment() {
 	SRCCONFPATH=""
 	DEBUGBUILD=""
 	USE_EXISTING=0
+	LOGTOSTDOUT=0
 }
 
 cleanup_chroot() {
@@ -386,9 +387,13 @@ sanity_check_archive() {
 }
 
 log_build() {
-	logfile=$(date '+%F_%T')
-	debug_print "Log: ${LOGDIR}/${logfile}.log"
-	cat > ${LOGDIR}/${logfile}.log
+	if [ ${LOGTOSTDOUT} -eq 0 ]; then
+		logfile=$(date '+%F_%T')
+		debug_print "Log: ${LOGDIR}/${logfile}.log"
+		cat > ${LOGDIR}/${logfile}.log
+	else
+		cat >& 2
+	fi
 }
 
 main() {
