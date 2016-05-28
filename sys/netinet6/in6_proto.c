@@ -69,6 +69,7 @@ __FBSDID("$FreeBSD$");
 #include "opt_ipstealth.h"
 #include "opt_sctp.h"
 #include "opt_mpath.h"
+#include "opt_pax.h"
 #include "opt_route.h"
 
 #include <sys/param.h>
@@ -406,7 +407,11 @@ VNET_DOMAIN_SET(inet6);
 #endif /* !IPV6FORWARDING */
 
 #ifndef	IPV6_SENDREDIRECTS
+#ifdef PAX_HARDENING
+#define	IPV6_SENDREDIRECTS	0
+#else
 #define	IPV6_SENDREDIRECTS	1
+#endif
 #endif
 
 VNET_DEFINE(int, ip6_forwarding) = IPV6FORWARDING;	/* act as router? */
@@ -448,7 +453,11 @@ VNET_DEFINE(int, pmtu_expire) = 60*10;
 VNET_DEFINE(int, pmtu_probe) = 60*2;
 
 /* ICMPV6 parameters */
+#ifdef PAX_HARDENING
+VNET_DEFINE(int, icmp6_rediraccept) = 0;/* accept and process redirects */
+#else
 VNET_DEFINE(int, icmp6_rediraccept) = 1;/* accept and process redirects */
+#endif
 VNET_DEFINE(int, icmp6_redirtimeout) = 10 * 60;	/* 10 minutes */
 VNET_DEFINE(int, icmp6errppslim) = 100;		/* 100pps */
 /* control how to respond to NI queries */
