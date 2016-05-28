@@ -429,8 +429,13 @@ VNET_DEFINE(int, ip6_hdrnestlimit) = 15;/* How many header options will we
 					 * process? */
 VNET_DEFINE(int, ip6_dad_count) = 1;	/* DupAddrDetectionTransmits */
 VNET_DEFINE(int, ip6_auto_flowlabel) = 1;
+#ifdef PAX_HARDENING
+VNET_DEFINE(int, ip6_use_deprecated) = 0;/* allow deprecated addr
+					 * (RFC2462 5.5.4) */
+#else
 VNET_DEFINE(int, ip6_use_deprecated) = 1;/* allow deprecated addr
 					 * (RFC2462 5.5.4) */
+#endif
 VNET_DEFINE(int, ip6_rr_prune) = 5;	/* router renumbering prefix
 					 * walk list every 5 sec. */
 VNET_DEFINE(int, ip6_mcast_pmtu) = 0;	/* enable pMTU discovery for multicast? */
