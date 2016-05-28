@@ -123,7 +123,7 @@ SUBDIR=	\
 	geom \
 	${_glxiic} \
 	${_glxsb} \
-	${_gpio} \
+	gpio \
 	hatm \
 	hifn \
 	hme \
@@ -723,10 +723,6 @@ _snc=		snc
 .if ${MACHINE_CPUARCH} == "arm"
 _cfi=		cfi
 _cpsw=		cpsw
-.endif
-
-.if ${MACHINE_ARCH} == "armv6"
-_gpio=		gpio
 .endif
 
 .if ${MACHINE_CPUARCH} == "powerpc"
