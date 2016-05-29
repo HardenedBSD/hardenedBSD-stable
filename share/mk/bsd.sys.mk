@@ -190,17 +190,21 @@ CXXFLAGS+=	${CXXFLAGS.${.IMPSRC:T}}
 .if ${CFLAGS:M-nostdinc} == ""
 CFLAGS+=	-isystem =/usr/include
 .endif
-# Add in sysroot/usr/lib to ensure that it comes before /usr/local/lib
-# from ports compilers.
-LDFLAGS+=	-L=/usr/lib
 # We want to force building the system with our in-tree libc++.  Note that
 # this also requires a symlink in OBJDIR/lib/libc++/libstdc++.so to
 # sysroot/usr/lib/libc++.so.
 .if ${CXXFLAGS:M-nostdinc++} == "" && ${CXXFLAGS:M-nostdlib} == ""
 CXXFLAGS+=	-std=c++11 \
-		-nostdinc++ -isystem =/usr/include/c++/v1
+		-nostdinc++
+# Need to ensure this path comes before the above -isystem =/usr/include.
+# CXXFLAGS is CFLAGS with extra added in, so there's no way to fix the
+# ordering otherwise.
+CXX+=		-isystem =/usr/include/c++/v1
 LDFLAGS+=	-L${OBJTOP}/lib/libc++
 .endif
+# Add in sysroot/usr/lib to ensure that it comes before /usr/local/lib
+# from ports compilers.
+LDFLAGS+=	-L=/usr/lib
 .endif	# --sysroot
 .endif	# X_COMPILER_TYPE == gcc
 
