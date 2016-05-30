@@ -41,9 +41,7 @@ __FBSDID("$FreeBSD$");
 #include <dev/hyperv/vmbus/hyperv_var.h>
 #include <dev/hyperv/vmbus/vmbus_var.h>
 
-#define HV_TIMER_FREQUENCY		(10 * 1000 * 1000LL) /* 100ns period */
-#define HV_MAX_DELTA_TICKS		0xffffffffLL
-#define HV_MIN_DELTA_TICKS		1LL
+#define VMBUS_ET_NAME			"hvet"
 
 #define MSR_HV_STIMER0_CFG_SINT		\
 	((((uint64_t)VMBUS_SINT_TIMER) << MSR_HV_STIMER_CFG_SINT_SHIFT) & \
@@ -62,21 +60,23 @@ __FBSDID("$FreeBSD$");
 static struct eventtimer	vmbus_et;
 
 static __inline uint64_t
-sbintime2tick(sbintime_t time)
+hyperv_sbintime2count(sbintime_t time)
 {
 	struct timespec val;
 
 	val = sbttots(time);
-	return (val.tv_sec * HV_TIMER_FREQUENCY) + (val.tv_nsec / 100);
+	return (val.tv_sec * HYPERV_TIMER_FREQ) +
+	    (val.tv_nsec / HYPERV_TIMER_NS_FACTOR);
 }
 
 static int
-hv_et_start(struct eventtimer *et, sbintime_t firsttime, sbintime_t periodtime)
+vmbus_et_start(struct eventtimer *et __unused, sbintime_t first,
+    sbintime_t period __unused)
 {
 	uint64_t current;
 
 	current = rdmsr(MSR_HV_TIME_REF_COUNT);
-	current += sbintime2tick(firsttime);
+	current += hyperv_sbintime2count(first);
 	wrmsr(MSR_HV_STIMER0_COUNT, current);
 
 	return (0);
@@ -100,19 +100,22 @@ vmbus_et_intr(struct trapframe *frame)
 }
 
 static void
-hv_et_identify(driver_t *driver, device_t parent)
+vmbus_et_identify(driver_t *driver, device_t parent)
 {
 	if (device_get_unit(parent) != 0 ||
-	    device_find_child(parent, "hv_et", -1) != NULL ||
+	    device_find_child(parent, VMBUS_ET_NAME, -1) != NULL ||
 	    (hyperv_features & CPUID_HV_ET_MASK) != CPUID_HV_ET_MASK)
 		return;
 
-	device_add_child(parent, "hv_et", -1);
+	device_add_child(parent, VMBUS_ET_NAME, -1);
 }
 
 static int
-hv_et_probe(device_t dev)
+vmbus_et_probe(device_t dev)
 {
+	if (resource_disabled(VMBUS_ET_NAME, 0))
+		return (ENXIO);
+
 	device_set_desc(dev, "Hyper-V event timer");
 
 	return (BUS_PROBE_NOWILDCARD);
@@ -144,19 +147,17 @@ vmbus_et_config(void *arg __unused)
 }
 
 static int
-hv_et_attach(device_t dev)
+vmbus_et_attach(device_t dev)
 {
 	/* TODO: use independent IDT vector */
 
 	vmbus_et.et_name = "Hyper-V";
 	vmbus_et.et_flags = ET_FLAGS_ONESHOT | ET_FLAGS_PERCPU;
 	vmbus_et.et_quality = 1000;
-	vmbus_et.et_frequency = HV_TIMER_FREQUENCY;
-	vmbus_et.et_min_period =
-	    HV_MIN_DELTA_TICKS * ((1LL << 32) / HV_TIMER_FREQUENCY);
-	vmbus_et.et_max_period =
-	    HV_MAX_DELTA_TICKS * ((1LL << 32) / HV_TIMER_FREQUENCY);
-	vmbus_et.et_start = hv_et_start;
+	vmbus_et.et_frequency = HYPERV_TIMER_FREQ;
+	vmbus_et.et_min_period = (0x00000001ULL << 32) / HYPERV_TIMER_FREQ;
+	vmbus_et.et_max_period = (0xfffffffeULL << 32) / HYPERV_TIMER_FREQ;
+	vmbus_et.et_start = vmbus_et_start;
 
 	/*
 	 * Delay a bit to make sure that MSR_HV_TIME_REF_COUNT will
@@ -170,26 +171,26 @@ hv_et_attach(device_t dev)
 }
 
 static int
-hv_et_detach(device_t dev)
+vmbus_et_detach(device_t dev)
 {
 	return (et_deregister(&vmbus_et));
 }
 
-static device_method_t hv_et_methods[] = {
-	DEVMETHOD(device_identify,      hv_et_identify),
-	DEVMETHOD(device_probe,         hv_et_probe),
-	DEVMETHOD(device_attach,        hv_et_attach),
-	DEVMETHOD(device_detach,        hv_et_detach),
+static device_method_t vmbus_et_methods[] = {
+	DEVMETHOD(device_identify,	vmbus_et_identify),
+	DEVMETHOD(device_probe,		vmbus_et_probe),
+	DEVMETHOD(device_attach,	vmbus_et_attach),
+	DEVMETHOD(device_detach,	vmbus_et_detach),
 
 	DEVMETHOD_END
 };
 
-static driver_t hv_et_driver = {
-	"hv_et",
-	hv_et_methods,
+static driver_t vmbus_et_driver = {
+	VMBUS_ET_NAME,
+	vmbus_et_methods,
 	0
 };
 
-static devclass_t hv_et_devclass;
-DRIVER_MODULE(hv_et, vmbus, hv_et_driver, hv_et_devclass, NULL, 0);
+static devclass_t vmbus_et_devclass;
+DRIVER_MODULE(hv_et, vmbus, vmbus_et_driver, vmbus_et_devclass, NULL, NULL);
 MODULE_VERSION(hv_et, 1);
