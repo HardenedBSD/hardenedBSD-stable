@@ -1,5 +1,4 @@
 /*	$OpenBSD: if_iwm.c,v 1.39 2015/03/23 00:35:19 jsg Exp $	*/
-/*	$FreeBSD$ */
 
 /*
  * Copyright (c) 2014 genua mbh <info@genua.de>
@@ -86,27 +85,17 @@
  * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
-
-/*-
- * Copyright (c) 2007-2010 Damien Bergamini <damien.bergamini@free.fr>
  *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * $FreeBSD$
  */
-#ifndef	__IF_IWM_PHY_DB_H__
-#define	__IF_IWM_PHY_DB_H__
+#ifndef	__IF_IWM_LED_H__
+#define	__IF_IWM_LED_H__
 
-extern	int iwm_phy_db_set_section(struct iwm_softc *sc,
-	     struct iwm_calib_res_notif_phy_db *phy_db_notif);
-extern	int iwm_send_phy_db_data(struct iwm_softc *sc);
-#endif	/* __IF_IWM_PHY_DB_H__ */
+void	iwm_mvm_led_enable(struct iwm_softc *);
+void	iwm_mvm_led_disable(struct iwm_softc *);
+int	iwm_mvm_led_is_enabled(struct iwm_softc *);
+void	iwm_led_blink_timeout(void *);
+void	iwm_led_blink_start(struct iwm_softc *);
+void	iwm_led_blink_stop(struct iwm_softc *);
+
+#endif	/* __IF_IWM_LED_H__ */
