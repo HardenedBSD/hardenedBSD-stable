@@ -57,6 +57,7 @@ __DEFAULT_YES_OPTIONS = \
     BIND_NOW \
     BINUTILS \
     BINUTILS_BOOTSTRAP \
+    BLACKLIST \
     BLUETOOTH \
     BOOT \
     BOOTPARAMD \
@@ -383,6 +384,7 @@ MK_CLANG_FULL:= no
 # MK_* variable is set to "no".
 #
 .for var in \
+    BLACKLIST \
     BZIP2 \
     GNU \
     INET \
