@@ -1229,9 +1229,8 @@ kern_kldstat(struct thread *td, int fileid, struct kld_file_stat *stat)
 {
 	linker_file_t lf;
 	int namelen;
-#ifdef MAC
 	int error;
-
+#ifdef MAC
 	error = mac_kld_check_stat(td->td_ucred);
 	if (error)
 		return (error);
