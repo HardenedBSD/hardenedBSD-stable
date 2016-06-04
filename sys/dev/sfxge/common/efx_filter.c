@@ -37,7 +37,7 @@ __FBSDID("$FreeBSD$");
 
 #if EFSYS_OPT_FILTER
 
-#if EFSYS_OPT_FALCON || EFSYS_OPT_SIENA
+#if EFSYS_OPT_SIENA
 
 static	__checkReturn	efx_rc_t
 falconsiena_filter_init(
@@ -68,22 +68,10 @@ falconsiena_filter_supported_filters(
 	__out		uint32_t *list,
 	__out		size_t *length);
 
-#endif /* EFSYS_OPT_FALCON || EFSYS_OPT_SIENA */
-
-#if EFSYS_OPT_FALCON
-static efx_filter_ops_t	__efx_filter_falcon_ops = {
-	falconsiena_filter_init,		/* efo_init */
-	falconsiena_filter_fini,		/* efo_fini */
-	falconsiena_filter_restore,		/* efo_restore */
-	falconsiena_filter_add,			/* efo_add */
-	falconsiena_filter_delete,		/* efo_delete */
-	falconsiena_filter_supported_filters,	/* efo_supported_filters */
-	NULL,					/* efo_reconfigure */
-};
-#endif /* EFSYS_OPT_FALCON */
+#endif /* EFSYS_OPT_SIENA */
 
 #if EFSYS_OPT_SIENA
-static efx_filter_ops_t	__efx_filter_siena_ops = {
+static const efx_filter_ops_t	__efx_filter_siena_ops = {
 	falconsiena_filter_init,		/* efo_init */
 	falconsiena_filter_fini,		/* efo_fini */
 	falconsiena_filter_restore,		/* efo_restore */
@@ -95,7 +83,7 @@ static efx_filter_ops_t	__efx_filter_siena_ops = {
 #endif /* EFSYS_OPT_SIENA */
 
 #if EFSYS_OPT_HUNTINGTON || EFSYS_OPT_MEDFORD
-static efx_filter_ops_t	__efx_filter_ef10_ops = {
+static const efx_filter_ops_t	__efx_filter_ef10_ops = {
 	ef10_filter_init,		/* efo_init */
 	ef10_filter_fini,		/* efo_fini */
 	ef10_filter_restore,		/* efo_restore */
@@ -111,7 +99,7 @@ efx_filter_insert(
 	__in		efx_nic_t *enp,
 	__inout		efx_filter_spec_t *spec)
 {
-	efx_filter_ops_t *efop = enp->en_efop;
+	const efx_filter_ops_t *efop = enp->en_efop;
 
 	EFSYS_ASSERT3U(enp->en_mod_flags, &, EFX_MOD_FILTER);
 	EFSYS_ASSERT3P(spec, !=, NULL);
@@ -125,7 +113,7 @@ efx_filter_remove(
 	__in		efx_nic_t *enp,
 	__inout		efx_filter_spec_t *spec)
 {
-	efx_filter_ops_t *efop = enp->en_efop;
+	const efx_filter_ops_t *efop = enp->en_efop;
 
 	EFSYS_ASSERT3U(enp->en_mod_flags, &, EFX_MOD_FILTER);
 	EFSYS_ASSERT3P(spec, !=, NULL);
@@ -161,7 +149,7 @@ fail1:
 efx_filter_init(
 	__in		efx_nic_t *enp)
 {
-	efx_filter_ops_t *efop;
+	const efx_filter_ops_t *efop;
 	efx_rc_t rc;
 
 	/* Check that efx_filter_spec_t is 64 bytes. */
@@ -172,27 +160,21 @@ efx_filter_init(
 	EFSYS_ASSERT(!(enp->en_mod_flags & EFX_MOD_FILTER));
 
 	switch (enp->en_family) {
-#if EFSYS_OPT_FALCON
-	case EFX_FAMILY_FALCON:
-		efop = (efx_filter_ops_t *)&__efx_filter_falcon_ops;
-		break;
-#endif /* EFSYS_OPT_FALCON */
-
 #if EFSYS_OPT_SIENA
 	case EFX_FAMILY_SIENA:
-		efop = (efx_filter_ops_t *)&__efx_filter_siena_ops;
+		efop = &__efx_filter_siena_ops;
 		break;
 #endif /* EFSYS_OPT_SIENA */
 
 #if EFSYS_OPT_HUNTINGTON
 	case EFX_FAMILY_HUNTINGTON:
-		efop = (efx_filter_ops_t *)&__efx_filter_ef10_ops;
+		efop = &__efx_filter_ef10_ops;
 		break;
 #endif /* EFSYS_OPT_HUNTINGTON */
 
 #if EFSYS_OPT_MEDFORD
 	case EFX_FAMILY_MEDFORD:
-		efop = (efx_filter_ops_t *)&__efx_filter_ef10_ops;
+		efop = &__efx_filter_ef10_ops;
 		break;
 #endif /* EFSYS_OPT_MEDFORD */
 
@@ -266,7 +248,7 @@ efx_filter_reconfigure(
 	__in				boolean_t all_mulcst,
 	__in				boolean_t brdcst,
 	__in_ecount(6*count)		uint8_t const *addrs,
-	__in				int count)
+	__in				uint32_t count)
 {
 	efx_rc_t rc;
 
@@ -428,7 +410,7 @@ efx_filter_spec_set_mc_def(
 
 
 
-#if EFSYS_OPT_FALCON || EFSYS_OPT_SIENA
+#if EFSYS_OPT_SIENA
 
 /*
  * "Fudge factors" - difference between programmed value and actual depth.
@@ -1091,13 +1073,6 @@ falconsiena_filter_init(
 	enp->en_filter.ef_falconsiena_filter = fsfp;
 
 	switch (enp->en_family) {
-#if EFSYS_OPT_FALCON
-	case EFX_FAMILY_FALCON:
-		fsftp = &fsfp->fsf_tbl[EFX_FS_FILTER_TBL_RX_IP];
-		fsftp->fsft_size = FR_AZ_RX_FILTER_TBL0_ROWS;
-		break;
-#endif	/* EFSYS_OPT_FALCON */
-
 #if EFSYS_OPT_SIENA
 	case EFX_FAMILY_SIENA:
 		fsftp = &fsfp->fsf_tbl[EFX_FS_FILTER_TBL_RX_IP];
@@ -1434,6 +1409,6 @@ fail1:
 
 #undef MAX_SUPPORTED
 
-#endif /* EFSYS_OPT_FALCON || EFSYS_OPT_SIENA */
+#endif /* EFSYS_OPT_SIENA */
 
 #endif /* EFSYS_OPT_FILTER */

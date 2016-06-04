@@ -34,18 +34,6 @@ __FBSDID("$FreeBSD$");
 #include "efx.h"
 #include "efx_impl.h"
 
-#if EFSYS_OPT_MON_NULL
-#include "nullmon.h"
-#endif
-
-#if EFSYS_OPT_MON_LM87
-#include "lm87.h"
-#endif
-
-#if EFSYS_OPT_MON_MAX6647
-#include "max6647.h"
-#endif
-
 #if EFSYS_OPT_MON_MCDI
 #include "mcdi_mon.h"
 #endif
@@ -77,38 +65,8 @@ efx_mon_name(
 
 #endif	/* EFSYS_OPT_NAMES */
 
-#if EFSYS_OPT_MON_NULL
-static efx_mon_ops_t	__efx_mon_null_ops = {
-	nullmon_reset,			/* emo_reset */
-	nullmon_reconfigure,		/* emo_reconfigure */
-#if EFSYS_OPT_MON_STATS
-	nullmon_stats_update		/* emo_stats_update */
-#endif	/* EFSYS_OPT_MON_STATS */
-};
-#endif
-
-#if EFSYS_OPT_MON_LM87
-static efx_mon_ops_t	__efx_mon_lm87_ops = {
-	lm87_reset,			/* emo_reset */
-	lm87_reconfigure,		/* emo_reconfigure */
-#if EFSYS_OPT_MON_STATS
-	lm87_stats_update		/* emo_stats_update */
-#endif	/* EFSYS_OPT_MON_STATS */
-};
-#endif
-
-#if EFSYS_OPT_MON_MAX6647
-static efx_mon_ops_t	__efx_mon_max6647_ops = {
-	max6647_reset,			/* emo_reset */
-	max6647_reconfigure,		/* emo_reconfigure */
-#if EFSYS_OPT_MON_STATS
-	max6647_stats_update		/* emo_stats_update */
-#endif	/* EFSYS_OPT_MON_STATS */
-};
-#endif
-
 #if EFSYS_OPT_MON_MCDI
-static efx_mon_ops_t	__efx_mon_mcdi_ops = {
+static const efx_mon_ops_t	__efx_mon_mcdi_ops = {
 	NULL,				/* emo_reset */
 	NULL,				/* emo_reconfigure */
 #if EFSYS_OPT_MON_STATS
@@ -124,7 +82,7 @@ efx_mon_init(
 {
 	efx_nic_cfg_t *encp = &(enp->en_nic_cfg);
 	efx_mon_t *emp = &(enp->en_mon);
-	efx_mon_ops_t *emop;
+	const efx_mon_ops_t *emop;
 	efx_rc_t rc;
 
 	EFSYS_ASSERT3U(enp->en_magic, ==, EFX_NIC_MAGIC);
@@ -141,21 +99,6 @@ efx_mon_init(
 
 	EFSYS_ASSERT(encp->enc_mon_type != EFX_MON_INVALID);
 	switch (emp->em_type) {
-#if EFSYS_OPT_MON_NULL
-	case EFX_MON_NULL:
-		emop = &__efx_mon_null_ops;
-		break;
-#endif
-#if EFSYS_OPT_MON_LM87
-	case EFX_MON_LM87:
-		emop = &__efx_mon_lm87_ops;
-		break;
-#endif
-#if EFSYS_OPT_MON_MAX6647
-	case EFX_MON_MAX6647:
-		emop = &__efx_mon_max6647_ops;
-		break;
-#endif
 #if EFSYS_OPT_MON_MCDI
 	case EFX_MON_SFC90X0:
 	case EFX_MON_SFC91X0:
@@ -206,7 +149,7 @@ fail1:
 
 #if EFSYS_OPT_NAMES
 
-/* START MKCONFIG GENERATED MonitorStatNamesBlock 01ee3ea01f23a0c4 */
+/* START MKCONFIG GENERATED MonitorStatNamesBlock 31f437eafb0b0437 */
 static const char 	*__mon_stat_name[] = {
 	"value_2_5v",
 	"value_vccp1",
@@ -283,6 +226,8 @@ static const char 	*__mon_stat_name[] = {
 	"phy0_vcc",
 	"phy1_vcc",
 	"controller_tdiode_temp",
+	"board_front_temp",
+	"board_back_temp",
 };
 
 /* END MKCONFIG GENERATED MonitorStatNamesBlock */
@@ -308,7 +253,7 @@ efx_mon_stats_update(
 	__inout_ecount(EFX_MON_NSTATS)	efx_mon_stat_value_t *values)
 {
 	efx_mon_t *emp = &(enp->en_mon);
-	efx_mon_ops_t *emop = emp->em_emop;
+	const efx_mon_ops_t *emop = emp->em_emop;
 
 	EFSYS_ASSERT3U(enp->en_magic, ==, EFX_NIC_MAGIC);
 	EFSYS_ASSERT3U(enp->en_mod_flags, &, EFX_MOD_MON);
@@ -323,7 +268,7 @@ efx_mon_fini(
 	__in	efx_nic_t *enp)
 {
 	efx_mon_t *emp = &(enp->en_mon);
-	efx_mon_ops_t *emop = emp->em_emop;
+	const efx_mon_ops_t *emop = emp->em_emop;
 	efx_rc_t rc;
 
 	EFSYS_ASSERT3U(enp->en_magic, ==, EFX_NIC_MAGIC);
