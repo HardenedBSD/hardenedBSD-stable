@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2009-2015 Solarflare Communications Inc.
+ * Copyright (c) 2009-2016 Solarflare Communications Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -149,6 +149,10 @@ siena_board_cfg(
 	encp->enc_fw_assisted_tso_enabled = B_FALSE;
 	encp->enc_fw_assisted_tso_v2_enabled = B_FALSE;
 	encp->enc_allow_set_mac_with_installed_filters = B_TRUE;
+
+	/* Siena supports two 10G ports, and 8 lanes of PCIe Gen2 */
+	encp->enc_required_pcie_bandwidth_mbps = 2 * 10000;
+	encp->enc_max_pcie_link_gen = EFX_PCIE_LINK_SPEED_GEN2;
 
 	return (0);
 

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2007-2015 Solarflare Communications Inc.
+ * Copyright (c) 2007-2016 Solarflare Communications Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,42 +38,42 @@ __FBSDID("$FreeBSD$");
 #if EFSYS_OPT_SIENA
 
 static	__checkReturn	efx_rc_t
-falconsiena_rx_init(
+siena_rx_init(
 	__in		efx_nic_t *enp);
 
 static			void
-falconsiena_rx_fini(
+siena_rx_fini(
 	__in		efx_nic_t *enp);
 
 #if EFSYS_OPT_RX_SCATTER
 static	__checkReturn	efx_rc_t
-falconsiena_rx_scatter_enable(
+siena_rx_scatter_enable(
 	__in		efx_nic_t *enp,
 	__in		unsigned int buf_size);
 #endif /* EFSYS_OPT_RX_SCATTER */
 
 #if EFSYS_OPT_RX_SCALE
 static	__checkReturn	efx_rc_t
-falconsiena_rx_scale_mode_set(
+siena_rx_scale_mode_set(
 	__in		efx_nic_t *enp,
 	__in		efx_rx_hash_alg_t alg,
 	__in		efx_rx_hash_type_t type,
 	__in		boolean_t insert);
 
 static	__checkReturn	efx_rc_t
-falconsiena_rx_scale_key_set(
+siena_rx_scale_key_set(
 	__in		efx_nic_t *enp,
 	__in_ecount(n)	uint8_t *key,
 	__in		size_t n);
 
 static	__checkReturn	efx_rc_t
-falconsiena_rx_scale_tbl_set(
+siena_rx_scale_tbl_set(
 	__in		efx_nic_t *enp,
 	__in_ecount(n)	unsigned int *table,
 	__in		size_t n);
 
 static	__checkReturn	uint32_t
-falconsiena_rx_prefix_hash(
+siena_rx_prefix_hash(
 	__in		efx_nic_t *enp,
 	__in		efx_rx_hash_alg_t func,
 	__in		uint8_t *buffer);
@@ -81,13 +81,13 @@ falconsiena_rx_prefix_hash(
 #endif /* EFSYS_OPT_RX_SCALE */
 
 static	__checkReturn	efx_rc_t
-falconsiena_rx_prefix_pktlen(
+siena_rx_prefix_pktlen(
 	__in		efx_nic_t *enp,
 	__in		uint8_t *buffer,
 	__out		uint16_t *lengthp);
 
 static			void
-falconsiena_rx_qpost(
+siena_rx_qpost(
 	__in		efx_rxq_t *erp,
 	__in_ecount(n)	efsys_dma_addr_t *addrp,
 	__in		size_t size,
@@ -96,21 +96,21 @@ falconsiena_rx_qpost(
 	__in		unsigned int added);
 
 static			void
-falconsiena_rx_qpush(
+siena_rx_qpush(
 	__in		efx_rxq_t *erp,
 	__in		unsigned int added,
 	__inout		unsigned int *pushedp);
 
 static	__checkReturn	efx_rc_t
-falconsiena_rx_qflush(
+siena_rx_qflush(
 	__in		efx_rxq_t *erp);
 
 static			void
-falconsiena_rx_qenable(
+siena_rx_qenable(
 	__in		efx_rxq_t *erp);
 
 static	__checkReturn	efx_rc_t
-falconsiena_rx_qcreate(
+siena_rx_qcreate(
 	__in		efx_nic_t *enp,
 	__in		unsigned int index,
 	__in		unsigned int label,
@@ -122,7 +122,7 @@ falconsiena_rx_qcreate(
 	__in		efx_rxq_t *erp);
 
 static			void
-falconsiena_rx_qdestroy(
+siena_rx_qdestroy(
 	__in		efx_rxq_t *erp);
 
 #endif /* EFSYS_OPT_SIENA */
@@ -130,24 +130,24 @@ falconsiena_rx_qdestroy(
 
 #if EFSYS_OPT_SIENA
 static const efx_rx_ops_t __efx_rx_siena_ops = {
-	falconsiena_rx_init,			/* erxo_init */
-	falconsiena_rx_fini,			/* erxo_fini */
+	siena_rx_init,				/* erxo_init */
+	siena_rx_fini,				/* erxo_fini */
 #if EFSYS_OPT_RX_SCATTER
-	falconsiena_rx_scatter_enable,		/* erxo_scatter_enable */
+	siena_rx_scatter_enable,		/* erxo_scatter_enable */
 #endif
 #if EFSYS_OPT_RX_SCALE
-	falconsiena_rx_scale_mode_set,		/* erxo_scale_mode_set */
-	falconsiena_rx_scale_key_set,		/* erxo_scale_key_set */
-	falconsiena_rx_scale_tbl_set,		/* erxo_scale_tbl_set */
-	falconsiena_rx_prefix_hash,		/* erxo_prefix_hash */
+	siena_rx_scale_mode_set,		/* erxo_scale_mode_set */
+	siena_rx_scale_key_set,			/* erxo_scale_key_set */
+	siena_rx_scale_tbl_set,			/* erxo_scale_tbl_set */
+	siena_rx_prefix_hash,			/* erxo_prefix_hash */
 #endif
-	falconsiena_rx_prefix_pktlen,		/* erxo_prefix_pktlen */
-	falconsiena_rx_qpost,			/* erxo_qpost */
-	falconsiena_rx_qpush,			/* erxo_qpush */
-	falconsiena_rx_qflush,			/* erxo_qflush */
-	falconsiena_rx_qenable,			/* erxo_qenable */
-	falconsiena_rx_qcreate,			/* erxo_qcreate */
-	falconsiena_rx_qdestroy,		/* erxo_qdestroy */
+	siena_rx_prefix_pktlen,			/* erxo_prefix_pktlen */
+	siena_rx_qpost,				/* erxo_qpost */
+	siena_rx_qpush,				/* erxo_qpush */
+	siena_rx_qflush,			/* erxo_qflush */
+	siena_rx_qenable,			/* erxo_qenable */
+	siena_rx_qcreate,			/* erxo_qcreate */
+	siena_rx_qdestroy,			/* erxo_qdestroy */
 };
 #endif	/* EFSYS_OPT_SIENA */
 
@@ -567,7 +567,7 @@ efx_psuedo_hdr_hash_get(
 #if EFSYS_OPT_SIENA
 
 static	__checkReturn	efx_rc_t
-falconsiena_rx_init(
+siena_rx_init(
 	__in		efx_nic_t *enp)
 {
 	efx_oword_t oword;
@@ -604,7 +604,7 @@ falconsiena_rx_init(
 
 #if EFSYS_OPT_RX_SCATTER
 static	__checkReturn	efx_rc_t
-falconsiena_rx_scatter_enable(
+siena_rx_scatter_enable(
 	__in		efx_nic_t *enp,
 	__in		unsigned int buf_size)
 {
@@ -710,7 +710,7 @@ fail1:
 #if EFSYS_OPT_RX_SCALE
 
 static	__checkReturn	efx_rc_t
-falconsiena_rx_scale_mode_set(
+siena_rx_scale_mode_set(
 	__in		efx_nic_t *enp,
 	__in		efx_rx_hash_alg_t alg,
 	__in		efx_rx_hash_type_t type,
@@ -757,7 +757,7 @@ fail1:
 
 #if EFSYS_OPT_RX_SCALE
 static	__checkReturn	efx_rc_t
-falconsiena_rx_scale_key_set(
+siena_rx_scale_key_set(
 	__in		efx_nic_t *enp,
 	__in_ecount(n)	uint8_t *key,
 	__in		size_t n)
@@ -882,7 +882,7 @@ fail1:
 
 #if EFSYS_OPT_RX_SCALE
 static	__checkReturn	efx_rc_t
-falconsiena_rx_scale_tbl_set(
+siena_rx_scale_tbl_set(
 	__in		efx_nic_t *enp,
 	__in_ecount(n)	unsigned int *table,
 	__in		size_t n)
@@ -960,11 +960,13 @@ fail1:
 
 #if EFSYS_OPT_RX_SCALE
 static	__checkReturn	uint32_t
-falconsiena_rx_prefix_hash(
+siena_rx_prefix_hash(
 	__in		efx_nic_t *enp,
 	__in		efx_rx_hash_alg_t func,
 	__in		uint8_t *buffer)
 {
+	_NOTE(ARGUNUSED(enp))
+
 	switch (func) {
 	case EFX_RX_HASHALG_TOEPLITZ:
 		return ((buffer[12] << 24) |
@@ -983,11 +985,13 @@ falconsiena_rx_prefix_hash(
 #endif /* EFSYS_OPT_RX_SCALE */
 
 static	__checkReturn	efx_rc_t
-falconsiena_rx_prefix_pktlen(
+siena_rx_prefix_pktlen(
 	__in		efx_nic_t *enp,
 	__in		uint8_t *buffer,
 	__out		uint16_t *lengthp)
 {
+	_NOTE(ARGUNUSED(enp, buffer, lengthp))
+
 	/* Not supported by Falcon/Siena hardware */
 	EFSYS_ASSERT(0);
 	return (ENOTSUP);
@@ -995,7 +999,7 @@ falconsiena_rx_prefix_pktlen(
 
 
 static			void
-falconsiena_rx_qpost(
+siena_rx_qpost(
 	__in		efx_rxq_t *erp,
 	__in_ecount(n)	efsys_dma_addr_t *addrp,
 	__in		size_t size,
@@ -1033,7 +1037,7 @@ falconsiena_rx_qpost(
 }
 
 static			void
-falconsiena_rx_qpush(
+siena_rx_qpush(
 	__in	efx_rxq_t *erp,
 	__in	unsigned int added,
 	__inout	unsigned int *pushedp)
@@ -1065,7 +1069,7 @@ falconsiena_rx_qpush(
 }
 
 static	__checkReturn	efx_rc_t
-falconsiena_rx_qflush(
+siena_rx_qflush(
 	__in	efx_rxq_t *erp)
 {
 	efx_nic_t *enp = erp->er_enp;
@@ -1083,7 +1087,7 @@ falconsiena_rx_qflush(
 }
 
 static		void
-falconsiena_rx_qenable(
+siena_rx_qenable(
 	__in	efx_rxq_t *erp)
 {
 	efx_nic_t *enp = erp->er_enp;
@@ -1103,7 +1107,7 @@ falconsiena_rx_qenable(
 }
 
 static	__checkReturn	efx_rc_t
-falconsiena_rx_qcreate(
+siena_rx_qcreate(
 	__in		efx_nic_t *enp,
 	__in		unsigned int index,
 	__in		unsigned int label,
@@ -1119,6 +1123,8 @@ falconsiena_rx_qcreate(
 	uint32_t size;
 	boolean_t jumbo;
 	efx_rc_t rc;
+
+	_NOTE(ARGUNUSED(esmp))
 
 	EFX_STATIC_ASSERT(EFX_EV_RX_NLABELS ==
 	    (1 << FRF_AZ_RX_DESCQ_LABEL_WIDTH));
@@ -1193,7 +1199,7 @@ fail1:
 }
 
 static		void
-falconsiena_rx_qdestroy(
+siena_rx_qdestroy(
 	__in	efx_rxq_t *erp)
 {
 	efx_nic_t *enp = erp->er_enp;
@@ -1213,7 +1219,7 @@ falconsiena_rx_qdestroy(
 }
 
 static		void
-falconsiena_rx_fini(
+siena_rx_fini(
 	__in	efx_nic_t *enp)
 {
 	_NOTE(ARGUNUSED(enp))

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2007-2015 Solarflare Communications Inc.
+ * Copyright (c) 2007-2016 Solarflare Communications Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,7 +34,7 @@ __FBSDID("$FreeBSD$");
 #include "efx.h"
 #include "efx_impl.h"
 
-#if EFSYS_OPT_HUNTINGTON
+#if EFSYS_OPT_HUNTINGTON || EFSYS_OPT_MEDFORD
 
 #if EFSYS_OPT_FILTER
 
@@ -353,7 +353,7 @@ efx_mcdi_filter_op_delete(
 	MCDI_IN_SET_DWORD(req, FILTER_OP_IN_HANDLE_LO, handle->efh_lo);
 	MCDI_IN_SET_DWORD(req, FILTER_OP_IN_HANDLE_HI, handle->efh_hi);
 
-	efx_mcdi_execute(enp, &req);
+	efx_mcdi_execute_quiet(enp, &req);
 
 	if (req.emr_rc != 0) {
 		rc = req.emr_rc;
@@ -970,7 +970,7 @@ ef10_filter_supported_filters(
 {
 	efx_rc_t rc;
 
-	if ((rc = efx_mcdi_get_parser_disp_info(enp, list, length) != 0))
+	if ((rc = efx_mcdi_get_parser_disp_info(enp, list, length)) != 0)
 		goto fail1;
 
 	return (0);
@@ -1191,7 +1191,7 @@ ef10_filter_remove_old(
 
 
 static	__checkReturn	efx_rc_t
-hunt_filter_get_workarounds(
+ef10_filter_get_workarounds(
 	__in				efx_nic_t *enp)
 {
 	efx_nic_cfg_t *encp = &enp->en_nic_cfg;
@@ -1319,18 +1319,28 @@ ef10_filter_reconfigure(
 	 * filters, and can only be enabled or disabled when the hardware filter
 	 * table is empty.
 	 *
+	 * Chained multicast filters require support from the datapath firmware,
+	 * and may not be available (e.g. low-latency variants or old Huntington
+	 * firmware).
+	 *
 	 * Firmware will reset (FLR) functions which have inserted filters in
 	 * the hardware filter table when the workaround is enabled/disabled.
 	 * Functions without any hardware filters are not reset.
 	 *
 	 * Re-check if the workaround is enabled after adding unicast hardware
-	 * filters. This ensures that encp->enc_workaround_bug26807 matches the
+	 * filters. This ensures that encp->enc_bug26807_workaround matches the
 	 * firmware state, and that later changes to enable/disable the
 	 * workaround will result in this function seeing a reset (FLR).
 	 *
-	 * FIXME: On Medford multicast chaining should always be on.
+	 * In common-code drivers, we only support multiple PCI function
+	 * scenarios with firmware that supports multicast chaining, so we can
+	 * assume it is enabled for such cases and hence simplify the filter
+	 * insertion logic. Firmware that does not support multicast chaining
+	 * does not support multiple PCI function configurations either, so
+	 * filter insertion is much simpler and the same strategies can still be
+	 * used.
 	 */
-	if ((rc = hunt_filter_get_workarounds(enp)) != 0)
+	if ((rc = ef10_filter_get_workarounds(enp)) != 0)
 		goto fail2;
 
 	if ((table->eft_using_all_mulcst != all_mulcst) &&
@@ -1469,4 +1479,4 @@ ef10_filter_default_rxq_clear(
 
 #endif /* EFSYS_OPT_FILTER */
 
-#endif /* EFSYS_OPT_HUNTINGTON */
+#endif /* EFSYS_OPT_HUNTINGTON || EFSYS_OPT_MEDFORD */
