@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2015-2016 Landon Fuller <landon@landonf.org>
+ * Copyright (c) 2016 Landon Fuller <landon@freebsd.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,12 +29,18 @@
  * $FreeBSD$
  */
 
-#ifndef _BHND_CORES_CHIPC_CHIPC_H_
-#define _BHND_CORES_CHIPC_CHIPC_H_
+#ifndef _BHND_BHND_NEXUSVAR_H_
+#define _BHND_BHND_NEXUSVAR_H_
 
-#include <dev/bhnd/bhnd.h>
-#include <dev/bhnd/nvram/bhnd_nvram.h>
+#include <sys/param.h>
+#include <sys/kernel.h>
+#include <sys/bus.h>
+#include <sys/module.h>
 
-#include "bhnd_chipc_if.h"
+#include "bhndvar.h"
 
-#endif /* _BHND_CORES_CHIPC_CHIPC_H_ */
+DECLARE_CLASS(bhnd_nexus_driver);
+
+int	bhnd_nexus_read_chipid(device_t dev, struct bhnd_chipid *chipid);
+
+#endif /* _BHND_BHND_NEXUSVAR_H_ */
