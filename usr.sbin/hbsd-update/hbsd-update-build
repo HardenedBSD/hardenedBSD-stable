@@ -60,6 +60,8 @@ setup_environment() {
 	DEBUGBUILD=""
 	USE_EXISTING=0
 	LOGTOSTDOUT=0
+	INTEGRIFORCE=1
+	VERBOSE=0
 }
 
 cleanup_chroot() {
@@ -268,8 +270,93 @@ EOF
 	build_obsolete
 }
 
+check_integriforce_rule_exists() {
+	local checkfile
+
+	if [ ! -f ${STAGEDIR}/secadm.integriforce.rules ]; then
+		return 1
+	fi
+
+	checkfile=${1}
+	if [ -z "${checkfile}" ]; then
+		return 1
+	fi
+
+	if grep -Fqw ${checkfile} ${STAGEDIR}/secadm.integriforce.rules; then
+		return 0
+	fi
+
+	return 1
+}
+
+build_integriforce_rules() {
+	local res
+	local tmpfile
+	local resfile
+	local ftype
+	local f
+	local l
+
+	debug_print "[*] Building Integriforce rules"
+
+	# Install world to a temporary location in the chroot
+	chroot ${CHROOTDIR} /bin/sh -c \
+		'(cd /usr/src; make -s installworld DESTDIR=/tmp/integriforce WITHOUT_TESTS=1)'
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		return 1
+	fi
+
+	tmpfile=$(mktemp)
+	find ${CHROOTDIR}/tmp/integriforce -type f \
+		> ${tmpfile} 2> /dev/null
+	for f in $(cat ${tmpfile}); do
+		resfile=$(echo ${f} | sed s,${CHROOTDIR}/tmp/integriforce,,)
+		if [ -x ${f} ]; then
+			if check_integriforce_rule_exists ${resfile}; then
+				# This shouldn't happen, but let's be
+				# pedantic.
+				continue
+			fi
+
+			# First do the executable
+			cat <<EOF >> ${STAGEDIR}/secadm.integriforce.rules
+integriforce {
+	path: "${resfile}",
+	hash: "$(sha256 -q ${f})",
+	type: "sha256",
+	mode: "hard"
+},
+EOF
+
+			# Then do the dependencies if this is an ELF
+			# file
+			if file ${f} | grep -q ELF; then
+				for l in $(chroot ${CHROOTDIR} ldd -f '%p\n' ${resfile} 2> /dev/null); do
+					if check_integriforce_rule_exists ${l}; then
+						continue
+					fi
+
+					cat <<EOF >> ${STAGEDIR}/secadm.integriforce.rules
+integriforce {
+	path: "${l}",
+	hash: "$(sha256 -q ${CHROOTDIR}/tmp/integriforce/${l})",
+	type: "sha256",
+	mode: "hard"
+},
+EOF
+				done
+			fi
+		fi
+	done
+
+	rm -f ${tmpfile}
+}
+
 sign_artifacts() {
 	local files
+
+	debug_print "[*] Signing artifacts"
 
 	files="skip.txt ObsoleteFiles.txt ObsoleteDirs.txt"
 
@@ -294,6 +381,13 @@ sign_artifacts() {
 			-inkey ${PRIVKEY} \
 			-out ${STAGEDIR}/${f}.sig
 	done
+
+	if [ -f ${STAGEDIR}/secadm.integriforce.rules ]; then
+		sha256 -q ${STAGEDIR}/secadm.integriforce.rules | ${SIGNBIN} rsautl \
+			-sign \
+			-inkey ${PRIVKEY} \
+			-out ${STAGEDIR}/secadm.integriforce.rules.sig
+	fi
 
 	if [ -f ${PUBKEY} ]; then
 		cp ${PUBKEY} ${STAGEDIR}/pubkey.pem
@@ -400,7 +494,7 @@ main() {
 	set -e
 	setup_environment
 	sanity_check
-	while getopts 'ec:hu' opt; do
+	while getopts 'ec:huv' opt; do
 		case ${opt} in
 			c)
 				BUILDCONF="${OPTARG}"
@@ -410,6 +504,9 @@ main() {
 				;;
 			u)
 				UNSIGNED=1
+				;;
+			v)
+				VERBOSE=1
 				;;
 			*)
 				usage
@@ -436,6 +533,9 @@ main() {
 			build_kernel_archives || exit 1
 			build_etcupdate_archive || exit 1
 			add_extra_files || exit 1
+			if [ ${INTEGRIFORCE} -gt 0 ]; then
+				build_integriforce_rules || exit 1
+			fi
 		fi
 
 		if [ ${UNSIGNED} -eq 0 ]; then
