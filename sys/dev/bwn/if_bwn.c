@@ -750,6 +750,7 @@ bwn_detach(device_t dev)
 	if (mac->mac_msi != 0)
 		pci_release_msi(dev);
 	mbufq_drain(&sc->sc_snd);
+	bwn_release_firmware(mac);
 	BWN_LOCK_DESTROY(sc);
 	return (0);
 }
@@ -1163,6 +1164,16 @@ bwn_attach_core(struct bwn_mac *mac)
 			have_bg = 1;
 			have_a = 1;
 		}
+#if 0
+		device_printf(sc->sc_dev, "%s: high=0x%08x, have_a=%d, have_bg=%d,"
+		    " deviceid=0x%04x, siba_deviceid=0x%04x\n",
+		    __func__,
+		    high,
+		    have_a,
+		    have_bg,
+		    siba_get_pci_device(sc->sc_dev),
+		    siba_get_chipid(sc->sc_dev));
+#endif
 	} else {
 		device_printf(sc->sc_dev, "%s: not siba; bailing\n", __func__);
 		error = ENXIO;
@@ -1183,18 +1194,12 @@ bwn_attach_core(struct bwn_mac *mac)
 	if (error)
 		goto fail;
 
-#if 0
-	device_printf(sc->sc_dev, "%s: high=0x%08x, have_a=%d, have_bg=%d,"
-	    " deviceid=0x%04x, siba_deviceid=0x%04x\n",
-	    __func__,
-	    high,
-	    have_a,
-	    have_bg,
-	    siba_get_pci_device(sc->sc_dev),
-	    siba_get_chipid(sc->sc_dev));
-#endif
-
+	/*
+	 * This is the whitelist of devices which we "believe"
+	 * the SPROM PHY config from.  The rest are "guessed".
+	 */
 	if (siba_get_pci_device(sc->sc_dev) != 0x4312 &&
+	    siba_get_pci_device(sc->sc_dev) != 0x4315 &&
 	    siba_get_pci_device(sc->sc_dev) != 0x4319 &&
 	    siba_get_pci_device(sc->sc_dev) != 0x4324 &&
 	    siba_get_pci_device(sc->sc_dev) != 0x4328 &&
@@ -1324,6 +1329,7 @@ bwn_attach_core(struct bwn_mac *mac)
 	siba_dev_down(sc->sc_dev, 0);
 fail:
 	siba_powerdown(sc->sc_dev);
+	bwn_release_firmware(mac);
 	return (error);
 }
 
@@ -3926,6 +3932,7 @@ bwn_fw_gets(struct bwn_mac *mac, enum bwn_fwtype type)
 		}
 	} else if (rev < 11) {
 		device_printf(sc->sc_dev, "no PCM for rev %d\n", rev);
+		bwn_release_firmware(mac);
 		return (EOPNOTSUPP);
 	}
 
