@@ -1,6 +1,6 @@
 #!/bin/sh
 #-
-# Copyright (c) 2015 HardenedBSD
+# Copyright (c) 2015,2016 HardenedBSD
 # Author: Shawn Webb <shawn.webb@hardenedbsd.org>
 #
 # This work originally sponsored by G2, Inc
@@ -39,6 +39,7 @@ kernel=""
 ignorever=0
 unsigned=0
 verbose=0
+integriforce=1
 
 AWK="/usr/bin/awk"
 BEADM="/usr/local/sbin/beadm"
@@ -195,6 +196,12 @@ check_set_validity() {
 	checkfiles="base.txz kernel-${kernel}.txz etcupdate.tbz skip.txt"
 	extrafiles="ObsoleteFiles.txt ObsoleteDirs.txt"
 
+	if [ ${integriforce} -gt 0 ]; then
+		if [ -f ${tmpdir}/secadm.integriforce.rules ]; then
+			extrafiles="${extrafiles} secadm.integriforce.rules"
+		fi
+	fi
+
 	${OPENSSL} x509 \
 		-in ${tmpdir}/pubkey.pem \
 		-pubkey \
@@ -231,6 +238,7 @@ check_set_validity() {
 
 	for file in ${extrafiles}; do
 		if [ ! -f ${tmpdir}/${file} ]; then
+			echo "[-] Could not find extra file ${file}. Skipping validity checks."
 			continue
 		fi
 
@@ -411,6 +419,59 @@ apply_kernel() {
 	res=${?}
 	if [ ${res} -gt 0 ]; then
 		return 1
+	fi
+
+	return 0
+}
+
+apply_integriforce() {
+	local res
+	local f
+
+	debug_print "[*] Applying Integriforce rules"
+
+	f="${mountpoint}/etc/secadm.d/base.integriforce.rules"
+
+	if [ -f ${tmpdir}/secadm.integriforce.rules ]; then
+		if [ ! -d ${mountpoint}/etc/secadm.d ]; then
+			mkdir ${mountpoint}/etc/secadm.d
+			res=${?}
+			if [ ${res} -gt 0 ]; then
+				return 1
+			fi
+		fi
+
+		if [ -f ${mountpoint}/etc/secadm.d/base.integriforce.rules ]; then
+			chflags noschg ${f}
+			res=${?}
+			if [ ${res} -gt 0 ]; then
+				return 1
+			fi
+
+			chmod 0600 ${f}
+			res=${?}
+			if [ ${res} -gt 0 ]; then
+				return 1
+			fi
+		fi
+
+		cp ${tmpdir}/secadm.integriforce.rules ${f}
+		res=${?}
+		if [ ${res} -gt 0 ]; then
+			return 1
+		fi
+
+		chmod 0400 ${f}
+		res=${?}
+		if [ ${res} -gt 0 ]; then
+			return 1
+		fi
+
+		chflags schg ${f}
+		res=${?}
+		if [ ${res} -gt 0 ]; then
+			return 1
+		fi
 	fi
 
 	return 0
@@ -710,6 +771,16 @@ main() {
 		cleanup
 		destroy_be
 		exit 1
+	fi
+
+	if [ ${integriforce} -gt 0 ]; then
+		apply_integriforce
+		res=${?}
+		if [ ${res} -gt 0 ]; then
+			cleanup
+			destroy_be
+			exit 1
+		fi
 	fi
 
 	cache_version
