@@ -47,6 +47,9 @@ __ENV_ONLY_OPTIONS:= \
 .elif ${MK_META_MODE} == "yes" && defined(.MAKEFLAGS) && ${.MAKEFLAGS:M-B} == ""
 # verbose will show .MAKE.META.PREFIX for each target.
 META_MODE+=	meta verbose
+.if !defined(NO_META_MISSING)
+META_MODE+=	missing-meta=yes
+.endif
 # silent will hide command output if a .meta file is created.
 .if !defined(NO_SILENT)
 META_MODE+=	silent=yes
@@ -57,10 +60,34 @@ META_MODE+=	silent=yes
 .endif
 META_MODE+= nofilemon
 .endif
+# Require filemon data with bmake
+.if empty(META_MODE:Mnofilemon)
+META_MODE+= missing-filemon=yes
+.endif
 .endif
 META_MODE?= normal
 .export META_MODE
 .MAKE.MODE?= ${META_MODE}
+.if !empty(.MAKE.MODE:Mmeta) && !defined(NO_META_IGNORE_HOST)
+# Ignore host file changes that will otherwise cause
+# buildworld -> installworld -> buildworld to rebuild everything.
+# Since the build is self-reliant and bootstraps everything it needs,
+# this should not be a real problem for incremental builds.
+# Note that these are prefix matching, so /lib matches /libexec.
+.MAKE.META.IGNORE_PATHS+= \
+	${__MAKE_SHELL} \
+	/bin \
+	/lib \
+	/rescue \
+	/sbin \
+	/usr/bin \
+	/usr/include \
+	/usr/lib \
+	/usr/sbin \
+	/usr/share \
+
+.endif
+
 
 .if ${MK_AUTO_OBJ} == "yes"
 # This needs to be done early - before .PATH is computed
