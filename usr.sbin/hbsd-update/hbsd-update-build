@@ -383,7 +383,7 @@ sign_artifacts() {
 	done
 
 	if [ -f ${STAGEDIR}/secadm.integriforce.rules ]; then
-		sha256 -q ${STAGEDIR}/secadm.integriforce.rules | ${SIGNBIN} rsautl \
+		sha512 -q ${STAGEDIR}/secadm.integriforce.rules | ${SIGNBIN} rsautl \
 			-sign \
 			-inkey ${PRIVKEY} \
 			-out ${STAGEDIR}/secadm.integriforce.rules.sig
