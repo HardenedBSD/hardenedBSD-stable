@@ -83,7 +83,7 @@ static keyboard_switch_t *kbdsw_ini;
 
 #ifdef PAX_HARDENING
 /* Only root should be able to change keyboard mapping */
-static int keymap_restrict_change = 3;
+static int keymap_restrict_change = 4;
 #else
 static int keymap_restrict_change;
 #endif
