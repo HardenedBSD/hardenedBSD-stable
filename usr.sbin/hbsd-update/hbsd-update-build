@@ -247,12 +247,19 @@ build_kernel_archives() {
 }
 
 build_obsolete() {
-	grep '^OLD_FILES+=' ${CHROOTDIR}/usr/src/ObsoleteFiles.inc | \
-	    awk -F '=' '{print $2;}' > ${STAGEDIR}/ObsoleteFiles.txt
-	grep '^OLD_LIBS+=' ${CHROOTDIR}/usr/src/ObsoleteFiles.inc | \
-	    awk -F '=' '{print $2;}' >> ${STAGEDIR}/ObsoleteFiles.txt
-	grep '^OLD_DIRS+=' ${CHROOTDIR}/usr/src/ObsoleteFiles.inc | \
-	    awk -F '=' '{print $2;}' >> ${STAGEDIR}/ObsoleteDirs.txt
+	chroot ${CHROOTDIR} make -C /usr/src \
+		-f Makefile.inc1 \
+		-V OLD_FILES -V OLD_LIBS \
+		TARGET=$(uname -m) \
+		TARGET_ARCH=$(uname -m) \
+		check-old > ${STAGEDIR}/ObsoleteFiles.txt
+
+	chroot ${CHROOTDIR} make -C /usr/src \
+		-f Makefile.inc1 \
+		-V OLD_DIRS \
+		TARGET=$(uname -m) \
+		TARGET_ARCH=$(uname -m) \
+		check-old > ${STAGEDIR}/ObsoleteDirs.txt
 }
 
 add_extra_files() {
