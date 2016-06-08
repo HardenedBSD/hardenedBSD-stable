@@ -133,8 +133,6 @@ FILES=	DAEMON \
 	ypset \
 	ypupdated \
 	ypxfrd \
-	zfs \
-	zvol
 
 .if ${MK_ACCT} != "no"
 FILES+=		accounting
@@ -280,6 +278,11 @@ _utx=		utx
 .if ${MK_WIRELESS} != "no"
 FILES+=		hostapd
 FILES+=		wpa_supplicant
+.endif
+
+.if ${MK_ZFS} != "no"
+FILES+=		zfs
+FILES+=		zvol
 .endif
 
 FILESDIR=	/etc/rc.d
