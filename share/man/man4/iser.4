@@ -1,5 +1,4 @@
-.\" Copyright (c) 2012 Bryan Venteicher
-.\" All rights reserved.
+.\" Copyright (c) 2015, Mellanox Technologies, Inc. All rights reserved.
 .\"
 .\" Redistribution and use in source and binary forms, with or without
 .\" modification, are permitted provided that the following conditions
@@ -22,72 +21,74 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\" $FreeBSD$
 .\"
-.Dd June 24, 2012
-.Dt VIRTIO_SCSI 4
+.\" $FreeBSD$
+.Dd June 6, 2016
+.Dt ISER 4
 .Os
 .Sh NAME
-.Nm virtio_scsi
-.Nd VirtIO SCSI driver
+.Nm iser
+.Nd iSCSI Extensions for RDMA (iSER) driver
 .Sh SYNOPSIS
 To compile this driver into the kernel,
-place the following lines in your
+place the following line in the
 kernel configuration file:
 .Bd -ragged -offset indent
-.Cd "device virtio_scsi"
+.Cd "device iser"
 .Ed
 .Pp
 Alternatively, to load the driver as a
 module at boot time, place the following line in
 .Xr loader.conf 5 :
 .Bd -literal -offset indent
-virtio_scsi_load="YES"
+iser_load="YES"
 .Ed
 .Sh DESCRIPTION
 The
 .Nm
-device driver provides support for VirtIO SCSI devices.
-.Sh LOADER TUNABLES
-Tunables can be set at the
+(iSCSI Extensions for RDMA) initiator driver extends the iSCSI protocol to RDMA.
+It permits data to be transferred directly into and out of SCSI buffers
+without intermediate data copies.
+iSER uses the RDMA protocol suite to supply higher bandwidth for
+block storage transfers (zero copy behavior).
+To that fact, it eliminates the
+TCP/IP processing overhead while preserving the compatibility with iSCSI protocol.
+The initiator is the iSCSI/iSER client, which connects to an iSCSI/iSER target,
+providing local access to a remote block device.
+The userland component is provided by
+.Xr iscsid 8
+and both the kernel and userland are configured using
+.Xr iscsictl 8 .
+.Sh SYSCTL VARIABLES
+The following variables are available as both
+.Xr sysctl 8
+variables and
 .Xr loader 8
-prompt before booting the kernel or stored in
-.Xr loader.conf 5 .
-.Bl -tag -width "xxxxxx"
-.It Va hw.vtscsi.bus_reset_disable
-In the initial QEMU release with VirtIO SCSI support, in-flight
-operations were not aborted when stopping the device, rendering
-bus reset ineffective.
-This tunable disables attempts to issue reset bus commands.
-The default value is 1.
-.El
-.Sh DEBUGGING
-To enable debugging prints from the
+tunables:
+.Bl -tag -width indent
+.It Va kern.iser.debug
+Verbosity level for log messages from the
 .Nm
-driver, set the
-.Bd -literal -offset indent
-hw.vtscsi.X.debug_level
-.Ed
-.Pp
-variable, where X is the adapter number, either in
-.Xr loader.conf 5
-or via
-.Xr sysctl 8 .
-The following bits have the described effects:
-.Bl -tag -width 6n -offset indent
-.It 0x01
-Enable informational prints.
-.It 0x02
-Enable prints for driver errors.
-.It 0x04
-Enable tracing prints.
+driver.
+Set to 0 to disable logging or 1 to warn about potential problems.
+Larger values enable info and debugging output.
+Defaults to 0.
 .El
 .Sh SEE ALSO
-.Xr virtio 4
+.Xr iscsi 4 ,
+.Xr iscsi.conf 5 ,
+.Xr iscsictl 8 ,
+.Xr iscsid 8
 .Sh HISTORY
 The
 .Nm
-driver was written by
-.An Bryan Venteicher Aq Mt bryanv@FreeBSD.org .
-It first appeared in
-.Fx 10.0 .
+subsystem first appeared in
+.Fx 11.0 .
+.Sh AUTHORS
+The
+.Nm
+subsystem was developed by
+.An Max Gurtovoy Aq Mt maxg@mellanox.com
+and
+.An Sagi Grimberg Aq Mt sagig@mellanox.com
+under sponsorship from Mellanox Technologies.
