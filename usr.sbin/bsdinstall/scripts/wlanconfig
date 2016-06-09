@@ -59,42 +59,6 @@ if [ $? -ne 0 -a -z $BSDINSTALL_CONFIGCURRENT ]; then
 	exit 1
 fi
 
-<<<<<<< HEAD
-output=$( wpa_cli scan 2>&1 )
-f_dprintf "%s" "$output"
-dialog --backtitle "HardenedBSD Installer" --title "Scanning" --ok-label "Skip" \
-	--pause "Waiting 5 seconds to scan for wireless networks..." \
-	9 40 5 || exit 1
-
-SCAN_RESULTS=`wpa_cli scan_results`
-NETWORKS=`echo "$SCAN_RESULTS" | awk -F '\t' \
-   '/..:..:..:..:..:../ {if (length($5) > 0) printf("\"%s\"\t%s\n", $5, $4);}' |
-   sort | uniq`
-
-if [ -z "$NETWORKS" ]; then
-	dialog --backtitle "HardenedBSD Installer" --title "Error" \
-	    --yesno "No wireless networks were found. Rescan?" 0 0 && \
-	    exec $0 $@
-	exit 1
-fi
-
-exec 3>&1
-NETWORK=`sh -c "dialog --extra-button --extra-label \"Rescan\" \
-    --backtitle \"HardenedBSD Installer\" --title \"Network Selection\" --menu \
-    \"Select a wireless network to connect to.\" 0 0 0 \
-    $(echo $NETWORKS | tr '\n' ' ')" 2>&1 1>&3`
-case $? in
-0)	# OK
-	;;
-1)	# Cancel
-	exit 1
-	;;
-3)	# Rescan
-	exec $0 $@
-	;;
-esac
-exec 3>&-
-=======
 country_set()
 {
 	local error_str=
@@ -130,7 +94,7 @@ country_set()
 		    $BSDINSTALL_TMPETC/wpa_supplicant.conf
 	fi
 	if [ ! -z "$error_str" ]; then
-		dialog --backtitle "FreeBSD Installer" --title "Error" \
+		dialog --backtitle "HardenedBSD Installer" --title "Error" \
 		    --yes-label Change --no-label Ignore --yesno \
 		    "Error while applying chosen settings ($error_str)" 0 0
 		if [ $? -eq $DIALOG_OK ]; then
@@ -184,10 +148,10 @@ dialog_country_select()
 	fi
 
 	f_dialog_menu_size height width rows \"Regdomain selection\" \
-	    \"FreeBSD Installer\" \"Select your regdomain.\" \
+	    \"HardenedBSD Installer\" \"Select your regdomain.\" \
 	    \"\" $regdomains
 	regdomain=`sh -c "dialog \
-	    --backtitle \"FreeBSD Installer\" \
+	    --backtitle \"HardenedBSD Installer\" \
 	    --title \"Regdomain selection\" \
 	    --cancel-label \"Skip\" \
 	    $def_item_regdomain \
@@ -197,10 +161,10 @@ dialog_country_select()
 	    $height $width $rows $regdomains"`
 
 	f_dialog_menu_size height width rows \"Country selection\" \
-	    \"FreeBSD Installer\" \"Select your country.\" \
+	    \"HardenedBSD Installer\" \"Select your country.\" \
 	    \"\" $countries
 	country=`sh -c "dialog \
-	    --backtitle \"FreeBSD Installer\" \
+	    --backtitle \"HardenedBSD Installer\" \
 	    --title \"Country selection\" \
 	    --cancel-label \"Skip\" \
 	    $def_item_country \
@@ -227,7 +191,7 @@ if [ ! -z $BSDINSTALL_CONFIGCURRENT ]; then
 	if [ "$DEF_COUNTRY" = "0" ]; then
 		DEF_COUNTRY="<not selected>"
 	fi
-	dialog --backtitle "FreeBSD Installer" --title "Regdomain/country" \
+	dialog --backtitle "HardenedBSD Installer" --title "Regdomain/country" \
 	    --yesno "Change regdomain/country (now \
 	    $DEF_REGDOMAIN/$DEF_COUNTRY)?" 0 0
 	if [ $? -eq 0 ]; then
@@ -245,7 +209,7 @@ while :
 do
 	output=$( wpa_cli scan 2>&1 )
 	f_dprintf "%s" "$output"
-	dialog --backtitle "FreeBSD Installer" --title "Scanning" \
+	dialog --backtitle "HardenedBSD Installer" --title "Scanning" \
 	    --ok-label "Skip" \
 	    --pause "Waiting 5 seconds to scan for wireless networks..." \
 	    9 40 5 || exit 1
@@ -256,7 +220,7 @@ do
 	   printf("\"%s\"\t%s\n", $5, $4);}' | sort | uniq`
 
 	if [ -z "$NETWORKS" ]; then
-		dialog --backtitle "FreeBSD Installer" --title "Error" \
+		dialog --backtitle "HardenedBSD Installer" --title "Error" \
 		    --yesno "No wireless networks were found. Rescan?" 0 0 && \
 		    continue
 		exit 1
@@ -264,7 +228,7 @@ do
 
 	exec 3>&1
 	NETWORK=`sh -c "dialog --extra-button --extra-label \"Rescan\" \
-	    --backtitle \"FreeBSD Installer\" --title \"Network Selection\" \
+	    --backtitle \"HardenedBSD Installer\" --title \"Network Selection\" \
 	    --menu \"Select a wireless network to connect to.\" 0 0 0 \
 	    $(echo $NETWORKS | tr '\n' ' ')" 2>&1 1>&3`
 	case $? in
@@ -279,7 +243,6 @@ do
 	esac
 	exec 3>&-
 done
->>>>>>> upstream/master
 
 ENCRYPTION=`echo "$NETWORKS" | awk -F '\t' \
     "/^\"$NETWORK\"\t/ {printf(\"%s\n\", \\\$2 );}"`
