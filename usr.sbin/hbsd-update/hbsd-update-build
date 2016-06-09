@@ -307,9 +307,20 @@ build_integriforce_rules() {
 
 	debug_print "[*] Building Integriforce rules"
 
+	if [ -d ${CHROOTDIR}/tmp/integriforce ]; then
+		rm -rf ${CHROOTDIR}/tmp/integriforce
+	fi
+
+	if [ -f ${STAGEDIR}/secadm.integriforce.rules ]; then
+		rm -f ${STAGEDIR}/secadm.integriforce.rules
+	fi
+
 	# Install world to a temporary location in the chroot
-	chroot ${CHROOTDIR} /bin/sh -c \
-		'(cd /usr/src; make -s installworld DESTDIR=/tmp/integriforce WITHOUT_TESTS=1)'
+	chroot ${CHROOTDIR} make \
+		-sC /usr/src \
+		DESTDIR=/tmp/integriforce \
+		WITHOUT_TESTS=1 \
+		installworld
 	res=${?}
 	if [ ${res} -gt 0 ]; then
 		return 1
@@ -342,7 +353,7 @@ EOF
 			# Then do the dependencies if this is an ELF
 			# file
 			if file ${f} | grep -q ELF; then
-				for l in $(chroot ${CHROOTDIR} ldd -f '%p\n' /tmp/integriforce/${resfile} 2> /dev/null); do
+				for l in $(chroot ${CHROOTDIR}/tmp/integriforce ldd -f '%p\n' ${resfile} 2> /dev/null); do
 					if check_integriforce_rule_exists ${l}; then
 						continue
 					fi
@@ -551,10 +562,10 @@ main() {
 			build_kernel_archives || exit 1
 			build_etcupdate_archive || exit 1
 			add_extra_files || exit 1
+		fi
 			if [ ${INTEGRIFORCE} -gt 0 ]; then
 				build_integriforce_rules || exit 1
 			fi
-		fi
 
 		if [ ${UNSIGNED} -eq 0 ]; then
 			sign_artifacts || exit 1
