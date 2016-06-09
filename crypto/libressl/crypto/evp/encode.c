@@ -1,4 +1,4 @@
-/* $OpenBSD: encode.c,v 1.19 2014/08/06 16:01:44 jsing Exp $ */
+/* $OpenBSD: encode.c,v 1.20.2.1 2016/05/03 12:39:48 tedu Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
