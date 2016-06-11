@@ -289,7 +289,7 @@ check_integriforce_rule_exists() {
 		return 1
 	fi
 
-	if grep -Fqw ${checkfile} ${STAGEDIR}/secadm.integriforce.rules; then
+	if grep -Fqw "\"${checkfile}\"" ${STAGEDIR}/secadm.integriforce.rules; then
 		return 0
 	fi
 
@@ -320,7 +320,8 @@ build_integriforce_rules() {
 		-sC /usr/src \
 		DESTDIR=/tmp/integriforce \
 		WITHOUT_TESTS=1 \
-		installworld
+		installworld \
+		distribution
 	res=${?}
 	if [ ${res} -gt 0 ]; then
 		return 1
@@ -562,10 +563,10 @@ main() {
 			build_kernel_archives || exit 1
 			build_etcupdate_archive || exit 1
 			add_extra_files || exit 1
-		fi
 			if [ ${INTEGRIFORCE} -gt 0 ]; then
 				build_integriforce_rules || exit 1
 			fi
+		fi
 
 		if [ ${UNSIGNED} -eq 0 ]; then
 			sign_artifacts || exit 1
