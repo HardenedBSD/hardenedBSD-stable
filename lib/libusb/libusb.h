@@ -33,6 +33,8 @@
 #include <sys/types.h>
 #endif
 
+#define	LIBUSB_API_VERSION 0x01000102
+
 #define	LIBUSB_CALL
 
 #ifdef __cplusplus
@@ -404,6 +406,7 @@ void	libusb_exit(struct libusb_context *ctx);
 ssize_t libusb_get_device_list(libusb_context * ctx, libusb_device *** list);
 void	libusb_free_device_list(libusb_device ** list, int unref_devices);
 uint8_t	libusb_get_bus_number(libusb_device * dev);
+uint8_t	libusb_get_port_number(libusb_device * dev);
 int	libusb_get_port_numbers(libusb_device *dev, uint8_t *buf, uint8_t bufsize);
 int	libusb_get_port_path(libusb_context *ctx, libusb_device *dev, uint8_t *buf, uint8_t bufsize);
 uint8_t	libusb_get_device_address(libusb_device * dev);
@@ -429,6 +432,7 @@ int	libusb_get_driver(libusb_device_handle * devh, int interface, char *name, in
 int 	libusb_detach_kernel_driver_np(libusb_device_handle * devh, int interface);
 int 	libusb_detach_kernel_driver(libusb_device_handle * devh, int interface);
 int 	libusb_attach_kernel_driver(libusb_device_handle * devh, int interface);
+int	libusb_set_auto_detach_kernel_driver(libusb_device_handle *dev, int enable);
 int	libusb_set_interface_alt_setting(libusb_device_handle * devh, int interface_number, int alternate_setting);
 
 /* USB Descriptors */
