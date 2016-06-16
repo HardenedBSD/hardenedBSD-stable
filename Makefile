@@ -150,9 +150,9 @@ TGTS+=	${BITGTS}
 # the ones that benefit from it.
 META_TGT_WHITELIST+= \
 	_* build32 buildfiles buildincludes buildkernel buildsoft \
-	buildworld everything kernel-toolchains kernels libraries \
+	buildworld everything kernel-toolchains kernel kernels libraries \
 	native-xtools showconfig tinderbox toolchain toolchains universe \
-	worlds xdev xdev-build
+	world worlds xdev xdev-build
 
 .ORDER: buildworld installworld
 .ORDER: buildworld distributeworld
@@ -418,9 +418,9 @@ TARGET_ARCHES_pc98?=	i386
 TARGET_ARCHES_${target}?= ${target}
 .endfor
 
-# XXX Add arm64 to universe only if we have an external binutils installed.
+# XXX Remove arm64 from universe if the required binutils package is missing.
 # It does not build with the in-tree linker.
-.if !exists(/usr/local/aarch64-freebsd/bin/ld) && empty(${TARGETS})
+.if !exists(/usr/local/aarch64-freebsd/bin/ld) && ${TARGETS:Marm64}
 _UNIVERSE_TARGETS:= ${_UNIVERSE_TARGETS:Narm64}
 universe: universe_arm64_skip .PHONY
 universe_epilogue: universe_arm64_skip .PHONY
