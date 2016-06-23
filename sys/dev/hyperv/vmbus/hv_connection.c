@@ -152,7 +152,8 @@ hv_vmbus_negotiate_version(hv_vmbus_channel_msg_info *msg_info,
  * Send a connect request on the partition service connection
  */
 int
-hv_vmbus_connect(void) {
+hv_vmbus_connect(void)
+{
 	int					ret = 0;
 	uint32_t				version;
 	hv_vmbus_channel_msg_info*		msg_info = NULL;
@@ -274,7 +275,8 @@ hv_vmbus_connect(void) {
  * Send a disconnect request on the partition service connection
  */
 int
-hv_vmbus_disconnect(void) {
+hv_vmbus_disconnect(void)
+{
 	int			 ret = 0;
 	hv_vmbus_channel_unload  msg;
 
@@ -334,15 +336,13 @@ vmbus_event_proc(struct vmbus_softc *sc, int cpu)
 {
 	hv_vmbus_synic_event_flags *event;
 
-	event = ((hv_vmbus_synic_event_flags *)
-	    hv_vmbus_g_context.syn_ic_event_page[cpu]) + HV_VMBUS_MESSAGE_SINT;
-
 	/*
 	 * On Host with Win8 or above, the event page can be checked directly
 	 * to get the id of the channel that has the pending interrupt.
 	 */
+	event = VMBUS_PCPU_GET(sc, event_flag, cpu) + HV_VMBUS_MESSAGE_SINT;
 	vmbus_event_flags_proc(event->flagsul,
-	    VMBUS_SC_PCPU_GET(sc, event_flag_cnt, cpu));
+	    VMBUS_PCPU_GET(sc, event_flag_cnt, cpu));
 }
 
 void
@@ -350,9 +350,7 @@ vmbus_event_proc_compat(struct vmbus_softc *sc __unused, int cpu)
 {
 	hv_vmbus_synic_event_flags *event;
 
-	event = ((hv_vmbus_synic_event_flags *)
-	    hv_vmbus_g_context.syn_ic_event_page[cpu]) + HV_VMBUS_MESSAGE_SINT;
-
+	event = VMBUS_PCPU_GET(sc, event_flag, cpu) + HV_VMBUS_MESSAGE_SINT;
 	if (atomic_testandclear_int(&event->flags32[0], 0)) {
 		vmbus_event_flags_proc(
 		    hv_vmbus_g_connection.recv_interrupt_page,
@@ -398,7 +396,8 @@ int hv_vmbus_post_message(void *buffer, size_t bufferLen)
  * Send an event notification to the parent
  */
 int
-hv_vmbus_set_event(hv_vmbus_channel *channel) {
+hv_vmbus_set_event(hv_vmbus_channel *channel)
+{
 	int ret = 0;
 	uint32_t child_rel_id = channel->offer_msg.child_rel_id;
 
@@ -419,7 +418,8 @@ vmbus_on_channel_open(const struct hv_vmbus_channel *chan)
 	int flag_cnt;
 
 	flag_cnt = (chan->offer_msg.child_rel_id / HV_CHANNEL_ULONG_LEN) + 1;
-	flag_cnt_ptr = VMBUS_PCPU_PTR(event_flag_cnt, chan->target_cpu);
+	flag_cnt_ptr = VMBUS_PCPU_PTR(vmbus_get_softc(), event_flag_cnt,
+	    chan->target_cpu);
 
 	for (;;) {
 		int old_flag_cnt;
