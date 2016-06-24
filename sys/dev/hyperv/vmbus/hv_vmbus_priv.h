@@ -51,28 +51,6 @@ typedef uint16_t hv_vmbus_status;
 #define HV_ANY_VP                       (0xFFFFFFFF)
 
 /*
- * Synthetic interrupt controller flag constants.
- */
-
-#define HV_EVENT_FLAGS_COUNT        (256 * 8)
-#define HV_EVENT_FLAGS_BYTE_COUNT   (256)
-#define HV_EVENT_FLAGS_DWORD_COUNT  (256 / sizeof(uint32_t))
-#define HV_EVENT_FLAGS_ULONG_COUNT  (256 / sizeof(unsigned long))
-
-/**
- * max channel count <== event_flags_dword_count * bit_of_dword
- */
-#ifdef __LP64__
-#define HV_CHANNEL_ULONG_LEN	    (64)
-#define HV_CHANNEL_ULONG_SHIFT	    (6)
-#else
-#define HV_CHANNEL_ULONG_LEN	    (32)
-#define HV_CHANNEL_ULONG_SHIFT	    (5)
-#endif
-#define HV_CHANNEL_DWORD_LEN        (32)
-#define HV_CHANNEL_MAX_COUNT        \
-	((HV_EVENT_FLAGS_DWORD_COUNT) * HV_CHANNEL_DWORD_LEN)
-/*
  * MessageId: HV_STATUS_INSUFFICIENT_BUFFERS
  * MessageText:
  *    You did not supply enough message buffers to send a message.
@@ -195,9 +173,6 @@ enum {
 
 #define HV_HYPERCALL_PARAM_ALIGN sizeof(uint64_t)
 
-struct vmbus_message;
-union vmbus_event_flags;
-
 /*
  * Define hypervisor message types
  */
@@ -251,57 +226,7 @@ typedef union _hv_vmbus_port_id {
 	} u ;
 } hv_vmbus_port_id;
 
-/*
- * Define synthetic interrupt controller message flag
- */
-typedef union {
-	uint8_t	as_uint8_t;
-	struct {
-		uint8_t	message_pending:1;
-		uint8_t	reserved:7;
-	} u;
-} hv_vmbus_msg_flags;
-
 typedef uint64_t hv_vmbus_partition_id;
-
-/*
- * Define synthetic interrupt controller message header
- */
-typedef struct {
-	hv_vmbus_msg_type	message_type;
-	uint8_t			payload_size;
-	hv_vmbus_msg_flags	message_flags;
-	uint8_t			reserved[2];
-	union {
-		hv_vmbus_partition_id	sender;
-		hv_vmbus_port_id	port;
-	} u;
-} hv_vmbus_msg_header;
-
-/*
- *  Define synthetic interrupt controller message format
- */
-typedef struct vmbus_message {
-	hv_vmbus_msg_header	header;
-	union {
-		uint64_t	payload[HV_MESSAGE_PAYLOAD_QWORD_COUNT];
-	} u ;
-} hv_vmbus_message;
-
-/*
- *  Maximum channels is determined by the size of the interrupt
- *  page which is PAGE_SIZE. 1/2 of PAGE_SIZE is for
- *  send endpoint interrupt and the other is receive
- *  endpoint interrupt.
- *
- *   Note: (PAGE_SIZE >> 1) << 3 allocates 16348 channels
- */
-#define HV_MAX_NUM_CHANNELS			(PAGE_SIZE >> 1) << 3
-
-/*
- * (The value here must be in multiple of 32)
- */
-#define HV_MAX_NUM_CHANNELS_SUPPORTED		256
 
 /*
  * VM Bus connection states
@@ -319,25 +244,7 @@ typedef enum {
 typedef struct {
 	hv_vmbus_connect_state			connect_state;
 	uint32_t				next_gpadl_handle;
-	/**
-	 * Represents channel interrupts. Each bit position
-	 * represents a channel.
-	 * When a channel sends an interrupt via VMBUS, it
-	 * finds its bit in the send_interrupt_page, set it and
-	 * calls Hv to generate a port event. The other end
-	 * receives the port event and parse the
-	 * recv_interrupt_page to see which bit is set
-	 */
-	void					*interrupt_page;
-	void					*send_interrupt_page;
-	void					*recv_interrupt_page;
-	/*
-	 * 2 pages - 1st page for parent->child
-	 * notification and 2nd is child->parent
-	 * notification
-	 */
-	void					*monitor_page_1;
-	void					*monitor_page_2;
+
 	TAILQ_HEAD(, hv_vmbus_channel_msg_info)	channel_msg_anchor;
 	struct mtx				channel_msg_lock;
 	/**
@@ -426,16 +333,6 @@ typedef struct {
 } hv_vmbus_input_post_message;
 
 /*
- * Define the synthetic interrupt controller event flags format
- */
-typedef union vmbus_event_flags {
-	uint8_t		flags8[HV_EVENT_FLAGS_BYTE_COUNT];
-	uint32_t	flags32[HV_EVENT_FLAGS_DWORD_COUNT];
-	unsigned long	flagsul[HV_EVENT_FLAGS_ULONG_COUNT];
-} hv_vmbus_synic_event_flags;
-CTASSERT(sizeof(hv_vmbus_synic_event_flags) == HV_EVENT_FLAGS_BYTE_COUNT);
-
-/*
  * Declare the various hypercall operations
  */
 typedef enum {
@@ -448,16 +345,6 @@ typedef enum {
  */
 
 extern hv_vmbus_connection	hv_vmbus_g_connection;
-
-typedef void (*vmbus_msg_handler)(hv_vmbus_channel_msg_header *msg);
-
-typedef struct hv_vmbus_channel_msg_table_entry {
-	hv_vmbus_channel_msg_type    messageType;
-
-	vmbus_msg_handler   messageHandler;
-} hv_vmbus_channel_msg_table_entry;
-
-extern hv_vmbus_channel_msg_table_entry	g_channel_message_table[];
 
 /*
  * Private, VM Bus functions
@@ -535,7 +422,8 @@ int			hv_vmbus_child_device_unregister(
 /**
  * Connection interfaces
  */
-int			hv_vmbus_connect(void);
+struct vmbus_softc;
+int			hv_vmbus_connect(struct vmbus_softc *);
 int			hv_vmbus_disconnect(void);
 int			hv_vmbus_post_message(void *buffer, size_t buf_size);
 int			hv_vmbus_set_event(hv_vmbus_channel *channel);
