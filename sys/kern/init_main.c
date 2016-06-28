@@ -485,16 +485,12 @@ proc0_init(void *dummy __unused)
 	p->p_flag = P_SYSTEM | P_INMEM | P_KPROC;
 	p->p_flag2 = 0;
 	p->p_state = PRS_NORMAL;
-<<<<<<< HEAD
 #ifdef PAX
 	p->p_pax = PAX_NOTE_ALL_DISABLED;
 #endif
 	p->p_usrstack = USRSTACK;
 	p->p_psstrings = PS_STRINGS;
-	knlist_init_mtx(&p->p_klist, &p->p_mtx);
-=======
 	p->p_klist = knlist_alloc(&p->p_mtx);
->>>>>>> origin/freebsd/current/master
 	STAILQ_INIT(&p->p_ktr);
 	p->p_nice = NZERO;
 	/* pid_max cannot be greater than PID_MAX */
