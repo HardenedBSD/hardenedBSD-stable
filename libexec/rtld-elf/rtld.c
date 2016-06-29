@@ -110,7 +110,7 @@ static void linkmap_add(Obj_Entry *);
 static void linkmap_delete(Obj_Entry *);
 static void load_filtees(Obj_Entry *, int flags, RtldLockState *);
 static void unload_filtees(Obj_Entry *);
-#ifdef HARDENEDBSD
+#if defined(HARDENEDBSD) && defined(SHLIBRANDOM)
 static void randomize_neededs(Obj_Entry *obj, int flags);
 #endif
 static int load_needed_objects(Obj_Entry *, int);
@@ -2130,11 +2130,6 @@ process_needed(Obj_Entry *obj, Needed_Entry *needed, int flags)
     Obj_Entry *obj1;
 
     for (; needed != NULL; needed = needed->next) {
-#ifdef HARDENEDBSD
-        dbg("%s: %s requires %s.",
-	  __func__, obj->path ? obj->path : "[nopath]",
-	  obj->strtab + needed->name);
-#endif
 	obj1 = needed->obj = load_object(obj->strtab + needed->name, -1, obj,
 	  flags & ~RTLD_LO_NOLOAD);
 	if (obj1 == NULL && !ld_tracing && (flags & RTLD_LO_FILTEES) == 0)
@@ -2143,7 +2138,7 @@ process_needed(Obj_Entry *obj, Needed_Entry *needed, int flags)
     return (0);
 }
 
-#ifdef HARDENEDBSD
+#if defined(HARDENEDBSD) && defined(SHLIBRANDOM)
 static void
 randomize_neededs(Obj_Entry *obj, int flags)
 {
@@ -2207,7 +2202,7 @@ load_needed_objects(Obj_Entry *first, int flags)
     TAILQ_FOREACH_FROM(obj, &obj_list, next) {
 	if (obj->marker)
 	    continue;
-#ifdef HARDENEDBSD
+#if defined(HARDENEDBSD) && defined(SHLIBRANDOM)
         if ((pax_flags & (PAX_HARDENING_NOSHLIBRANDOM | PAX_HARDENING_SHLIBRANDOM)) !=
 	  PAX_HARDENING_NOSHLIBRANDOM)
             randomize_neededs(obj, flags);

@@ -86,5 +86,11 @@ beforeinstall:
 
 .PATH: ${.CURDIR}/${RTLD_ARCH}
 
+.if ${MK_SHLIBRANDOM} != "no"
+CFLAGS+=	-DSHLIBRANDOM
+.endif
+
+NOPIE=	yes
+
 .include <bsd.symver.mk>
 .include <bsd.prog.mk>
