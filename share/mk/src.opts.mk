@@ -191,6 +191,7 @@ __DEFAULT_NO_OPTIONS = \
     OFED \
     OPENLDAP \
     PORTSNAP \
+    SHLIBRANDOM \
     SORT_THREADS \
     SVN \
 
