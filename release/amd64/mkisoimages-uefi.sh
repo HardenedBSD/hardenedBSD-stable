@@ -50,7 +50,7 @@ if [ $# -lt 3 ]; then
 	exit 1
 fi
 
-LABEL=`echo $1 | tr '[:lower:]' '[:upper:]'`; shift
+LABEL=`echo $1 | tr '[:lower:]' '[:upper:]' | cut -c 1-31`; shift
 NAME=$1; shift
 
 publisher="The HardenedBSD Project.  http://www.HardenedBSD.org/"
