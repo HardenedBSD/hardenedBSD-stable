@@ -626,12 +626,12 @@ MODULE_DEPEND(iflib, netmap, 1, 1, 1);
 /*
  * device-specific sysctl variables:
  *
- * ixl_crcstrip: 0: keep CRC in rx frames (default), 1: strip it.
+ * iflib_crcstrip: 0: keep CRC in rx frames (default), 1: strip it.
  *	During regular operations the CRC is stripped, but on some
  *	hardware reception of frames not multiple of 64 is slower,
  *	so using crcstrip=0 helps in benchmarks.
  *
- * ixl_rx_miss, ixl_rx_miss_bufs:
+ * iflib_rx_miss, iflib_rx_miss_bufs:
  *	count packets that might be missed due to lost interrupts.
  */
 SYSCTL_DECL(_dev_netmap);
@@ -646,7 +646,7 @@ SYSCTL_INT(_dev_netmap, OID_AUTO, iflib_crcstrip,
 int iflib_rx_miss, iflib_rx_miss_bufs;
 SYSCTL_INT(_dev_netmap, OID_AUTO, iflib_rx_miss,
     CTLFLAG_RW, &iflib_rx_miss, 0, "potentially missed rx intr");
-SYSCTL_INT(_dev_netmap, OID_AUTO, ixl_rx_miss_bufs,
+SYSCTL_INT(_dev_netmap, OID_AUTO, iflib_rx_miss_bufs,
     CTLFLAG_RW, &iflib_rx_miss_bufs, 0, "potentially missed rx intr bufs");
 
 /*
@@ -3848,7 +3848,7 @@ iflib_queues_alloc(if_ctx_t ctx)
 	iflib_txq_t txq;
 	iflib_rxq_t rxq;
 	iflib_fl_t fl = NULL;
-	int i, j, err, txconf, rxconf, fl_ifdi_offset;
+	int i, j, cpu, err, txconf, rxconf, fl_ifdi_offset;
 	iflib_dma_info_t ifdip;
 	uint32_t *rxqsizes = sctx->isc_rxqsizes;
 	uint32_t *txqsizes = sctx->isc_txqsizes;
@@ -3897,7 +3897,7 @@ iflib_queues_alloc(if_ctx_t ctx)
 	/*
 	 * XXX handle allocation failure
 	 */
-	for (txconf = i = 0; i < ntxqsets; i++, txconf++, txq++) {
+	for (txconf = i = 0, cpu = CPU_FIRST(); i < ntxqsets; i++, txconf++, txq++, cpu = CPU_NEXT(cpu)) {
 		/* Set up some basics */
 
 		if ((ifdip = malloc(sizeof(struct iflib_dma_info) * ntxqs, M_IFLIB, M_WAITOK|M_ZERO)) == NULL) {
@@ -3917,8 +3917,8 @@ iflib_queues_alloc(if_ctx_t ctx)
 		txq->ift_ctx = ctx;
 		txq->ift_id = i;
 		/* XXX fix this */
-		txq->ift_timer.c_cpu = i % mp_ncpus;
-		txq->ift_db_check.c_cpu = i % mp_ncpus;
+		txq->ift_timer.c_cpu = cpu;
+		txq->ift_db_check.c_cpu = cpu;
 		txq->ift_nbr = nbuf_rings;
 
 		if (iflib_txsd_alloc(txq)) {
