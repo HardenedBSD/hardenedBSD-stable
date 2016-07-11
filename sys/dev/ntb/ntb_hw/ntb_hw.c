@@ -1699,25 +1699,21 @@ xeon_set_sbar_base_and_limit(struct ntb_softc *ntb, uint64_t bar_addr,
 			bar_addr = 0;
 	}
 
-	/*
-	 * Set limit registers first to avoid an errata where setting the base
-	 * registers locks the limit registers.
-	 */
 	if (!bar_is_64bit(ntb, idx)) {
-		ntb_reg_write(4, lmt_reg, bar_addr);
-		reg_val = ntb_reg_read(4, lmt_reg);
-		(void)reg_val;
-
 		ntb_reg_write(4, base_reg, bar_addr);
 		reg_val = ntb_reg_read(4, base_reg);
 		(void)reg_val;
-	} else {
-		ntb_reg_write(8, lmt_reg, bar_addr);
-		reg_val = ntb_reg_read(8, lmt_reg);
-		(void)reg_val;
 
+		ntb_reg_write(4, lmt_reg, bar_addr);
+		reg_val = ntb_reg_read(4, lmt_reg);
+		(void)reg_val;
+	} else {
 		ntb_reg_write(8, base_reg, bar_addr);
 		reg_val = ntb_reg_read(8, base_reg);
+		(void)reg_val;
+
+		ntb_reg_write(8, lmt_reg, bar_addr);
+		reg_val = ntb_reg_read(8, lmt_reg);
 		(void)reg_val;
 	}
 }
@@ -1833,7 +1829,7 @@ xeon_setup_b2b_mw(struct ntb_softc *ntb, const struct ntb_b2b_addr *addr,
 		} else {
 			ntb_reg_write(4, xlat_reg, MSI_INTEL_ADDR_BASE);
 			ntb->msix_xlat = ntb_reg_read(4, xlat_reg);
-			ntb_reg_write(8, lmt_reg, 0);
+			ntb_reg_write(4, lmt_reg, 0);
 		}
 
 		ntb->peer_lapic_bar =  &ntb->bar_info[bar_num];

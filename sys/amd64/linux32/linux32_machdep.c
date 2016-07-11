@@ -70,6 +70,7 @@ __FBSDID("$FreeBSD$");
 #include <amd64/linux32/linux32_proto.h>
 #include <compat/linux/linux_ipc.h>
 #include <compat/linux/linux_misc.h>
+#include <compat/linux/linux_mmap.h>
 #include <compat/linux/linux_signal.h>
 #include <compat/linux/linux_util.h>
 #include <compat/linux/linux_emul.h>
@@ -84,9 +85,6 @@ struct l_old_select_argv {
 	l_uintptr_t	timeout;
 } __packed;
 
-static int	linux_mmap_common(struct thread *td, l_uintptr_t addr,
-		    l_size_t len, l_int prot, l_int flags, l_int fd,
-		    l_loff_t pos);
 
 static void
 bsd_to_linux_rusage(struct rusage *ru, struct l_rusage *lru)
@@ -448,9 +446,6 @@ linux_set_upcall_kse(struct thread *td, register_t stack)
 	return (0);
 }
 
-#define STACK_SIZE  (2 * 1024 * 1024)
-#define GUARD_SIZE  (4 * PAGE_SIZE)
-
 int
 linux_mmap2(struct thread *td, struct linux_mmap2_args *args)
 {
@@ -489,6 +484,7 @@ linux_mmap(struct thread *td, struct linux_mmap_args *args)
 	    (uint32_t)linux_args.pgoff));
 }
 
+<<<<<<< HEAD
 static int
 linux_mmap_common(struct thread *td, l_uintptr_t addr, l_size_t len, l_int prot,
     l_int flags, l_int fd, l_loff_t pos)
@@ -656,17 +652,13 @@ linux_mmap_common(struct thread *td, l_uintptr_t addr, l_size_t len, l_int prot,
 	return (error);
 }
 
+=======
+>>>>>>> origin/freebsd/current/master
 int
 linux_mprotect(struct thread *td, struct linux_mprotect_args *uap)
 {
-	struct mprotect_args bsd_args;
 
-	bsd_args.addr = uap->addr;
-	bsd_args.len = uap->len;
-	bsd_args.prot = uap->prot;
-	if (bsd_args.prot & (PROT_READ | PROT_WRITE | PROT_EXEC))
-		bsd_args.prot |= PROT_READ | PROT_EXEC;
-	return (sys_mprotect(td, &bsd_args));
+	return (linux_mprotect_common(td, PTROUT(uap->addr), uap->len, uap->prot));
 }
 
 int

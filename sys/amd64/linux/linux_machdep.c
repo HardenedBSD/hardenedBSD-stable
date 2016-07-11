@@ -83,6 +83,7 @@ __FBSDID("$FreeBSD$");
 #include <compat/linux/linux_ipc.h>
 #include <compat/linux/linux_file.h>
 #include <compat/linux/linux_misc.h>
+#include <compat/linux/linux_mmap.h>
 #include <compat/linux/linux_signal.h>
 #include <compat/linux/linux_util.h>
 #include <compat/linux/linux_emul.h>
@@ -122,55 +123,11 @@ linux_set_upcall_kse(struct thread *td, register_t stack)
 	return (0);
 }
 
-#define STACK_SIZE  (2 * 1024 * 1024)
-#define GUARD_SIZE  (4 * PAGE_SIZE)
-
 int
 linux_mmap2(struct thread *td, struct linux_mmap2_args *args)
 {
-	struct proc *p = td->td_proc;
-	struct mmap_args /* {
-		caddr_t addr;
-		size_t len;
-		int prot;
-		int flags;
-		int fd;
-		long pad;
-		off_t pos;
-	} */ bsd_args;
-	int error;
-	struct file *fp;
-	cap_rights_t rights;
 
-	LINUX_CTR6(mmap2, "0x%lx, %ld, %ld, 0x%08lx, %ld, 0x%lx",
-	    args->addr, args->len, args->prot,
-	    args->flags, args->fd, args->pgoff);
-
-	error = 0;
-	bsd_args.flags = 0;
-	fp = NULL;
-
-	/*
-	 * Linux mmap(2):
-	 * You must specify exactly one of MAP_SHARED and MAP_PRIVATE
-	 */
-	if (! ((args->flags & LINUX_MAP_SHARED) ^
-	    (args->flags & LINUX_MAP_PRIVATE)))
-		return (EINVAL);
-
-	if (args->flags & LINUX_MAP_SHARED)
-		bsd_args.flags |= MAP_SHARED;
-	if (args->flags & LINUX_MAP_PRIVATE)
-		bsd_args.flags |= MAP_PRIVATE;
-	if (args->flags & LINUX_MAP_FIXED)
-		bsd_args.flags |= MAP_FIXED;
-	if (args->flags & LINUX_MAP_ANON)
-		bsd_args.flags |= MAP_ANON;
-	else
-		bsd_args.flags |= MAP_NOSYNC;
-	if (args->flags & LINUX_MAP_GROWSDOWN)
-		bsd_args.flags |= MAP_STACK;
-
+<<<<<<< HEAD
 	/*
 	 * PROT_READ, PROT_WRITE, or PROT_EXEC implies PROT_READ and PROT_EXEC
 	 * on Linux/i386. We do this to ensure maximum compatibility.
@@ -282,21 +239,17 @@ linux_mmap2(struct thread *td, struct linux_mmap2_args *args)
 	LINUX_CTR2(mmap2, "return: %d (%p)",
 	    error, td->td_retval[0]);
 	return (error);
+=======
+	return (linux_mmap_common(td, PTROUT(args->addr), args->len, args->prot,
+		args->flags, args->fd, args->pgoff));
+>>>>>>> origin/freebsd/current/master
 }
 
 int
 linux_mprotect(struct thread *td, struct linux_mprotect_args *uap)
 {
-	struct mprotect_args bsd_args;
 
-	LINUX_CTR(mprotect);
-
-	bsd_args.addr = uap->addr;
-	bsd_args.len = uap->len;
-	bsd_args.prot = uap->prot;
-	if (bsd_args.prot & (PROT_READ | PROT_WRITE | PROT_EXEC))
-		bsd_args.prot |= PROT_READ | PROT_EXEC;
-	return (sys_mprotect(td, &bsd_args));
+	return (linux_mprotect_common(td, PTROUT(uap->addr), uap->len, uap->prot));
 }
 
 int
