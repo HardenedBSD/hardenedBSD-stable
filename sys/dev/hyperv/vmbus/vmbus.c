@@ -68,12 +68,9 @@ __FBSDID("$FreeBSD$");
 
 #include <contrib/dev/acpica/include/acpi.h>
 #include "acpi_if.h"
+#include "vmbus_if.h"
 
-/*
- * NOTE: DO NOT CHANGE THESE
- */
-#define VMBUS_CONNID_MESSAGE		1
-#define VMBUS_CONNID_EVENT		2
+#define VMBUS_GPADL_START		0xe1e10
 
 struct vmbus_msghc {
 	struct hypercall_postmsg_in	*mh_inprm;
@@ -96,10 +93,12 @@ struct vmbus_msghc_ctx {
 #define VMBUS_MSGHC_CTXF_DESTROY	0x0001
 
 static int			vmbus_init(struct vmbus_softc *);
-static int			vmbus_init_contact(struct vmbus_softc *,
-				    uint32_t);
+static int			vmbus_connect(struct vmbus_softc *, uint32_t);
 static int			vmbus_req_channels(struct vmbus_softc *sc);
-static void			vmbus_uninit(struct vmbus_softc *);
+static void			vmbus_disconnect(struct vmbus_softc *);
+static int			vmbus_scan(struct vmbus_softc *);
+static void			vmbus_scan_wait(struct vmbus_softc *);
+static void			vmbus_scan_newdev(struct vmbus_softc *);
 
 static int			vmbus_sysctl_version(SYSCTL_HANDLER_ARGS);
 
@@ -117,10 +116,10 @@ struct vmbus_softc	*vmbus_sc;
 extern inthand_t IDTVEC(vmbus_isr);
 
 static const uint32_t		vmbus_version[] = {
-	HV_VMBUS_VERSION_WIN8_1,
-	HV_VMBUS_VERSION_WIN8,
-	HV_VMBUS_VERSION_WIN7,
-	HV_VMBUS_VERSION_WS2008
+	VMBUS_VERSION_WIN8_1,
+	VMBUS_VERSION_WIN8,
+	VMBUS_VERSION_WIN7,
+	VMBUS_VERSION_WS2008
 };
 
 static struct vmbus_msghc *
@@ -202,25 +201,34 @@ vmbus_msghc_get1(struct vmbus_msghc_ctx *mhc, uint32_t dtor_flag)
 	return mh;
 }
 
-struct vmbus_msghc *
-vmbus_msghc_get(struct vmbus_softc *sc, size_t dsize)
+void
+vmbus_msghc_reset(struct vmbus_msghc *mh, size_t dsize)
 {
 	struct hypercall_postmsg_in *inprm;
-	struct vmbus_msghc *mh;
 
 	if (dsize > HYPERCALL_POSTMSGIN_DSIZE_MAX)
-		return NULL;
-
-	mh = vmbus_msghc_get1(sc->vmbus_msg_hc, VMBUS_MSGHC_CTXF_DESTROY);
-	if (mh == NULL)
-		return NULL;
+		panic("invalid data size %zu", dsize);
 
 	inprm = mh->mh_inprm;
 	memset(inprm, 0, HYPERCALL_POSTMSGIN_SIZE);
 	inprm->hc_connid = VMBUS_CONNID_MESSAGE;
 	inprm->hc_msgtype = HYPERV_MSGTYPE_CHANNEL;
 	inprm->hc_dsize = dsize;
+}
 
+struct vmbus_msghc *
+vmbus_msghc_get(struct vmbus_softc *sc, size_t dsize)
+{
+	struct vmbus_msghc *mh;
+
+	if (dsize > HYPERCALL_POSTMSGIN_DSIZE_MAX)
+		panic("invalid data size %zu", dsize);
+
+	mh = vmbus_msghc_get1(sc->vmbus_msg_hc, VMBUS_MSGHC_CTXF_DESTROY);
+	if (mh == NULL)
+		return NULL;
+
+	vmbus_msghc_reset(mh, dsize);
 	return mh;
 }
 
@@ -366,21 +374,26 @@ vmbus_msghc_wakeup(struct vmbus_softc *sc, const struct vmbus_message *msg)
 	wakeup(&mhc->mhc_active);
 }
 
-static int
-vmbus_init_contact(struct vmbus_softc *sc, uint32_t version)
+uint32_t
+vmbus_gpadl_alloc(struct vmbus_softc *sc)
 {
-	struct vmbus_chanmsg_init_contact *req;
-	const struct vmbus_chanmsg_version_resp *resp;
+	return atomic_fetchadd_int(&sc->vmbus_gpadl, 1);
+}
+
+static int
+vmbus_connect(struct vmbus_softc *sc, uint32_t version)
+{
+	struct vmbus_chanmsg_connect *req;
 	const struct vmbus_message *msg;
 	struct vmbus_msghc *mh;
-	int error, supp = 0;
+	int error, done = 0;
 
 	mh = vmbus_msghc_get(sc, sizeof(*req));
 	if (mh == NULL)
 		return ENXIO;
 
 	req = vmbus_msghc_dataptr(mh);
-	req->chm_hdr.chm_type = VMBUS_CHANMSG_TYPE_INIT_CONTACT;
+	req->chm_hdr.chm_type = VMBUS_CHANMSG_TYPE_CONNECT;
 	req->chm_ver = version;
 	req->chm_evtflags = sc->vmbus_evtflags_dma.hv_paddr;
 	req->chm_mnf1 = sc->vmbus_mnf1_dma.hv_paddr;
@@ -393,12 +406,12 @@ vmbus_init_contact(struct vmbus_softc *sc, uint32_t version)
 	}
 
 	msg = vmbus_msghc_wait_result(sc, mh);
-	resp = (const struct vmbus_chanmsg_version_resp *)msg->msg_data;
-	supp = resp->chm_supp;
+	done = ((const struct vmbus_chanmsg_connect_resp *)
+	    msg->msg_data)->chm_done;
 
 	vmbus_msghc_put(sc, mh);
 
-	return (supp ? 0 : EOPNOTSUPP);
+	return (done ? 0 : EOPNOTSUPP);
 }
 
 static int
@@ -409,12 +422,12 @@ vmbus_init(struct vmbus_softc *sc)
 	for (i = 0; i < nitems(vmbus_version); ++i) {
 		int error;
 
-		error = vmbus_init_contact(sc, vmbus_version[i]);
+		error = vmbus_connect(sc, vmbus_version[i]);
 		if (!error) {
-			hv_vmbus_protocal_version = vmbus_version[i];
+			sc->vmbus_version = vmbus_version[i];
 			device_printf(sc->vmbus_dev, "version %u.%u\n",
-			    (hv_vmbus_protocal_version >> 16),
-			    (hv_vmbus_protocal_version & 0xffff));
+			    VMBUS_VERSION_MAJOR(sc->vmbus_version),
+			    VMBUS_VERSION_MINOR(sc->vmbus_version));
 			return 0;
 		}
 	}
@@ -422,35 +435,35 @@ vmbus_init(struct vmbus_softc *sc)
 }
 
 static void
-vmbus_uninit(struct vmbus_softc *sc)
+vmbus_disconnect(struct vmbus_softc *sc)
 {
-	struct vmbus_chanmsg_unload *req;
+	struct vmbus_chanmsg_disconnect *req;
 	struct vmbus_msghc *mh;
 	int error;
 
 	mh = vmbus_msghc_get(sc, sizeof(*req));
 	if (mh == NULL) {
 		device_printf(sc->vmbus_dev,
-		    "can not get msg hypercall for unload\n");
+		    "can not get msg hypercall for disconnect\n");
 		return;
 	}
 
 	req = vmbus_msghc_dataptr(mh);
-	req->chm_hdr.chm_type = VMBUS_CHANMSG_TYPE_UNLOAD;
+	req->chm_hdr.chm_type = VMBUS_CHANMSG_TYPE_DISCONNECT;
 
 	error = vmbus_msghc_exec_noresult(mh);
 	vmbus_msghc_put(sc, mh);
 
 	if (error) {
 		device_printf(sc->vmbus_dev,
-		    "unload msg hypercall failed\n");
+		    "disconnect msg hypercall failed\n");
 	}
 }
 
 static int
 vmbus_req_channels(struct vmbus_softc *sc)
 {
-	struct vmbus_chanmsg_channel_req *req;
+	struct vmbus_chanmsg_chrequest *req;
 	struct vmbus_msghc *mh;
 	int error;
 
@@ -459,12 +472,91 @@ vmbus_req_channels(struct vmbus_softc *sc)
 		return ENXIO;
 
 	req = vmbus_msghc_dataptr(mh);
-	req->chm_hdr.chm_type = VMBUS_CHANMSG_TYPE_CHANNEL_REQ;
+	req->chm_hdr.chm_type = VMBUS_CHANMSG_TYPE_CHREQUEST;
 
 	error = vmbus_msghc_exec_noresult(mh);
 	vmbus_msghc_put(sc, mh);
 
 	return error;
+}
+
+void
+vmbus_scan_newchan(struct vmbus_softc *sc)
+{
+	mtx_lock(&sc->vmbus_scan_lock);
+	if ((sc->vmbus_scan_chcnt & VMBUS_SCAN_CHCNT_DONE) == 0)
+		sc->vmbus_scan_chcnt++;
+	mtx_unlock(&sc->vmbus_scan_lock);
+}
+
+void
+vmbus_scan_done(struct vmbus_softc *sc)
+{
+	mtx_lock(&sc->vmbus_scan_lock);
+	sc->vmbus_scan_chcnt |= VMBUS_SCAN_CHCNT_DONE;
+	mtx_unlock(&sc->vmbus_scan_lock);
+	wakeup(&sc->vmbus_scan_chcnt);
+}
+
+static void
+vmbus_scan_newdev(struct vmbus_softc *sc)
+{
+	mtx_lock(&sc->vmbus_scan_lock);
+	sc->vmbus_scan_devcnt++;
+	mtx_unlock(&sc->vmbus_scan_lock);
+	wakeup(&sc->vmbus_scan_devcnt);
+}
+
+static void
+vmbus_scan_wait(struct vmbus_softc *sc)
+{
+	uint32_t chancnt;
+
+	mtx_lock(&sc->vmbus_scan_lock);
+	while ((sc->vmbus_scan_chcnt & VMBUS_SCAN_CHCNT_DONE) == 0) {
+		mtx_sleep(&sc->vmbus_scan_chcnt, &sc->vmbus_scan_lock, 0,
+		    "waitch", 0);
+	}
+	chancnt = sc->vmbus_scan_chcnt & ~VMBUS_SCAN_CHCNT_DONE;
+
+	while (sc->vmbus_scan_devcnt != chancnt) {
+		mtx_sleep(&sc->vmbus_scan_devcnt, &sc->vmbus_scan_lock, 0,
+		    "waitdev", 0);
+	}
+	mtx_unlock(&sc->vmbus_scan_lock);
+}
+
+static int
+vmbus_scan(struct vmbus_softc *sc)
+{
+	int error;
+
+	/*
+	 * Start vmbus scanning.
+	 */
+	error = vmbus_req_channels(sc);
+	if (error) {
+		device_printf(sc->vmbus_dev, "channel request failed: %d\n",
+		    error);
+		return error;
+	}
+
+	/*
+	 * Wait for all devices are added to vmbus.
+	 */
+	vmbus_scan_wait(sc);
+
+	/*
+	 * Identify, probe and attach.
+	 */
+	bus_generic_probe(sc->vmbus_dev);
+	bus_generic_attach(sc->vmbus_dev);
+
+	if (bootverbose) {
+		device_printf(sc->vmbus_dev, "device scan, probe and attach "
+		    "done\n");
+	}
+	return 0;
 }
 
 static void
@@ -942,12 +1034,13 @@ hv_vmbus_child_device_create(hv_guid type, hv_guid instance,
 	return (child_dev);
 }
 
-int
-hv_vmbus_child_device_register(struct hv_device *child_dev)
+void
+hv_vmbus_child_device_register(struct vmbus_softc *sc,
+    struct hv_device *child_dev)
 {
 	device_t child, parent;
 
-	parent = vmbus_get_device();
+	parent = sc->vmbus_dev;
 	if (bootverbose) {
 		char name[HYPERV_GUID_STRLEN];
 
@@ -959,7 +1052,8 @@ hv_vmbus_child_device_register(struct hv_device *child_dev)
 	child_dev->device = child;
 	device_set_ivars(child, child_dev);
 
-	return (0);
+	/* New device was added to vmbus */
+	vmbus_scan_newdev(sc);
 }
 
 int
@@ -979,12 +1073,21 @@ hv_vmbus_child_device_unregister(struct hv_device *child_dev)
 static int
 vmbus_sysctl_version(SYSCTL_HANDLER_ARGS)
 {
+	struct vmbus_softc *sc = arg1;
 	char verstr[16];
 
 	snprintf(verstr, sizeof(verstr), "%u.%u",
-	    hv_vmbus_protocal_version >> 16,
-	    hv_vmbus_protocal_version & 0xffff);
+	    VMBUS_VERSION_MAJOR(sc->vmbus_version),
+	    VMBUS_VERSION_MINOR(sc->vmbus_version));
 	return sysctl_handle_string(oidp, verstr, sizeof(verstr), req);
+}
+
+static uint32_t
+vmbus_get_version_method(device_t bus, device_t dev)
+{
+	struct vmbus_softc *sc = device_get_softc(bus);
+
+	return sc->vmbus_version;
 }
 
 static int
@@ -1025,6 +1128,14 @@ vmbus_doattach(struct vmbus_softc *sc)
 		return (0);
 	sc->vmbus_flags |= VMBUS_FLAG_ATTACHED;
 
+	mtx_init(&sc->vmbus_scan_lock, "vmbus scan", NULL, MTX_DEF);
+	sc->vmbus_gpadl = VMBUS_GPADL_START;
+	mtx_init(&sc->vmbus_chlist_lock, "vmbus chlist", NULL, MTX_DEF);
+	TAILQ_INIT(&sc->vmbus_chlist);
+	sc->vmbus_chmap = malloc(
+	    sizeof(struct hv_vmbus_channel *) * VMBUS_CHAN_MAX, M_DEVBUF,
+	    M_WAITOK | M_ZERO);
+
 	/*
 	 * Create context for "post message" Hypercalls
 	 */
@@ -1058,34 +1169,26 @@ vmbus_doattach(struct vmbus_softc *sc)
 	sc->vmbus_flags |= VMBUS_FLAG_SYNIC;
 
 	/*
-	 * Connect to VMBus in the root partition
+	 * Initialize vmbus, e.g. connect to Hypervisor.
 	 */
-	ret = hv_vmbus_connect(sc);
-	if (ret != 0)
-		goto cleanup;
-
 	ret = vmbus_init(sc);
 	if (ret != 0)
 		goto cleanup;
 
-	if (hv_vmbus_protocal_version == HV_VMBUS_VERSION_WS2008 ||
-	    hv_vmbus_protocal_version == HV_VMBUS_VERSION_WIN7)
+	if (sc->vmbus_version == VMBUS_VERSION_WS2008 ||
+	    sc->vmbus_version == VMBUS_VERSION_WIN7)
 		sc->vmbus_event_proc = vmbus_event_proc_compat;
 	else
 		sc->vmbus_event_proc = vmbus_event_proc;
 
-	ret = vmbus_req_channels(sc);
+	ret = vmbus_scan(sc);
 	if (ret != 0)
 		goto cleanup;
-
-	vmbus_scan();
-	bus_generic_attach(sc->vmbus_dev);
-	device_printf(sc->vmbus_dev, "device scan, probe and attach done\n");
 
 	ctx = device_get_sysctl_ctx(sc->vmbus_dev);
 	child = SYSCTL_CHILDREN(device_get_sysctl_tree(sc->vmbus_dev));
 	SYSCTL_ADD_PROC(ctx, child, OID_AUTO, "version",
-	    CTLTYPE_STRING | CTLFLAG_RD | CTLFLAG_MPSAFE, NULL, 0,
+	    CTLTYPE_STRING | CTLFLAG_RD | CTLFLAG_MPSAFE, sc, 0,
 	    vmbus_sysctl_version, "A", "vmbus version");
 
 	return (ret);
@@ -1097,6 +1200,8 @@ cleanup:
 		vmbus_msghc_ctx_destroy(sc->vmbus_msg_hc);
 		sc->vmbus_msg_hc = NULL;
 	}
+	free(sc->vmbus_chmap, M_DEVBUF);
+	mtx_destroy(&sc->vmbus_scan_lock);
 
 	return (ret);
 }
@@ -1131,7 +1236,6 @@ vmbus_attach(device_t dev)
 #endif
 		vmbus_doattach(vmbus_sc);
 
-	bus_generic_probe(dev);
 	return (0);
 }
 
@@ -1160,10 +1264,9 @@ vmbus_detach(device_t dev)
 {
 	struct vmbus_softc *sc = device_get_softc(dev);
 
-	hv_vmbus_release_unattached_channels();
+	hv_vmbus_release_unattached_channels(sc);
 
-	vmbus_uninit(sc);
-	hv_vmbus_disconnect();
+	vmbus_disconnect(sc);
 
 	if (sc->vmbus_flags & VMBUS_FLAG_SYNIC) {
 		sc->vmbus_flags &= ~VMBUS_FLAG_SYNIC;
@@ -1178,6 +1281,8 @@ vmbus_detach(device_t dev)
 		sc->vmbus_msg_hc = NULL;
 	}
 
+	free(sc->vmbus_chmap, M_DEVBUF);
+	mtx_destroy(&sc->vmbus_scan_lock);
 	return (0);
 }
 
@@ -1196,6 +1301,9 @@ static device_method_t vmbus_methods[] = {
 	DEVMETHOD(bus_read_ivar,		vmbus_read_ivar),
 	DEVMETHOD(bus_write_ivar,		vmbus_write_ivar),
 	DEVMETHOD(bus_child_pnpinfo_str,	vmbus_child_pnpinfo_str),
+
+	/* Vmbus interface */
+	DEVMETHOD(vmbus_get_version,		vmbus_get_version_method),
 
 	DEVMETHOD_END
 };

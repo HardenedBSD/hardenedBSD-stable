@@ -43,66 +43,9 @@
 #include <dev/hyperv/vmbus/vmbus_reg.h>
 #include <dev/hyperv/vmbus/vmbus_var.h>
 
-/*
- * Globals
- */
-hv_vmbus_connection hv_vmbus_g_connection =
-	{ .connect_state = HV_DISCONNECTED,
-	  .next_gpadl_handle = 0xE1E10, };
-
-uint32_t hv_vmbus_protocal_version;
-
-/**
- * Send a connect request on the partition service connection
- */
-int
-hv_vmbus_connect(struct vmbus_softc *sc)
-{
-	/**
-	 * Make sure we are not connecting or connected
-	 */
-	if (hv_vmbus_g_connection.connect_state != HV_DISCONNECTED) {
-		return (-1);
-	}
-
-	/**
-	 * Initialize the vmbus connection
-	 */
-	hv_vmbus_g_connection.connect_state = HV_CONNECTING;
-
-	TAILQ_INIT(&hv_vmbus_g_connection.channel_msg_anchor);
-	mtx_init(&hv_vmbus_g_connection.channel_msg_lock, "vmbus channel msg",
-		NULL, MTX_DEF);
-
-	TAILQ_INIT(&hv_vmbus_g_connection.channel_anchor);
-	mtx_init(&hv_vmbus_g_connection.channel_lock, "vmbus channel",
-		NULL, MTX_DEF);
-
-	hv_vmbus_g_connection.channels = malloc(sizeof(hv_vmbus_channel*) *
-	    VMBUS_CHAN_MAX, M_DEVBUF, M_WAITOK | M_ZERO);
-
-	hv_vmbus_g_connection.connect_state = HV_CONNECTED;
-
-	return (0);
-}
-
-/**
- * Send a disconnect request on the partition service connection
- */
-int
-hv_vmbus_disconnect(void)
-{
-
-	mtx_destroy(&hv_vmbus_g_connection.channel_msg_lock);
-
-	free(hv_vmbus_g_connection.channels, M_DEVBUF);
-	hv_vmbus_g_connection.connect_state = HV_DISCONNECTED;
-
-	return (0);
-}
-
 static __inline void
-vmbus_event_flags_proc(volatile u_long *event_flags, int flag_cnt)
+vmbus_event_flags_proc(struct vmbus_softc *sc, volatile u_long *event_flags,
+    int flag_cnt)
 {
 	int f;
 
@@ -125,7 +68,7 @@ vmbus_event_flags_proc(volatile u_long *event_flags, int flag_cnt)
 			flags &= ~(1UL << bit);
 
 			rel_id = rel_id_base + bit;
-			channel = hv_vmbus_g_connection.channels[rel_id];
+			channel = sc->vmbus_chmap[rel_id];
 
 			/* if channel is closed or closing */
 			if (channel == NULL || channel->rxq == NULL)
@@ -148,7 +91,7 @@ vmbus_event_proc(struct vmbus_softc *sc, int cpu)
 	 * to get the id of the channel that has the pending interrupt.
 	 */
 	eventf = VMBUS_PCPU_GET(sc, event_flags, cpu) + VMBUS_SINT_MESSAGE;
-	vmbus_event_flags_proc(eventf->evt_flags,
+	vmbus_event_flags_proc(sc, eventf->evt_flags,
 	    VMBUS_PCPU_GET(sc, event_flags_cnt, cpu));
 }
 
@@ -159,60 +102,9 @@ vmbus_event_proc_compat(struct vmbus_softc *sc, int cpu)
 
 	eventf = VMBUS_PCPU_GET(sc, event_flags, cpu) + VMBUS_SINT_MESSAGE;
 	if (atomic_testandclear_long(&eventf->evt_flags[0], 0)) {
-		vmbus_event_flags_proc(sc->vmbus_rx_evtflags,
+		vmbus_event_flags_proc(sc, sc->vmbus_rx_evtflags,
 		    VMBUS_CHAN_MAX_COMPAT >> VMBUS_EVTFLAG_SHIFT);
 	}
-}
-
-/**
- * Send a msg on the vmbus's message connection
- */
-int hv_vmbus_post_message(void *buffer, size_t bufferLen)
-{
-	hv_vmbus_connection_id connId;
-	sbintime_t time = SBT_1MS;
-	int retries;
-	int ret;
-
-	connId.as_uint32_t = 0;
-	connId.u.id = HV_VMBUS_MESSAGE_CONNECTION_ID;
-
-	/*
-	 * We retry to cope with transient failures caused by host side's
-	 * insufficient resources. 20 times should suffice in practice.
-	 */
-	for (retries = 0; retries < 20; retries++) {
-		ret = hv_vmbus_post_msg_via_msg_ipc(connId,
-		    HYPERV_MSGTYPE_CHANNEL, buffer, bufferLen);
-		if (ret == HV_STATUS_SUCCESS)
-			return (0);
-
-		pause_sbt("pstmsg", time, 0, C_HARDCLOCK);
-		if (time < SBT_1S * 2)
-			time *= 2;
-	}
-
-	KASSERT(ret == HV_STATUS_SUCCESS,
-		("Error VMBUS: Message Post Failed, ret=%d\n", ret));
-
-	return (EAGAIN);
-}
-
-/**
- * Send an event notification to the parent
- */
-int
-hv_vmbus_set_event(hv_vmbus_channel *channel)
-{
-	struct vmbus_softc *sc = channel->vmbus_sc;
-	int ret = 0;
-	uint32_t chanid = channel->offer_msg.child_rel_id;
-
-	atomic_set_long(&sc->vmbus_tx_evtflags[chanid >> VMBUS_EVTFLAG_SHIFT],
-	    1UL << (chanid & VMBUS_EVTFLAG_MASK));
-	ret = hv_vmbus_signal_event(channel->signal_event_param);
-
-	return (ret);
 }
 
 void
