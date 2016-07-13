@@ -51,7 +51,10 @@ __FBSDID("$FreeBSD$");
 #include <dev/hyperv/vmbus/vmbus_var.h>
 
 static void 	vmbus_channel_set_event(hv_vmbus_channel* channel);
-static void	VmbusProcessChannelEvent(void* channel, int pending);
+static void	vmbus_chan_update_evtflagcnt(struct vmbus_softc *,
+		    const struct hv_vmbus_channel *);
+static void	vmbus_chan_task(void *, int);
+static void	vmbus_chan_task_nobatch(void *, int);
 
 /**
  *  @brief Trigger an event notification on the specified channel
@@ -60,12 +63,12 @@ static void
 vmbus_channel_set_event(hv_vmbus_channel *channel)
 {
 	struct vmbus_softc *sc = channel->vmbus_sc;
-	uint32_t chanid = channel->offer_msg.child_rel_id;
+	uint32_t chanid = channel->ch_id;
 
 	atomic_set_long(&sc->vmbus_tx_evtflags[chanid >> VMBUS_EVTFLAG_SHIFT],
 	    1UL << (chanid & VMBUS_EVTFLAG_MASK));
 
-	if (channel->offer_msg.monitor_allocated) {
+	if (channel->ch_flags & VMBUS_CHAN_FLAG_HASMNF) {
 		hv_vmbus_monitor_page *monitor_page;
 
 		monitor_page = sc->vmbus_mnf2;
@@ -84,7 +87,7 @@ vmbus_channel_sysctl_monalloc(SYSCTL_HANDLER_ARGS)
 	struct hv_vmbus_channel *chan = arg1;
 	int alloc = 0;
 
-	if (chan->offer_msg.monitor_allocated)
+	if (chan->ch_flags & VMBUS_CHAN_FLAG_HASMNF)
 		alloc = 1;
 	return sysctl_handle_int(oidp, &alloc, 0, req);
 }
@@ -104,12 +107,12 @@ vmbus_channel_sysctl_create(hv_vmbus_channel* channel)
 	hv_vmbus_channel* primary_ch = channel->primary_channel;
 
 	if (primary_ch == NULL) {
-		dev = channel->device->device;
-		ch_id = channel->offer_msg.child_rel_id;
+		dev = channel->ch_dev;
+		ch_id = channel->ch_id;
 	} else {
-		dev = primary_ch->device->device;
-		ch_id = primary_ch->offer_msg.child_rel_id;
-		sub_ch_id = channel->offer_msg.offer.sub_channel_index;
+		dev = primary_ch->ch_dev;
+		ch_id = primary_ch->ch_id;
+		sub_ch_id = channel->ch_subidx;
 	}
 	ctx = &channel->ch_sysctl_ctx;
 	sysctl_ctx_init(ctx);
@@ -134,7 +137,7 @@ vmbus_channel_sysctl_create(hv_vmbus_channel* channel)
 
 		SYSCTL_ADD_UINT(ctx, SYSCTL_CHILDREN(devch_id_sysctl),
 		    OID_AUTO, "chanid", CTLFLAG_RD,
-		    &channel->offer_msg.child_rel_id, 0, "channel id");
+		    &channel->ch_id, 0, "channel id");
 	}
 	SYSCTL_ADD_UINT(ctx, SYSCTL_CHILDREN(devch_id_sysctl), OID_AUTO,
 	    "cpu", CTLFLAG_RD, &channel->target_cpu, 0, "owner CPU id");
@@ -188,7 +191,7 @@ hv_vmbus_channel_open(
 	if (user_data_len > VMBUS_CHANMSG_CHOPEN_UDATA_SIZE) {
 		device_printf(sc->vmbus_dev,
 		    "invalid udata len %u for chan%u\n",
-		    user_data_len, new_channel->offer_msg.child_rel_id);
+		    user_data_len, new_channel->ch_id);
 		return EINVAL;
 	}
 
@@ -207,11 +210,17 @@ hv_vmbus_channel_open(
 	new_channel->on_channel_callback = pfn_on_channel_callback;
 	new_channel->channel_callback_context = context;
 
-	vmbus_on_channel_open(new_channel);
+	vmbus_chan_update_evtflagcnt(sc, new_channel);
 
 	new_channel->rxq = VMBUS_PCPU_GET(new_channel->vmbus_sc, event_tq,
 	    new_channel->target_cpu);
-	TASK_INIT(&new_channel->channel_task, 0, VmbusProcessChannelEvent, new_channel);
+	if (new_channel->ch_flags & VMBUS_CHAN_FLAG_BATCHREAD) {
+		TASK_INIT(&new_channel->channel_task, 0,
+		    vmbus_chan_task, new_channel);
+	} else {
+		TASK_INIT(&new_channel->channel_task, 0,
+		    vmbus_chan_task_nobatch, new_channel);
+	}
 
 	/* Allocate the ring buffer */
 	out = contigmalloc((send_ring_buffer_size + recv_ring_buffer_size),
@@ -259,14 +268,14 @@ hv_vmbus_channel_open(
 	if (mh == NULL) {
 		device_printf(sc->vmbus_dev,
 		    "can not get msg hypercall for chopen(chan%u)\n",
-		    new_channel->offer_msg.child_rel_id);
+		    new_channel->ch_id);
 		return ENXIO;
 	}
 
 	req = vmbus_msghc_dataptr(mh);
 	req->chm_hdr.chm_type = VMBUS_CHANMSG_TYPE_CHOPEN;
-	req->chm_chanid = new_channel->offer_msg.child_rel_id;
-	req->chm_openid = new_channel->offer_msg.child_rel_id;
+	req->chm_chanid = new_channel->ch_id;
+	req->chm_openid = new_channel->ch_id;
 	req->chm_gpadl = new_channel->ring_buffer_gpadl_handle;
 	req->chm_vcpuid = new_channel->target_vcpu;
 	req->chm_rxbr_pgofs = send_ring_buffer_size >> PAGE_SHIFT;
@@ -277,7 +286,7 @@ hv_vmbus_channel_open(
 	if (ret != 0) {
 		device_printf(sc->vmbus_dev,
 		    "chopen(chan%u) msg hypercall exec failed: %d\n",
-		    new_channel->offer_msg.child_rel_id, ret);
+		    new_channel->ch_id, ret);
 		vmbus_msghc_put(sc, mh);
 		return ret;
 	}
@@ -292,11 +301,11 @@ hv_vmbus_channel_open(
 		new_channel->state = HV_CHANNEL_OPENED_STATE;
 		if (bootverbose) {
 			device_printf(sc->vmbus_dev, "chan%u opened\n",
-			    new_channel->offer_msg.child_rel_id);
+			    new_channel->ch_id);
 		}
 	} else {
 		device_printf(sc->vmbus_dev, "failed to open chan%u\n",
-		    new_channel->offer_msg.child_rel_id);
+		    new_channel->ch_id);
 		ret = ENXIO;
 	}
 	return (ret);
@@ -367,13 +376,13 @@ hv_vmbus_channel_establish_gpadl(struct hv_vmbus_channel *channel,
 	if (mh == NULL) {
 		device_printf(sc->vmbus_dev,
 		    "can not get msg hypercall for gpadl->chan%u\n",
-		    channel->offer_msg.child_rel_id);
+		    channel->ch_id);
 		return EIO;
 	}
 
 	req = vmbus_msghc_dataptr(mh);
 	req->chm_hdr.chm_type = VMBUS_CHANMSG_TYPE_GPADL_CONN;
-	req->chm_chanid = channel->offer_msg.child_rel_id;
+	req->chm_chanid = channel->ch_id;
 	req->chm_gpadl = gpadl;
 	req->chm_range_len = range_len;
 	req->chm_range_cnt = 1;
@@ -386,7 +395,7 @@ hv_vmbus_channel_establish_gpadl(struct hv_vmbus_channel *channel,
 	if (error) {
 		device_printf(sc->vmbus_dev,
 		    "gpadl->chan%u msg hypercall exec failed: %d\n",
-		    channel->offer_msg.child_rel_id, error);
+		    channel->ch_id, error);
 		vmbus_msghc_put(sc, mh);
 		return error;
 	}
@@ -422,12 +431,12 @@ hv_vmbus_channel_establish_gpadl(struct hv_vmbus_channel *channel,
 
 	if (status != 0) {
 		device_printf(sc->vmbus_dev, "gpadl->chan%u failed: "
-		    "status %u\n", channel->offer_msg.child_rel_id, status);
+		    "status %u\n", channel->ch_id, status);
 		return EIO;
 	} else {
 		if (bootverbose) {
 			device_printf(sc->vmbus_dev, "gpadl->chan%u "
-			    "succeeded\n", channel->offer_msg.child_rel_id);
+			    "succeeded\n", channel->ch_id);
 		}
 	}
 	return 0;
@@ -448,20 +457,20 @@ hv_vmbus_channel_teardown_gpdal(struct hv_vmbus_channel *chan, uint32_t gpadl)
 	if (mh == NULL) {
 		device_printf(sc->vmbus_dev,
 		    "can not get msg hypercall for gpa x->chan%u\n",
-		    chan->offer_msg.child_rel_id);
+		    chan->ch_id);
 		return EBUSY;
 	}
 
 	req = vmbus_msghc_dataptr(mh);
 	req->chm_hdr.chm_type = VMBUS_CHANMSG_TYPE_GPADL_DISCONN;
-	req->chm_chanid = chan->offer_msg.child_rel_id;
+	req->chm_chanid = chan->ch_id;
 	req->chm_gpadl = gpadl;
 
 	error = vmbus_msghc_exec(sc, mh);
 	if (error) {
 		device_printf(sc->vmbus_dev,
 		    "gpa x->chan%u msg hypercall exec failed: %d\n",
-		    chan->offer_msg.child_rel_id, error);
+		    chan->ch_id, error);
 		vmbus_msghc_put(sc, mh);
 		return error;
 	}
@@ -500,13 +509,13 @@ hv_vmbus_channel_close_internal(hv_vmbus_channel *channel)
 	if (mh == NULL) {
 		device_printf(sc->vmbus_dev,
 		    "can not get msg hypercall for chclose(chan%u)\n",
-		    channel->offer_msg.child_rel_id);
+		    channel->ch_id);
 		return;
 	}
 
 	req = vmbus_msghc_dataptr(mh);
 	req->chm_hdr.chm_type = VMBUS_CHANMSG_TYPE_CHCLOSE;
-	req->chm_chanid = channel->offer_msg.child_rel_id;
+	req->chm_chanid = channel->ch_id;
 
 	error = vmbus_msghc_exec_noresult(mh);
 	vmbus_msghc_put(sc, mh);
@@ -514,11 +523,11 @@ hv_vmbus_channel_close_internal(hv_vmbus_channel *channel)
 	if (error) {
 		device_printf(sc->vmbus_dev,
 		    "chclose(chan%u) msg hypercall exec failed: %d\n",
-		    channel->offer_msg.child_rel_id, error);
+		    channel->ch_id, error);
 		return;
 	} else if (bootverbose) {
 		device_printf(sc->vmbus_dev, "close chan%u\n",
-		    channel->offer_msg.child_rel_id);
+		    channel->ch_id);
 	}
 
 	/* Tear down the gpadl for the channel's ring buffer */
@@ -844,42 +853,138 @@ hv_vmbus_channel_recv_packet_raw(
 	return (0);
 }
 
-
-/**
- * Process a channel event notification
- */
 static void
-VmbusProcessChannelEvent(void* context, int pending)
+vmbus_chan_task(void *xchan, int pending __unused)
 {
-	void* arg;
-	uint32_t bytes_to_read;
-	hv_vmbus_channel* channel = (hv_vmbus_channel*)context;
-	boolean_t is_batched_reading;
+	struct hv_vmbus_channel *chan = xchan;
+	void (*callback)(void *);
+	void *arg;
 
-	if (channel->on_channel_callback != NULL) {
-		arg = channel->channel_callback_context;
-		is_batched_reading = channel->batched_reading;
-		/*
-		 * Optimize host to guest signaling by ensuring:
-		 * 1. While reading the channel, we disable interrupts from
-		 *    host.
-		 * 2. Ensure that we process all posted messages from the host
-		 *    before returning from this callback.
-		 * 3. Once we return, enable signaling from the host. Once this
-		 *    state is set we check to see if additional packets are
-		 *    available to read. In this case we repeat the process.
-		 */
-		do {
-			if (is_batched_reading)
+	arg = chan->channel_callback_context;
+	callback = chan->on_channel_callback;
+
+	/*
+	 * Optimize host to guest signaling by ensuring:
+	 * 1. While reading the channel, we disable interrupts from
+	 *    host.
+	 * 2. Ensure that we process all posted messages from the host
+	 *    before returning from this callback.
+	 * 3. Once we return, enable signaling from the host. Once this
+	 *    state is set we check to see if additional packets are
+	 *    available to read. In this case we repeat the process.
+	 *
+	 * NOTE: Interrupt has been disabled in the ISR.
+	 */
+	for (;;) {
+		uint32_t left;
+
+		callback(arg);
+
+		left = hv_ring_buffer_read_end(&chan->inbound);
+		if (left == 0) {
+			/* No more data in RX bufring; done */
+			break;
+		}
+		hv_ring_buffer_read_begin(&chan->inbound);
+	}
+}
+
+static void
+vmbus_chan_task_nobatch(void *xchan, int pending __unused)
+{
+	struct hv_vmbus_channel *chan = xchan;
+
+	chan->on_channel_callback(chan->channel_callback_context);
+}
+
+static __inline void
+vmbus_event_flags_proc(struct vmbus_softc *sc, volatile u_long *event_flags,
+    int flag_cnt)
+{
+	int f;
+
+	for (f = 0; f < flag_cnt; ++f) {
+		uint32_t rel_id_base;
+		u_long flags;
+		int bit;
+
+		if (event_flags[f] == 0)
+			continue;
+
+		flags = atomic_swap_long(&event_flags[f], 0);
+		rel_id_base = f << VMBUS_EVTFLAG_SHIFT;
+
+		while ((bit = ffsl(flags)) != 0) {
+			struct hv_vmbus_channel *channel;
+			uint32_t rel_id;
+
+			--bit;	/* NOTE: ffsl is 1-based */
+			flags &= ~(1UL << bit);
+
+			rel_id = rel_id_base + bit;
+			channel = sc->vmbus_chmap[rel_id];
+
+			/* if channel is closed or closing */
+			if (channel == NULL || channel->rxq == NULL)
+				continue;
+
+			if (channel->ch_flags & VMBUS_CHAN_FLAG_BATCHREAD)
 				hv_ring_buffer_read_begin(&channel->inbound);
+			taskqueue_enqueue(channel->rxq, &channel->channel_task);
+		}
+	}
+}
 
-			channel->on_channel_callback(arg);
+void
+vmbus_event_proc(struct vmbus_softc *sc, int cpu)
+{
+	struct vmbus_evtflags *eventf;
 
-			if (is_batched_reading)
-				bytes_to_read =
-				    hv_ring_buffer_read_end(&channel->inbound);
-			else
-				bytes_to_read = 0;
-		} while (is_batched_reading && (bytes_to_read != 0));
+	/*
+	 * On Host with Win8 or above, the event page can be checked directly
+	 * to get the id of the channel that has the pending interrupt.
+	 */
+	eventf = VMBUS_PCPU_GET(sc, event_flags, cpu) + VMBUS_SINT_MESSAGE;
+	vmbus_event_flags_proc(sc, eventf->evt_flags,
+	    VMBUS_PCPU_GET(sc, event_flags_cnt, cpu));
+}
+
+void
+vmbus_event_proc_compat(struct vmbus_softc *sc, int cpu)
+{
+	struct vmbus_evtflags *eventf;
+
+	eventf = VMBUS_PCPU_GET(sc, event_flags, cpu) + VMBUS_SINT_MESSAGE;
+	if (atomic_testandclear_long(&eventf->evt_flags[0], 0)) {
+		vmbus_event_flags_proc(sc, sc->vmbus_rx_evtflags,
+		    VMBUS_CHAN_MAX_COMPAT >> VMBUS_EVTFLAG_SHIFT);
+	}
+}
+
+static void
+vmbus_chan_update_evtflagcnt(struct vmbus_softc *sc,
+    const struct hv_vmbus_channel *chan)
+{
+	volatile int *flag_cnt_ptr;
+	int flag_cnt;
+
+	flag_cnt = (chan->ch_id / VMBUS_EVTFLAG_LEN) + 1;
+	flag_cnt_ptr = VMBUS_PCPU_PTR(sc, event_flags_cnt, chan->target_cpu);
+
+	for (;;) {
+		int old_flag_cnt;
+
+		old_flag_cnt = *flag_cnt_ptr;
+		if (old_flag_cnt >= flag_cnt)
+			break;
+		if (atomic_cmpset_int(flag_cnt_ptr, old_flag_cnt, flag_cnt)) {
+			if (bootverbose) {
+				device_printf(sc->vmbus_dev,
+				    "channel%u update cpu%d flag_cnt to %d\n",
+				    chan->ch_id,
+				    chan->target_cpu, flag_cnt);
+			}
+			break;
+		}
 	}
 }

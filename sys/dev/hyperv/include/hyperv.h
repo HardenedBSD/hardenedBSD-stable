@@ -399,20 +399,6 @@ typedef struct {
 
 #define HW_MACADDR_LEN	6
 
-enum {
-	HV_VMBUS_IVAR_TYPE,
-	HV_VMBUS_IVAR_INSTANCE,
-	HV_VMBUS_IVAR_NODE,
-	HV_VMBUS_IVAR_DEVCTX
-};
-
-#define HV_VMBUS_ACCESSOR(var, ivar, type) \
-		__BUS_ACCESSOR(vmbus, var, HV_VMBUS, ivar, type)
-
-HV_VMBUS_ACCESSOR(type, TYPE,  const char *)
-HV_VMBUS_ACCESSOR(devctx, DEVCTX,  struct hv_device *)
-
-
 /*
  * Common defines for Hyper-V ICs
  */
@@ -485,7 +471,7 @@ typedef struct {
 	uint8_t                 reserved[4084];
 
 	/*
-	 * WARNING: Ring data starts here + ring_data_start_offset
+	 * WARNING: Ring data starts here
 	 *  !!! DO NOT place any fields below this !!!
 	 */
 	uint8_t			buffer[0];	/* doubles as interrupt mask */
@@ -505,10 +491,8 @@ typedef struct {
 
 typedef struct {
 	hv_vmbus_ring_buffer*	ring_buffer;
-	uint32_t		ring_size;	/* Include the shared header */
 	struct mtx		ring_lock;
 	uint32_t		ring_data_size;	/* ring_size */
-	uint32_t		ring_data_start_offset;
 } hv_vmbus_ring_buffer_info;
 
 typedef void (*hv_vmbus_pfn_channel_callback)(void *context);
@@ -534,10 +518,11 @@ typedef union {
 } __packed hv_vmbus_connection_id;
 
 typedef struct hv_vmbus_channel {
-	struct hv_device*		device;
+	device_t			ch_dev;
 	struct vmbus_softc		*vmbus_sc;
 	hv_vmbus_channel_state		state;
-	hv_vmbus_channel_offer_channel	offer_msg;
+	uint32_t			ch_flags;	/* VMBUS_CHAN_FLAG_ */
+	uint32_t			ch_id;		/* channel id */
 	/*
 	 * These are based on the offer_msg.monitor_id.
 	 * Save it here for easy access.
@@ -565,19 +550,6 @@ typedef struct hv_vmbus_channel {
 	struct task			channel_task;
 	hv_vmbus_pfn_channel_callback	on_channel_callback;
 	void*				channel_callback_context;
-
-	/*
-	 * If batched_reading is set to "true", mask the interrupt
-	 * and read until the channel is empty.
-	 * If batched_reading is set to "false", the channel is not
-	 * going to perform batched reading.
-	 *
-	 * Batched reading is enabled by default; specific
-	 * drivers that don't want this behavior can turn it off.
-	 */
-	boolean_t			batched_reading;
-
-	boolean_t			is_dedicated_interrupt;
 
 	struct hypercall_sigevt_in	*ch_sigevt;
 	struct hyperv_dma		ch_sigevt_dma;
@@ -628,26 +600,35 @@ typedef struct hv_vmbus_channel {
 
 	struct task			ch_detach_task;
 	TAILQ_ENTRY(hv_vmbus_channel)	ch_link;
+	uint32_t			ch_subidx;	/* subchan index */
+
+	struct hv_guid			ch_guid_type;
+	struct hv_guid			ch_guid_inst;
 
 	struct sysctl_ctx_list		ch_sysctl_ctx;
 } hv_vmbus_channel;
 
 #define HV_VMBUS_CHAN_ISPRIMARY(chan)	((chan)->primary_channel == NULL)
 
+#define VMBUS_CHAN_FLAG_HASMNF		0x0001
+/*
+ * If this flag is set, this channel's interrupt will be masked in ISR,
+ * and the RX bufring will be drained before this channel's interrupt is
+ * unmasked.
+ *
+ * This flag is turned on by default.  Drivers can turn it off according
+ * to their own requirement.
+ */
+#define VMBUS_CHAN_FLAG_BATCHREAD	0x0002
+
 static inline void
-hv_set_channel_read_state(hv_vmbus_channel* channel, boolean_t state)
+hv_set_channel_read_state(hv_vmbus_channel* channel, boolean_t on)
 {
-	channel->batched_reading = state;
+	if (!on)
+		channel->ch_flags &= ~VMBUS_CHAN_FLAG_BATCHREAD;
+	else
+		channel->ch_flags |= VMBUS_CHAN_FLAG_BATCHREAD;
 }
-
-typedef struct hv_device {
-	hv_guid		    class_id;
-	hv_guid		    device_id;
-	device_t	    device;
-	hv_vmbus_channel*   channel;
-} hv_device;
-
-
 
 int		hv_vmbus_channel_recv_packet(
 				hv_vmbus_channel*	channel,
@@ -728,6 +709,12 @@ hv_get_phys_addr(void *virt)
 	unsigned long ret;
 	ret = (vtophys(virt) | ((vm_offset_t) virt & PAGE_MASK));
 	return (ret);
+}
+
+static __inline struct hv_vmbus_channel *
+vmbus_get_channel(device_t dev)
+{
+	return device_get_ivars(dev);
 }
 
 #endif  /* __HYPERV_H__ */
