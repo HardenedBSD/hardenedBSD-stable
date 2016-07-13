@@ -72,6 +72,34 @@ struct vmbus_evtflags {
 CTASSERT(sizeof(struct vmbus_evtflags) == VMBUS_EVTFLAGS_SIZE);
 
 /*
+ * Hyper-V Monitor Notification Facility
+ */
+
+struct vmbus_mon_trig {
+	uint32_t	mt_pending;
+	uint32_t	mt_armed;
+} __packed;
+
+#define VMBUS_MONTRIGS_MAX	4
+#define VMBUS_MONTRIG_LEN	32
+
+struct vmbus_mnf {
+	uint32_t	mnf_state;
+	uint32_t	mnf_rsvd1;
+
+	struct vmbus_mon_trig mnf_trigs[VMBUS_MONTRIGS_MAX];
+	uint8_t		mnf_rsvd2[536];
+
+	uint16_t	mnf_lat[VMBUS_MONTRIGS_MAX][VMBUS_MONTRIG_LEN];
+	uint8_t		mnf_rsvd3[256];
+
+	struct hyperv_mon_param
+			mnf_param[VMBUS_MONTRIGS_MAX][VMBUS_MONTRIG_LEN];
+	uint8_t		mnf_rsvd4[1984];
+} __packed;
+CTASSERT(sizeof(struct vmbus_mnf) == PAGE_SIZE);
+
+/*
  * Channel
  */
 
@@ -89,10 +117,11 @@ struct vmbus_gpa_range {
 
 /*
  * Channel messages
- * - Embedded in vmbus_message.msg_data, e.g. response.
+ * - Embedded in vmbus_message.msg_data, e.g. response and notification.
  * - Embedded in hypercall_postmsg_in.hc_data, e.g. request.
  */
 
+#define VMBUS_CHANMSG_TYPE_CHRESCIND		2	/* NOTE */
 #define VMBUS_CHANMSG_TYPE_CHREQUEST		3	/* REQ */
 #define VMBUS_CHANMSG_TYPE_CHOPEN		5	/* REQ */
 #define VMBUS_CHANMSG_TYPE_CHOPEN_RESP		6	/* RESP */
@@ -209,6 +238,12 @@ struct vmbus_chanmsg_gpadl_disconn {
 
 /* VMBUS_CHANMSG_TYPE_CHFREE */
 struct vmbus_chanmsg_chfree {
+	struct vmbus_chanmsg_hdr chm_hdr;
+	uint32_t	chm_chanid;
+} __packed;
+
+/* VMBUS_CHANMSG_TYPE_CHRESCIND */
+struct vmbus_chanmsg_chrescind {
 	struct vmbus_chanmsg_hdr chm_hdr;
 	uint32_t	chm_chanid;
 } __packed;
