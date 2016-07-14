@@ -100,7 +100,7 @@ vmbus_channel_sysctl_create(hv_vmbus_channel* channel)
 	uint16_t sub_ch_id;
 	char name[16];
 	
-	hv_vmbus_channel* primary_ch = channel->primary_channel;
+	hv_vmbus_channel* primary_ch = channel->ch_prichan;
 
 	if (primary_ch == NULL) {
 		dev = channel->ch_dev;
@@ -191,17 +191,9 @@ hv_vmbus_channel_open(
 		return EINVAL;
 	}
 
-	mtx_lock(&new_channel->sc_lock);
-	if (new_channel->state == HV_CHANNEL_OPEN_STATE) {
-	    new_channel->state = HV_CHANNEL_OPENING_STATE;
-	} else {
-	    mtx_unlock(&new_channel->sc_lock);
-	    if(bootverbose)
-		printf("VMBUS: Trying to open channel <%p> which in "
-		    "%d state.\n", new_channel, new_channel->state);
-	    return (EINVAL);
-	}
-	mtx_unlock(&new_channel->sc_lock);
+	if (atomic_testandset_int(&new_channel->ch_stflags,
+	    VMBUS_CHAN_ST_OPENED_SHIFT))
+		panic("double-open chan%u", new_channel->ch_id);
 
 	new_channel->on_channel_callback = pfn_on_channel_callback;
 	new_channel->channel_callback_context = context;
@@ -223,8 +215,10 @@ hv_vmbus_channel_open(
 	    M_DEVBUF, M_ZERO, 0UL, BUS_SPACE_MAXADDR, PAGE_SIZE, 0);
 	KASSERT(out != NULL,
 	    ("Error VMBUS: contigmalloc failed to allocate Ring Buffer!"));
-	if (out == NULL)
-		return (ENOMEM);
+	if (out == NULL) {
+		ret = ENOMEM;
+		goto failed;
+	}
 
 	in = ((uint8_t *) out + send_ring_buffer_size);
 
@@ -265,7 +259,8 @@ hv_vmbus_channel_open(
 		device_printf(sc->vmbus_dev,
 		    "can not get msg hypercall for chopen(chan%u)\n",
 		    new_channel->ch_id);
-		return ENXIO;
+		ret = ENXIO;
+		goto failed;
 	}
 
 	req = vmbus_msghc_dataptr(mh);
@@ -284,7 +279,7 @@ hv_vmbus_channel_open(
 		    "chopen(chan%u) msg hypercall exec failed: %d\n",
 		    new_channel->ch_id, ret);
 		vmbus_msghc_put(sc, mh);
-		return ret;
+		goto failed;
 	}
 
 	msg = vmbus_msghc_wait_result(sc, mh);
@@ -294,17 +289,20 @@ hv_vmbus_channel_open(
 	vmbus_msghc_put(sc, mh);
 
 	if (status == 0) {
-		new_channel->state = HV_CHANNEL_OPENED_STATE;
 		if (bootverbose) {
 			device_printf(sc->vmbus_dev, "chan%u opened\n",
 			    new_channel->ch_id);
 		}
-	} else {
-		device_printf(sc->vmbus_dev, "failed to open chan%u\n",
-		    new_channel->ch_id);
-		ret = ENXIO;
+		return 0;
 	}
-	return (ret);
+
+	device_printf(sc->vmbus_dev, "failed to open chan%u\n",
+	    new_channel->ch_id);
+	ret = ENXIO;
+
+failed:
+	atomic_clear_int(&new_channel->ch_stflags, VMBUS_CHAN_ST_OPENED);
+	return ret;
 }
 
 /**
@@ -487,7 +485,9 @@ hv_vmbus_channel_close_internal(hv_vmbus_channel *channel)
 	struct taskqueue *rxq = channel->rxq;
 	int error;
 
-	channel->state = HV_CHANNEL_OPEN_STATE;
+	/* TODO: stringent check */
+	atomic_clear_int(&channel->ch_stflags, VMBUS_CHAN_ST_OPENED);
+
 	sysctl_ctx_free(&channel->ch_sysctl_ctx);
 
 	/*
@@ -542,35 +542,40 @@ hv_vmbus_channel_close_internal(hv_vmbus_channel *channel)
 	    M_DEVBUF);
 }
 
-/**
- * @brief Close the specified channel
+/*
+ * Caller should make sure that all sub-channels have
+ * been added to 'chan' and all to-be-closed channels
+ * are not being opened.
  */
 void
-hv_vmbus_channel_close(hv_vmbus_channel *channel)
+hv_vmbus_channel_close(struct hv_vmbus_channel *chan)
 {
-	hv_vmbus_channel*	sub_channel;
+	int subchan_cnt;
 
-	if (channel->primary_channel != NULL) {
+	if (!VMBUS_CHAN_ISPRIMARY(chan)) {
 		/*
-		 * We only close multi-channels when the primary is
-		 * closed.
+		 * Sub-channel is closed when its primary channel
+		 * is closed; done.
 		 */
 		return;
 	}
 
 	/*
-	 * Close all multi-channels first.
+	 * Close all sub-channels, if any.
 	 */
-	TAILQ_FOREACH(sub_channel, &channel->sc_list_anchor,
-	    sc_list_entry) {
-		if (sub_channel->state != HV_CHANNEL_OPENED_STATE)
-			continue;
-		hv_vmbus_channel_close_internal(sub_channel);
+	subchan_cnt = chan->ch_subchan_cnt;
+	if (subchan_cnt > 0) {
+		struct hv_vmbus_channel **subchan;
+		int i;
+
+		subchan = vmbus_get_subchan(chan, subchan_cnt);
+		for (i = 0; i < subchan_cnt; ++i)
+			hv_vmbus_channel_close_internal(subchan[i]);
+		vmbus_rel_subchan(subchan, subchan_cnt);
 	}
-	/*
-	 * Then close the primary channel.
-	 */
-	hv_vmbus_channel_close_internal(channel);
+
+	/* Then close the primary channel. */
+	hv_vmbus_channel_close_internal(chan);
 }
 
 /**
@@ -897,25 +902,23 @@ vmbus_event_flags_proc(struct vmbus_softc *sc, volatile u_long *event_flags,
 	int f;
 
 	for (f = 0; f < flag_cnt; ++f) {
-		uint32_t rel_id_base;
+		uint32_t chid_base;
 		u_long flags;
-		int bit;
+		int chid_ofs;
 
 		if (event_flags[f] == 0)
 			continue;
 
 		flags = atomic_swap_long(&event_flags[f], 0);
-		rel_id_base = f << VMBUS_EVTFLAG_SHIFT;
+		chid_base = f << VMBUS_EVTFLAG_SHIFT;
 
-		while ((bit = ffsl(flags)) != 0) {
+		while ((chid_ofs = ffsl(flags)) != 0) {
 			struct hv_vmbus_channel *channel;
-			uint32_t rel_id;
 
-			--bit;	/* NOTE: ffsl is 1-based */
-			flags &= ~(1UL << bit);
+			--chid_ofs; /* NOTE: ffsl is 1-based */
+			flags &= ~(1UL << chid_ofs);
 
-			rel_id = rel_id_base + bit;
-			channel = sc->vmbus_chmap[rel_id];
+			channel = sc->vmbus_chmap[chid_base + chid_ofs];
 
 			/* if channel is closed or closing */
 			if (channel == NULL || channel->rxq == NULL)

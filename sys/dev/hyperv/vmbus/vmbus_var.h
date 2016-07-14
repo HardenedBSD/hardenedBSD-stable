@@ -52,6 +52,17 @@
 #define VMBUS_CONNID_MESSAGE		1
 #define VMBUS_CONNID_EVENT		2
 
+struct vmbus_message;
+struct vmbus_softc;
+
+typedef void		(*vmbus_chanmsg_proc_t)(struct vmbus_softc *,
+			    const struct vmbus_message *);
+
+#define VMBUS_CHANMSG_PROC(name, func)	\
+	[VMBUS_CHANMSG_TYPE_##name] = func
+#define VMBUS_CHANMSG_PROC_WAKEUP(name)	\
+	VMBUS_CHANMSG_PROC(name, vmbus_msghc_wakeup)
+
 struct vmbus_pcpu_data {
 	u_long			*intr_cnt;	/* Hyper-V interrupt counter */
 	struct vmbus_message	*message;	/* shared messages */
@@ -102,8 +113,9 @@ struct vmbus_softc {
 #define VMBUS_SCAN_CHCNT_DONE	0x80000000
 	uint32_t		vmbus_scan_devcnt;
 
-	struct mtx		vmbus_chlist_lock;
-	TAILQ_HEAD(, hv_vmbus_channel) vmbus_chlist;
+	/* Primary channels */
+	struct mtx		vmbus_prichan_lock;
+	TAILQ_HEAD(, hv_vmbus_channel) vmbus_prichans;
 };
 
 #define VMBUS_FLAG_ATTACHED	0x0001	/* vmbus was attached */
@@ -138,6 +150,7 @@ void	vmbus_handle_intr(struct trapframe *);
 void	vmbus_et_intr(struct trapframe *);
 
 void	vmbus_chan_msgproc(struct vmbus_softc *, const struct vmbus_message *);
+void	vmbus_chan_destroy_all(struct vmbus_softc *);
 
 struct vmbus_msghc *vmbus_msghc_get(struct vmbus_softc *, size_t);
 void	vmbus_msghc_put(struct vmbus_softc *, struct vmbus_msghc *);
@@ -148,9 +161,6 @@ const struct vmbus_message *vmbus_msghc_wait_result(struct vmbus_softc *,
 	    struct vmbus_msghc *);
 void	vmbus_msghc_wakeup(struct vmbus_softc *, const struct vmbus_message *);
 void	vmbus_msghc_reset(struct vmbus_msghc *, size_t);
-
-void	vmbus_scan_done(struct vmbus_softc *);
-void	vmbus_scan_newchan(struct vmbus_softc *);
 
 uint32_t vmbus_gpadl_alloc(struct vmbus_softc *);
 

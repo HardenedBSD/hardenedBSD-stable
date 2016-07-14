@@ -55,9 +55,8 @@ typedef struct {
 
 typedef struct {
 	uint32_t 		rel_id;
-	hv_vmbus_channel_state	state;
-	hv_guid			interface_type;
-	hv_guid			interface_instance;
+	struct hyperv_guid	interface_type;
+	struct hyperv_guid	interface_instance;
 	uint32_t		monitor_id;
 	uint32_t		server_monitor_pending;
 	uint32_t		server_monitor_latency;
@@ -146,10 +145,6 @@ void			hv_ring_buffer_read_begin(
 
 uint32_t		hv_ring_buffer_read_end(
 				hv_vmbus_ring_buffer_info	*ring_info);
-
-void			hv_vmbus_free_vmbus_channel(hv_vmbus_channel *channel);
-void			hv_vmbus_release_unattached_channels(
-			    struct vmbus_softc *);
 
 int			hv_vmbus_child_device_register(
 					struct hv_vmbus_channel *chan);

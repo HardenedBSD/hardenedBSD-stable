@@ -399,8 +399,8 @@ hn_ifmedia_sts(struct ifnet *ifp, struct ifmediareq *ifmr)
 }
 
 /* {F8615163-DF3E-46c5-913F-F2D2F965ED0E} */
-static const hv_guid g_net_vsc_device_type = {
-	.data = {0x63, 0x51, 0x61, 0xF8, 0x3E, 0xDF, 0xc5, 0x46,
+static const struct hyperv_guid g_net_vsc_device_type = {
+	.hv_guid = {0x63, 0x51, 0x61, 0xF8, 0x3E, 0xDF, 0xc5, 0x46,
 		0x91, 0x3F, 0xF2, 0xD2, 0xF9, 0x65, 0xED, 0x0E}
 };
 
@@ -2957,7 +2957,7 @@ static void
 hn_subchan_attach(struct hn_softc *sc, struct hv_vmbus_channel *chan)
 {
 
-	KASSERT(!HV_VMBUS_CHAN_ISPRIMARY(chan),
+	KASSERT(!VMBUS_CHAN_ISPRIMARY(chan),
 	    ("subchannel callback on primary channel"));
 	KASSERT(chan->ch_subidx > 0,
 	    ("invalid channel subidx %u",
