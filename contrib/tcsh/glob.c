@@ -154,11 +154,7 @@ globcharcoll(__Char c1, __Char c2, int cs)
     s1[0] = c1;
     s2[0] = c2;
     s1[1] = s2[1] = '\0';
-#ifdef __FreeBSD__
-    return wcscmp(s1, s2);
-#else
     return wcscoll(s1, s2);
-#endif
 # else /* not WIDE_STRINGS */
     char s1[2], s2[2];
 
