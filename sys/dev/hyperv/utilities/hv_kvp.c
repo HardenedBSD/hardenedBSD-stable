@@ -575,11 +575,9 @@ hv_kvp_respond_host(hv_kvp_sc *sc, int error)
 	hv_icmsg_hdrp->status = error;
 	hv_icmsg_hdrp->icflags = HV_ICMSGHDRFLAG_TRANSACTION | HV_ICMSGHDRFLAG_RESPONSE;
 
-	error = hv_vmbus_channel_send_packet(sc->util_sc.channel,
-			sc->rcv_buf,
-			sc->host_msg_len, sc->host_msg_id,
-			HV_VMBUS_PACKET_TYPE_DATA_IN_BAND, 0);
-
+	error = vmbus_chan_send(sc->util_sc.channel,
+	    VMBUS_CHANPKT_TYPE_INBAND, 0, sc->rcv_buf, sc->host_msg_len,
+	    sc->host_msg_id);
 	if (error)
 		hv_kvp_log_info("%s: hv_kvp_respond_host: sendpacket error:%d\n",
 			__func__, error);
@@ -628,8 +626,10 @@ hv_kvp_process_request(void *context, int pending)
 	kvp_buf = sc->util_sc.receive_buffer;
 	channel = sc->util_sc.channel;
 
-	ret = hv_vmbus_channel_recv_packet(channel, kvp_buf, 2 * PAGE_SIZE,
-		&recvlen, &requestid);
+	recvlen = 2 * PAGE_SIZE;
+	ret = vmbus_chan_recv(channel, kvp_buf, &recvlen, &requestid);
+	KASSERT(ret != ENOBUFS, ("hvkvp recvbuf is not large enough"));
+	/* XXX check recvlen to make sure that it contains enough data */
 
 	while ((ret == 0) && (recvlen > 0)) {
 
@@ -693,9 +693,11 @@ hv_kvp_process_request(void *context, int pending)
 		/*
 		 * Try reading next buffer
 		 */
-		recvlen = 0;
-		ret = hv_vmbus_channel_recv_packet(channel, kvp_buf, 2 * PAGE_SIZE,
-			&recvlen, &requestid);
+		recvlen = 2 * PAGE_SIZE;
+		ret = vmbus_chan_recv(channel, kvp_buf, &recvlen, &requestid);
+		KASSERT(ret != ENOBUFS, ("hvkvp recvbuf is not large enough"));
+		/* XXX check recvlen to make sure that it contains enough data */
+
 		hv_kvp_log_info("%s: read: context %p, ret =%d, recvlen=%d\n",
 			__func__, context, ret, recvlen);
 	}

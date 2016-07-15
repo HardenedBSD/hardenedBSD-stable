@@ -154,7 +154,7 @@ __FBSDID("$FreeBSD$");
 #define HN_TX_DATA_MAXSIZE		IP_MAXPACKET
 #define HN_TX_DATA_SEGSIZE		PAGE_SIZE
 #define HN_TX_DATA_SEGCNT_MAX		\
-    (NETVSC_PACKET_MAXPAGE - HV_RF_NUM_TX_RESERVED_PAGE_BUFS)
+    (VMBUS_CHAN_SGLIST_MAX - HV_RF_NUM_TX_RESERVED_PAGE_BUFS)
 
 #define HN_DIRECT_TX_SIZE_DEF		128
 
@@ -998,7 +998,7 @@ hn_encap(struct hn_tx_ring *txr, struct hn_txdesc *txd, struct mbuf **m_head0)
 			packet->send_buf_section_idx = send_buf_section_idx;
 			packet->send_buf_section_size =
 			    packet->tot_data_buf_len;
-			packet->page_buf_count = 0;
+			packet->gpa_cnt = 0;
 			txr->hn_tx_chimney++;
 			goto done;
 		}
@@ -1024,24 +1024,24 @@ hn_encap(struct hn_tx_ring *txr, struct hn_txdesc *txd, struct mbuf **m_head0)
 	}
 	*m_head0 = m_head;
 
-	packet->page_buf_count = nsegs + HV_RF_NUM_TX_RESERVED_PAGE_BUFS;
+	packet->gpa_cnt = nsegs + HV_RF_NUM_TX_RESERVED_PAGE_BUFS;
 
 	/* send packet with page buffer */
-	packet->page_buffers[0].pfn = atop(txd->rndis_msg_paddr);
-	packet->page_buffers[0].offset = txd->rndis_msg_paddr & PAGE_MASK;
-	packet->page_buffers[0].length = rndis_msg_size;
+	packet->gpa[0].gpa_page = atop(txd->rndis_msg_paddr);
+	packet->gpa[0].gpa_ofs = txd->rndis_msg_paddr & PAGE_MASK;
+	packet->gpa[0].gpa_len = rndis_msg_size;
 
 	/*
 	 * Fill the page buffers with mbuf info starting at index
 	 * HV_RF_NUM_TX_RESERVED_PAGE_BUFS.
 	 */
 	for (i = 0; i < nsegs; ++i) {
-		hv_vmbus_page_buffer *pb = &packet->page_buffers[
+		struct vmbus_gpa *gpa = &packet->gpa[
 		    i + HV_RF_NUM_TX_RESERVED_PAGE_BUFS];
 
-		pb->pfn = atop(segs[i].ds_addr);
-		pb->offset = segs[i].ds_addr & PAGE_MASK;
-		pb->length = segs[i].ds_len;
+		gpa->gpa_page = atop(segs[i].ds_addr);
+		gpa->gpa_ofs = segs[i].ds_addr & PAGE_MASK;
+		gpa->gpa_len = segs[i].ds_len;
 	}
 
 	packet->send_buf_section_idx =
@@ -1586,7 +1586,7 @@ hn_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		}
 
 		/* Wait for subchannels to be destroyed */
-		vmbus_drain_subchan(sc->hn_prichan);
+		vmbus_subchan_drain(sc->hn_prichan);
 
 		error = hv_rf_on_device_add(sc, &device_info,
 		    sc->hn_rx_ring_inuse);
@@ -2950,7 +2950,7 @@ hn_channel_attach(struct hn_softc *sc, struct hv_vmbus_channel *chan)
 	}
 
 	/* Bind channel to a proper CPU */
-	vmbus_channel_cpu_set(chan, (sc->hn_cpu + idx) % mp_ncpus);
+	vmbus_chan_cpu_set(chan, (sc->hn_cpu + idx) % mp_ncpus);
 }
 
 static void
@@ -2973,7 +2973,7 @@ hn_subchan_setup(struct hn_softc *sc)
 	int i;
 
 	/* Wait for sub-channels setup to complete. */
-	subchan = vmbus_get_subchan(sc->hn_prichan, subchan_cnt);
+	subchan = vmbus_subchan_get(sc->hn_prichan, subchan_cnt);
 
 	/* Attach the sub-channels. */
 	for (i = 0; i < subchan_cnt; ++i) {
@@ -2983,7 +2983,7 @@ hn_subchan_setup(struct hn_softc *sc)
 	}
 
 	/* Release the sub-channels */
-	vmbus_rel_subchan(subchan, subchan_cnt);
+	vmbus_subchan_rel(subchan, subchan_cnt);
 	if_printf(sc->hn_ifp, "%d sub-channels setup done\n", subchan_cnt);
 }
 

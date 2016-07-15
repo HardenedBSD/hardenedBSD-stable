@@ -30,8 +30,9 @@
 #define _VMBUS_REG_H_
 
 #include <sys/param.h>
-#include <dev/hyperv/vmbus/hyperv_reg.h>
 #include <dev/hyperv/include/hyperv.h> /* XXX for hyperv_guid */
+#include <dev/hyperv/include/vmbus.h>
+#include <dev/hyperv/vmbus/hyperv_reg.h>
 
 /*
  * Hyper-V SynIC message format.
@@ -108,12 +109,35 @@ CTASSERT(sizeof(struct vmbus_mnf) == PAGE_SIZE);
 #define VMBUS_CHAN_MAX		(VMBUS_EVTFLAG_LEN * VMBUS_EVTFLAGS_MAX)
 
 /*
- * GPA range.
+ * Channel packets
  */
-struct vmbus_gpa_range {
-	uint32_t	gpa_len;
-	uint32_t	gpa_ofs;
-	uint64_t	gpa_page[];
+
+#define VMBUS_CHANPKT_SIZE_ALIGN	(1 << VMBUS_CHANPKT_SIZE_SHIFT)
+
+#define VMBUS_CHANPKT_SETLEN(pktlen, len)		\
+do {							\
+	(pktlen) = (len) >> VMBUS_CHANPKT_SIZE_SHIFT;	\
+} while (0)
+
+#define VMBUS_CHANPKT_TOTLEN(tlen)	\
+	roundup2((tlen), VMBUS_CHANPKT_SIZE_ALIGN)
+
+struct vmbus_chanpkt {
+	struct vmbus_chanpkt_hdr cp_hdr;
+} __packed;
+
+struct vmbus_chanpkt_sglist {
+	struct vmbus_chanpkt_hdr cp_hdr;
+	uint32_t	cp_rsvd;
+	uint32_t	cp_gpa_cnt;
+	struct vmbus_gpa cp_gpa[];
+} __packed;
+
+struct vmbus_chanpkt_prplist {
+	struct vmbus_chanpkt_hdr cp_hdr;
+	uint32_t	cp_rsvd;
+	uint32_t	cp_range_cnt;
+	struct vmbus_gpa_range cp_range[];
 } __packed;
 
 /*

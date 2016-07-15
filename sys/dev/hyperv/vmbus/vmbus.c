@@ -726,19 +726,11 @@ vmbus_synic_setup(void *xsc)
 	uint32_t sint;
 
 	if (hyperv_features & CPUID_HV_MSR_VP_INDEX) {
-		/*
-		 * Save virtual processor id.
-		 */
+		/* Save virtual processor id. */
 		VMBUS_PCPU_GET(sc, vcpuid, cpu) = rdmsr(MSR_HV_VP_INDEX);
 	} else {
-		/*
-		 * XXX
-		 * Virtual processoor id is only used by a pretty broken
-		 * channel selection code from storvsc.  It's nothing
-		 * critical even if CPUID_HV_MSR_VP_INDEX is not set; keep
-		 * moving on.
-		 */
-		VMBUS_PCPU_GET(sc, vcpuid, cpu) = cpu;
+		/* Set virtual processor id to 0 for compatibility. */
+		VMBUS_PCPU_GET(sc, vcpuid, cpu) = 0;
 	}
 
 	/*
@@ -1021,7 +1013,7 @@ vmbus_child_pnpinfo_str(device_t dev, device_t child, char *buf, size_t buflen)
 }
 
 int
-hv_vmbus_child_device_register(struct hv_vmbus_channel *chan)
+vmbus_add_child(struct hv_vmbus_channel *chan)
 {
 	struct vmbus_softc *sc = chan->vmbus_sc;
 	device_t parent = sc->vmbus_dev;
@@ -1046,7 +1038,7 @@ done:
 }
 
 int
-hv_vmbus_child_device_unregister(struct hv_vmbus_channel *chan)
+vmbus_delete_child(struct hv_vmbus_channel *chan)
 {
 	int error;
 
