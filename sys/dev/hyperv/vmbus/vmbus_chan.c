@@ -51,7 +51,7 @@ __FBSDID("$FreeBSD$");
 #include <dev/hyperv/vmbus/vmbus_reg.h>
 #include <dev/hyperv/vmbus/vmbus_var.h>
 
-static void 	vmbus_chan_send_event(hv_vmbus_channel* channel);
+static void 	vmbus_chan_signal_tx(struct hv_vmbus_channel *chan);
 static void	vmbus_chan_update_evtflagcnt(struct vmbus_softc *,
 		    const struct hv_vmbus_channel *);
 
@@ -81,20 +81,20 @@ vmbus_chan_msgprocs[VMBUS_CHANMSG_TYPE_MAX] = {
  *  @brief Trigger an event notification on the specified channel
  */
 static void
-vmbus_chan_send_event(hv_vmbus_channel *channel)
+vmbus_chan_signal_tx(struct hv_vmbus_channel *chan)
 {
-	struct vmbus_softc *sc = channel->vmbus_sc;
-	uint32_t chanid = channel->ch_id;
+	struct vmbus_softc *sc = chan->vmbus_sc;
+	uint32_t chanid = chan->ch_id;
 
 	atomic_set_long(&sc->vmbus_tx_evtflags[chanid >> VMBUS_EVTFLAG_SHIFT],
 	    1UL << (chanid & VMBUS_EVTFLAG_MASK));
 
-	if (channel->ch_flags & VMBUS_CHAN_FLAG_HASMNF) {
+	if (chan->ch_flags & VMBUS_CHAN_FLAG_HASMNF) {
 		atomic_set_int(
-		&sc->vmbus_mnf2->mnf_trigs[channel->ch_montrig_idx].mt_pending,
-		channel->ch_montrig_mask);
+		&sc->vmbus_mnf2->mnf_trigs[chan->ch_montrig_idx].mt_pending,
+		chan->ch_montrig_mask);
 	} else {
-		hypercall_signal_event(channel->ch_monprm_dma.hv_paddr);
+		hypercall_signal_event(chan->ch_monprm_dma.hv_paddr);
 	}
 }
 
@@ -202,9 +202,8 @@ vmbus_chan_sysctl_create(struct hv_vmbus_channel *chan)
 }
 
 int
-hv_vmbus_channel_open(struct hv_vmbus_channel *chan,
-    int txbr_size, int rxbr_size, const void *udata, int udlen,
-    vmbus_chan_callback_t cb, void *cbarg)
+vmbus_chan_open(struct hv_vmbus_channel *chan, int txbr_size, int rxbr_size,
+    const void *udata, int udlen, vmbus_chan_callback_t cb, void *cbarg)
 {
 	struct vmbus_softc *sc = chan->vmbus_sc;
 	const struct vmbus_chanmsg_chopen_resp *resp;
@@ -579,7 +578,7 @@ vmbus_chan_close_internal(struct hv_vmbus_channel *chan)
  * are not being opened.
  */
 void
-hv_vmbus_channel_close(struct hv_vmbus_channel *chan)
+vmbus_chan_close(struct hv_vmbus_channel *chan)
 {
 	int subchan_cnt;
 
@@ -638,7 +637,7 @@ vmbus_chan_send(struct hv_vmbus_channel *chan, uint16_t type, uint16_t flags,
 
 	error = hv_ring_buffer_write(&chan->outbound, iov, 3, &send_evt);
 	if (!error && send_evt)
-		vmbus_chan_send_event(chan);
+		vmbus_chan_signal_tx(chan);
 	return error;
 }
 
@@ -678,7 +677,7 @@ vmbus_chan_send_sglist(struct hv_vmbus_channel *chan,
 
 	error = hv_ring_buffer_write(&chan->outbound, iov, 4, &send_evt);
 	if (!error && send_evt)
-		vmbus_chan_send_event(chan);
+		vmbus_chan_signal_tx(chan);
 	return error;
 }
 
@@ -720,7 +719,7 @@ vmbus_chan_send_prplist(struct hv_vmbus_channel *chan,
 
 	error = hv_ring_buffer_write(&chan->outbound, iov, 4, &send_evt);
 	if (!error && send_evt)
-		vmbus_chan_send_event(chan);
+		vmbus_chan_signal_tx(chan);
 	return error;
 }
 
@@ -839,20 +838,20 @@ vmbus_event_flags_proc(struct vmbus_softc *sc, volatile u_long *event_flags,
 		chid_base = f << VMBUS_EVTFLAG_SHIFT;
 
 		while ((chid_ofs = ffsl(flags)) != 0) {
-			struct hv_vmbus_channel *channel;
+			struct hv_vmbus_channel *chan;
 
 			--chid_ofs; /* NOTE: ffsl is 1-based */
 			flags &= ~(1UL << chid_ofs);
 
-			channel = sc->vmbus_chmap[chid_base + chid_ofs];
+			chan = sc->vmbus_chmap[chid_base + chid_ofs];
 
 			/* if channel is closed or closing */
-			if (channel == NULL || channel->ch_tq == NULL)
+			if (chan == NULL || chan->ch_tq == NULL)
 				continue;
 
-			if (channel->ch_flags & VMBUS_CHAN_FLAG_BATCHREAD)
-				hv_ring_buffer_read_begin(&channel->inbound);
-			taskqueue_enqueue(channel->ch_tq, &channel->ch_task);
+			if (chan->ch_flags & VMBUS_CHAN_FLAG_BATCHREAD)
+				hv_ring_buffer_read_begin(&chan->inbound);
+			taskqueue_enqueue(chan->ch_tq, &chan->ch_task);
 		}
 	}
 }
@@ -1250,61 +1249,63 @@ vmbus_chan_destroy_all(struct vmbus_softc *sc)
 	mtx_unlock(&sc->vmbus_prichan_lock);
 }
 
-/**
- * @brief Select the best outgoing channel
- * 
+/*
  * The channel whose vcpu binding is closest to the currect vcpu will
  * be selected.
- * If no multi-channel, always select primary channel
- * 
- * @param primary - primary channel
+ * If no multi-channel, always select primary channel.
  */
 struct hv_vmbus_channel *
-vmbus_select_outgoing_channel(struct hv_vmbus_channel *primary)
+vmbus_chan_cpu2chan(struct hv_vmbus_channel *prichan, int cpu)
 {
-	hv_vmbus_channel *new_channel = NULL;
-	hv_vmbus_channel *outgoing_channel = primary;
-	int old_cpu_distance = 0;
-	int new_cpu_distance = 0;
-	int cur_vcpu = 0;
-	int smp_pro_id = PCPU_GET(cpuid);
+	struct hv_vmbus_channel *sel, *chan;
+	uint32_t vcpu, sel_dist;
 
-	if (TAILQ_EMPTY(&primary->ch_subchans)) {
-		return outgoing_channel;
-	}
+	KASSERT(cpu >= 0 && cpu < mp_ncpus, ("invalid cpuid %d", cpu));
+	if (TAILQ_EMPTY(&prichan->ch_subchans))
+		return prichan;
 
-	if (smp_pro_id >= MAXCPU) {
-		return outgoing_channel;
-	}
+	vcpu = VMBUS_PCPU_GET(prichan->vmbus_sc, vcpuid, cpu);
 
-	cur_vcpu = VMBUS_PCPU_GET(primary->vmbus_sc, vcpuid, smp_pro_id);
-	
-	/* XXX need lock */
-	TAILQ_FOREACH(new_channel, &primary->ch_subchans, ch_sublink) {
-		if ((new_channel->ch_stflags & VMBUS_CHAN_ST_OPENED) == 0) {
+#define CHAN_VCPU_DIST(ch, vcpu)		\
+	(((ch)->ch_vcpuid > (vcpu)) ?		\
+	 ((ch)->ch_vcpuid - (vcpu)) : ((vcpu) - (ch)->ch_vcpuid))
+
+#define CHAN_SELECT(ch)				\
+do {						\
+	sel = ch;				\
+	sel_dist = CHAN_VCPU_DIST(ch, vcpu);	\
+} while (0)
+
+	CHAN_SELECT(prichan);
+
+	mtx_lock(&prichan->ch_subchan_lock);
+	TAILQ_FOREACH(chan, &prichan->ch_subchans, ch_sublink) {
+		uint32_t dist;
+
+		KASSERT(chan->ch_stflags & VMBUS_CHAN_ST_OPENED,
+		    ("chan%u is not opened", chan->ch_id));
+
+		if (chan->ch_vcpuid == vcpu) {
+			/* Exact match; done */
+			CHAN_SELECT(chan);
+			break;
+		}
+
+		dist = CHAN_VCPU_DIST(chan, vcpu);
+		if (sel_dist <= dist) {
+			/* Far or same distance; skip */
 			continue;
 		}
 
-		if (new_channel->ch_vcpuid == cur_vcpu){
-			return new_channel;
-		}
-
-		old_cpu_distance = ((outgoing_channel->ch_vcpuid > cur_vcpu) ?
-		    (outgoing_channel->ch_vcpuid - cur_vcpu) :
-		    (cur_vcpu - outgoing_channel->ch_vcpuid));
-
-		new_cpu_distance = ((new_channel->ch_vcpuid > cur_vcpu) ?
-		    (new_channel->ch_vcpuid - cur_vcpu) :
-		    (cur_vcpu - new_channel->ch_vcpuid));
-
-		if (old_cpu_distance < new_cpu_distance) {
-			continue;
-		}
-
-		outgoing_channel = new_channel;
+		/* Select the closer channel. */
+		CHAN_SELECT(chan);
 	}
+	mtx_unlock(&prichan->ch_subchan_lock);
 
-	return(outgoing_channel);
+#undef CHAN_SELECT
+#undef CHAN_VCPU_DIST
+
+	return sel;
 }
 
 struct hv_vmbus_channel **
@@ -1367,4 +1368,13 @@ vmbus_chan_msgproc(struct vmbus_softc *sc, const struct vmbus_message *msg)
 	msg_proc = vmbus_chan_msgprocs[msg_type];
 	if (msg_proc != NULL)
 		msg_proc(sc, msg);
+}
+
+void
+vmbus_chan_set_readbatch(struct hv_vmbus_channel *chan, bool on)
+{
+	if (!on)
+		chan->ch_flags &= ~VMBUS_CHAN_FLAG_BATCHREAD;
+	else
+		chan->ch_flags |= VMBUS_CHAN_FLAG_BATCHREAD;
 }

@@ -147,6 +147,8 @@ struct storvsc_softc {
 	struct hv_storvsc_request	hs_init_req;
 	struct hv_storvsc_request	hs_reset_req;
 	device_t			hs_dev;
+
+	struct hv_vmbus_channel		*hs_cpu2chan[MAXCPU];
 };
 
 
@@ -316,7 +318,7 @@ storvsc_subchan_attach(struct storvsc_softc *sc,
 
 	new_channel->hv_chan_priv1 = sc;
 	vmbus_chan_cpu_rr(new_channel);
-	ret = hv_vmbus_channel_open(new_channel,
+	ret = vmbus_chan_open(new_channel,
 	    sc->hs_drv_props->drv_ringbuffer_size,
   	    sc->hs_drv_props->drv_ringbuffer_size,
 	    (void *)&props,
@@ -575,7 +577,7 @@ hv_storvsc_connect_vsp(struct storvsc_softc *sc)
 	 */
 	KASSERT(sc->hs_chan->hv_chan_priv1 == sc, ("invalid chan priv1"));
 	vmbus_chan_cpu_rr(sc->hs_chan);
-	ret = hv_vmbus_channel_open(
+	ret = vmbus_chan_open(
 		sc->hs_chan,
 		sc->hs_drv_props->drv_ringbuffer_size,
 		sc->hs_drv_props->drv_ringbuffer_size,
@@ -664,7 +666,7 @@ hv_storvsc_io_request(struct storvsc_softc *sc,
 
 	vstor_packet->operation = VSTOR_OPERATION_EXECUTESRB;
 
-	outgoing_channel = vmbus_select_outgoing_channel(sc->hs_chan);
+	outgoing_channel = sc->hs_cpu2chan[curcpu];
 
 	mtx_unlock(&request->softc->hs_lock);
 	if (request->prp_list.gpa_range.gpa_len) {
@@ -870,6 +872,20 @@ storvsc_probe(device_t dev)
 	return (ret);
 }
 
+static void
+storvsc_create_cpu2chan(struct storvsc_softc *sc)
+{
+	int cpu;
+
+	CPU_FOREACH(cpu) {
+		sc->hs_cpu2chan[cpu] = vmbus_chan_cpu2chan(sc->hs_chan, cpu);
+		if (bootverbose) {
+			device_printf(sc->hs_dev, "cpu%d -> chan%u\n",
+			    cpu, sc->hs_cpu2chan[cpu]->ch_id);
+		}
+	}
+}
+
 /**
  * @brief StorVSC attach function
  *
@@ -966,6 +982,9 @@ storvsc_attach(device_t dev)
 	if (ret != 0) {
 		goto cleanup;
 	}
+
+	/* Construct cpu to channel mapping */
+	storvsc_create_cpu2chan(sc);
 
 	/*
 	 * Create the device queue.
@@ -1081,7 +1100,7 @@ storvsc_detach(device_t dev)
 	 * under the protection of the incoming channel lock.
 	 */
 
-	hv_vmbus_channel_close(sc->hs_chan);
+	vmbus_chan_close(sc->hs_chan);
 
 	mtx_lock(&sc->hs_lock);
 	while (!LIST_EMPTY(&sc->hs_free_list)) {
