@@ -30,11 +30,7 @@ SRCS+=	opt_apic.h
 OBJS=	${VDSO}.so
 
 .if ${MACHINE_CPUARCH} == "i386"
-<<<<<<< HEAD
-SRCS+=	linux_ptrace.c linux_util.c linux_mib.c \
-=======
 SRCS+=	linux_ptrace.c imgact_linux.c linux_util.c linux_mib.c linux_mmap.c \
->>>>>>> origin/freebsd/11-stable/master
 	linux_emul.c opt_cpu.h linux.c
 .endif
 
