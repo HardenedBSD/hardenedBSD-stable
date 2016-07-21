@@ -70,23 +70,14 @@ typedef struct {
 	uint32_t		ring_data_size;	/* ring_size */
 } hv_vmbus_ring_buffer_info;
 
-typedef struct hv_vmbus_channel {
-	device_t			ch_dev;
-	struct vmbus_softc		*ch_vmbus;
+struct vmbus_channel {
+	/*
+	 * NOTE:
+	 * Fields before ch_txbr are only accessed on this channel's
+	 * target CPU.
+	 */
 	uint32_t			ch_flags;	/* VMBUS_CHAN_FLAG_ */
-	uint32_t			ch_id;		/* channel id */
 
-	/*
-	 * These are based on the offer_msg.monitor_id.
-	 * Save it here for easy access.
-	 */
-	volatile uint32_t		*ch_montrig;	/* MNF trigger */
-	uint32_t			ch_montrig_mask;/* MNF trig mask */
-
-	/*
-	 * TX bufring; at the beginning of ch_bufring.
-	 */
-	hv_vmbus_ring_buffer_info	ch_txbr;
 	/*
 	 * RX bufring; immediately following ch_txbr.
 	 */
@@ -97,8 +88,45 @@ typedef struct hv_vmbus_channel {
 	vmbus_chan_callback_t		ch_cb;
 	void				*ch_cbarg;
 
+	/*
+	 * TX bufring; at the beginning of ch_bufring.
+	 *
+	 * NOTE:
+	 * Put TX bufring and the following MNF/evtflag to a new
+	 * cacheline, since they will be accessed on all CPUs by
+	 * locking ch_txbr first.
+	 *
+	 * XXX
+	 * TX bufring and following MNF/evtflags do _not_ fit in
+	 * one 64B cacheline.
+	 */
+	hv_vmbus_ring_buffer_info	ch_txbr __aligned(CACHE_LINE_SIZE);
+	uint32_t			ch_txflags;	/* VMBUS_CHAN_TXF_ */
+
+	/*
+	 * These are based on the vmbus_chanmsg_choffer.chm_montrig.
+	 * Save it here for easy access.
+	 */
+	uint32_t			ch_montrig_mask;/* MNF trig mask */
+	volatile uint32_t		*ch_montrig;	/* MNF trigger loc. */
+
+	/*
+	 * These are based on the vmbus_chanmsg_choffer.chm_chanid.
+	 * Save it here for easy access.
+	 */
+	u_long				ch_evtflag_mask;/* event flag */
+	volatile u_long			*ch_evtflag;	/* event flag loc. */
+
+	/*
+	 * Rarely used fields.
+	 */
+
 	struct hyperv_mon_param		*ch_monprm;
 	struct hyperv_dma		ch_monprm_dma;
+
+	uint32_t			ch_id;		/* channel id */
+	device_t			ch_dev;
+	struct vmbus_softc		*ch_vmbus;
 
 	int				ch_cpuid;	/* owner cpu */
 	/*
@@ -114,19 +142,19 @@ typedef struct hv_vmbus_channel {
 	 * channel.
 	 */
 	struct mtx			ch_subchan_lock;
-	TAILQ_HEAD(, hv_vmbus_channel)	ch_subchans;
+	TAILQ_HEAD(, vmbus_channel)	ch_subchans;
 	int				ch_subchan_cnt;
 
 	/* If this is a sub-channel */
-	TAILQ_ENTRY(hv_vmbus_channel)	ch_sublink;	/* sub-channel link */
-	struct hv_vmbus_channel		*ch_prichan;	/* owner primary chan */
+	TAILQ_ENTRY(vmbus_channel)	ch_sublink;	/* sub-channel link */
+	struct vmbus_channel		*ch_prichan;	/* owner primary chan */
 
 	void				*ch_bufring;	/* TX+RX bufrings */
 	struct hyperv_dma		ch_bufring_dma;
 	uint32_t			ch_bufring_gpadl;
 
 	struct task			ch_detach_task;
-	TAILQ_ENTRY(hv_vmbus_channel)	ch_prilink;	/* primary chan link */
+	TAILQ_ENTRY(vmbus_channel)	ch_prilink;	/* primary chan link */
 	uint32_t			ch_subidx;	/* subchan index */
 	volatile uint32_t		ch_stflags;	/* atomic-op */
 							/* VMBUS_CHAN_ST_ */
@@ -134,11 +162,10 @@ typedef struct hv_vmbus_channel {
 	struct hyperv_guid		ch_guid_inst;
 
 	struct sysctl_ctx_list		ch_sysctl_ctx;
-} hv_vmbus_channel;
+} __aligned(CACHE_LINE_SIZE);
 
 #define VMBUS_CHAN_ISPRIMARY(chan)	((chan)->ch_subidx == 0)
 
-#define VMBUS_CHAN_FLAG_HASMNF		0x0001
 /*
  * If this flag is set, this channel's interrupt will be masked in ISR,
  * and the RX bufring will be drained before this channel's interrupt is
@@ -149,7 +176,17 @@ typedef struct hv_vmbus_channel {
  */
 #define VMBUS_CHAN_FLAG_BATCHREAD	0x0002
 
+#define VMBUS_CHAN_TXF_HASMNF		0x0001
+
 #define VMBUS_CHAN_ST_OPENED_SHIFT	0
 #define VMBUS_CHAN_ST_OPENED		(1 << VMBUS_CHAN_ST_OPENED_SHIFT)
+
+struct vmbus_softc;
+struct vmbus_message;
+
+void	vmbus_event_proc(struct vmbus_softc *, int);
+void	vmbus_event_proc_compat(struct vmbus_softc *, int);
+void	vmbus_chan_msgproc(struct vmbus_softc *, const struct vmbus_message *);
+void	vmbus_chan_destroy_all(struct vmbus_softc *);
 
 #endif	/* !_VMBUS_CHANVAR_H_ */
