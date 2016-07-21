@@ -78,6 +78,24 @@ usage() {
 	exit 1
 }
 
+sigint_handler() {
+	local destroybe
+
+	destroybe=0
+	if [ ! -z "${1}" ]; then
+		destroybe=${1}
+	fi
+
+	debug_print "[-] Caught SIGINT. Cleaning up."
+
+	cleanup
+	if [ ${destroybe} -eq 1 ]; then
+		destroy_be
+	fi
+
+	exit 0
+}
+
 get_tmpdir() {
 	if [ -z "${tmpdir}" ]; then
 		tmpdir=$(${MKTEMP} -d)
@@ -693,6 +711,8 @@ main() {
 		kernel=${local_kernel}
 	fi
 
+	trap sigint_handler INT
+
 	if [ -z "${tmpdir}" ]; then
 		get_tmpdir > /dev/null
 	fi
@@ -754,6 +774,8 @@ main() {
 		destroy_be
 		exit 1
 	fi
+
+	trap 'sigint_handler 1' INT
 
 	apply_base
 	res=${?}
