@@ -23,9 +23,7 @@
 .\" IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 .\" POSSIBILITY OF SUCH DAMAGE.
 .\"
-.\" $FreeBSD$
-.\"
-.Dd May 18, 2016
+.Dd July 20, 2016
 .Dt HBSD-UPDATE 8
 .Os FreeBSD
 .Sh NAME
@@ -37,6 +35,7 @@
 .Op Fl C
 .Op Fl c Ar config
 .Op Fl h
+.Op Fl i
 .Op Fl j Ar jail
 .Op Fl K Ar backupkern
 .Op Fl k Ar kernel
@@ -65,10 +64,13 @@ exists.
 .It Fl c Ar config
 Read configuration options from
 .Ar config .
-(default:
+(Default:
 .Pa /etc/hbsd-update.conf )
 .It Fl h
 Show the help menu.
+.It Fl i
+Ignore the version check.
+Always install the latest update.
 .It Fl j Ar jail
 Install the update into jail
 .Ar jail .
