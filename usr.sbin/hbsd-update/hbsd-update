@@ -40,6 +40,7 @@ ignorever=0
 unsigned=0
 verbose=0
 integriforce=1
+no_obsolete=0
 
 AWK="/usr/bin/awk"
 BEADM="/usr/local/sbin/beadm"
@@ -69,6 +70,7 @@ usage() {
 	debug_print "\t-j jailname\tInstall updates to jail <jailname>"
 	debug_print "\t-K backupkern\tBackup the previous kernel to <backupkern>"
 	debug_print "\t-k kernel\tUse kernel <kernel>"
+	debug_print "\t-o\t\tDo not remove obsolete files/directories"
 	debug_print "\t-t tmpdir\tTemporary directory"
 	debug_print "\t-U\t\tAllow unsigned updates"
 	debug_print "\t-v version\tUse a different version"
@@ -627,7 +629,7 @@ main() {
 	do_report_version=0
 	local_kernel=""
 
-	while getopts 'hiCUVb:c:j:K:k:t:u:v:' opt; do
+	while getopts 'hioCUVb:c:j:K:k:t:u:v:' opt; do
 		case "${opt}" in
 			b)
 				if ! which -s ${BEADM}; then
@@ -654,6 +656,9 @@ main() {
 				;;
 			k)
 				local_kernel="${OPTARG}"
+				;;
+			o)
+				no_obsolete=1
 				;;
 			t)
 				tmpdir="${OPTARG}"
@@ -766,12 +771,14 @@ main() {
 		exit 1
 	fi
 
-	remove_obsolete
-	res=${?}
-	if [ ${res} -gt 0 ]; then
-		cleanup
-		destroy_be
-		exit 1
+	if [ ${no_obsolete} -eq 0 ]; then
+		remove_obsolete
+		res=${?}
+		if [ ${res} -gt 0 ]; then
+			cleanup
+			destroy_be
+			exit 1
+		fi
 	fi
 
 	if [ ${integriforce} -gt 0 ]; then
