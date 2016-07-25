@@ -23,9 +23,7 @@
 .\" IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 .\" POSSIBILITY OF SUCH DAMAGE.
 .\"
-.\" $FreeBSD$
-.\"
-.Dd May 18, 2016
+.Dd July 23, 2016
 .Dt HBSD-UPDATE 8
 .Os FreeBSD
 .Sh NAME
@@ -37,9 +35,12 @@
 .Op Fl C
 .Op Fl c Ar config
 .Op Fl h
+.Op Fl I
+.Op Fl i
 .Op Fl j Ar jail
 .Op Fl K Ar backupkern
 .Op Fl k Ar kernel
+.Op Fl o
 .Op Fl t Ar tmpdir
 .Op Fl U
 .Op Fl v Ar version
@@ -65,10 +66,15 @@ exists.
 .It Fl c Ar config
 Read configuration options from
 .Ar config .
-(default:
+(Default:
 .Pa /etc/hbsd-update.conf )
 .It Fl h
 Show the help menu.
+.It Fl I
+Interactively remove obsolete files.
+.It Fl i
+Ignore the version check.
+Always install the latest update.
 .It Fl j Ar jail
 Install the update into jail
 .Ar jail .
@@ -81,6 +87,8 @@ to.
 Use kernel
 .Ar kernel
 from the update archive.
+.It Fl o
+Do not remove obsolete files and directories.
 .It Fl t Ar tempdir
 Specify a custom temporary directory for downloading and parsing
 the update.
