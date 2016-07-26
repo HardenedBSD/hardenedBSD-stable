@@ -291,8 +291,8 @@ kbd_unregister(keyboard_t *kbd)
 }
 
 /* find a function table by the driver name */
-keyboard_switch_t
-*kbd_get_switch(char *driver)
+keyboard_switch_t *
+kbd_get_switch(char *driver)
 {
 	const keyboard_driver_t **list;
 	const keyboard_driver_t *p;
@@ -426,8 +426,8 @@ kbd_change_callback(keyboard_t *kbd, void *id, kbd_callback_func_t *func,
 }
 
 /* get a keyboard structure */
-keyboard_t
-*kbd_get_keyboard(int index)
+keyboard_t *
+kbd_get_keyboard(int index)
 {
 	if ((index < 0) || (index >= keyboards))
 		return (NULL);
@@ -1125,8 +1125,8 @@ fkey_change_ok(fkeytab_t *oldkey, fkeyarg_t *newkey, struct thread *td)
 #endif
 
 /* get a pointer to the string associated with the given function key */
-u_char
-*genkbd_get_fkeystr(keyboard_t *kbd, int fkey, size_t *len)
+u_char *
+genkbd_get_fkeystr(keyboard_t *kbd, int fkey, size_t *len)
 {
 	if (kbd == NULL)
 		return (NULL);
@@ -1138,8 +1138,8 @@ u_char
 }
 
 /* diagnostic dump */
-static char
-*get_kbd_type_name(int type)
+static char *
+get_kbd_type_name(int type)
 {
 	static struct {
 		int type;
