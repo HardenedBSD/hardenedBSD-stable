@@ -42,6 +42,7 @@ verbose=0
 integriforce=1
 no_obsolete=0
 interactive=0
+install_src=0
 
 AWK="/usr/bin/awk"
 BEADM="/usr/local/sbin/beadm"
@@ -73,6 +74,7 @@ usage() {
 	debug_print "\t-K backupkern\tBackup the previous kernel to <backupkern>"
 	debug_print "\t-k kernel\tUse kernel <kernel>"
 	debug_print "\t-o\t\tDo not remove obsolete files/directories"
+	debug_print "\t-s\t\tInstall sources (if present)"
 	debug_print "\t-t tmpdir\tTemporary directory"
 	debug_print "\t-U\t\tAllow unsigned updates"
 	debug_print "\t-v version\tUse a different version"
@@ -330,6 +332,17 @@ apply_base() {
 	fi
 
 	rm -rf ${boottmp}
+
+	if [ ${install_src} -gt 0 ]; then
+		if [ -f ${tmpdir}/src.txz ]; then
+			if [ ${verbose} -gt 0 ]; then
+				debug_print "[*] Installing sources"
+			fi
+
+			${TAR} -xpf ${tmpdir}/src.txz \
+				-C ${mountpoint}
+		fi
+	fi
 
 	if [ ${verbose} -gt 0 ]; then
 		debug_print "[*] Updating /etc"
@@ -691,6 +704,9 @@ main() {
 				;;
 			o)
 				no_obsolete=1
+				;;
+			s)
+				install_src=1
 				;;
 			t)
 				tmpdir="${OPTARG}"
