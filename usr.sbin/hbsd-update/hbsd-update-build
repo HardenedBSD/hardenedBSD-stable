@@ -461,11 +461,15 @@ full_version() {
 	echo "hbsd-v$(hbsd_version)-$(git_version)"
 }
 
+update_filename() {
+	echo "${OUTPUTDIR}/update-$(full_version).tar"
+}
+
 build_update_archive() {
 	ver=$(full_version)
 
 	cd ${STAGEDIR}
-	tar -cf ${OUTPUTDIR}/update-${ver}.tar \
+	tar -cf $(update_filename) \
 		--exclude ./lock \
 		--exclude ./success \
 		.
@@ -587,9 +591,9 @@ main() {
 			if [ ${INTEGRIFORCE} -gt 0 ]; then
 				build_integriforce_rules || exit 1
 			fi
-		fi
 
-		add_extra_files || exit 1
+			add_extra_files || exit 1
+		fi
 
 		if [ ${UNSIGNED} -eq 0 ]; then
 			sign_artifacts || exit 1
@@ -602,7 +606,7 @@ main() {
 	) 2>&1 | log_build
 
 	if [ -f ${STAGEDIR}/success ]; then
-		echo "OK $(date '+%s')|$(full_version)"
+		echo "OK $(date '+%s')|$(full_version)|sha256:$(sha256 -q $(update_filename))"
 	else
 		echo "FAIL"
 	fi

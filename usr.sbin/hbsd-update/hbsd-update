@@ -36,6 +36,10 @@ configfile="/etc/hbsd-update.conf"
 mountpoint="/"
 kernel=""
 
+# dnssec variable is yes/no since it's user-visible via
+# hbsd-update.conf(5).
+dnssec="yes"
+
 ignorever=0
 unsigned=0
 verbose=0
@@ -43,6 +47,8 @@ integriforce=1
 no_obsolete=0
 interactive=0
 install_src=0
+
+update_hash=""
 
 AWK="/usr/bin/awk"
 BEADM="/usr/local/sbin/beadm"
@@ -57,6 +63,8 @@ MKTEMP="/usr/bin/mktemp"
 OPENSSL="/usr/bin/openssl"
 SED="/usr/bin/sed"
 TAR="/usr/bin/tar"
+SHA256="/sbin/sha256"
+SHA512="/sbin/sha512"
 
 debug_print() {
 	echo -e "${1}" >&2
@@ -67,6 +75,7 @@ usage() {
 	debug_print "OPTIONS:"
 	debug_print "\t-b BEname\tInstall updates to ZFS Boot Environment <BEname>"
 	debug_print "\t-c config\tUse a non-default config file"
+	debug_print "\t-d\t\tDo not use DNSSEC validation"
 	debug_print "\t-h\t\tShow this help screen"
 	debug_print "\t-I\t\tInteractively remove obsolete files"
 	debug_print "\t-i\t\tIgnore version check"
@@ -111,6 +120,11 @@ get_tmpdir() {
 }
 
 get_version() {
+	local res
+	local dnssec_str
+
+	res=""
+
 	if [ ! -z "${buildver}" ]; then
 		# User-specified version
 		echo ${buildver}
@@ -118,21 +132,48 @@ get_version() {
 	fi
 
 	if [ ! -z "${dnsrec}" ]; then
+		dnssec_str="-D"
+
+		case "${dnssec}" in
+			[nN]*)
+				dnssec_str=""
+				;;
+			*)
+				debug_print "[*] Performing initial DNSSEC validation."
+				${DRILL} -TD ${dnsrec} txt > /dev/null 2>&1
+				res=${?}
+				if [ ${res} -gt 0 ]; then
+					debug_print "[-] DNSSEC validation failed. Bailing"
+					return 1
+				fi
+
+				;;
+		esac
+
 		# Prefer DNS, fallback to HTTP
-		res=$(${DRILL} ${dnsrec} txt | \
+		res=$(${DRILL} ${dnssec_str} ${dnsrec} txt | \
 			${GREP} -F TXT | \
 			${GREP} -vF ';;' | \
 			${AWK} '{print $5;}' | \
 			${SED} 's,",,g')
 		buildver=$(echo ${res} | ${SED} 's,|, ,g' | ${AWK} '{print $2;}')
+		update_hash=$(echo ${res} | ${SED} 's,|, ,g' | ${AWK} '{print $3;}')
 	fi
 
 	if [ -z "${buildver}" ]; then
 		# Attempt to grab the version from HTTP
-		buildver=$(${FETCH} -o - ${baseurl}/update-latest.txt | \
-			${SED} 's,|, ,g' | \
-			${AWK} '{print $2;}')
+		res=$(${FETCH} -o - ${baseurl}/update-latest.txt)
+		buildver=$(echo ${res} | ${SED} 's,|, ,g' | ${AWK} '{print $2;}')
+		update_hash=$(echo ${res} | ${SED} 's,|, ,g' | ${AWK} '{print $3;}')
+
 		if [ -z "${buildver}" ]; then
+			return 1
+		fi
+	fi
+
+	if [ -z "${update_hash}" ]; then
+		if [ ${unsigned} -eq 0 ]; then
+			debug_print "[-] Hash for the update has not been published. Cannot verify update. Bailing."
 			return 1
 		fi
 	fi
@@ -180,6 +221,12 @@ check_jailname() {
 }
 
 fetch_update() {
+	local hashalgo
+	local filehash
+	local pubhash
+	local res
+
+	# Step 1: Download the update archive
 	${FETCH} -o ${tmpdir}/update.tar \
 		${baseurl}/update-$(get_version).tar
 	res=${?}
@@ -187,6 +234,34 @@ fetch_update() {
 		return ${res}
 	fi
 
+	if [ ! -z "${update_hash}" ]; then
+		# Step 2: Validate the update archive
+		hashalgo=$(echo ${update_hash} | awk -F ':' '{print $1;}')
+		pubhash=$(echo ${update_hash} | awk -F ':' '{print $2;}')
+
+		case "${hashalgo}" in
+			sha256)
+				filehash=$(${SHA256} -q ${tmpdir}/update.tar)
+				;;
+			sha512)
+				filehash=$(${SHA512} -q ${tmpdir}/update.tar)
+				;;
+			*)
+				debug_print "[-] Update is signed with unknown hash algorithm: ${hashalgo}"
+				;;
+		esac
+
+		if [ ! "${filehash}" = "${pubhash}" ]; then
+			debug_print "[-] Hash for the update does not match.  Bailing."
+			return 1
+		fi
+
+		if [ ${verbose} -gt 0 ]; then
+			debug_print "[*] Verified hash: ${filehash} = ${pubhash}"
+		fi
+	fi
+
+	# Step 3: Untar the update archive
 	${TAR} -xf ${tmpdir}/update.tar \
 		-C ${tmpdir}
 	res=${?}
@@ -216,8 +291,12 @@ check_pubkey_validity() {
 }
 
 check_set_validity() {
+	local res
 	local checkfiles
 	local extrafiles
+	local signedhash
+	local computedhash
+
 	checkfiles="base.txz kernel-${kernel}.txz etcupdate.tbz skip.txt"
 	extrafiles="ObsoleteFiles.txt ObsoleteDirs.txt"
 
@@ -249,7 +328,7 @@ check_set_validity() {
 			-pubin \
 			-inkey ${tmpdir}/pubkey.rsa.pem)
 
-		computedhash=$(sha512 -q ${tmpdir}/${file})
+		computedhash=$(${SHA512} -q ${tmpdir}/${file})
 		res=${?}
 		if [ ${res} -gt 0 ]; then
 			return 1
@@ -686,6 +765,9 @@ main() {
 				;;
 			C)
 				do_report_version=1
+				;;
+			d)
+				dnssec="no"
 				;;
 			i)
 				ignorever=1
