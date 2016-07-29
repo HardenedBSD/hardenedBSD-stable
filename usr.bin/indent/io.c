@@ -116,6 +116,7 @@ dump_line(void)
 	    }
 	    while (e_lab > s_lab && (e_lab[-1] == ' ' || e_lab[-1] == '\t'))
 		e_lab--;
+	    *e_lab = '\0';
 	    cur_col = pad_output(1, compute_label_target());
 	    if (s_lab[0] == '#' && (strncmp(s_lab, "#else", 5) == 0
 				    || strncmp(s_lab, "#endif", 6) == 0)) {
@@ -347,10 +348,10 @@ fill_buffer(void)
     int i;
     FILE *f = input;
 
-    if (bp_save != 0) {		/* there is a partly filled input buffer left */
+    if (bp_save != NULL) {		/* there is a partly filled input buffer left */
 	buf_ptr = bp_save;	/* dont read anything, just switch buffers */
 	buf_end = be_save;
-	bp_save = be_save = 0;
+	bp_save = be_save = NULL;
 	if (buf_ptr < buf_end)
 	    return;		/* only return if there is really something in
 				 * this buffer */

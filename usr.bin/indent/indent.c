@@ -147,11 +147,11 @@ main(int argc, char **argv)
 
     scase = ps.pcase = false;
     squest = 0;
-    sc_end = 0;
-    bp_save = 0;
-    be_save = 0;
+    sc_end = NULL;
+    bp_save = NULL;
+    be_save = NULL;
 
-    output = 0;
+    output = NULL;
     tabs_to_var = 0;
 
     /*--------------------------------------------------*\
@@ -319,6 +319,8 @@ main(int argc, char **argv)
 	    switch (type_code) {
 	    case newline:
 		++line_no;
+		if (sc_end != NULL)
+		    goto sw_buffer;	/* dump comment, if any */
 		flushed_nl = true;
 	    case form_feed:
 		break;		/* form feeds and newlines found here will be
@@ -326,7 +328,7 @@ main(int argc, char **argv)
 
 	    case lbrace:	/* this is a brace that starts the compound
 				 * stmt */
-		if (sc_end == 0) {	/* ignore buffering if a comment wasn't
+		if (sc_end == NULL) {	/* ignore buffering if a comment wasn't
 					 * stored up */
 		    ps.search_brace = false;
 		    goto check_type;
@@ -339,8 +341,8 @@ main(int argc, char **argv)
 		}
 	    case comment:	/* we have a comment, so we must copy it into
 				 * the buffer */
-		if (!flushed_nl || sc_end != 0) {
-		    if (sc_end == 0) {	/* if this is the first comment, we
+		if (!flushed_nl || sc_end != NULL) {
+		    if (sc_end == NULL) {	/* if this is the first comment, we
 					 * must set up the buffer */
 			save_com[0] = save_com[1] = ' ';
 			sc_end = &(save_com[2]);
@@ -384,7 +386,7 @@ main(int argc, char **argv)
 			&& e_code != s_code && e_code[-1] == '}'))
 		    force_nl = false;
 
-		if (sc_end == 0) {	/* ignore buffering if comment wasn't
+		if (sc_end == NULL) {	/* ignore buffering if comment wasn't
 					 * saved up */
 		    ps.search_brace = false;
 		    goto check_type;
@@ -415,7 +417,7 @@ main(int argc, char **argv)
 					 * save_com */
 		*sc_end++ = ' ';/* add trailing blank, just in case */
 		buf_end = sc_end;
-		sc_end = 0;
+		sc_end = NULL;
 		break;
 	    }			/* end of switch */
 	    if (type_code != 0)	/* we must make this check, just in case there
@@ -699,8 +701,10 @@ check_type:
 	    break;
 
 	case semicolon:	/* got a ';' */
-	    ps.in_or_st = false;/* we are not in an initialization or
-				 * structure declaration */
+	    if (ps.dec_nest == 0) {
+		/* we are not in an initialization or structure declaration */
+		ps.in_or_st = false;
+	    }
 	    scase = false;	/* these will only need resetting in an error */
 	    squest = 0;
 	    if (ps.last_token == rparen && rparen_count == 0)
@@ -979,8 +983,10 @@ check_type:
 		    if (ps.want_blank)
 			*e_code++ = ' ';
 		    ps.want_blank = false;
-		    if (dec_ind && s_code != e_code)
+		    if (dec_ind && s_code != e_code) {
+			*e_code = '\0';
 			dump_line();
+		    }
 		    dec_ind = 0;
 		}
 	    }
@@ -1095,9 +1101,9 @@ check_type:
 
 		while (e_lab > s_lab && (e_lab[-1] == ' ' || e_lab[-1] == '\t'))
 		    e_lab--;
-		if (e_lab - s_lab == com_end && bp_save == 0) {	/* comment on
-								 * preprocessor line */
-		    if (sc_end == 0)	/* if this is the first comment, we
+		/* comment on preprocessor line */
+		if (e_lab - s_lab == com_end && bp_save == NULL) {
+		    if (sc_end == NULL)	/* if this is the first comment, we
 					 * must set up the buffer */
 			sc_end = &(save_com[0]);
 		    else {
@@ -1120,7 +1126,7 @@ check_type:
 					 * save_com */
 		    *sc_end++ = ' ';	/* add trailing blank, just in case */
 		    buf_end = sc_end;
-		    sc_end = 0;
+		    sc_end = NULL;
 		}
 		*e_lab = '\0';	/* null terminate line */
 		ps.pcase = false;
