@@ -61,6 +61,7 @@ setup_environment() {
 	USE_EXISTING=0
 	LOGTOSTDOUT=0
 	INTEGRIFORCE=1
+	BUILDSRCSET=1
 	VERBOSE=0
 }
 
@@ -262,7 +263,15 @@ build_obsolete() {
 		check-old > ${STAGEDIR}/ObsoleteDirs.txt
 }
 
+build_src_tarball() {
+	chroot ${CHROOTDIR} make -sC /usr/src/release \
+		src.txz
+	return ${?}
+}
+
 add_extra_files() {
+	local res
+
 	cat <<EOF > ${STAGEDIR}/skip.txt
 ./etc
 ./proc
@@ -274,7 +283,20 @@ EOF
 	cp ${CHROOTDIR}/usr/src/UPDATING ${STAGEDIR}/
 	cp ${CHROOTDIR}/usr/src/UPDATING-HardenedBSD ${STAGEDIR}/
 
+	if [ ${BUILDSRCSET} -gt 0 ]; then
+		build_src_tarball
+		res=${?}
+		if [ ${res} -gt 0 ]; then
+			return ${res}
+		fi
+
+		cp ${CHROOTDIR}/usr/obj/usr/src/release/src.txz \
+			${STAGEDIR}
+	fi
+
 	build_obsolete
+
+	return 0
 }
 
 check_integriforce_rule_exists() {
@@ -439,11 +461,15 @@ full_version() {
 	echo "hbsd-v$(hbsd_version)-$(git_version)"
 }
 
+update_filename() {
+	echo "${OUTPUTDIR}/update-$(full_version).tar"
+}
+
 build_update_archive() {
 	ver=$(full_version)
 
 	cd ${STAGEDIR}
-	tar -cf ${OUTPUTDIR}/update-${ver}.tar \
+	tar -cf $(update_filename) \
 		--exclude ./lock \
 		--exclude ./success \
 		.
@@ -562,10 +588,11 @@ main() {
 			build_base_archive || exit 1
 			build_kernel_archives || exit 1
 			build_etcupdate_archive || exit 1
-			add_extra_files || exit 1
 			if [ ${INTEGRIFORCE} -gt 0 ]; then
 				build_integriforce_rules || exit 1
 			fi
+
+			add_extra_files || exit 1
 		fi
 
 		if [ ${UNSIGNED} -eq 0 ]; then
@@ -579,7 +606,7 @@ main() {
 	) 2>&1 | log_build
 
 	if [ -f ${STAGEDIR}/success ]; then
-		echo "OK $(date '+%s')|$(full_version)"
+		echo "OK $(date '+%s')|$(full_version)|sha256:$(sha256 -q $(update_filename))"
 	else
 		echo "FAIL"
 	fi

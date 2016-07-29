@@ -25,7 +25,7 @@
 .\"
 .\" $FreeBSD$
 .\"
-.Dd December 30, 2015
+.Dd July 29, 2016
 .Dt HBSD-UPDATE.CONF 5
 .Os FreeBSD
 .Sh NAME
@@ -50,14 +50,21 @@ location.
 The path (file or directory) of the CA cert(s) to use for verification
 of signed binary updates.
 .It Cm dnsrec
-The DNS TXT record to use to look up version information. If DNS is
-not desired and the update publisher supports version info via an
-update-latest.txt file placed in the root of the 
+The DNS TXT record to use to look up version information.
+If DNS is not desired and the update publisher supports version info
+via an update-latest.txt file placed in the root of the 
 .Pa baseurl
 this option can be omitted.
 .It Cm kernel
-Update packages can contain multiple kernels. This option specifies
-which kernel to install.
+Update packages can contain multiple kernels.
+This option specifies which kernel to install.
+.It Cm dnssec
+By default, the DNS TXT record is validated with DNSSEC.
+Setting this variable to
+.Dq no
+instead of the default
+.Dq yes
+disables DNSSEC validation.
 .El
 .Sh FILES
 .Bl -tag -width "/etc/hbsd-update.conf"

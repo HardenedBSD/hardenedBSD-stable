@@ -23,7 +23,7 @@
 .\" IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 .\" POSSIBILITY OF SUCH DAMAGE.
 .\"
-.Dd July 23, 2016
+.Dd July 25, 2016
 .Dt HBSD-UPDATE 8
 .Os FreeBSD
 .Sh NAME
@@ -34,6 +34,7 @@
 .Op Fl b Ar BEname
 .Op Fl C
 .Op Fl c Ar config
+.Op Fl d
 .Op Fl h
 .Op Fl I
 .Op Fl i
@@ -41,6 +42,7 @@
 .Op Fl K Ar backupkern
 .Op Fl k Ar kernel
 .Op Fl o
+.Op Fl s
 .Op Fl t Ar tmpdir
 .Op Fl U
 .Op Fl v Ar version
@@ -68,6 +70,9 @@ Read configuration options from
 .Ar config .
 (Default:
 .Pa /etc/hbsd-update.conf )
+.It Fl d
+Do not use DNSSEC validation of DNS TXT records.
+DNSSEC validation is enabled by default.
 .It Fl h
 Show the help menu.
 .It Fl I
@@ -89,6 +94,9 @@ Use kernel
 from the update archive.
 .It Fl o
 Do not remove obsolete files and directories.
+.It Fl s
+If src.txz exists in the update archive, extract src.txz into
+/usr/src.
 .It Fl t Ar tempdir
 Specify a custom temporary directory for downloading and parsing
 the update.
