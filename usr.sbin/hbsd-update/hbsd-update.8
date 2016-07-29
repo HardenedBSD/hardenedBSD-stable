@@ -34,6 +34,7 @@
 .Op Fl b Ar BEname
 .Op Fl C
 .Op Fl c Ar config
+.Op Fl d
 .Op Fl h
 .Op Fl I
 .Op Fl i
@@ -69,6 +70,9 @@ Read configuration options from
 .Ar config .
 (Default:
 .Pa /etc/hbsd-update.conf )
+.It Fl d
+Do not use DNSSEC validation of DNS TXT records.
+DNSSEC validation is enabled by default.
 .It Fl h
 Show the help menu.
 .It Fl I
