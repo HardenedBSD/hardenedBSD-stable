@@ -39,6 +39,7 @@ kernel=""
 # dnssec variable is yes/no since it's user-visible via
 # hbsd-update.conf(5).
 dnssec="yes"
+dnssec_key="/usr/share/keys/hbsd-update/trusted/dnssec.key"
 
 ignorever=0
 unsigned=0
@@ -65,6 +66,7 @@ SED="/usr/bin/sed"
 TAR="/usr/bin/tar"
 SHA256="/sbin/sha256"
 SHA512="/sbin/sha512"
+TAIL="/usr/bin/tail"
 
 debug_print() {
 	echo -e "${1}" >&2
@@ -119,6 +121,40 @@ get_tmpdir() {
 	return 0
 }
 
+dnssec_check() {
+	local res
+	local val
+	local rec
+
+	case "${dnssec}" in
+		[yY]*)
+			debug_print "[*] Performing initial DNSSEC validation."
+			val=$(${DRILL} -TD  \
+				-k ${mountpoint}/${dnssec_key} \
+				${dnsrec} txt 2>&1 | \
+				${GREP} '^\[T\]' | \
+				${TAIL} -n 1)
+			rec=$(echo ${val} | awk '{print $2;}')
+
+			# drill will append an extra period at the end
+			if [ ! "${rec}" = "${dnsrec}." ]; then
+				return 1
+			fi
+
+			echo ${val} | awk '{print $6;}' | sed 's,",,g'
+			;;
+		*)
+			${DRILL} ${dnsrec} txt | \
+				${GREP} -F TXT | \
+				${GREP} -vF ';;' | \
+				${AWK} '{print $5;}' | \
+				${SED} 's,",,g'
+			;;
+	esac
+
+	return 0
+}
+
 get_version() {
 	local res
 	local dnssec_str
@@ -131,37 +167,17 @@ get_version() {
 		return 0
 	fi
 
-	if [ ! -z "${dnsrec}" ]; then
-		dnssec_str="-D"
-
-		case "${dnssec}" in
-			[nN]*)
-				dnssec_str=""
-				;;
-			*)
-				debug_print "[*] Performing initial DNSSEC validation."
-				${DRILL} -TD ${dnsrec} txt > /dev/null 2>&1
-				res=${?}
-				if [ ${res} -gt 0 ]; then
-					debug_print "[-] DNSSEC validation failed. Bailing"
-					return 1
-				fi
-
-				;;
-		esac
-
-		# Prefer DNS, fallback to HTTP
-		res=$(${DRILL} ${dnssec_str} ${dnsrec} txt | \
-			${GREP} -F TXT | \
-			${GREP} -vF ';;' | \
-			${AWK} '{print $5;}' | \
-			${SED} 's,",,g')
-		buildver=$(echo ${res} | ${SED} 's,|, ,g' | ${AWK} '{print $2;}')
-		update_hash=$(echo ${res} | ${SED} 's,|, ,g' | ${AWK} '{print $3;}')
-	fi
+	# Prefer DNS, fallback to HTTP
+	res=$(dnssec_check)
+	buildver=$(echo ${res} | ${SED} 's,|, ,g' | ${AWK} '{print $2;}')
+	update_hash=$(echo ${res} | ${SED} 's,|, ,g' | ${AWK} '{print $3;}')
 
 	if [ -z "${buildver}" ]; then
-		# Attempt to grab the version from HTTP
+		# Attempt to grab the version from the mirror.
+		if [ ${verbose} -gt 0 ]; then
+			debug_print "[*] Could not get version info from DNS. Falling back to the mirror."
+		fi
+
 		res=$(${FETCH} -o - ${baseurl}/update-latest.txt)
 		buildver=$(echo ${res} | ${SED} 's,|, ,g' | ${AWK} '{print $2;}')
 		update_hash=$(echo ${res} | ${SED} 's,|, ,g' | ${AWK} '{print $3;}')
@@ -771,7 +787,7 @@ main() {
 	do_report_version=0
 	local_kernel=""
 
-	while getopts 'hioCIUVb:c:j:K:k:t:u:v:' opt; do
+	while getopts 'dhioCIUVb:c:j:K:k:t:u:v:' opt; do
 		case "${opt}" in
 			b)
 				if ! which -s ${BEADM}; then
