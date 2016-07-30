@@ -130,7 +130,7 @@ dnssec_check() {
 		[yY]*)
 			debug_print "[*] Performing initial DNSSEC validation."
 			val=$(${DRILL} -TD  \
-				-k ${dnssec_key} \
+				-k ${mountpoint}/${dnssec_key} \
 				${dnsrec} txt 2>&1 | \
 				${GREP} '^\[T\]' | \
 				${TAIL} -n 1)
