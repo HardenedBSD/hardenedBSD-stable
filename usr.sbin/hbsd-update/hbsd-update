@@ -176,6 +176,27 @@ get_version() {
 			debug_print "[-] Hash for the update has not been published. Cannot verify update. Bailing."
 			return 1
 		fi
+	else
+		# Validate the hash
+		hashalgo=$(echo ${update_hash} | awk -F ':' '{print $1;}')
+		hashcheck=$(echo ${update_hash} | awk -F ':' '{print $2;}')
+
+		case "${hashalgo}" in
+			sha256)
+				if [ ! ${#hashcheck} -eq 64 ]; then
+					return 1
+				fi
+				;;
+			sha512)
+				if [ ! ${#hashcheck} -eq 128 ]; then
+					return 1
+				fi
+				;;
+			*)
+				debug_print "[*] Unknown or unsupported hash algorithm: ${hashalgo}"
+				return 1
+				;;
+		esac
 	fi
 
 	echo ${buildver}
