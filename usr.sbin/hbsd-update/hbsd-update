@@ -128,7 +128,7 @@ dnssec_check() {
 
 	case "${dnssec}" in
 		[yY]*)
-			debug_print "[*] Performing initial DNSSEC validation."
+			debug_print "[*] Looking up version info with DNSSEC enabled."
 			val=$(${DRILL} -TD  \
 				-k ${mountpoint}/${dnssec_key} \
 				${dnsrec} txt 2>&1 | \
