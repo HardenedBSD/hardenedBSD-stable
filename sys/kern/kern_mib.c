@@ -385,7 +385,7 @@ SYSCTL_PROC(_kern, KERN_SECURELVL, securelevel,
 /* Actual kernel configuration options. */
 extern char kernconfstring[];
 
-SYSCTL_STRING(_kern, OID_AUTO, conftxt, CTLFLAG_RD, kernconfstring, 0,
+SYSCTL_STRING(_kern, OID_AUTO, conftxt, CTLFLAG_RD|CTLFLAG_ROOTONLY, kernconfstring, 0,
     "Kernel configuration file");
 #endif
 
