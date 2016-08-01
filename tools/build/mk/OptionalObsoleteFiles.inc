@@ -2225,6 +2225,8 @@ OLD_FILES+=usr/share/man/man8/hbsd-update-build.8.gz
 OLD_DIRS+=usr/share/keys/hbsd-update/revoked
 OLD_FILES+=usr/share/keys/hbsd-update/trusted/5905e1b4.0
 OLD_FILES+=usr/share/keys/hbsd-update/trusted/ca.hardenedbsd.org
+OLD_FILES+=usr/share/keys/hbsd-update/trusted/dnssec.key
+OLD_FILES+=usr/share/keys/hbsd-update/trusted/dnssec.key-2016-07-30
 OLD_DIRS+=usr/share/keys/hbsd-update/trusted
 OLD_DIRS+=usr/share/keys/hbsd-update
 .endif
