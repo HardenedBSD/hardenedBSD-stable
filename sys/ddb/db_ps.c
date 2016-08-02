@@ -445,14 +445,6 @@ DB_SHOW_COMMAND(proc, db_show_proc)
 		    p->p_leader);
 	if (p->p_sysent != NULL)
 		db_printf(" ABI: %s\n", p->p_sysent->sv_name);
-<<<<<<< HEAD
-	if (p->p_args != NULL)
-		db_printf(" arguments: %.*s\n", (int)p->p_args->ar_length,
-		    p->p_args->ar_args);
-#ifdef PAX
-	pax_db_printf_flags(p, PAX_LOG_DEFAULT);
-#endif
-=======
 	if (p->p_args != NULL) {
 		db_printf(" arguments: ");
 		for (i = 0; i < (int)p->p_args->ar_length; i++) {
@@ -463,7 +455,9 @@ DB_SHOW_COMMAND(proc, db_show_proc)
 		}
 		db_printf("\n");
 	}
->>>>>>> origin/freebsd/current/master
+#ifdef PAX
+	pax_db_printf_flags(p, PAX_LOG_DEFAULT);
+#endif
 	db_printf(" threads: %d\n", p->p_numthreads);
 	FOREACH_THREAD_IN_PROC(p, td) {
 		dumpthread(p, td, 1);
