@@ -787,7 +787,7 @@ main() {
 	do_report_version=0
 	local_kernel=""
 
-	while getopts 'dhioCIUVb:c:j:K:k:t:u:v:' opt; do
+	while getopts 'dhiosCIUVb:c:j:K:k:t:u:v:' opt; do
 		case "${opt}" in
 			b)
 				if ! which -s ${BEADM}; then
