@@ -137,7 +137,7 @@ dnssec_check() {
 				${dnsrec})
 
 			if ! echo ${val} | grep -qF 'has TXT record'; then
-				debug_print "[-] Could not get DNS record: ${val}"
+				debug_print "[-] Could not get DNS record."
 				return 1
 			fi
 
@@ -148,7 +148,7 @@ dnssec_check() {
 
 			t=$(echo ${val} | awk '{print $6;}')
 			if [ ! "$(echo ${val} | awk '{print $6;}')" = "(secure)" ]; then
-				debug_print "[*] DNSSEC validation failed: ${t}."
+				debug_print "[*] DNSSEC validation failed."
 				return 2
 			fi
 
