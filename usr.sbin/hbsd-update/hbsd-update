@@ -67,6 +67,7 @@ TAR="/usr/bin/tar"
 SHA256="/sbin/sha256"
 SHA512="/sbin/sha512"
 TAIL="/usr/bin/tail"
+UNBOUND_HOST="/usr/sbin/unbound-host"
 
 debug_print() {
 	echo -e "${1}" >&2
@@ -121,27 +122,60 @@ get_tmpdir() {
 	return 0
 }
 
+get_last_field() {
+	local data
+	local item
+	local nitems
+	local i
+
+	data="${1}"
+	nitems=0
+	for item in ${data}; do
+		nitems=$((${nitems} + 1))
+	done
+
+	i=0
+	for item in ${data}; do
+		if [ ${i} -eq $((${nitems} - 1)) ]; then
+			echo ${item}
+		fi
+		i=$((${i} + 1))
+	done
+}
+
 dnssec_check() {
 	local res
 	local val
 	local rec
+	local is_secure
 
 	case "${dnssec}" in
 		[yY]*)
-			debug_print "[*] Performing initial DNSSEC validation."
-			val=$(${DRILL} -TD  \
-				-k ${mountpoint}/${dnssec_key} \
-				${dnsrec} txt 2>&1 | \
-				${GREP} '^\[T\]' | \
-				${TAIL} -n 1)
-			rec=$(echo ${val} | awk '{print $2;}')
+			debug_print "[*] Looking up version info with DNSSEC enabled."
+			val=$(${UNBOUND_HOST} \
+				-v \
+				-t txt \
+				-f ${mountpoint}/${dnssec_key} \
+				${dnsrec})
 
-			# drill will append an extra period at the end
-			if [ ! "${rec}" = "${dnsrec}." ]; then
+			if ! echo ${val} | grep -qF 'has TXT record'; then
+				debug_print "[-] Could not get DNS record."
 				return 1
 			fi
 
-			echo ${val} | awk '{print $6;}' | sed 's,",,g'
+			if echo ${val} | grep -qF 'failed'; then
+				debug_print "[-] DNSSEC validation failed."
+				return 2
+			fi
+
+			is_secure=$(get_last_field "${val}")
+			if [ ! "${is_secure}" = "(secure)" ]; then
+				debug_print "[*] DNSSEC validation failed."
+				return 2
+			fi
+
+			echo ${val} | awk '{print $5;}' | sed 's,",,g'
+
 			;;
 		*)
 			${DRILL} ${dnsrec} txt | \
@@ -169,6 +203,11 @@ get_version() {
 
 	# Prefer DNS, fallback to HTTP
 	res=$(dnssec_check)
+	if [ ${?} -eq 2 ]; then
+		debug_print "    [-] Bailing."
+		return 1
+	fi
+
 	buildver=$(echo ${res} | ${SED} 's,|, ,g' | ${AWK} '{print $2;}')
 	update_hash=$(echo ${res} | ${SED} 's,|, ,g' | ${AWK} '{print $3;}')
 
@@ -787,7 +826,7 @@ main() {
 	do_report_version=0
 	local_kernel=""
 
-	while getopts 'dhioCIUVb:c:j:K:k:t:u:v:' opt; do
+	while getopts 'dhiosCIUVb:c:j:K:k:t:u:v:' opt; do
 		case "${opt}" in
 			b)
 				if ! which -s ${BEADM}; then
