@@ -122,10 +122,32 @@ get_tmpdir() {
 	return 0
 }
 
+get_last_field() {
+	local data
+	local item
+	local nitems
+	local i
+
+	data="${1}"
+	nitems=0
+	for item in ${data}; do
+		nitems=$((${nitems} + 1))
+	done
+
+	i=0
+	for item in ${data}; do
+		if [ ${i} -eq $((${nitems} - 1)) ]; then
+			echo ${item}
+		fi
+		i=$((${i} + 1))
+	done
+}
+
 dnssec_check() {
 	local res
 	local val
 	local rec
+	local is_secure
 
 	case "${dnssec}" in
 		[yY]*)
@@ -146,8 +168,8 @@ dnssec_check() {
 				return 2
 			fi
 
-			t=$(echo ${val} | awk '{print $6;}')
-			if [ ! "$(echo ${val} | awk '{print $6;}')" = "(secure)" ]; then
+			is_secure=$(get_last_field "${val}")
+			if [ ! "${is_secure}" = "(secure)" ]; then
 				debug_print "[*] DNSSEC validation failed."
 				return 2
 			fi
