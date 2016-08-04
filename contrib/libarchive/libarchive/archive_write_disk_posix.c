@@ -1796,7 +1796,7 @@ edit_deep_directories(struct archive_write_disk *a)
 	char *tail = a->name;
 
 	/* If path is short, avoid the open() below. */
-	if (strlen(tail) <= PATH_MAX)
+	if (strlen(tail) < PATH_MAX)
 		return;
 
 	/* Try to record our starting dir. */
@@ -1806,7 +1806,7 @@ edit_deep_directories(struct archive_write_disk *a)
 		return;
 
 	/* As long as the path is too long... */
-	while (strlen(tail) > PATH_MAX) {
+	while (strlen(tail) >= PATH_MAX) {
 		/* Locate a dir prefix shorter than PATH_MAX. */
 		tail += PATH_MAX - 8;
 		while (tail > a->name && *tail != '/')
@@ -2034,16 +2034,15 @@ create_filesystem_object(struct archive_write_disk *a)
 		 * This is consistent with GNU tar and BSD pax.
 		 * If the hardlink does carry data, let the last
 		 * archive entry decide ownership.
+		 *
+		 * XXX HardenedBSD: We have removed the hardlink data
+		 * support. We now return EPERM in this case.
 		 */
 		if (r == 0 && a->filesize <= 0) {
 			a->todo = 0;
 			a->deferred = 0;
 		} else if (r == 0 && a->filesize > 0) {
-			a->fd = open(a->name,
-				     O_WRONLY | O_TRUNC | O_BINARY | O_CLOEXEC);
-			__archive_ensure_cloexec_flag(a->fd);
-			if (a->fd < 0)
-				r = errno;
+			return (EPERM);
 		}
 		return (r);
 #endif
@@ -2403,6 +2402,8 @@ check_symlinks(struct archive_write_disk *a)
 			/* We've hit a dir that doesn't exist; stop now. */
 			if (errno == ENOENT)
 				break;
+			else
+				return (ARCHIVE_FAILED);
 		} else if (S_ISLNK(st.st_mode)) {
 			if (c == '\0') {
 				/*
