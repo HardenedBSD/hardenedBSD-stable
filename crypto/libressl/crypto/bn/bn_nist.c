@@ -1,4 +1,4 @@
-/* $OpenBSD: bn_nist.c,v 1.14 2014/07/11 08:44:48 jsing Exp $ */
+/* $OpenBSD: bn_nist.c,v 1.17 2016/07/17 22:01:01 bcook Exp $ */
 /*
  * Written by Nils Larsch for the OpenSSL project
  */
@@ -59,6 +59,7 @@
 #include <machine/endian.h>
 
 #include <stdint.h>
+#include <string.h>
 
 #include "bn_lcl.h"
 
@@ -510,7 +511,7 @@ BN_nist_mod_192(BIGNUM *r, const BIGNUM *a, const BIGNUM *field, BN_CTX *ctx)
 	}
 #else
 	{
-		BN_ULONG t_d[BN_NIST_192_TOP];
+		BN_ULONG t_d[BN_NIST_192_TOP] = {0};
 
 		nist_set_192(t_d, buf.bn, 0, 3, 3);
 		carry = (int)bn_add_words(r_d, r_d, t_d, BN_NIST_192_TOP);
@@ -603,6 +604,8 @@ BN_nist_mod_224(BIGNUM *r, const BIGNUM *a, const BIGNUM *field, BN_CTX *ctx)
 	} else
 		r_d = a_d;
 
+	memset(&buf, 0, sizeof(buf));
+
 #if BN_BITS2==64
 	/* copy upper 256 bits of 448 bit number ... */
 	nist_cp_bn_0(c_d, a_d + (BN_NIST_224_TOP - 1),
@@ -673,7 +676,7 @@ BN_nist_mod_224(BIGNUM *r, const BIGNUM *a, const BIGNUM *field, BN_CTX *ctx)
 	}
 #else
 	{
-		BN_ULONG t_d[BN_NIST_224_TOP];
+		BN_ULONG t_d[BN_NIST_224_TOP] = {0};
 
 		nist_set_224(t_d, buf.bn, 10, 9, 8, 7, 0, 0, 0);
 		carry = (int)bn_add_words(r_d, r_d, t_d, BN_NIST_224_TOP);
@@ -746,7 +749,7 @@ BN_nist_mod_256(BIGNUM *r, const BIGNUM *a, const BIGNUM *field, BN_CTX *ctx)
 		unsigned int ui[BN_NIST_256_TOP *
 		    sizeof(BN_ULONG) / sizeof(unsigned int)];
 	} buf;
-	BN_ULONG c_d[BN_NIST_256_TOP], *res;
+	BN_ULONG c_d[BN_NIST_256_TOP] = {0}, *res;
 	uintptr_t mask;
 	union {
 		bn_addsub_f f;
@@ -879,7 +882,7 @@ BN_nist_mod_256(BIGNUM *r, const BIGNUM *a, const BIGNUM *field, BN_CTX *ctx)
 	}
 #else
 	{
-		BN_ULONG t_d[BN_NIST_256_TOP];
+		BN_ULONG t_d[BN_NIST_256_TOP] = {0};
 
 		/*S1*/
 		nist_set_256(t_d, buf.bn, 15, 14, 13, 12, 11, 0, 0, 0);
@@ -1133,7 +1136,7 @@ BN_nist_mod_384(BIGNUM *r, const BIGNUM *a, const BIGNUM *field, BN_CTX *ctx)
 	}
 #else
 	{
-		BN_ULONG t_d[BN_NIST_384_TOP];
+		BN_ULONG t_d[BN_NIST_384_TOP] = {0};
 
 		/*S1*/
 		nist_set_256(t_d, buf.bn, 0, 0, 0, 0, 0, 23 - 4, 22 - 4,

@@ -1,4 +1,4 @@
-.\" $OpenBSD: tls_init.3,v 1.53 2015/10/16 13:49:53 jsing Exp $
+.\" $OpenBSD: tls_init.3,v 1.61 2016/05/27 11:25:57 sthen Exp $
 .\"
 .\" Copyright (c) 2014 Ted Unangst <tedu@openbsd.org>
 .\"
@@ -14,11 +14,12 @@
 .\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.Dd $Mdocdate: October 16 2015 $
+.Dd $Mdocdate: May 27 2016 $
 .Dt TLS_INIT 3
 .Os
 .Sh NAME
 .Nm tls_init ,
+.Nm tls_config_error ,
 .Nm tls_error ,
 .Nm tls_config_new ,
 .Nm tls_config_free ,
@@ -33,6 +34,8 @@
 .Nm tls_config_set_ecdhecurve ,
 .Nm tls_config_set_key_file ,
 .Nm tls_config_set_key_mem ,
+.Nm tls_config_set_keypair_file ,
+.Nm tls_config_set_keypair_mem ,
 .Nm tls_config_set_protocols ,
 .Nm tls_config_set_verify_depth ,
 .Nm tls_config_prefer_ciphers_client ,
@@ -75,6 +78,8 @@
 .Ft "int"
 .Fn tls_init "void"
 .Ft "const char *"
+.Fn tls_config_error "struct tls_config *config"
+.Ft "const char *"
 .Fn tls_error "struct tls *ctx"
 .Ft "struct tls_config *"
 .Fn tls_config_new "void"
@@ -102,6 +107,10 @@
 .Fn tls_config_set_key_file "struct tls_config *config" "const char *key_file"
 .Ft "int"
 .Fn tls_config_set_key_mem "struct tls_config *config" "const uint8_t *key" "size_t len"
+.Ft "int"
+.Fn tls_config_set_keypair_file "struct tls_config *config" "const char *cert_file" "const char *key_file"
+.Ft "int"
+.Fn tls_config_set_keypair_mem "struct tls_config *config" "const uint8_t *cert" "size_t cert_len" "const uint8_t *key" "size_t key_len"
 .Ft "void"
 .Fn tls_config_set_protocols "struct tls_config *config" "uint32_t protocols"
 .Ft "void"
@@ -313,22 +322,35 @@ sets the list of ciphers that may be used.
 Lists of ciphers are specified by name, and the
 permitted names are:
 .Pp
-.Bl -tag -width "default" -offset indent -compact
-.It Dv "secure"
-.It Dv "default" (an alias for secure)
+.Bl -tag -width "insecure" -offset indent -compact
+.It Dv "secure" (or alias "default")
+.It Dv "compat"
 .It Dv "legacy"
-.It Dv "compat" (an alias for legacy)
+.It Dv "insecure" (or alias "all")
 .El
+.Pp
+Alternatively, libssl cipher strings can be specified.
+See the CIPHERS section of
+.Xr openssl 1
+for further information.
 .Pp
 .Em (Client and server)
 .It
 .Fn tls_config_set_key_file
 sets the file from which the private key will be read.
-.Em (Server)
+.Em (Client and server)
 .It
 .Fn tls_config_set_key_mem
 directly sets the private key from memory.
-.Em (Server)
+.Em (Client and server)
+.It
+.Fn tls_config_set_keypair_file
+sets the files from which the public certificate and private key will be read.
+.Em (Client and server)
+.It
+.Fn tls_config_set_keypair_mem
+directly sets the public certificate and private key from memory.
+.Em (Client and server)
 .It
 .Fn tls_config_set_protocols
 sets which versions of the protocol may be used.
@@ -404,7 +426,7 @@ can only succeed after the handshake is complete.
 .Fn tls_peer_cert_contains_name
 checks if the peer of a TLS
 .Ar ctx
-has povided a certificate that contains a
+has provided a certificate that contains a
 SAN or CN that matches
 .Ar name .
 .Fn tls_peer_cert_contains_name
@@ -468,7 +490,7 @@ will only succeed after the handshake is complete.
 .It
 .Fn tls_conn_cipher
 returns a string
-corresponding to a the cipher suite negotated with the peer
+corresponding to the cipher suite negotiated with the peer
 connected to
 .Ar ctx .
 .Fn tls_conn_cipher
@@ -550,8 +572,7 @@ reads
 .Fa buflen
 bytes of data from the socket into
 .Fa buf .
-The amount of data read is returned in
-.Fa outlen .
+It returns the amount of data read.
 .It
 .Fn tls_write
 writes
@@ -559,8 +580,7 @@ writes
 bytes of data from
 .Fa buf
 to the socket.
-The amount of data written is returned in
-.Fa outlen .
+It returns the amount of data written.
 .It
 .Fn tls_close
 closes a connection after use.
@@ -670,9 +690,11 @@ while (len > 0) {
 .Ed
 .Sh ERRORS
 The
+.Fn tls_config_error
+and
 .Fn tls_error
-function may be used to retrieve a string containing more information
-about the most recent error.
+functions may be used to retrieve a string containing more information
+about the most recent error relating to a configuration or context.
 .\" .Sh SEE ALSO
 .Sh HISTORY
 The

@@ -217,8 +217,6 @@ the default method is used.
 \&\fIRSA_PKCS1_SSLeay()\fR, \fIRSA_PKCS1_null_method()\fR, \fIRSA_get_default_method()\fR
 and \fIRSA_get_method()\fR return pointers to the respective RSA_METHODs.
 .PP
-\&\fIRSA_set_default_method()\fR returns no value.
-.PP
 \&\fIRSA_set_method()\fR returns a pointer to the old \s-1RSA_METHOD\s0 implementation
 that was replaced. However, this return value should probably be ignored
 because if it was supplied by an \s-1ENGINE,\s0 the pointer could be invalidated

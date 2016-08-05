@@ -164,8 +164,6 @@ operations is used, and if no default \s-1ENGINE\s0 is set, the \s-1DH_METHOD\s0
 \&\fIDH_OpenSSL()\fR and \fIDH_get_default_method()\fR return pointers to the respective
 \&\fB\s-1DH_METHOD\s0\fRs.
 .PP
-\&\fIDH_set_default_method()\fR returns no value.
-.PP
 \&\fIDH_set_method()\fR returns non-zero if the provided \fBmeth\fR was successfully set as
 the method for \fBdh\fR (including unloading the \s-1ENGINE\s0 handle if the previous
 method was supplied by an \s-1ENGINE\s0).

@@ -1,4 +1,4 @@
-/* $OpenBSD: t1_lib.c,v 1.84 2015/09/01 13:38:27 jsing Exp $ */
+/* $OpenBSD: t1_lib.c,v 1.86 2016/03/10 23:21:46 mmcc Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -774,7 +774,7 @@ ssl_add_clienthello_tlsext(SSL *s, unsigned char *p, unsigned char *limit)
 
 		/* NB: draft-ietf-tls-ecc-12.txt uses a one-byte prefix for
 		 * elliptic_curve_list, but the examples use two bytes.
-		 * http://www1.ietf.org/mail-archive/web/tls/current/msg00538.html
+		 * https://www1.ietf.org/mail-archive/web/tls/current/msg00538.html
 		 * resolves this to two bytes.
 		 */
 		s2n(curveslen * 2, ret);
@@ -2199,7 +2199,7 @@ tls_decrypt_ticket(SSL *s, const unsigned char *etick, int eticklen,
 		return -1;
 	}
 	EVP_DecryptUpdate(&ctx, sdec, &slen, p, eticklen);
-	if (EVP_DecryptFinal(&ctx, sdec + slen, &mlen) <= 0) {
+	if (EVP_DecryptFinal_ex(&ctx, sdec + slen, &mlen) <= 0) {
 		free(sdec);
 		EVP_CIPHER_CTX_cleanup(&ctx);
 		return 2;

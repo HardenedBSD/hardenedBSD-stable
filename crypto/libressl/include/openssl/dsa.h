@@ -1,4 +1,4 @@
-/* $OpenBSD: dsa.h,v 1.18 2014/07/12 16:03:37 miod Exp $ */
+/* $OpenBSD: dsa.h,v 1.20 2016/06/21 04:16:53 bcook Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -89,13 +89,6 @@
 #endif
 
 #define DSA_FLAG_CACHE_MONT_P	0x01
-#define DSA_FLAG_NO_EXP_CONSTTIME       0x02 /* new with 0.9.7h; the built-in DSA
-                                              * implementation now uses constant time
-                                              * modular exponentiation for secret exponents
-                                              * by default. This flag causes the
-                                              * faster variable sliding window method to
-                                              * be used for all exponents.
-                                              */
 
 /* If this flag is set the DSA method is FIPS compliant and can be used
  * in FIPS mode. This is set in the validated module method. If an

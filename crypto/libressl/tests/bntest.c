@@ -514,7 +514,7 @@ int
 test_div_word(BIO *bp)
 {
 	BIGNUM   a, b;
-	BN_ULONG r, s;
+	BN_ULONG r, rmod, s = 0;
 	int i;
 	int rc = 1;
 
@@ -523,13 +523,32 @@ test_div_word(BIO *bp)
 
 	for (i = 0; i < num0; i++) {
 		do {
-			BN_bntest_rand(&a, 512, -1, 0);
-			BN_bntest_rand(&b, BN_BITS2, -1, 0);
+			if (!BN_bntest_rand(&a, 512, -1, 0) ||
+			    !BN_bntest_rand(&b, BN_BITS2, -1, 0)) {
+				rc = 0;
+				break;
+			}
 			s = b.d[0];
 		} while (!s);
 
-		BN_copy(&b, &a);
+		if (!BN_copy(&b, &a)) {
+			rc = 0;
+			break;
+		}
+
+		rmod = BN_mod_word(&b, s);
 		r = BN_div_word(&b, s);
+
+		if (r == (BN_ULONG)-1 || rmod == (BN_ULONG)-1) {
+			rc = 0;
+			break;
+		}
+
+		if (rmod != r) {
+			fprintf(stderr, "Mod (word) test failed!\n");
+			rc = 0;
+			break;
+		}
 
 		if (bp != NULL) {
 			if (!results) {
@@ -721,8 +740,11 @@ test_sqr(BIO *bp, BN_CTX *ctx)
 	}
 
 	/* Regression test for a BN_sqr overflow bug. */
-	BN_hex2bn(&a, "80000000000000008000000000000001"
-	    "FFFFFFFFFFFFFFFE0000000000000000");
+	if (!BN_hex2bn(&a, "80000000000000008000000000000001"
+	    "FFFFFFFFFFFFFFFE0000000000000000")) {
+		fprintf(stderr, "BN_hex2bn failed\n");
+		goto err;
+	}
 	BN_sqr(c, a, ctx);
 	if (bp != NULL) {
 		if (!results) {
@@ -743,8 +765,11 @@ test_sqr(BIO *bp, BN_CTX *ctx)
 	}
 
 	/* Regression test for a BN_sqr overflow bug. */
-	BN_hex2bn(&a, "80000000000000000000000080000001"
-	    "FFFFFFFE000000000000000000000000");
+	if (!BN_hex2bn(&a, "80000000000000000000000080000001"
+	    "FFFFFFFE000000000000000000000000")) {
+		fprintf(stderr, "BN_hex2bn failed\n");
+		goto err;
+	}
 	BN_sqr(c, a, ctx);
 	if (bp != NULL) {
 		if (!results) {

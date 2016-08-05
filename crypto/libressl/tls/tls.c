@@ -1,4 +1,4 @@
-/* $OpenBSD: tls.c,v 1.34 2015/10/07 23:25:45 beck Exp $ */
+/* $OpenBSD: tls.c,v 1.40 2016/07/06 16:16:36 jsing Exp $ */
 /*
  * Copyright (c) 2014 Joel Sing <jsing@openbsd.org>
  *
@@ -58,17 +58,18 @@ tls_init(void)
 const char *
 tls_error(struct tls *ctx)
 {
-	return ctx->errmsg;
+	return ctx->error.msg;
 }
 
 static int
-tls_set_verror(struct tls *ctx, int errnum, const char *fmt, va_list ap)
+tls_error_vset(struct tls_error *error, int errnum, const char *fmt, va_list ap)
 {
 	char *errmsg = NULL;
 	int rv = -1;
 
-	free(ctx->errmsg);
-	ctx->errmsg = NULL;
+	free(error->msg);
+	error->msg = NULL;
+	error->num = errnum;
 
 	if (vasprintf(&errmsg, fmt, ap) == -1) {
 		errmsg = NULL;
@@ -76,12 +77,12 @@ tls_set_verror(struct tls *ctx, int errnum, const char *fmt, va_list ap)
 	}
 
 	if (errnum == -1) {
-		ctx->errmsg = errmsg;
+		error->msg = errmsg;
 		return (0);
 	}
 
-	if (asprintf(&ctx->errmsg, "%s: %s", errmsg, strerror(errnum)) == -1) {
-		ctx->errmsg = NULL;
+	if (asprintf(&error->msg, "%s: %s", errmsg, strerror(errnum)) == -1) {
+		error->msg = NULL;
 		goto err;
 	}
 	rv = 0;
@@ -93,15 +94,71 @@ tls_set_verror(struct tls *ctx, int errnum, const char *fmt, va_list ap)
 }
 
 int
-tls_set_error(struct tls *ctx, const char *fmt, ...)
+tls_error_set(struct tls_error *error, const char *fmt, ...)
+{
+	va_list ap;
+	int errnum, rv;
+
+	errnum = errno;
+
+	va_start(ap, fmt);
+	rv = tls_error_vset(error, errnum, fmt, ap);
+	va_end(ap);
+
+	return (rv);
+}
+
+int
+tls_error_setx(struct tls_error *error, const char *fmt, ...)
 {
 	va_list ap;
 	int rv;
 
-	ctx->errnum = errno;
+	va_start(ap, fmt);
+	rv = tls_error_vset(error, -1, fmt, ap);
+	va_end(ap);
+
+	return (rv);
+}
+
+int
+tls_config_set_error(struct tls_config *config, const char *fmt, ...)
+{
+	va_list ap;
+	int errnum, rv;
+
+	errnum = errno;
 
 	va_start(ap, fmt);
-	rv = tls_set_verror(ctx, ctx->errnum, fmt, ap);
+	rv = tls_error_vset(&config->error, errnum, fmt, ap);
+	va_end(ap);
+
+	return (rv);
+}
+
+int
+tls_config_set_errorx(struct tls_config *config, const char *fmt, ...)
+{
+	va_list ap;
+	int rv;
+
+	va_start(ap, fmt);
+	rv = tls_error_vset(&config->error, -1, fmt, ap);
+	va_end(ap);
+
+	return (rv);
+}
+
+int
+tls_set_error(struct tls *ctx, const char *fmt, ...)
+{
+	va_list ap;
+	int errnum, rv;
+
+	errnum = errno;
+
+	va_start(ap, fmt);
+	rv = tls_error_vset(&ctx->error, errnum, fmt, ap);
 	va_end(ap);
 
 	return (rv);
@@ -114,7 +171,7 @@ tls_set_errorx(struct tls *ctx, const char *fmt, ...)
 	int rv;
 
 	va_start(ap, fmt);
-	rv = tls_set_verror(ctx, -1, fmt, ap);
+	rv = tls_error_vset(&ctx->error, -1, fmt, ap);
 	va_end(ap);
 
 	return (rv);
@@ -150,40 +207,41 @@ tls_configure(struct tls *ctx, struct tls_config *config)
 }
 
 int
-tls_configure_keypair(struct tls *ctx, int required)
+tls_configure_keypair(struct tls *ctx, SSL_CTX *ssl_ctx,
+    struct tls_keypair *keypair, int required)
 {
 	EVP_PKEY *pkey = NULL;
 	X509 *cert = NULL;
 	BIO *bio = NULL;
 
 	if (!required &&
-	    ctx->config->cert_mem == NULL &&
-	    ctx->config->key_mem == NULL &&
-	    ctx->config->cert_file == NULL &&
-	    ctx->config->key_file == NULL)
+	    keypair->cert_mem == NULL &&
+	    keypair->key_mem == NULL &&
+	    keypair->cert_file == NULL &&
+	    keypair->key_file == NULL)
 		return(0);
 
-	if (ctx->config->cert_mem != NULL) {
-		if (ctx->config->cert_len > INT_MAX) {
+	if (keypair->cert_mem != NULL) {
+		if (keypair->cert_len > INT_MAX) {
 			tls_set_errorx(ctx, "certificate too long");
 			goto err;
 		}
 
-		if (SSL_CTX_use_certificate_chain_mem(ctx->ssl_ctx,
-		    ctx->config->cert_mem, ctx->config->cert_len) != 1) {
+		if (SSL_CTX_use_certificate_chain_mem(ssl_ctx,
+		    keypair->cert_mem, keypair->cert_len) != 1) {
 			tls_set_errorx(ctx, "failed to load certificate");
 			goto err;
 		}
 		cert = NULL;
 	}
-	if (ctx->config->key_mem != NULL) {
-		if (ctx->config->key_len > INT_MAX) {
+	if (keypair->key_mem != NULL) {
+		if (keypair->key_len > INT_MAX) {
 			tls_set_errorx(ctx, "key too long");
 			goto err;
 		}
 
-		if ((bio = BIO_new_mem_buf(ctx->config->key_mem,
-		    ctx->config->key_len)) == NULL) {
+		if ((bio = BIO_new_mem_buf(keypair->key_mem,
+		    keypair->key_len)) == NULL) {
 			tls_set_errorx(ctx, "failed to create buffer");
 			goto err;
 		}
@@ -192,7 +250,7 @@ tls_configure_keypair(struct tls *ctx, int required)
 			tls_set_errorx(ctx, "failed to read private key");
 			goto err;
 		}
-		if (SSL_CTX_use_PrivateKey(ctx->ssl_ctx, pkey) != 1) {
+		if (SSL_CTX_use_PrivateKey(ssl_ctx, pkey) != 1) {
 			tls_set_errorx(ctx, "failed to load private key");
 			goto err;
 		}
@@ -202,22 +260,22 @@ tls_configure_keypair(struct tls *ctx, int required)
 		pkey = NULL;
 	}
 
-	if (ctx->config->cert_file != NULL) {
-		if (SSL_CTX_use_certificate_chain_file(ctx->ssl_ctx,
-		    ctx->config->cert_file) != 1) {
+	if (keypair->cert_file != NULL) {
+		if (SSL_CTX_use_certificate_chain_file(ssl_ctx,
+		    keypair->cert_file) != 1) {
 			tls_set_errorx(ctx, "failed to load certificate file");
 			goto err;
 		}
 	}
-	if (ctx->config->key_file != NULL) {
-		if (SSL_CTX_use_PrivateKey_file(ctx->ssl_ctx,
-		    ctx->config->key_file, SSL_FILETYPE_PEM) != 1) {
+	if (keypair->key_file != NULL) {
+		if (SSL_CTX_use_PrivateKey_file(ssl_ctx,
+		    keypair->key_file, SSL_FILETYPE_PEM) != 1) {
 			tls_set_errorx(ctx, "failed to load private key file");
 			goto err;
 		}
 	}
 
-	if (SSL_CTX_check_private_key(ctx->ssl_ctx) != 1) {
+	if (SSL_CTX_check_private_key(ssl_ctx) != 1) {
 		tls_set_errorx(ctx, "private/public key mismatch");
 		goto err;
 	}
@@ -328,9 +386,9 @@ tls_reset(struct tls *ctx)
 	free(ctx->servername);
 	ctx->servername = NULL;
 
-	free(ctx->errmsg);
-	ctx->errmsg = NULL;
-	ctx->errnum = 0;
+	free(ctx->error.msg);
+	ctx->error.msg = NULL;
+	ctx->error.num = -1;
 
 	tls_free_conninfo(ctx->conninfo);
 	free(ctx->conninfo);
@@ -360,8 +418,11 @@ tls_ssl_error(struct tls *ctx, SSL *ssl_conn, int ssl_ret, const char *prefix)
 		if ((err = ERR_peek_error()) != 0) {
 			errstr = ERR_error_string(err, NULL);
 		} else if (ssl_ret == 0) {
-			ctx->state |= TLS_EOF_NO_CLOSE_NOTIFY;
-			return (0);
+			if ((ctx->state & TLS_HANDSHAKE_COMPLETE) != 0) {
+				ctx->state |= TLS_EOF_NO_CLOSE_NOTIFY;
+				return (0);
+			}
+			errstr = "unexpected EOF";
 		} else if (ssl_ret == -1) {
 			errstr = strerror(errno);
 		}

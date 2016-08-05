@@ -94,13 +94,12 @@ X509 structure, which represents an X509 certificate.
 \&\fIX509_new()\fR allocates and initializes a X509 structure.
 .PP
 \&\fIX509_free()\fR frees up the \fBX509\fR structure \fBa\fR.
+If \fBa\fR is a \fB\s-1NULL\s0\fR pointer, no action occurs.
 .SH "RETURN VALUES"
 .IX Header "RETURN VALUES"
 If the allocation fails, \fIX509_new()\fR returns \fB\s-1NULL\s0\fR and sets an error
 code that can be obtained by \fIERR_get_error\fR\|(3).
 Otherwise it returns a pointer to the newly allocated structure.
-.PP
-\&\fIX509_free()\fR returns no value.
 .SH "SEE ALSO"
 .IX Header "SEE ALSO"
 \&\fIERR_get_error\fR\|(3), \fId2i_X509\fR\|(3)

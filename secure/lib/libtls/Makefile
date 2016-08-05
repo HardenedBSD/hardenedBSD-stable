@@ -5,7 +5,7 @@
 CFLAGS+= -Wall -Werror -Wimplicit
 
 LIB=	tls
-SHLIB_MAJOR=	10
+SHLIB_MAJOR=	11
 
 LTLS_SRC=	${LIBRESSL_SRC}/tls
 

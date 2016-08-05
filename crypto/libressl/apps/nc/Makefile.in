@@ -334,7 +334,7 @@ AM_CFLAGS =
 AM_CPPFLAGS = -I$(top_srcdir)/include -I$(top_srcdir)/include/compat \
 	-DLIBRESSL_INTERNAL $(am__append_1) $(am__append_2) \
 	$(am__append_3)
-@BUILD_NC_TRUE@EXTRA_DIST = nc.1
+@BUILD_NC_TRUE@EXTRA_DIST = nc.1 CMakeLists.txt
 @BUILD_NC_TRUE@nc_LDADD = $(PLATFORM_LDADD) $(PROG_LDADD) \
 @BUILD_NC_TRUE@	$(abs_top_builddir)/crypto/libcrypto.la \
 @BUILD_NC_TRUE@	$(abs_top_builddir)/ssl/libssl.la \

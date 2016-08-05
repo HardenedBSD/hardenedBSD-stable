@@ -1,4 +1,4 @@
-/* $OpenBSD: s3_srvr.c,v 1.123 2015/09/13 12:39:16 jsing Exp $ */
+/* $OpenBSD: s3_srvr.c,v 1.125 2016/03/11 07:08:45 mmcc Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -2376,8 +2376,7 @@ ssl3_get_client_certificate(SSL *s)
 		}
 	}
 
-	if (s->session->peer != NULL) /* This should not be needed */
-		X509_free(s->session->peer);
+	X509_free(s->session->peer);
 	s->session->peer = sk_X509_shift(sk);
 	s->session->verify_result = s->verify_result;
 
@@ -2414,8 +2413,7 @@ f_err:
 		ssl3_send_alert(s, SSL3_AL_FATAL, al);
 	}
 err:
-	if (x != NULL)
-		X509_free(x);
+	X509_free(x);
 	if (sk != NULL)
 		sk_X509_pop_free(sk, X509_free);
 	return (ret);
@@ -2560,7 +2558,7 @@ ssl3_send_newsession_ticket(SSL *s)
 		/* Encrypt session data */
 		EVP_EncryptUpdate(&ctx, p, &len, senc, slen);
 		p += len;
-		EVP_EncryptFinal(&ctx, p, &len);
+		EVP_EncryptFinal_ex(&ctx, p, &len);
 		p += len;
 		EVP_CIPHER_CTX_cleanup(&ctx);
 

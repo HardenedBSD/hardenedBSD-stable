@@ -391,7 +391,7 @@ openssl_SOURCES = apps.c asn1pars.c ca.c ciphers.c cms.c crl.c \
 	$(am__append_4) $(am__append_5) $(am__append_6)
 noinst_HEADERS = apps.h progs.h s_apps.h testdsa.h testrsa.h \
 	timeouts.h
-EXTRA_DIST = cert.pem openssl.cnf x509v3.cnf
+EXTRA_DIST = cert.pem openssl.cnf x509v3.cnf CMakeLists.txt
 all: all-am
 
 .SUFFIXES:

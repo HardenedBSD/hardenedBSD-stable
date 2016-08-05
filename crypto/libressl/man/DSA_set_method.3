@@ -178,8 +178,6 @@ struct
 \&\fIDSA_OpenSSL()\fR and \fIDSA_get_default_method()\fR return pointers to the respective
 \&\fB\s-1DSA_METHOD\s0\fRs.
 .PP
-\&\fIDSA_set_default_method()\fR returns no value.
-.PP
 \&\fIDSA_set_method()\fR returns non-zero if the provided \fBmeth\fR was successfully set
 as the method for \fBdsa\fR (including unloading the \s-1ENGINE\s0 handle if the previous
 method was supplied by an \s-1ENGINE\s0).
