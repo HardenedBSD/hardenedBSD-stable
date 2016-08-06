@@ -385,6 +385,7 @@ __DEFAULT_YES_OPTIONS = \
     TCSH \
     TCP_WRAPPERS \
     TELNET \
+    TESTS \
     TEXTPROC \
     TFTP \
     TIMED \
@@ -413,7 +414,6 @@ __DEFAULT_NO_OPTIONS = \
     PKGTOOLS \
     PORTSNAP \
     SVN \
-    TESTS \
     USB_GADGET_EXAMPLES
 
 #
