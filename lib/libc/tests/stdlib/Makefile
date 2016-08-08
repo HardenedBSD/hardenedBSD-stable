@@ -8,6 +8,7 @@ ATF_TESTS_C+=		qsort_test
 .if ${COMPILER_FEATURES:Mc++11}
 ATF_TESTS_CXX+=		cxa_thread_atexit_test
 ATF_TESTS_CXX+=		cxa_thread_atexit_nothr_test
+NOPIE=			yes
 .endif
 
 TESTSDIR=	${TESTSBASE}/lib/libc/stdlib
