@@ -9,6 +9,7 @@ ATF_TESTS_C+=		tsearch_test
 .if ${COMPILER_FEATURES:Mc++11}
 ATF_TESTS_CXX+=		cxa_thread_atexit_test
 ATF_TESTS_CXX+=		cxa_thread_atexit_nothr_test
+NOPIE=			yes
 .endif
 
 # TODO: t_getenv_thread, t_mi_vector_hash
