@@ -1005,7 +1005,6 @@ exec_map_first_page(imgp)
 			vm_page_lock(ma[0]);
 			vm_page_free(ma[0]);
 			vm_page_unlock(ma[0]);
-			vm_page_xunbusy(ma[0]);
 			VM_OBJECT_WUNLOCK(object);
 			return (EIO);
 		}
@@ -1033,7 +1032,6 @@ exec_map_first_page(imgp)
 				vm_page_lock(ma[i]);
 				vm_page_free(ma[i]);
 				vm_page_unlock(ma[i]);
-				vm_page_xunbusy(ma[i]);
 			}
 			VM_OBJECT_WUNLOCK(object);
 			return (EIO);
