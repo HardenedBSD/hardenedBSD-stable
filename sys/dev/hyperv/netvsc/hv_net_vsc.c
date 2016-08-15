@@ -73,9 +73,6 @@ static void hv_nv_on_receive(netvsc_dev *net_dev,
 static void hn_nvs_sent_none(struct hn_send_ctx *sndc,
     struct netvsc_dev_ *net_dev, struct vmbus_channel *chan,
     const struct nvsp_msg_ *msg, int);
-static void hn_nvs_sent_xact(struct hn_send_ctx *sndc,
-    struct netvsc_dev_ *net_dev, struct vmbus_channel *chan,
-    const struct nvsp_msg_ *msg, int dlen);
 
 static struct hn_send_ctx	hn_send_ctx_none =
     HN_SEND_CTX_INITIALIZER(hn_nvs_sent_none, NULL);
@@ -436,33 +433,24 @@ hv_nv_destroy_rx_buffer(netvsc_dev *net_dev)
 static int
 hv_nv_destroy_send_buffer(netvsc_dev *net_dev)
 {
-	nvsp_msg *revoke_pkt;
 	int ret = 0;
 
-	/*
-	 * If we got a section count, it means we received a
-	 * send_rx_buf_complete msg 
-	 * (ie sent nvsp_msg_1_type_send_rx_buf msg) therefore,
-	 * we need to send a revoke msg here
-	 */
 	if (net_dev->send_section_size) {
-		/* Send the revoke send buffer */
-		revoke_pkt = &net_dev->revoke_packet;
-		memset(revoke_pkt, 0, sizeof(nvsp_msg));
+		struct hn_nvs_chim_disconn disconn;
 
-		revoke_pkt->hdr.msg_type =
-		    nvsp_msg_1_type_revoke_send_buf;
-		revoke_pkt->msgs.vers_1_msgs.revoke_send_buf.id =
-		    NETVSC_SEND_BUFFER_ID;
+		/*
+		 * Disconnect chimney sending buffer from NVS.
+		 */
+		memset(&disconn, 0, sizeof(disconn));
+		disconn.nvs_type = HN_NVS_TYPE_CHIM_DISCONN;
+		disconn.nvs_sig = HN_NVS_CHIM_SIG;
 
 		ret = vmbus_chan_send(net_dev->sc->hn_prichan,
-		    VMBUS_CHANPKT_TYPE_INBAND, 0, revoke_pkt, sizeof(nvsp_msg),
+		    VMBUS_CHANPKT_TYPE_INBAND, 0, &disconn, sizeof(disconn),
 		    (uint64_t)(uintptr_t)&hn_send_ctx_none);
-		/*
-		 * If we failed here, we might as well return and have a leak 
-		 * rather than continue and a bugchk
-		 */
 		if (ret != 0) {
+			if_printf(net_dev->sc->hn_ifp,
+			    "send chim disconn failed: %d\n", ret);
 			return (ret);
 		}
 	}
@@ -765,16 +753,6 @@ hv_nv_on_device_remove(struct hn_softc *sc, boolean_t destroy_channel)
 }
 
 void
-hn_nvs_sent_wakeup(struct hn_send_ctx *sndc __unused,
-    struct netvsc_dev_ *net_dev, struct vmbus_channel *chan __unused,
-    const struct nvsp_msg_ *msg, int dlen __unused)
-{
-	/* Copy the response back */
-	memcpy(&net_dev->channel_init_packet, msg, sizeof(nvsp_msg));
-	sema_post(&net_dev->channel_init_sema);
-}
-
-static void
 hn_nvs_sent_xact(struct hn_send_ctx *sndc,
     struct netvsc_dev_ *net_dev __unused, struct vmbus_channel *chan __unused,
     const struct nvsp_msg_ *msg, int dlen)
