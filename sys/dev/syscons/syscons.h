@@ -230,6 +230,7 @@ typedef struct sc_softc {
 	char        	switch_in_progress;
 	char        	write_in_progress;
 	char        	blink_in_progress;
+	int		grab_level;
 	struct mtx	scr_lock;		/* mutex for sc_puts() */
 	struct mtx	video_mtx;
 
@@ -304,9 +305,7 @@ typedef struct scr_stat {
 	void		*ts;
 
 	int	 	status;			/* status (bitfield) */
-	int		grabbed;
 	int		kbd_mode;		/* keyboard I/O mode */
-	int		kbd_prev_mode;		/* keyboard I/O mode */
 
 	int		cursor_pos;		/* cursor buffer position */
 	int		cursor_oldpos;		/* cursor old buffer position */
