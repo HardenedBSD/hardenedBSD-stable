@@ -93,10 +93,10 @@ hv_rf_send_offload_request(struct hn_softc *sc,
 
 static void hn_rndis_sent_halt(struct hn_send_ctx *sndc,
     struct netvsc_dev_ *net_dev, struct vmbus_channel *chan,
-    const struct nvsp_msg_ *msg, int dlen);
+    const void *data, int dlen);
 static void hn_rndis_sent_cb(struct hn_send_ctx *sndc,
     struct netvsc_dev_ *net_dev, struct vmbus_channel *chan,
-    const struct nvsp_msg_ *msg, int dlen);
+    const void *data, int dlen);
 
 /*
  * Set the Per-Packet-Info with the specified type
@@ -544,7 +544,7 @@ hv_rf_receive_data(struct hn_rx_ring *rxr, rndis_msg *message,
 
 	pkt->tot_data_buf_len -= data_offset;
 	if (pkt->tot_data_buf_len < rndis_pkt->data_length) {
-		pkt->status = nvsp_status_failure;
+		pkt->status = HN_NVS_STATUS_FAILED;
 		if_printf(rxr->hn_ifp,
 		    "total length %u is less than data length %u\n",
 		    pkt->tot_data_buf_len, rndis_pkt->data_length);
@@ -555,7 +555,7 @@ hv_rf_receive_data(struct hn_rx_ring *rxr, rndis_msg *message,
 	pkt->data = (void *)((unsigned long)pkt->data + data_offset);
 
 	if (hv_rf_find_recvinfo(rndis_pkt, &info)) {
-		pkt->status = nvsp_status_failure;
+		pkt->status = HN_NVS_STATUS_FAILED;
 		if_printf(rxr->hn_ifp, "recvinfo parsing failed\n");
 		return;
 	}
@@ -580,13 +580,13 @@ hv_rf_on_receive(netvsc_dev *net_dev,
 
 	/* Make sure the rndis device state is initialized */
 	if (net_dev->extension == NULL) {
-		pkt->status = nvsp_status_failure;
+		pkt->status = HN_NVS_STATUS_FAILED;
 		return (ENODEV);
 	}
 
 	rndis_dev = (rndis_device *)net_dev->extension;
 	if (rndis_dev->state == RNDIS_DEV_UNINITIALIZED) {
-		pkt->status = nvsp_status_failure;
+		pkt->status = HN_NVS_STATUS_FAILED;
 		return (EINVAL);
 	}
 
@@ -1272,7 +1272,7 @@ hv_rf_on_close(struct hn_softc *sc)
 
 static void
 hn_rndis_sent_cb(struct hn_send_ctx *sndc, struct netvsc_dev_ *net_dev,
-    struct vmbus_channel *chan __unused, const struct nvsp_msg_ *msg __unused,
+    struct vmbus_channel *chan __unused, const void *data __unused,
     int dlen __unused)
 {
 	if (sndc->hn_chim_idx != HN_NVS_CHIM_IDX_INVALID)
@@ -1281,7 +1281,7 @@ hn_rndis_sent_cb(struct hn_send_ctx *sndc, struct netvsc_dev_ *net_dev,
 
 static void
 hn_rndis_sent_halt(struct hn_send_ctx *sndc, struct netvsc_dev_ *net_dev,
-    struct vmbus_channel *chan __unused, const struct nvsp_msg_ *msg __unused,
+    struct vmbus_channel *chan __unused, const void *data __unused,
     int dlen __unused)
 {
 	rndis_request *request = sndc->hn_cbarg;
