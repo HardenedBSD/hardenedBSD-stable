@@ -1,10 +1,11 @@
 # $FreeBSD$
 
+SHLIBDIR?=	/lib
+
 .include <src.opts.mk>
 
 .if ${MK_LIBRESSL} == "no"
 
-SHLIBDIR?=	/lib
 SUBDIR=		engines
 
 .include <bsd.own.mk>
