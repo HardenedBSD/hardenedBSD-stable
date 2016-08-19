@@ -319,7 +319,6 @@ SUBDIR=	\
 	${_safe} \
 	${_sbni} \
 	scc \
-	scd \
 	${_scsi_low} \
 	sdhci \
 	sdhci_pci \
