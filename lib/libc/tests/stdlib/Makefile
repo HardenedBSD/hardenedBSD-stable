@@ -1,6 +1,6 @@
 # $FreeBSD$
 
-.include <src.opts.mk>
+.include <bsd.compiler.mk>
 
 ATF_TESTS_C+=		heapsort_test
 ATF_TESTS_C+=		mergesort_test
