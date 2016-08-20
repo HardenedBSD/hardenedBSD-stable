@@ -696,11 +696,6 @@ _cp=		cp
 _elink=		elink
 _glxiic=	glxiic
 _glxsb=		glxsb
-<<<<<<< HEAD
-_ie=		ie
-=======
-#_ibcs2=		ibcs2
->>>>>>> origin/freebsd/current/master
 _mse=		mse
 _ncr=		ncr
 _ncv=		ncv
@@ -709,11 +704,6 @@ _pcfclock=	pcfclock
 _pst=		pst
 _sbni=		sbni
 _stg=		stg
-<<<<<<< HEAD
-_wds=		wds
-=======
-_svr4=		svr4
->>>>>>> origin/freebsd/current/master
 .if ${MACHINE} == "i386"
 .if ${MK_EISA} != "no"
 _ahb=		ahb
