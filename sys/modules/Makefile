@@ -138,7 +138,6 @@ SUBDIR=	\
         ${_ibcore} \
 	${_ichwd} \
 	${_ida} \
-	${_ie} \
 	if_bridge \
 	if_disc \
 	if_edsc \
@@ -327,7 +326,6 @@ SUBDIR=	\
 	${_sf} \
 	${_sfxge} \
 	sge \
-	${_si} \
 	siba_bwn \
 	siftr \
 	siis \
@@ -386,9 +384,7 @@ SUBDIR=	\
 	${_vxge} \
 	wb \
 	${_wbwd} \
-	${_wds} \
 	${_wi} \
-	${_wl} \
 	wlan \
 	wlan_acl \
 	wlan_amrr \
@@ -578,7 +574,6 @@ _rdma=		rdma
 .endif
 _safe=		safe
 _scsi_low=	scsi_low
-_si=		si
 _speaker=	speaker
 _splash=	splash
 _sppp=		sppp
@@ -701,7 +696,11 @@ _cp=		cp
 _elink=		elink
 _glxiic=	glxiic
 _glxsb=		glxsb
+<<<<<<< HEAD
 _ie=		ie
+=======
+#_ibcs2=		ibcs2
+>>>>>>> origin/freebsd/current/master
 _mse=		mse
 _ncr=		ncr
 _ncv=		ncv
@@ -710,7 +709,11 @@ _pcfclock=	pcfclock
 _pst=		pst
 _sbni=		sbni
 _stg=		stg
+<<<<<<< HEAD
 _wds=		wds
+=======
+_svr4=		svr4
+>>>>>>> origin/freebsd/current/master
 .if ${MACHINE} == "i386"
 .if ${MK_EISA} != "no"
 _ahb=		ahb
@@ -722,7 +725,6 @@ _ctau=		ctau
 .endif
 _dpt=		dpt
 _ex=		ex
-_wl=		wl
 .elif ${MACHINE} == "pc98"
 _canbepm=	canbepm
 _canbus=	canbus
