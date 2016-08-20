@@ -10,6 +10,10 @@ SUBDIR+=libssh
 .endif
 .endif
 
+.if ${MK_LIBRESSL} != "no"
+SUBDIR+=libtls
+.endif
+
 .if ${MK_TESTS} != "no"
 SUBDIR+=tests
 .endif
