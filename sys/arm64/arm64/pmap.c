@@ -995,6 +995,7 @@ vm_page_t
 pmap_extract_and_hold(pmap_t pmap, vm_offset_t va, vm_prot_t prot)
 {
 	pt_entry_t *pte, tpte;
+	vm_offset_t off;
 	vm_paddr_t pa;
 	vm_page_t m;
 	int lvl;
@@ -1016,9 +1017,21 @@ retry:
 		     tpte & ATTR_DESCR_MASK));
 		if (((tpte & ATTR_AP_RW_BIT) == ATTR_AP(ATTR_AP_RW)) ||
 		    ((prot & VM_PROT_WRITE) == 0)) {
-			if (vm_page_pa_tryrelock(pmap, tpte & ~ATTR_MASK, &pa))
+			switch(lvl) {
+			case 1:
+				off = va & L1_OFFSET;
+				break;
+			case 2:
+				off = va & L2_OFFSET;
+				break;
+			case 3:
+			default:
+				off = 0;
+			}
+			if (vm_page_pa_tryrelock(pmap,
+			    (tpte & ~ATTR_MASK) | off, &pa))
 				goto retry;
-			m = PHYS_TO_VM_PAGE(tpte & ~ATTR_MASK);
+			m = PHYS_TO_VM_PAGE((tpte & ~ATTR_MASK) | off);
 			vm_page_hold(m);
 		}
 	}
@@ -2684,7 +2697,7 @@ pmap_enter_quick_locked(pmap_t pmap, vm_offset_t va, vm_page_t m,
 {
 	struct spglist free;
 	pd_entry_t *pde;
-	pt_entry_t *l3;
+	pt_entry_t *l2, *l3;
 	vm_paddr_t pa;
 	int lvl;
 
@@ -2719,6 +2732,12 @@ pmap_enter_quick_locked(pmap_t pmap, vm_offset_t va, vm_page_t m,
 			 * attempt to allocate a page table page.  If this
 			 * attempt fails, we don't retry.  Instead, we give up.
 			 */
+			if (lvl == 1) {
+				l2 = pmap_l1_to_l2(pde, va);
+				if ((pmap_load(l2) & ATTR_DESCR_MASK) ==
+				    L2_BLOCK)
+					return (NULL);
+			}
 			if (lvl == 2 && pmap_load(pde) != 0) {
 				mpte =
 				    PHYS_TO_VM_PAGE(pmap_load(pde) & ~ATTR_MASK);
@@ -2776,7 +2795,7 @@ pmap_enter_quick_locked(pmap_t pmap, vm_offset_t va, vm_page_t m,
 	pmap_resident_count_inc(pmap, 1);
 
 	pa = VM_PAGE_TO_PHYS(m) | ATTR_DEFAULT | ATTR_IDX(m->md.pv_memattr) |
-	    ATTR_AP(ATTR_AP_RW) | L3_PAGE;
+	    ATTR_AP(ATTR_AP_RO) | L3_PAGE;
 
 	/*
 	 * Now validate mapping with RO protection
