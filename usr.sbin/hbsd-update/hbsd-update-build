@@ -186,7 +186,19 @@ create_src_conf() {
 }
 
 prep_release() {
-	chroot ${CHROOTDIR} make -sC /usr/src/release obj clean
+	chroot ${CHROOTDIR} \
+		make -s \
+			-C /usr/src/release \
+			clean
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		return ${res}
+	fi
+
+	chroot ${CHROOTDIR} \
+		make -s \
+			-C /usr/src/release \
+			obj
 	res=${?}
 	if [ ${res} -gt 0 ]; then
 		return ${res}
@@ -197,7 +209,10 @@ prep_release() {
 
 build_base_archive() {
 	debug_print "[*] Making base.txz in /usr/src/release"
-	chroot ${CHROOTDIR} make -sC /usr/src/release base.txz
+	chroot ${CHROOTDIR} \
+		make -s \
+			-C /usr/src/release \
+			base.txz
 	res=${?}
 	if [ ${res} -gt 0 ]; then
 		return ${res}
