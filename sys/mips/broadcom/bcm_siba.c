@@ -1,5 +1,7 @@
 /*-
- * Copyright (c) 2015-2016 Nuxi, https://nuxi.nl/
+ * Copyright (c) 2016 Landon Fuller <landonf@FreeBSD.org>
+ *
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,65 +28,37 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
-#include <libgen.h>
-#include <stdbool.h>
-#include <string.h>
+#include <dev/bhnd/bhnd.h>
+#include <dev/bhnd/bhndreg.h>
 
-char *
-(dirname)(char *path)
+#include <dev/bhnd/siba/sibareg.h>
+#include <dev/bhnd/siba/sibavar.h>
+
+#include "bcm_machdep.h"
+
+int
+bcm_find_core_siba(struct bhnd_chipid *chipid, bhnd_devclass_t devclass,
+    int unit, struct bhnd_core_info *info, uintptr_t *addr)
 {
-	const char *in, *prev, *begin, *end;
-	char *out;
-	size_t prevlen;
-	bool skipslash;
+	struct siba_core_id	scid;
+	uintptr_t		cc_addr;
+	uint32_t		idhigh, idlow;
 
-	/*
-	 * If path is a null pointer or points to an empty string,
-	 * dirname() shall return a pointer to the string ".".
-	 */
-	if (path == NULL || *path == '\0')
-		return ((char *)".");
+	/* No other cores are required during early boot on siba(4) devices */
+	if (devclass != BHND_DEVCLASS_CC || unit != 0)
+		return (ENOENT);
 
-	/* Retain at least one leading slash character. */
-	in = out = *path == '/' ? path + 1 : path;
+	cc_addr = chipid->enum_addr;
+	idhigh = BCM_SOC_READ_4(cc_addr, SB0_REG_ABS(SIBA_CFG0_IDHIGH));
+	idlow = BCM_SOC_READ_4(cc_addr, SB0_REG_ABS(SIBA_CFG0_IDHIGH));
 
-	skipslash = true;
-	prev = ".";
-	prevlen = 1;
-	for (;;) {
-		/* Extract the next pathname component. */
-		while (*in == '/')
-			++in;
-		begin = in;
-		while (*in != '/' && *in != '\0')
-			++in;
-		end = in;
-		if (begin == end)
-			break;
+	scid = siba_parse_core_id(idhigh, idlow, 0, 0);
 
-		/*
-		 * Copy over the previous pathname component, except if
-		 * it's dot. There is no point in retaining those.
-		 */
-		if (prevlen != 1 || *prev != '.') {
-			if (!skipslash)
-				*out++ = '/';
-			skipslash = false;
-			memmove(out, prev, prevlen);
-			out += prevlen;
-		}
+	if (info != NULL)
+		*info = scid.core_info;
 
-		/* Preserve the pathname component for the next iteration. */
-		prev = begin;
-		prevlen = end - begin;
-	}
+	if (addr != NULL)
+		*addr = cc_addr;
 
-	/*
-	 * If path does not contain a '/', then dirname() shall return a
-	 * pointer to the string ".".
-	 */
-	if (out == path)
-		*out++ = '.';
-	*out = '\0';
-	return (path);
+	return (0);
 }

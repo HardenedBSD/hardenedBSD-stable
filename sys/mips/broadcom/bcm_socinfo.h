@@ -44,17 +44,4 @@ struct bcm_socinfo {
 struct bcm_socinfo*	bcm_get_socinfo_by_socid(uint32_t key);
 struct bcm_socinfo*	bcm_get_socinfo(void);
 
-#define	BCM_SOCADDR				0x18000000
-#define		BCM_REG_CHIPC_ID		0x0
-#define		BCM_REG_CHIPC_UART		0x300
-#define		BCM_REG_CHIPC_PMUWD_OFFS	0x634
-#define	BCM_SOCREG(reg)							\
-		MIPS_PHYS_TO_KSEG1((BCM_SOCADDR + (reg)))
-#define BCM_READ_REG32(reg)						\
-	*((volatile uint32_t *)BCM_SOCREG(reg))
-#define BCM_WRITE_REG32(reg, value)					\
-	do {								\
-		writel((void*)BCM_SOCREG((reg)),value);			\
-	} while (0);
-
 #endif /* _MIPS_BROADCOM_BCM_SOCINFO_H_ */
