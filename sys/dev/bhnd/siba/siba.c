@@ -504,6 +504,76 @@ siba_free_bhnd_dinfo(device_t dev, struct bhnd_devinfo *dinfo)
 	siba_free_dinfo(dev, (struct siba_devinfo *)dinfo);
 }
 
+
+static int
+siba_get_core_table(device_t dev, device_t child, struct bhnd_core_info **cores,
+    u_int *num_cores)
+{
+	const struct bhnd_chipid	*chipid;
+	struct bhnd_core_info		*table;
+	struct bhnd_resource		*r;
+	int				 error;
+	int				 rid;
+
+	/* Fetch the core count from our chip identification */
+	chipid = BHND_BUS_GET_CHIPID(dev, dev);
+
+	/* Allocate our local core table */
+	table = malloc(sizeof(*table) * chipid->ncores, M_BHND, M_NOWAIT);
+	if (table == NULL)
+		return (ENOMEM);
+
+	/* Enumerate all cores. */
+	for (u_int i = 0; i < chipid->ncores; i++) {
+		struct siba_core_id	 cid;
+		uint32_t		 idhigh, idlow;
+
+		/* Map the core's register block */
+		rid = 0;
+		r = bhnd_alloc_resource(dev, SYS_RES_MEMORY, &rid,
+		    SIBA_CORE_ADDR(i), SIBA_CORE_ADDR(i) + SIBA_CORE_SIZE - 1,
+		    SIBA_CORE_SIZE, RF_ACTIVE);
+		if (r == NULL) {
+			error = ENXIO;
+			goto failed;
+		}
+
+		/* Read the core info */
+		idhigh = bhnd_bus_read_4(r, SB0_REG_ABS(SIBA_CFG0_IDHIGH));
+		idlow = bhnd_bus_read_4(r, SB0_REG_ABS(SIBA_CFG0_IDLOW));
+
+		cid = siba_parse_core_id(idhigh, idlow, i, 0);
+		table[i] = cid.core_info;
+
+		/* Determine unit number */
+		for (u_int j = 0; j < i; j++) {
+			if (table[j].vendor == table[i].vendor &&
+			    table[j].device == table[i].device)
+				table[i].unit++;
+		}
+				
+		/* Release our resource */
+		bhnd_release_resource(dev, SYS_RES_MEMORY, rid, r);
+		r = NULL;
+	}
+
+	/* Provide the result values (performed last to avoid modifying
+	 * cores/num_cores if enumeration failed). */
+	*cores = table;
+	*num_cores = chipid->ncores;
+
+	return (0);
+
+failed:
+	if (table != NULL)
+		free(table, M_BHND);
+
+	if (r != NULL)
+		bhnd_release_resource(dev, SYS_RES_MEMORY, rid, r);
+
+	return (error);
+}
+
 /**
  * Scan the core table and add all valid discovered cores to
  * the bus.
@@ -565,35 +635,12 @@ siba_add_children(device_t dev, const struct bhnd_chipid *chipid)
 		ccreg = bus_read_4(r, CHIPC_ID);
 		ccid = bhnd_parse_chipid(ccreg, SIBA_ENUM_ADDR);
 
-		if (!CHIPC_NCORES_MIN_HWREV(ccrev)) {
-			switch (ccid.chip_id) {
-			case BHND_CHIPID_BCM4306:
-				ccid.ncores = 6;
-				break;
-			case BHND_CHIPID_BCM4704:
-				ccid.ncores = 9;
-				break;
-			case BHND_CHIPID_BCM5365:
-				/*
-				* BCM5365 does support ID_NUMCORE in at least
-				* some of its revisions, but for unknown
-				* reasons, Broadcom's drivers always exclude
-				* the ChipCommon revision (0x5) used by BCM5365
-				* from the set of revisions supporting
-				* ID_NUMCORE, and instead supply a fixed value.
-				* 
-				* Presumably, at least some of these devices
-				* shipped with a broken ID_NUMCORE value.
-				*/
-				ccid.ncores = 7;
-				break;
-			default:
-				device_printf(dev, "unable to determine core "
-				    "count for unrecognized chipset 0x%hx\n",
-				    ccid.chip_id);
-				error = ENXIO;
-				goto cleanup;
-			}
+		/* Fix up the core count */
+		error = bhnd_chipid_fixed_ncores(&ccid, ccrev, &ccid.ncores);
+		if (error) {
+			device_printf(dev, "unable to determine core count for "
+			    "chipset 0x%hx\n", ccid.chip_id);
+			goto cleanup;
 		}
 
 		chipid = &ccid;
@@ -696,6 +743,7 @@ static device_method_t siba_methods[] = {
 
 	/* BHND interface */
 	DEVMETHOD(bhnd_bus_find_hostb_device,	siba_find_hostb_device),
+	DEVMETHOD(bhnd_bus_get_core_table,	siba_get_core_table),
 	DEVMETHOD(bhnd_bus_alloc_devinfo,	siba_alloc_bhnd_dinfo),
 	DEVMETHOD(bhnd_bus_free_devinfo,	siba_free_bhnd_dinfo),
 	DEVMETHOD(bhnd_bus_reset_core,		siba_reset_core),
