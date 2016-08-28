@@ -1,3 +1,13 @@
+[20160820] Enable LibreSSL by default
+__HardenedBSD_version = 47
+
+	Enable WITH_LIBRESSL by default on HardenedBSD.
+	After this we point we deliver LibreSSL as base
+	SSL engine for HardenedBSD. The OpenSSL is still
+	available, and accessable with WITHOUT_LIBRESSL=
+	knob in src.conf.
+
+
 [20160423] RELRO + BIND_NOW
 __HardenedBSD_version = 46
 
