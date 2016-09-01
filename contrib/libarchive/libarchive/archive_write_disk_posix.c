@@ -2402,21 +2402,8 @@ check_symlinks(struct archive_write_disk *a)
 			/* We've hit a dir that doesn't exist; stop now. */
 			if (errno == ENOENT) {
 				break;
-<<<<<<< HEAD
 			else
 				return (ARCHIVE_FAILED);
-=======
-			} else {
-				/* Note: This effectively disables deep directory
-				 * support when security checks are enabled.
-				 * Otherwise, very long pathnames that trigger
-				 * an error here could evade the sandbox.
-				 * TODO: We could do better, but it would probably
-				 * require merging the symlink checks with the
-				 * deep-directory editing. */
-				return (ARCHIVE_FAILED);
-			}
->>>>>>> origin/freebsd/10-stable/master
 		} else if (S_ISLNK(st.st_mode)) {
 			if (c == '\0') {
 				/*
