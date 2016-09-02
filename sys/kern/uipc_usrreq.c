@@ -2329,7 +2329,11 @@ unp_dispose(struct mbuf *m)
 /*
  * Synchronize against unp_gc, which can trip over data as we are freeing it.
  */
+<<<<<<< HEAD
 static void
+=======
+void
+>>>>>>> origin/freebsd/10-stable/master
 unp_dispose_so(struct socket *so)
 {
 	struct unpcb *unp;
