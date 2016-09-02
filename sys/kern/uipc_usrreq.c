@@ -278,7 +278,6 @@ static int	unp_connectat(int, struct socket *, struct sockaddr *,
 static int	unp_connect2(struct socket *so, struct socket *so2, int);
 static void	unp_disconnect(struct unpcb *unp, struct unpcb *unp2);
 static void	unp_dispose(struct mbuf *);
-static void	unp_dispose_so(struct socket *so);
 static void	unp_shutdown(struct unpcb *);
 static void	unp_drop(struct unpcb *, int);
 static void	unp_gc(__unused void *, int);
@@ -335,7 +334,7 @@ static struct domain localdomain = {
 	.dom_name =		"local",
 	.dom_init =		unp_init,
 	.dom_externalize =	unp_externalize,
-	.dom_dispose =		unp_dispose_so,
+	.dom_dispose =		unp_dispose,
 	.dom_protosw =		localsw,
 	.dom_protoswNPROTOSW =	&localsw[sizeof(localsw)/sizeof(localsw[0])]
 };
@@ -2329,11 +2328,7 @@ unp_dispose(struct mbuf *m)
 /*
  * Synchronize against unp_gc, which can trip over data as we are freeing it.
  */
-<<<<<<< HEAD
-static void
-=======
 void
->>>>>>> origin/freebsd/10-stable/master
 unp_dispose_so(struct socket *so)
 {
 	struct unpcb *unp;

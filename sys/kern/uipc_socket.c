@@ -741,17 +741,12 @@ sofree(struct socket *so)
 	ACCEPT_UNLOCK();
 
 	VNET_SO_ASSERT(so);
-<<<<<<< HEAD
-	if (pr->pr_flags & PR_RIGHTS && pr->pr_domain->dom_dispose != NULL)
-		(*pr->pr_domain->dom_dispose)(so);
-=======
 	if (pr->pr_flags & PR_RIGHTS && pr->pr_domain->dom_dispose != NULL) {
 		if (pr->pr_domain->dom_family == AF_LOCAL)
 			unp_dispose_so(so);
 		else
 			(*pr->pr_domain->dom_dispose)(so->so_rcv.sb_mb);
 	}
->>>>>>> origin/freebsd/10-stable/master
 	if (pr->pr_usrreqs->pru_detach != NULL)
 		(*pr->pr_usrreqs->pru_detach)(so);
 
@@ -2337,17 +2332,12 @@ sorflush(struct socket *so)
 	 * Dispose of special rights and flush the copied socket.  Don't call
 	 * any unsafe routines (that rely on locks being initialized) on aso.
 	 */
-<<<<<<< HEAD
-	if (pr->pr_flags & PR_RIGHTS && pr->pr_domain->dom_dispose != NULL)
-		(*pr->pr_domain->dom_dispose)(&aso);
-=======
 	if (pr->pr_flags & PR_RIGHTS && pr->pr_domain->dom_dispose != NULL) {
 		if (pr->pr_domain->dom_family == AF_LOCAL)
 			unp_dispose_so(&aso);
 		else
 			(*pr->pr_domain->dom_dispose)(aso.so_rcv.sb_mb);
 	}
->>>>>>> origin/freebsd/10-stable/master
 	sbrelease_internal(&aso.so_rcv, so);
 }
 
