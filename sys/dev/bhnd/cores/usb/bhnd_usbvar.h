@@ -1,12 +1,13 @@
 /*-
- * Copyright (c) 2012 Oleksandr Tymoshenko <gonzo@freebsd.org>
+ * Copyright (c) 2010, Aleksandr Rybalko <ray@ddteam.net>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
  * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
+ *    notice unmodified, this list of conditions, and the following
+ *    disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
@@ -24,26 +25,35 @@
  * SUCH DAMAGE.
  *
  * $FreeBSD$
+ *
  */
-#ifndef __AM335X_SCM_H__
-#define __AM335X_SCM_H__
 
-/* AM335x-specific registers for control module (scm) */
-#define	SCM_CTRL_STATUS	0x40
-#define	SCM_BGAP_CTRL	0x448
-#define	SCM_BGAP_TEMP_MASK	0xff
-#define	SCM_BGAP_TEMP_SHIFT	8
-#define	SCM_BGAP_BGOFF		(1 << 6)
-#define	SCM_BGAP_SOC		(1 << 4)
-#define	SCM_BGAP_CLRZ		(1 << 3)
-#define	SCM_BGAP_CONTCONV	(1 << 2)
-#define	SCM_BGAP_EOCZ		(1 << 1)
-#define	SCM_USB_CTRL0	0x620
-#define	SCM_USB_STS0	0x624
-#define	SCM_USB_CTRL1	0x628
-#define	SCM_USB_STS1	0x62C
-#define	SCM_MAC_ID0_LO	0x630
-#define	SCM_MAC_ID0_HI	0x634
-#define	SCM_PWMSS_CTRL	0x664
+#ifndef _BHND_USBVAR_H_
+#define _BHND_USBVAR_H_
 
-#endif /* __AM335X_SCM_H__ */
+struct bhnd_usb_softc {
+	bus_space_tag_t		 sc_bt;
+	bus_space_handle_t	 sc_bh;
+	bus_addr_t		 sc_maddr;
+	bus_size_t		 sc_msize;
+	bus_addr_t		 sc_irqn;
+	struct intr_event	*sc_events; /* IRQ events structs */
+
+	struct resource *sc_mem;
+	struct resource *sc_irq;
+	struct rman 		 mem_rman;
+	struct rman 		 irq_rman;
+	int 			devid;
+
+};
+
+struct bhnd_usb_devinfo {
+	struct resource_list	sdi_rl;
+	uint8_t			sdi_unit;	/* core index on bus */
+	uint8_t			sdi_irq;
+	char 			sdi_name[8];
+	rman_res_t 		sdi_maddr;
+	rman_res_t 		sdi_msize;
+};
+
+#endif /* _BHND_USBVAR_H_ */
