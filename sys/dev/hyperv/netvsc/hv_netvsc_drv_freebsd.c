@@ -903,11 +903,14 @@ hn_encap(struct hn_tx_ring *txr, struct hn_txdesc *txd, struct mbuf **m_head0)
 
 		rppi_vlan_info = (ndis_8021q_info *)((uint8_t *)rppi +
 		    rppi->per_packet_info_offset);
-		rppi_vlan_info->u1.s1.vlan_id =
-		    m_head->m_pkthdr.ether_vtag & 0xfff;
+		rppi_vlan_info->u1.value = NDIS_VLAN_INFO_MAKE(
+		    EVL_VLANOFTAG(m_head->m_pkthdr.ether_vtag),
+		    EVL_PRIOFTAG(m_head->m_pkthdr.ether_vtag),
+		    EVL_CFIOFTAG(m_head->m_pkthdr.ether_vtag));
 	}
 
 	if (m_head->m_pkthdr.csum_flags & CSUM_TSO) {
+#if defined(INET6) || defined(INET)
 		rndis_tcp_tso_info *tso_info;	
 		struct ether_vlan_header *eh;
 		int ether_len;
@@ -927,8 +930,6 @@ hn_encap(struct hn_tx_ring *txr, struct hn_txdesc *txd, struct mbuf **m_head0)
 
 		tso_info = (rndis_tcp_tso_info *)((uint8_t *)rppi +
 		    rppi->per_packet_info_offset);
-		tso_info->lso_v2_xmit.type =
-		    RNDIS_TCP_LARGE_SEND_OFFLOAD_V2_TYPE;
 
 #ifdef INET
 		if (m_head->m_pkthdr.csum_flags & CSUM_IP_TSO) {
@@ -938,13 +939,12 @@ hn_encap(struct hn_tx_ring *txr, struct hn_txdesc *txd, struct mbuf **m_head0)
 			struct tcphdr *th =
 			    (struct tcphdr *)((caddr_t)ip + iph_len);
 
-			tso_info->lso_v2_xmit.ip_version =
-			    RNDIS_TCP_LARGE_SEND_OFFLOAD_IPV4;
 			ip->ip_len = 0;
 			ip->ip_sum = 0;
-
 			th->th_sum = in_pseudo(ip->ip_src.s_addr,
 			    ip->ip_dst.s_addr, htons(IPPROTO_TCP));
+			tso_info->value = NDIS_LSO2_INFO_MAKEIPV4(0,
+			    m_head->m_pkthdr.tso_segsz);
 		}
 #endif
 #if defined(INET6) && defined(INET)
@@ -956,14 +956,13 @@ hn_encap(struct hn_tx_ring *txr, struct hn_txdesc *txd, struct mbuf **m_head0)
 			    (m_head->m_data + ether_len);
 			struct tcphdr *th = (struct tcphdr *)(ip6 + 1);
 
-			tso_info->lso_v2_xmit.ip_version =
-			    RNDIS_TCP_LARGE_SEND_OFFLOAD_IPV6;
 			ip6->ip6_plen = 0;
 			th->th_sum = in6_cksum_pseudo(ip6, 0, IPPROTO_TCP, 0);
+			tso_info->value = NDIS_LSO2_INFO_MAKEIPV6(0,
+			    m_head->m_pkthdr.tso_segsz);
 		}
 #endif
-		tso_info->lso_v2_xmit.tcp_header_offset = 0;
-		tso_info->lso_v2_xmit.mss = m_head->m_pkthdr.tso_segsz;
+#endif	/* INET6 || INET */
 	} else if (m_head->m_pkthdr.csum_flags & txr->hn_csum_assist) {
 		rndis_tcp_ip_csum_info *csum_info;
 
