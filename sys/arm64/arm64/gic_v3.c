@@ -134,6 +134,13 @@ enum gic_v3_xdist {
 	REDIST,
 };
 
+struct gic_v3_irqsrc {
+	struct intr_irqsrc	gi_isrc;
+	uint32_t		gi_irq;
+	enum intr_polarity	gi_pol;
+	enum intr_trigger	gi_trig;
+};
+
 /* Helper routines starting with gic_v3_ */
 static int gic_v3_dist_init(struct gic_v3_softc *);
 static int gic_v3_redist_alloc(struct gic_v3_softc *);
@@ -401,8 +408,8 @@ arm_gic_v3_intr(void *arg)
 #ifdef SMP
 			intr_ipi_dispatch(sgi_to_ipi[gi->gi_irq], tf);
 #else
-			device_printf(sc->dev, "SGI %u on UP system detected\n",
-			    active_irq - GIC_FIRST_SGI);
+			device_printf(sc->dev, "SGI %ju on UP system detected\n",
+			    (uintmax_t)(active_irq - GIC_FIRST_SGI));
 #endif
 		} else if (active_irq >= GIC_FIRST_PPI &&
 		    active_irq <= GIC_LAST_SPI) {
