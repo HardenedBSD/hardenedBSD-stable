@@ -1173,6 +1173,9 @@ __LA_DECL int	archive_match_include_gname_w(struct archive *,
 /* Convenience function to sort a NULL terminated list of strings */
 __LA_DECL int archive_utility_string_sort(char **);
 
+/* Set option to support extracting hardlinks (insecure) */
+#define		INSECURE_HARDLINK_MODE	(0x40000)
+
 #ifdef __cplusplus
 }
 #endif
