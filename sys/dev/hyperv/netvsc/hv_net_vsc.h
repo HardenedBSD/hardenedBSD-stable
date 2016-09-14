@@ -198,17 +198,13 @@ struct hn_tx_ring {
 /*
  * Device-specific softc structure
  */
-typedef struct hn_softc {
+struct hn_softc {
 	struct ifnet    *hn_ifp;
 	struct ifmedia	hn_media;
 	device_t        hn_dev;
-	uint8_t         hn_unit;
 	int             hn_carrier;
 	int             hn_if_flags;
-	struct mtx      hn_lock;
-	int             hn_initdone;
-	/* See hv_netvsc_drv_freebsd.c for rules on how to use */
-	int             temp_unusable;
+	struct sx	hn_lock;
 	struct vmbus_channel *hn_prichan;
 
 	int		hn_rx_ring_cnt;
@@ -244,7 +240,7 @@ typedef struct hn_softc {
 	uint32_t		hn_ndis_ver;
 
 	struct ndis_rssprm_toeplitz hn_rss;
-} hn_softc_t;
+};
 
 #define HN_FLAG_RXBUF_CONNECTED		0x0001
 #define HN_FLAG_CHIM_CONNECTED		0x0002
