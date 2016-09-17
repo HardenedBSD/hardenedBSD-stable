@@ -1,5 +1,7 @@
 # $FreeBSD$
 
+PACKAGE= tests
+
 .include <bsd.own.mk>
 
 TESTSDIR=		${TESTSBASE}/lib/libc/sys
