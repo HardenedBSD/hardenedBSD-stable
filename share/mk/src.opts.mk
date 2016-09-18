@@ -147,11 +147,7 @@ __DEFAULT_YES_OPTIONS = \
     RADIUS_SUPPORT \
     RCMDS \
     RBOOTD \
-<<<<<<< HEAD
-    RCS \
     RELRO \
-=======
->>>>>>> origin/freebsd/current/master
     RESCUE \
     ROUTED \
     SENDMAIL \
