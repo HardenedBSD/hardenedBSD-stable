@@ -487,7 +487,7 @@ ATF_TC_BODY(mmap_va0, tc)
 	 * of the first page.
 	 * So the tries to map them should fail.
 	 */
-	val = 0; /* 0 == disable map at zero */
+	val = 1; /* 1 == enforce the checks for MAP_FAILED in map_check(...) */
 #else /* !HARDENEDBSD */
 	if (sysctlbyname("security.bsd.map_at_zero", &val, &len, NULL, 0) != 0)
 		atf_tc_fail("failed to read security.bsd.map_at_zero");
