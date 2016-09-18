@@ -470,7 +470,9 @@ ATF_TC_HEAD(mmap_va0, tc)
 ATF_TC_BODY(mmap_va0, tc)
 {
 	int flags = MAP_ANON | MAP_FIXED | MAP_PRIVATE;
+#ifndef HARDENEDBSD
 	size_t len = sizeof(int);
+#endif
 	void *map;
 	int val;
 
