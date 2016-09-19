@@ -191,12 +191,9 @@ __DEFAULT_NO_OPTIONS = \
     NAND \
     OFED \
     OPENLDAP \
-<<<<<<< HEAD
     PORTSNAP \
-=======
     RCS \
     SHARED_TOOLCHAIN \
->>>>>>> origin/freebsd/current/master
     SORT_THREADS \
     SVN \
 
