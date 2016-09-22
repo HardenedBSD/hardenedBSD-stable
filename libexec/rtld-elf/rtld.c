@@ -2429,6 +2429,8 @@ do_load_object(int fd, const char *name, char *path, struct stat *sbp,
 	dbg("refusing to load non-loadable \"%s\"", obj->path);
 	_rtld_error("Cannot dlopen non-loadable %s", obj->path);
 	munmap(obj->mapbase, obj->mapsize);
+	if (obj->gapbase != NULL)
+		munmap(obj->gapbase, obj->gapsize);
 	obj_free(obj);
 	return (NULL);
     }
@@ -4510,6 +4512,8 @@ unload_object(Obj_Entry *root)
 		dbg("unloading \"%s\"", obj->path);
 		unload_filtees(root);
 		munmap(obj->mapbase, obj->mapsize);
+		if (obj->gapbase != NULL)
+			munmap(obj->gapbase, obj->gapsize);
 		linkmap_delete(obj);
 		TAILQ_REMOVE(&obj_list, obj, next);
 		obj_count--;
