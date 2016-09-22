@@ -2034,24 +2034,16 @@ create_filesystem_object(struct archive_write_disk *a)
 		 * This is consistent with GNU tar and BSD pax.
 		 * If the hardlink does carry data, let the last
 		 * archive entry decide ownership.
-		 *
-		 * XXX HardenedBSD: We have removed the hardlink data
-		 * support. We now return EPERM in this case.
 		 */
 		if (r == 0 && a->filesize <= 0) {
 			a->todo = 0;
 			a->deferred = 0;
 		} else if (r == 0 && a->filesize > 0) {
-			if (a->flags & INSECURE_HARDLINK_MODE) {
-				a->fd = open(a->name,
-					O_WRONLY | O_TRUNC | O_BINARY | O_CLOEXEC);
-				__archive_ensure_cloexec_flag(a->fd);
-				if (a->fd < 0) {
-					r = errno;
-				}
-			} else {
-				return (EPERM);
-			}
+			a->fd = open(a->name,
+				     O_WRONLY | O_TRUNC | O_BINARY | O_CLOEXEC);
+			__archive_ensure_cloexec_flag(a->fd);
+			if (a->fd < 0)
+				r = errno;
 		}
 		return (r);
 #endif
