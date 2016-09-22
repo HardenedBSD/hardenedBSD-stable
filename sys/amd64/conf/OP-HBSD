@@ -24,7 +24,7 @@ ident		OP-PERPETUA
 options		HZ=100
 
 makeoptions	DEBUG=-gdwarf-2		# Build kernel with gdb(1) debug symbols
-makeoptions	MODULES_OVERRIDE="usb/umodem usb/u3g usb/umass usb/ucom usb/uplcom usb/urtwn usb/urtwnfw drm2/drm2 drm2/radeonkms drm2/radeonkmsfw/CEDAR_me drm2/radeonkmsfw/CEDAR_pfp drm2/radeonkmsfw/CEDAR_rlc i2c/iicbb i2c/iicbus i2c/iic vmm nmdm if_bridge bridgestp ipfw_nat libalias"
+makeoptions	MODULES_OVERRIDE="usb/umodem usb/u3g usb/umass usb/ucom usb/uplcom usb/urtwn usb/urtwnfw drm2/drm2 drm2/radeonkms drm2/radeonkmsfw/CEDAR_me drm2/radeonkmsfw/CEDAR_pfp drm2/radeonkmsfw/CEDAR_rlc vmm nmdm if_bridge bridgestp ipfw_nat libalias"
 #makeoptions	WITH_CTF=1		# Run ctfconvert(1) for DTrace support
 
 options 	SCHED_ULE		# ULE scheduler
@@ -393,9 +393,12 @@ device		snd_hda		# Intel High Definition Audio
 # hw
 device		coretemp
 device		cpuctl
+device 		iic
+device 		iicbb
+device 		iicbus
 
 # sc related
-options		SC_DISABLE_REBOOT
+#options		SC_DISABLE_REBOOT
 
 # ipfw
 options		IPFIREWALL
