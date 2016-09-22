@@ -128,6 +128,7 @@ map_object(int fd, const char *path, const struct stat *sb)
 	return (NULL);
 
     gapbase = NULL;
+    gapsize = 0;
 
     /*
      * Scan the program header entries, and save key information.
