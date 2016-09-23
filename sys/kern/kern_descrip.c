@@ -2469,7 +2469,6 @@ fget_cap_locked(struct filedesc *fdp, int fd, cap_rights_t *needrightsp,
 	if (havecapsp != NULL)
 		filecaps_copy(&fde->fde_caps, havecapsp, true);
 
-	fhold(fde->fde_file);
 	*fpp = fde->fde_file;
 
 	error = 0;
@@ -2481,12 +2480,16 @@ int
 fget_cap(struct thread *td, int fd, cap_rights_t *needrightsp,
     struct file **fpp, struct filecaps *havecapsp)
 {
-	struct filedesc *fdp;
-	struct file *fp;
+	struct filedesc *fdp = td->td_proc->p_fd;
 	int error;
+#ifndef CAPABILITIES
+	error = fget_unlocked(fdp, fd, needrightsp, fpp, NULL);
+	if (error == 0 && havecapsp != NULL)
+		filecaps_fill(havecapsp);
+#else
+	struct file *fp;
 	seq_t seq;
 
-	fdp = td->td_proc->p_fd;
 	for (;;) {
 		error = fget_unlocked(fdp, fd, needrightsp, &fp, &seq);
 		if (error != 0)
@@ -2511,8 +2514,10 @@ fget_cap(struct thread *td, int fd, cap_rights_t *needrightsp,
 get_locked:
 	FILEDESC_SLOCK(fdp);
 	error = fget_cap_locked(fdp, fd, needrightsp, fpp, havecapsp);
+	if (error == 0)
+		fhold(*fpp);
 	FILEDESC_SUNLOCK(fdp);
-
+#endif
 	return (error);
 }
 
