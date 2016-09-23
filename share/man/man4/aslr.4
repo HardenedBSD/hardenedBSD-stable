@@ -1,5 +1,5 @@
 .\"-
-.\" Copyright (c) 2014,2015 Shawn Webb <shawn.webb@hardenedbsd.org>
+.\" Copyright (c) 2014, 2015, 2016 Shawn Webb <shawn.webb@hardenedbsd.org>
 .\" Copyright (c) 2016 Oliver Pinter <oliver.pinter@hardenedbsd.org>
 .\" All rights reserved.
 .\"
@@ -26,7 +26,7 @@
 .\"
 .\" $FreeBSD$
 .\"
-.Dd February 16, 2016
+.Dd September 23, 2016
 .Dt ASLR 4
 .Os
 .Sh NAME
@@ -142,6 +142,15 @@ further removing deterministic loading of shared objects.
 Often, when ROP gadgets are generated, the generation requires shared
 objects providing gadgets to be in the same spot in memory relative to
 the ASLR deltas.
+.Pp
+Additionally, a random-sized memory mapping, mapped with PROT_NONE, is
+created between shared objects.
+Inspired by OpenBSD, this feature further helps mitigate automated ROP
+gadget generation.
+By default, each gap will be between 0 and 512 pages in size.
+The max gap size can be set by adding -DMAX_RANDOM_PAGES=n to CFLAGS
+in
+.Xr make.conf 5 .
 .Ss APPENDIX A
 NOTE: All tunables can only be changed during boot-time via
 .Fa /boot/loader.conf
@@ -207,7 +216,8 @@ Default: 2
 .Xr rtld 1 ,
 .Xr mmap 2 ,
 .Xr elf 3 ,
-.Xr mac 4
+.Xr mac 4 ,
+.Xr make.conf 5
 .Rs
 .%T "PaX ASLR"
 .%U http://pax.grsecurity.net/docs/aslr.txt
