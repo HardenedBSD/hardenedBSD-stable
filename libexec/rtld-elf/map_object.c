@@ -118,17 +118,21 @@ map_object(int fd, const char *path, const struct stat *sb)
     Elf_Addr note_end;
     char *note_map;
     size_t note_map_len;
+#ifdef HARDENEDBSD
     unsigned int nrandom_pages;
     caddr_t random_gap;
     caddr_t gapbase;
     size_t gapsize;
+#endif
 
     hdr = get_elf_header(fd, path, sb);
     if (hdr == NULL)
 	return (NULL);
 
+#ifdef HARDENEDBSD
     gapbase = NULL;
     gapsize = 0;
+#endif
 
     /*
      * Scan the program header entries, and save key information.
@@ -328,8 +332,10 @@ map_object(int fd, const char *path, const struct stat *sb)
     }
     obj->mapbase = mapbase;
     obj->mapsize = mapsize;
+#ifdef HARDENEDBSD
     obj->gapbase = gapbase;
     obj->gapsize = gapsize;
+#endif
     obj->textsize = round_page(segs[0]->p_vaddr + segs[0]->p_memsz) -
       base_vaddr;
     obj->vaddrbase = base_vaddr;
@@ -373,8 +379,10 @@ map_object(int fd, const char *path, const struct stat *sb)
 error1:
     munmap(mapbase, mapsize);
 error:
+#ifdef HARDENEDBSD
     if (gapbase != NULL)
 	    munmap(gapbase, gapsize);
+#endif
     if (note_map != NULL && note_map != MAP_FAILED)
 	munmap(note_map, note_map_len);
     munmap(hdr, PAGE_SIZE);
