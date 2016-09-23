@@ -250,7 +250,7 @@ map_object(int fd, const char *path, const struct stat *sb)
     nrandom_pages = get_random_page_size();
     if (nrandom_pages) {
 	gapsize = getpagesize() * nrandom_pages;
-	random_gap = (caddr_t) trunc_page(mapbase - gapsize);
+	random_gap = (caddr_t) trunc_page((Elf_Addr) mapbase - gapsize);
 	gapbase = mmap(random_gap, gapsize, PROT_NONE,
 	    MAP_SHARED | MAP_ANON, -1, 0);
 	if (gapbase == (caddr_t) -1) {
