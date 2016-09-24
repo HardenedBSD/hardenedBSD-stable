@@ -9,7 +9,9 @@ MAN=	devd.8 devd.conf.5
 
 WARNS?=	3
 
+.if ${MK_DEVD_PIE} == "no"
 NO_SHARED?=YES
+.endif
 
 LIBADD=	l util
 
