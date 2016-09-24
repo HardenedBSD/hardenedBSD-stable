@@ -35,11 +35,40 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <sys/sysctl.h>
+
 #include "debug.h"
 #include "rtld.h"
 
 static Elf_Ehdr *get_elf_header(int, const char *, const struct stat *);
 static int convert_flags(int); /* Elf flags -> mmap flags */
+
+#ifdef HARDENEDBSD
+
+#ifndef MAX_RANDOM_PAGES
+#define	MAX_RANDOM_PAGES	512
+#endif
+
+static unsigned int get_random_page_size(void);
+
+static unsigned int
+get_random_page_size(void)
+{
+	unsigned int pages;
+	int mib[2];
+	size_t sz;
+
+	mib[0] = CTL_KERN;
+	mib[1] = KERN_ARND;
+	sz = sizeof(unsigned int);
+
+	if (sysctl(mib, 2, &pages, &sz, NULL, 0))
+		return (0);
+
+	return (pages % MAX_RANDOM_PAGES);
+}
+
+#endif
 
 /*
  * Map a shared object into memory.  The "fd" argument is a file descriptor,
@@ -89,10 +118,21 @@ map_object(int fd, const char *path, const struct stat *sb)
     Elf_Addr note_end;
     char *note_map;
     size_t note_map_len;
+#ifdef HARDENEDBSD
+    unsigned int nrandom_pages;
+    caddr_t random_gap;
+    caddr_t gapbase;
+    size_t gapsize;
+#endif
 
     hdr = get_elf_header(fd, path, sb);
     if (hdr == NULL)
 	return (NULL);
+
+#ifdef HARDENEDBSD
+    gapbase = NULL;
+    gapsize = 0;
+#endif
 
     /*
      * Scan the program header entries, and save key information.
@@ -206,6 +246,25 @@ map_object(int fd, const char *path, const struct stat *sb)
 	goto error1;
     }
 
+#ifdef HARDENEDBSD
+    nrandom_pages = get_random_page_size();
+    if (nrandom_pages) {
+	gapsize = getpagesize() * nrandom_pages;
+	random_gap = (caddr_t) trunc_page((Elf_Addr) mapbase - gapsize);
+	gapbase = mmap(random_gap, gapsize, PROT_NONE,
+	    MAP_SHARED | MAP_ANON, -1, 0);
+	if (gapbase == (caddr_t) -1) {
+		_rtld_error("Creation of random gap failed: %s",
+		    rtld_strerror(errno));
+		gapbase = NULL;
+		goto error1;
+	}
+    } else {
+	    gapbase = NULL;
+	    gapsize = 0;
+    }
+#endif
+
     for (i = 0; i <= nsegs; i++) {
 	/* Overlay the segment onto the proper region. */
 	data_offset = trunc_page(segs[i]->p_offset);
@@ -273,6 +332,10 @@ map_object(int fd, const char *path, const struct stat *sb)
     }
     obj->mapbase = mapbase;
     obj->mapsize = mapsize;
+#ifdef HARDENEDBSD
+    obj->gapbase = gapbase;
+    obj->gapsize = gapsize;
+#endif
     obj->textsize = round_page(segs[0]->p_vaddr + segs[0]->p_memsz) -
       base_vaddr;
     obj->vaddrbase = base_vaddr;
@@ -316,6 +379,10 @@ map_object(int fd, const char *path, const struct stat *sb)
 error1:
     munmap(mapbase, mapsize);
 error:
+#ifdef HARDENEDBSD
+    if (gapbase != NULL)
+	    munmap(gapbase, gapsize);
+#endif
     if (note_map != NULL && note_map != MAP_FAILED)
 	munmap(note_map, note_map_len);
     munmap(hdr, PAGE_SIZE);
