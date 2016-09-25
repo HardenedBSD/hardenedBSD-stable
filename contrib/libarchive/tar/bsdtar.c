@@ -359,10 +359,6 @@ main(int argc, char **argv)
 			 */
 			bsdtar->names_from_file = bsdtar->argument;
 			break;
-		case 'i': /* extracting hardlinks */
-			bsdtar->extract_flags |=
-				INSECURE_HARDLINK_MODE;
-			break;
 		case OPTION_INCLUDE:
 			/*
 			 * No one else has the @archive extension, so
