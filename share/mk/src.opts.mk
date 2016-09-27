@@ -267,6 +267,9 @@ BROKEN_OPTIONS+=LLDB
 .if ${__T} != "armv6"
 BROKEN_OPTIONS+=LIBSOFT
 .endif
+.if ${__T} == "mips" || ${__T} == "mips64"
+BROKEN_OPTIONS+=SSP
+.endif
 
 .if ${__T} == "amd64" || ${__T} == "i386" || ${__T} == "aarch64"
 __DEFAULT_YES_OPTIONS+=PIE
