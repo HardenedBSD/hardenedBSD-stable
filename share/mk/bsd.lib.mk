@@ -112,6 +112,10 @@ LDFLAGS+=	-Wl,-z,now
 .endif
 .endif
 
+.if defined(MK_LIBRESSL) && ${MK_LIBRESSL} != "no"
+CFLAGS+=	-DHAVE_LIBRESSL
+.endif
+
 PO_FLAG=-pg
 
 .c.o:
