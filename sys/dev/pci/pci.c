@@ -195,7 +195,7 @@ static device_method_t pci_methods[] = {
 	DEVMETHOD(pci_alloc_devinfo,	pci_alloc_devinfo_method),
 	DEVMETHOD(pci_child_added,	pci_child_added_method),
 #ifdef PCI_IOV
-	DEVMETHOD(pci_iov_attach,	pci_iov_attach_method),
+	DEVMETHOD(pci_iov_attach_name,	pci_iov_attach_method),
 	DEVMETHOD(pci_iov_detach,	pci_iov_detach_method),
 	DEVMETHOD(pci_create_iov_child,	pci_create_iov_child_method),
 #endif
@@ -4070,6 +4070,7 @@ pci_add_child(device_t bus, struct pci_devinfo *dinfo)
 	pci_print_verbose(dinfo);
 	pci_add_resources(bus, dinfo->cfg.dev, 0, 0);
 	pci_child_added(dinfo->cfg.dev);
+	EVENTHANDLER_INVOKE(pci_add_device, dinfo->cfg.dev);
 }
 
 void
@@ -5310,6 +5311,8 @@ pci_child_deleted(device_t dev, device_t child)
 
 	dinfo = device_get_ivars(child);
 	rl = &dinfo->resources;
+
+	EVENTHANDLER_INVOKE(pci_delete_device, child);
 
 	/* Turn off access to resources we're about to free */
 	if (bus_child_present(child) != 0) {
