@@ -86,6 +86,10 @@ LDFLAGS+=	-Wl,-z,now
 .endif
 .endif
 
+.if defined(MK_LIBRESSL) && ${MK_LIBRESSL} != "no"
+CFLAGS+=	-DHAVE_LIBRESSL
+.endif
+
 .if ${MK_DEBUG_FILES} != "no"
 PROG_FULL=${PROG}.full
 # Use ${DEBUGDIR} for base system debug files, else .debug subdirectory
