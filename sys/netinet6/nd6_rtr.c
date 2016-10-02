@@ -1058,7 +1058,7 @@ prelist_remove(struct nd_prefix *pr)
 		/* what should we do? */
 	}
 
-	if (pr->ndpr_refcnt > 0)
+	if (pr->ndpr_addrcnt > 0)
 		return;		/* notice here? */
 
 	/* unlink ndpr_entry from nd_prefix list */
@@ -1361,7 +1361,7 @@ prelist_update(struct nd_prefixctl *new, struct nd_defrouter *dr,
 			/*
 			 * note that we should use pr (not new) for reference.
 			 */
-			pr->ndpr_refcnt++;
+			pr->ndpr_addrcnt++;
 			ia6->ia6_ndpr = pr;
 
 			/*
@@ -2119,7 +2119,7 @@ in6_tmpifadd(const struct in6_ifaddr *ia0, int forcegen, int delay)
 		return (EINVAL); /* XXX */
 	}
 	newia->ia6_ndpr = ia0->ia6_ndpr;
-	newia->ia6_ndpr->ndpr_refcnt++;
+	newia->ia6_ndpr->ndpr_addrcnt++;
 	ifa_free(&newia->ia_ifa);
 
 	/*
