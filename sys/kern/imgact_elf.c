@@ -448,14 +448,8 @@ __elfN(map_insert)(vm_map_t map, vm_object_t object, vm_ooffset_t offset,
 			 * to copy the data. Sigh.
 			 */
 			rv = vm_map_find(map, NULL, 0, &start, end - start, 0,
-<<<<<<< HEAD
 			    VMFS_NO_SPACE, prot | VM_PROT_WRITE, maxprot, 0);
-			if (rv)
-=======
-			    VMFS_NO_SPACE, prot | VM_PROT_WRITE, VM_PROT_ALL,
-			    0);
 			if (rv != KERN_SUCCESS)
->>>>>>> origin/freebsd/current/master
 				return (rv);
 			if (object == NULL)
 				return (KERN_SUCCESS);
