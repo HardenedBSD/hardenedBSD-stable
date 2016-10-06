@@ -68,3 +68,6 @@ PAX_ASLR_DELTA_MAP32BIT_DEF_LEN	opt_pax.h
 PAX_ASLR_DELTA_MAP32BIT_MIN_LEN	opt_pax.h
 PAX_ASLR_DELTA_MAP32BIT_MAX_LEN	opt_pax.h
 PAX_ASLR_DELTA_MAP32BIT_LSB	opt_pax.h
+
+# EFI Runtime services support
+EFIRT			opt_efirt.h
