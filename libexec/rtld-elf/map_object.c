@@ -49,23 +49,23 @@ static int convert_flags(int); /* Elf flags -> mmap flags */
 #define	MAX_RANDOM_PAGES	512
 #endif
 
-static size_t get_random_page_size(size_t);
+static unsigned int get_random_page_size(void);
 
-static size_t
-get_random_page_size(size_t maxpages)
+static unsigned int
+get_random_page_size(void)
 {
-	size_t pages;
+	unsigned int pages;
 	int mib[2];
 	size_t sz;
 
 	mib[0] = CTL_KERN;
 	mib[1] = KERN_ARND;
-	sz = sizeof(pages);
+	sz = sizeof(unsigned int);
 
 	if (sysctl(mib, 2, &pages, &sz, NULL, 0))
 		return (0);
 
-	return (pages % maxpages);
+	return (pages % MAX_RANDOM_PAGES);
 }
 
 #endif
@@ -247,10 +247,10 @@ map_object(int fd, const char *path, const struct stat *sb)
     }
 
 #ifdef HARDENEDBSD
-    nrandom_pages = get_random_page_size(MAX_RANDOM_PAGES);
+    nrandom_pages = get_random_page_size();
     if (nrandom_pages) {
 	gapsize = getpagesize() * nrandom_pages;
-	random_gap = (caddr_t) round_page((Elf_Addr) mapbase + mapsize);
+	random_gap = (caddr_t) trunc_page((Elf_Addr) mapbase - gapsize);
 	gapbase = mmap(random_gap, gapsize, PROT_NONE,
 	    MAP_SHARED | MAP_ANON, -1, 0);
 	if (gapbase == (caddr_t) -1) {
