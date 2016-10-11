@@ -82,19 +82,6 @@ typedef uint8_t	hv_bool_uint8_t;
 #define VMBUS_VERSION_MAJOR(ver)	(((uint32_t)(ver)) >> 16)
 #define VMBUS_VERSION_MINOR(ver)	(((uint32_t)(ver)) & 0xffff)
 
-#define HV_MAX_PAGE_BUFFER_COUNT	32
-#define HV_MAX_MULTIPAGE_BUFFER_COUNT	32
-
-#define HV_ALIGN_UP(value, align)					\
-		(((value) & (align-1)) ?				\
-		    (((value) + (align-1)) & ~(align-1) ) : (value))
-
-#define HV_ALIGN_DOWN(value, align) ( (value) & ~(align-1) )
-
-#define HV_NUM_PAGES_SPANNED(addr, len)					\
-		((HV_ALIGN_UP(addr+len, PAGE_SIZE) -			\
-		    HV_ALIGN_DOWN(addr, PAGE_SIZE)) >> PAGE_SHIFT )
-
 struct hyperv_guid {
 	uint8_t		hv_guid[16];
 } __packed;
@@ -124,25 +111,6 @@ typedef struct {
 	uint32_t		range_count;
 	hv_vm_transfer_page	ranges[1];
 } __packed hv_vm_transfer_page_packet_header;
-
-typedef enum {
-	HV_VMBUS_PACKET_TYPE_INVALID				= 0x0,
-	HV_VMBUS_PACKET_TYPES_SYNCH				= 0x1,
-	HV_VMBUS_PACKET_TYPE_ADD_TRANSFER_PAGE_SET		= 0x2,
-	HV_VMBUS_PACKET_TYPE_REMOVE_TRANSFER_PAGE_SET		= 0x3,
-	HV_VMBUS_PACKET_TYPE_ESTABLISH_GPADL			= 0x4,
-	HV_VMBUS_PACKET_TYPE_TEAR_DOWN_GPADL			= 0x5,
-	HV_VMBUS_PACKET_TYPE_DATA_IN_BAND			= 0x6,
-	HV_VMBUS_PACKET_TYPE_DATA_USING_TRANSFER_PAGES		= 0x7,
-	HV_VMBUS_PACKET_TYPE_DATA_USING_GPADL			= 0x8,
-	HV_VMBUS_PACKET_TYPE_DATA_USING_GPA_DIRECT		= 0x9,
-	HV_VMBUS_PACKET_TYPE_CANCEL_REQUEST			= 0xa,
-	HV_VMBUS_PACKET_TYPE_COMPLETION				= 0xb,
-	HV_VMBUS_PACKET_TYPE_DATA_USING_ADDITIONAL_PACKETS	= 0xc,
-	HV_VMBUS_PACKET_TYPE_ADDITIONAL_DATA = 0xd
-} hv_vmbus_packet_type;
-
-#define HV_VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED    1
 
 #define HW_MACADDR_LEN	6
 
@@ -225,24 +193,12 @@ typedef struct {
 } __packed hv_vmbus_ring_buffer;
 
 typedef struct {
-	int		length;
-	int		offset;
-	uint64_t	pfn;
-} __packed hv_vmbus_page_buffer;
-
-typedef struct {
-	int		length;
-	int		offset;
-	uint64_t	pfn_array[HV_MAX_MULTIPAGE_BUFFER_COUNT];
-} __packed hv_vmbus_multipage_buffer;
-
-typedef struct {
 	hv_vmbus_ring_buffer*	ring_buffer;
 	struct mtx		ring_lock;
 	uint32_t		ring_data_size;	/* ring_size */
 } hv_vmbus_ring_buffer_info;
 
-typedef void (*hv_vmbus_pfn_channel_callback)(void *context);
+typedef void	(*vmbus_chan_callback_t)(void *);
 
 typedef struct hv_vmbus_channel {
 	device_t			ch_dev;
@@ -266,24 +222,21 @@ typedef struct hv_vmbus_channel {
 	 */
 	hv_vmbus_ring_buffer_info	inbound;
 
-	struct taskqueue *		rxq;
-	struct task			channel_task;
-	hv_vmbus_pfn_channel_callback	on_channel_callback;
-	void*				channel_callback_context;
+	struct taskqueue		*ch_tq;
+	struct task			ch_task;
+	vmbus_chan_callback_t		ch_cb;
+	void				*ch_cbarg;
 
 	struct hyperv_mon_param		*ch_monprm;
 	struct hyperv_dma		ch_monprm_dma;
 
+	int				ch_cpuid;	/* owner cpu */
 	/*
-	 * From Win8, this field specifies the target virtual process
-	 * on which to deliver the interupt from the host to guest.
-	 * Before Win8, all channel interrupts would only be
-	 * delivered on cpu 0. Setting this value to 0 would preserve
-	 * the earlier behavior.
+	 * Virtual cpuid for ch_cpuid; it is used to communicate cpuid
+	 * related information w/ Hyper-V.  If MSR_HV_VP_INDEX does not
+	 * exist, ch_vcpuid will always be 0 for compatibility.
 	 */
-	uint32_t			target_vcpu;
-	/* The corresponding CPUID in the guest */
-	uint32_t			target_cpu;
+	uint32_t			ch_vcpuid;
 
 	/*
 	 * If this is a primary channel, ch_subchan* fields
@@ -365,9 +318,8 @@ int		hv_vmbus_channel_open(
 				uint32_t		recv_ring_buffer_size,
 				void*			user_data,
 				uint32_t		user_data_len,
-				hv_vmbus_pfn_channel_callback
-							pfn_on_channel_callback,
-				void*			context);
+				vmbus_chan_callback_t	cb,
+				void			*cbarg);
 
 void		hv_vmbus_channel_close(hv_vmbus_channel *channel);
 
@@ -376,23 +328,8 @@ int		hv_vmbus_channel_send_packet(
 				void*			buffer,
 				uint32_t		buffer_len,
 				uint64_t		request_id,
-				hv_vmbus_packet_type	type,
-				uint32_t		flags);
-
-int		hv_vmbus_channel_send_packet_pagebuffer(
-				hv_vmbus_channel*	channel,
-				hv_vmbus_page_buffer	page_buffers[],
-				uint32_t		page_count,
-				void*			buffer,
-				uint32_t		buffer_len,
-				uint64_t		request_id);
-
-int		hv_vmbus_channel_send_packet_multipagebuffer(
-				hv_vmbus_channel*	    channel,
-				hv_vmbus_multipage_buffer*  multi_page_buffer,
-				void*			    buffer,
-				uint32_t		    buffer_len,
-				uint64_t		    request_id);
+				uint16_t		type,
+				uint16_t		flags);
 
 int		hv_vmbus_channel_establish_gpadl(
 				hv_vmbus_channel*	channel,

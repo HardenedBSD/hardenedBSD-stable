@@ -157,7 +157,7 @@ vmbus_channel_sysctl_create(hv_vmbus_channel* channel)
 		    &channel->ch_id, 0, "channel id");
 	}
 	SYSCTL_ADD_UINT(ctx, SYSCTL_CHILDREN(devch_id_sysctl), OID_AUTO,
-	    "cpu", CTLFLAG_RD, &channel->target_cpu, 0, "owner CPU id");
+	    "cpu", CTLFLAG_RD, &channel->ch_cpuid, 0, "owner CPU id");
 	SYSCTL_ADD_PROC(ctx, SYSCTL_CHILDREN(devch_id_sysctl), OID_AUTO,
 	    "monitor_allocated", CTLTYPE_INT | CTLFLAG_RD | CTLFLAG_MPSAFE,
 	    channel, 0, vmbus_channel_sysctl_monalloc, "I",
@@ -193,8 +193,8 @@ hv_vmbus_channel_open(
 	uint32_t			recv_ring_buffer_size,
 	void*				user_data,
 	uint32_t			user_data_len,
-	hv_vmbus_pfn_channel_callback	pfn_on_channel_callback,
-	void* 				context)
+	vmbus_chan_callback_t		cb,
+	void				*cbarg)
 {
 	struct vmbus_softc *sc = new_channel->vmbus_sc;
 	const struct vmbus_chanmsg_chopen_resp *resp;
@@ -220,19 +220,19 @@ hv_vmbus_channel_open(
 	    VMBUS_CHAN_ST_OPENED_SHIFT))
 		panic("double-open chan%u", new_channel->ch_id);
 
-	new_channel->on_channel_callback = pfn_on_channel_callback;
-	new_channel->channel_callback_context = context;
+	new_channel->ch_cb = cb;
+	new_channel->ch_cbarg = cbarg;
 
 	vmbus_chan_update_evtflagcnt(sc, new_channel);
 
-	new_channel->rxq = VMBUS_PCPU_GET(new_channel->vmbus_sc, event_tq,
-	    new_channel->target_cpu);
+	new_channel->ch_tq = VMBUS_PCPU_GET(new_channel->vmbus_sc, event_tq,
+	    new_channel->ch_cpuid);
 	if (new_channel->ch_flags & VMBUS_CHAN_FLAG_BATCHREAD) {
-		TASK_INIT(&new_channel->channel_task, 0,
-		    vmbus_chan_task, new_channel);
+		TASK_INIT(&new_channel->ch_task, 0, vmbus_chan_task,
+		    new_channel);
 	} else {
-		TASK_INIT(&new_channel->channel_task, 0,
-		    vmbus_chan_task_nobatch, new_channel);
+		TASK_INIT(&new_channel->ch_task, 0, vmbus_chan_task_nobatch,
+		    new_channel);
 	}
 
 	/*
@@ -290,7 +290,7 @@ hv_vmbus_channel_open(
 	req->chm_chanid = new_channel->ch_id;
 	req->chm_openid = new_channel->ch_id;
 	req->chm_gpadl = new_channel->ch_bufring_gpadl;
-	req->chm_vcpuid = new_channel->target_vcpu;
+	req->chm_vcpuid = new_channel->ch_vcpuid;
 	req->chm_rxbr_pgofs = send_ring_buffer_size >> PAGE_SHIFT;
 	if (user_data_len)
 		memcpy(req->chm_udata, user_data, user_data_len);
@@ -521,7 +521,7 @@ hv_vmbus_channel_close_internal(hv_vmbus_channel *channel)
 	struct vmbus_softc *sc = channel->vmbus_sc;
 	struct vmbus_msghc *mh;
 	struct vmbus_chanmsg_chclose *req;
-	struct taskqueue *rxq = channel->rxq;
+	struct taskqueue *tq = channel->ch_tq;
 	int error;
 
 	/* TODO: stringent check */
@@ -530,11 +530,11 @@ hv_vmbus_channel_close_internal(hv_vmbus_channel *channel)
 	sysctl_ctx_free(&channel->ch_sysctl_ctx);
 
 	/*
-	 * set rxq to NULL to avoid more requests be scheduled
+	 * Set ch_tq to NULL to avoid more requests be scheduled
 	 */
-	channel->rxq = NULL;
-	taskqueue_drain(rxq, &channel->channel_task);
-	channel->on_channel_callback = NULL;
+	channel->ch_tq = NULL;
+	taskqueue_drain(tq, &channel->ch_task);
+	channel->ch_cb = NULL;
 
 	/**
 	 * Send a closing message
@@ -621,194 +621,119 @@ hv_vmbus_channel_close(struct hv_vmbus_channel *chan)
 	hv_vmbus_channel_close_internal(chan);
 }
 
-/**
- * @brief Send the specified buffer on the given channel
- */
 int
-hv_vmbus_channel_send_packet(
-	hv_vmbus_channel*	channel,
-	void*			buffer,
-	uint32_t		buffer_len,
-	uint64_t		request_id,
-	hv_vmbus_packet_type	type,
-	uint32_t		flags)
+hv_vmbus_channel_send_packet(struct hv_vmbus_channel *chan,
+    void *data, uint32_t dlen, uint64_t xactid, uint16_t type, uint16_t flags)
 {
-	int			ret = 0;
-	hv_vm_packet_descriptor	desc;
-	uint32_t		packet_len;
-	uint64_t		aligned_data;
-	uint32_t		packet_len_aligned;
-	boolean_t		need_sig;
-	struct iovec		iov[3];
+	struct vmbus_chanpkt pkt;
+	int pktlen, pad_pktlen, hlen, error;
+	uint64_t pad = 0;
+	struct iovec iov[3];
+	boolean_t send_evt;
 
-	packet_len = sizeof(hv_vm_packet_descriptor) + buffer_len;
-	packet_len_aligned = HV_ALIGN_UP(packet_len, sizeof(uint64_t));
-	aligned_data = 0;
+	hlen = sizeof(pkt);
+	pktlen = hlen + dlen;
+	pad_pktlen = roundup2(pktlen, VMBUS_CHANPKT_SIZE_ALIGN);
 
-	/* Setup the descriptor */
-	desc.type = type;   /* HV_VMBUS_PACKET_TYPE_DATA_IN_BAND;             */
-	desc.flags = flags; /* HV_VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED */
-			    /* in 8-bytes granularity */
-	desc.data_offset8 = sizeof(hv_vm_packet_descriptor) >> 3;
-	desc.length8 = (uint16_t) (packet_len_aligned >> 3);
-	desc.transaction_id = request_id;
+	pkt.cp_hdr.cph_type = type;
+	pkt.cp_hdr.cph_flags = flags;
+	pkt.cp_hdr.cph_data_ofs = hlen >> VMBUS_CHANPKT_SIZE_SHIFT;
+	pkt.cp_hdr.cph_len = pad_pktlen >> VMBUS_CHANPKT_SIZE_SHIFT;
+	pkt.cp_hdr.cph_xactid = xactid;
 
-	iov[0].iov_base = &desc;
-	iov[0].iov_len = sizeof(hv_vm_packet_descriptor);
+	iov[0].iov_base = &pkt;
+	iov[0].iov_len = hlen;
+	iov[1].iov_base = data;
+	iov[1].iov_len = dlen;
+	iov[2].iov_base = &pad;
+	iov[2].iov_len = pad_pktlen - pktlen;
 
-	iov[1].iov_base = buffer;
-	iov[1].iov_len = buffer_len;
-
-	iov[2].iov_base = &aligned_data;
-	iov[2].iov_len = packet_len_aligned - packet_len;
-
-	ret = hv_ring_buffer_write(&channel->outbound, iov, 3, &need_sig);
-
-	/* TODO: We should determine if this is optional */
-	if (ret == 0 && need_sig)
-		vmbus_chan_send_event(channel);
-
-	return (ret);
+	error = hv_ring_buffer_write(&chan->outbound, iov, 3, &send_evt);
+	if (!error && send_evt)
+		vmbus_chan_send_event(chan);
+	return error;
 }
 
-/**
- * @brief Send a range of single-page buffer packets using
- * a GPADL Direct packet type
- */
 int
-hv_vmbus_channel_send_packet_pagebuffer(
-	hv_vmbus_channel*	channel,
-	hv_vmbus_page_buffer	page_buffers[],
-	uint32_t		page_count,
-	void*			buffer,
-	uint32_t		buffer_len,
-	uint64_t		request_id)
+vmbus_chan_send_sglist(struct hv_vmbus_channel *chan,
+    struct vmbus_gpa sg[], int sglen, void *data, int dlen, uint64_t xactid)
 {
+	struct vmbus_chanpkt_sglist pkt;
+	int pktlen, pad_pktlen, hlen, error;
+	struct iovec iov[4];
+	boolean_t send_evt;
+	uint64_t pad = 0;
 
-	int					ret = 0;
-	boolean_t				need_sig;
-	uint32_t				packet_len;
-	uint32_t				page_buflen;
-	uint32_t				packetLen_aligned;
-	struct iovec				iov[4];
-	hv_vmbus_channel_packet_page_buffer	desc;
-	uint32_t				descSize;
-	uint64_t				alignedData = 0;
+	KASSERT(sglen < VMBUS_CHAN_SGLIST_MAX,
+	    ("invalid sglist len %d", sglen));
 
-	if (page_count > HV_MAX_PAGE_BUFFER_COUNT)
-		return (EINVAL);
+	hlen = __offsetof(struct vmbus_chanpkt_sglist, cp_gpa[sglen]);
+	pktlen = hlen + dlen;
+	pad_pktlen = roundup2(pktlen, VMBUS_CHANPKT_SIZE_ALIGN);
 
-	/*
-	 * Adjust the size down since hv_vmbus_channel_packet_page_buffer
-	 *  is the largest size we support
-	 */
-	descSize = __offsetof(hv_vmbus_channel_packet_page_buffer, range);
-	page_buflen = sizeof(hv_vmbus_page_buffer) * page_count;
-	packet_len = descSize + page_buflen + buffer_len;
-	packetLen_aligned = HV_ALIGN_UP(packet_len, sizeof(uint64_t));
+	pkt.cp_hdr.cph_type = VMBUS_CHANPKT_TYPE_GPA;
+	pkt.cp_hdr.cph_flags = VMBUS_CHANPKT_FLAG_RC;
+	pkt.cp_hdr.cph_data_ofs = hlen >> VMBUS_CHANPKT_SIZE_SHIFT;
+	pkt.cp_hdr.cph_len = pad_pktlen >> VMBUS_CHANPKT_SIZE_SHIFT;
+	pkt.cp_hdr.cph_xactid = xactid;
+	pkt.cp_rsvd = 0;
+	pkt.cp_gpa_cnt = sglen;
 
-	/* Setup the descriptor */
-	desc.type = HV_VMBUS_PACKET_TYPE_DATA_USING_GPA_DIRECT;
-	desc.flags = HV_VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED;
-	/* in 8-bytes granularity */
-	desc.data_offset8 = (descSize + page_buflen) >> 3;
-	desc.length8 = (uint16_t) (packetLen_aligned >> 3);
-	desc.transaction_id = request_id;
-	desc.range_count = page_count;
+	iov[0].iov_base = &pkt;
+	iov[0].iov_len = sizeof(pkt);
+	iov[1].iov_base = sg;
+	iov[1].iov_len = sizeof(struct vmbus_gpa) * sglen;
+	iov[2].iov_base = data;
+	iov[2].iov_len = dlen;
+	iov[3].iov_base = &pad;
+	iov[3].iov_len = pad_pktlen - pktlen;
 
-	iov[0].iov_base = &desc;
-	iov[0].iov_len = descSize;
-
-	iov[1].iov_base = page_buffers;
-	iov[1].iov_len = page_buflen;
-
-	iov[2].iov_base = buffer;
-	iov[2].iov_len = buffer_len;
-
-	iov[3].iov_base = &alignedData;
-	iov[3].iov_len = packetLen_aligned - packet_len;
-
-	ret = hv_ring_buffer_write(&channel->outbound, iov, 4, &need_sig);
-
-	/* TODO: We should determine if this is optional */
-	if (ret == 0 && need_sig)
-		vmbus_chan_send_event(channel);
-
-	return (ret);
+	error = hv_ring_buffer_write(&chan->outbound, iov, 4, &send_evt);
+	if (!error && send_evt)
+		vmbus_chan_send_event(chan);
+	return error;
 }
 
-/**
- * @brief Send a multi-page buffer packet using a GPADL Direct packet type
- */
 int
-hv_vmbus_channel_send_packet_multipagebuffer(
-	hv_vmbus_channel*		channel,
-	hv_vmbus_multipage_buffer*	multi_page_buffer,
-	void*				buffer,
-	uint32_t			buffer_len,
-	uint64_t			request_id)
+vmbus_chan_send_prplist(struct hv_vmbus_channel *chan,
+    struct vmbus_gpa_range *prp, int prp_cnt, void *data, int dlen,
+    uint64_t xactid)
 {
+	struct vmbus_chanpkt_prplist pkt;
+	int pktlen, pad_pktlen, hlen, error;
+	struct iovec iov[4];
+	boolean_t send_evt;
+	uint64_t pad = 0;
 
-	int			ret = 0;
-	uint32_t		desc_size;
-	boolean_t		need_sig;
-	uint32_t		packet_len;
-	uint32_t		packet_len_aligned;
-	uint32_t		pfn_count;
-	uint64_t		aligned_data = 0;
-	struct iovec		iov[3];
-	hv_vmbus_channel_packet_multipage_buffer desc;
+	KASSERT(prp_cnt < VMBUS_CHAN_PRPLIST_MAX,
+	    ("invalid prplist entry count %d", prp_cnt));
 
-	pfn_count =
-	    HV_NUM_PAGES_SPANNED(
-		    multi_page_buffer->offset,
-		    multi_page_buffer->length);
+	hlen = __offsetof(struct vmbus_chanpkt_prplist,
+	    cp_range[0].gpa_page[prp_cnt]);
+	pktlen = hlen + dlen;
+	pad_pktlen = roundup2(pktlen, VMBUS_CHANPKT_SIZE_ALIGN);
 
-	if ((pfn_count == 0) || (pfn_count > HV_MAX_MULTIPAGE_BUFFER_COUNT))
-	    return (EINVAL);
-	/*
-	 * Adjust the size down since hv_vmbus_channel_packet_multipage_buffer
-	 * is the largest size we support
-	 */
-	desc_size =
-	    sizeof(hv_vmbus_channel_packet_multipage_buffer) -
-		    ((HV_MAX_MULTIPAGE_BUFFER_COUNT - pfn_count) *
-			sizeof(uint64_t));
-	packet_len = desc_size + buffer_len;
-	packet_len_aligned = HV_ALIGN_UP(packet_len, sizeof(uint64_t));
+	pkt.cp_hdr.cph_type = VMBUS_CHANPKT_TYPE_GPA;
+	pkt.cp_hdr.cph_flags = VMBUS_CHANPKT_FLAG_RC;
+	pkt.cp_hdr.cph_data_ofs = hlen >> VMBUS_CHANPKT_SIZE_SHIFT;
+	pkt.cp_hdr.cph_len = pad_pktlen >> VMBUS_CHANPKT_SIZE_SHIFT;
+	pkt.cp_hdr.cph_xactid = xactid;
+	pkt.cp_rsvd = 0;
+	pkt.cp_range_cnt = 1;
 
-	/*
-	 * Setup the descriptor
-	 */
-	desc.type = HV_VMBUS_PACKET_TYPE_DATA_USING_GPA_DIRECT;
-	desc.flags = HV_VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED;
-	desc.data_offset8 = desc_size >> 3; /* in 8-bytes granularity */
-	desc.length8 = (uint16_t) (packet_len_aligned >> 3);
-	desc.transaction_id = request_id;
-	desc.range_count = 1;
+	iov[0].iov_base = &pkt;
+	iov[0].iov_len = sizeof(pkt);
+	iov[1].iov_base = prp;
+	iov[1].iov_len = __offsetof(struct vmbus_gpa_range, gpa_page[prp_cnt]);
+	iov[2].iov_base = data;
+	iov[2].iov_len = dlen;
+	iov[3].iov_base = &pad;
+	iov[3].iov_len = pad_pktlen - pktlen;
 
-	desc.range.length = multi_page_buffer->length;
-	desc.range.offset = multi_page_buffer->offset;
-
-	memcpy(desc.range.pfn_array, multi_page_buffer->pfn_array,
-		pfn_count * sizeof(uint64_t));
-
-	iov[0].iov_base = &desc;
-	iov[0].iov_len = desc_size;
-
-	iov[1].iov_base = buffer;
-	iov[1].iov_len = buffer_len;
-
-	iov[2].iov_base = &aligned_data;
-	iov[2].iov_len = packet_len_aligned - packet_len;
-
-	ret = hv_ring_buffer_write(&channel->outbound, iov, 3, &need_sig);
-
-	/* TODO: We should determine if this is optional */
-	if (ret == 0 && need_sig)
-		vmbus_chan_send_event(channel);
-
-	return (ret);
+	error = hv_ring_buffer_write(&chan->outbound, iov, 4, &send_evt);
+	if (!error && send_evt)
+		vmbus_chan_send_event(chan);
+	return error;
 }
 
 /**
@@ -895,11 +820,8 @@ static void
 vmbus_chan_task(void *xchan, int pending __unused)
 {
 	struct hv_vmbus_channel *chan = xchan;
-	void (*callback)(void *);
-	void *arg;
-
-	arg = chan->channel_callback_context;
-	callback = chan->on_channel_callback;
+	vmbus_chan_callback_t cb = chan->ch_cb;
+	void *cbarg = chan->ch_cbarg;
 
 	/*
 	 * Optimize host to guest signaling by ensuring:
@@ -916,7 +838,7 @@ vmbus_chan_task(void *xchan, int pending __unused)
 	for (;;) {
 		uint32_t left;
 
-		callback(arg);
+		cb(cbarg);
 
 		left = hv_ring_buffer_read_end(&chan->inbound);
 		if (left == 0) {
@@ -932,7 +854,7 @@ vmbus_chan_task_nobatch(void *xchan, int pending __unused)
 {
 	struct hv_vmbus_channel *chan = xchan;
 
-	chan->on_channel_callback(chan->channel_callback_context);
+	chan->ch_cb(chan->ch_cbarg);
 }
 
 static __inline void
@@ -961,12 +883,12 @@ vmbus_event_flags_proc(struct vmbus_softc *sc, volatile u_long *event_flags,
 			channel = sc->vmbus_chmap[chid_base + chid_ofs];
 
 			/* if channel is closed or closing */
-			if (channel == NULL || channel->rxq == NULL)
+			if (channel == NULL || channel->ch_tq == NULL)
 				continue;
 
 			if (channel->ch_flags & VMBUS_CHAN_FLAG_BATCHREAD)
 				hv_ring_buffer_read_begin(&channel->inbound);
-			taskqueue_enqueue(channel->rxq, &channel->channel_task);
+			taskqueue_enqueue(channel->ch_tq, &channel->ch_task);
 		}
 	}
 }
@@ -1005,7 +927,7 @@ vmbus_chan_update_evtflagcnt(struct vmbus_softc *sc,
 	int flag_cnt;
 
 	flag_cnt = (chan->ch_id / VMBUS_EVTFLAG_LEN) + 1;
-	flag_cnt_ptr = VMBUS_PCPU_PTR(sc, event_flags_cnt, chan->target_cpu);
+	flag_cnt_ptr = VMBUS_PCPU_PTR(sc, event_flags_cnt, chan->ch_cpuid);
 
 	for (;;) {
 		int old_flag_cnt;
@@ -1017,8 +939,7 @@ vmbus_chan_update_evtflagcnt(struct vmbus_softc *sc,
 			if (bootverbose) {
 				device_printf(sc->vmbus_dev,
 				    "channel%u update cpu%d flag_cnt to %d\n",
-				    chan->ch_id,
-				    chan->target_cpu, flag_cnt);
+				    chan->ch_id, chan->ch_cpuid, flag_cnt);
 			}
 			break;
 		}
@@ -1162,13 +1083,12 @@ vmbus_channel_cpu_set(struct hv_vmbus_channel *chan, int cpu)
 		cpu = 0;
 	}
 
-	chan->target_cpu = cpu;
-	chan->target_vcpu = VMBUS_PCPU_GET(chan->vmbus_sc, vcpuid, cpu);
+	chan->ch_cpuid = cpu;
+	chan->ch_vcpuid = VMBUS_PCPU_GET(chan->vmbus_sc, vcpuid, cpu);
 
 	if (bootverbose) {
 		printf("vmbus_chan%u: assigned to cpu%u [vcpu%u]\n",
-		    chan->ch_id,
-		    chan->target_cpu, chan->target_vcpu);
+		    chan->ch_id, chan->ch_cpuid, chan->ch_vcpuid);
 	}
 }
 
@@ -1401,17 +1321,17 @@ vmbus_select_outgoing_channel(struct hv_vmbus_channel *primary)
 			continue;
 		}
 
-		if (new_channel->target_vcpu == cur_vcpu){
+		if (new_channel->ch_vcpuid == cur_vcpu){
 			return new_channel;
 		}
 
-		old_cpu_distance = ((outgoing_channel->target_vcpu > cur_vcpu) ?
-		    (outgoing_channel->target_vcpu - cur_vcpu) :
-		    (cur_vcpu - outgoing_channel->target_vcpu));
+		old_cpu_distance = ((outgoing_channel->ch_vcpuid > cur_vcpu) ?
+		    (outgoing_channel->ch_vcpuid - cur_vcpu) :
+		    (cur_vcpu - outgoing_channel->ch_vcpuid));
 
-		new_cpu_distance = ((new_channel->target_vcpu > cur_vcpu) ?
-		    (new_channel->target_vcpu - cur_vcpu) :
-		    (cur_vcpu - new_channel->target_vcpu));
+		new_cpu_distance = ((new_channel->ch_vcpuid > cur_vcpu) ?
+		    (new_channel->ch_vcpuid - cur_vcpu) :
+		    (cur_vcpu - new_channel->ch_vcpuid));
 
 		if (old_cpu_distance < new_cpu_distance) {
 			continue;
