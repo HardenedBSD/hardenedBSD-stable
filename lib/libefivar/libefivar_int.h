@@ -26,32 +26,10 @@
  * $FreeBSD$
  */
 
-#ifndef _LIBEFI_H_
-#define	_LIBEFI_H_
+#ifndef _LIBEFI_INT_H_
+#define	_LIBEFI_INT_H_
 
-#include <sys/types.h>
-#include <sys/uuid.h>
-#include <stddef.h>
+int libefi_ucs2_to_utf8(const efi_char *, char **);
+int libefi_utf8_to_ucs2(const char *, efi_char **, size_t *);
 
-/* Attributes. */
-#define	EFI_ATTR_NV	0x0001	/* Variable stored in NVRAM. */
-#define	EFI_ATTR_BS	0x0002	/* Boot services accessable. */
-#define	EFI_ATTR_RT	0x0004	/* Runtime accessable. */
-#define	EFI_ATTR_HR	0x0008	/* Hardware error record. */
-#define	EFI_ATTR_WR	0x0010	/* Authenticated write access. */
-
-/* Vendor for architecturally defined variables. */
-#define	EFI_GLOBAL_VARIABLE	\
-	{0x8be4df61,0x93ca,0x11d2,0xaa,0x0d,{0x00,0xe0,0x98,0x03,0x2b,0x8c}}
-
-/* Vendor for FreeBSD-specific variables. */
-#define	EFI_FREEBSD_VARIABLE	\
-	{0x13c32014,0x0c9c,0x11df,0xa2,0x38,{0x00,0x17,0xa4,0xab,0x91,0x2d}}
-
-__BEGIN_DECLS
-int	efi_getvar	(char *, uuid_t *, uint32_t *, size_t *, void *);
-int	efi_nextvarname	(size_t *, char *, uuid_t *);
-int	efi_setvar	(char *, uuid_t *, uint32_t, size_t, void *);
-__END_DECLS
-
-#endif /* _LIBEFI_H_ */
+#endif /* _LIBEFI_INT_H_ */

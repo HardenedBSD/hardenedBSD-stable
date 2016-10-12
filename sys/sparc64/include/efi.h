@@ -1,6 +1,9 @@
 /*-
- * Copyright (c) 2010 Marcel Moolenaar
+ * Copyright (c) 2016 The FreeBSD Foundation
  * All rights reserved.
+ *
+ * This software was developed by Konstantin Belousov <kib@FreeBSD.org>
+ * under sponsorship from the FreeBSD Foundation.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -14,7 +17,7 @@
  * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
  * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
@@ -22,45 +25,15 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
+ * $FreeBSD$
  */
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
+#ifndef __SPARC64_INCLUDE_EFI_H_
+#define __SPARC64_INCLUDE_EFI_H_
 
-#include <libefi.h>
-#include <stdlib.h>
+#define	EFIABI_ATTR
 
-#include "libefi_int.h"
+/* Note: we don't actually support this on sparc64 */
 
-/*
- * EFI_STATUS
- * GetNextVariableName(
- *	IN OUT UINTN	*VariableNameSize,
- *	IN OUT CHAR16	*VariableName,
- *	IN OUT EFI_GUID	*VendorGuid
- *    );
- */
-
-int
-efi_nextvarname(size_t *namesize, char *name, uuid_t *vendor)
-{
-	struct iodev_efivar_req req;
-	int error;
-
-	req.namesize = *namesize;
-	error = libefi_utf8_to_ucs2(name, &req.namesize, &req.name);
-	if (error)
-		return (error);
-
-	req.vendor = *vendor;
-	req.access = IODEV_EFIVAR_NEXTNAME;
-	error = libefi_efivar(&req);
-	*namesize = req.namesize;
-	if (!error) {
-		error = libefi_ucs2_to_utf8(req.name, namesize, name);
-		if (!error)
-			*vendor = req.vendor;
-	}
-	free(req.name);
-	return (error);
-}
+#endif /* __I386_INCLUDE_EFI_H_ */

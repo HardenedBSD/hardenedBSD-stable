@@ -1,6 +1,9 @@
 /*-
- * Copyright (c) 2010 Marcel Moolenaar
+ * Copyright (c) 2016 The FreeBSD Foundation
  * All rights reserved.
+ *
+ * This software was developed by Konstantin Belousov <kib@FreeBSD.org>
+ * under sponsorship from the FreeBSD Foundation.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -14,7 +17,7 @@
  * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
  * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
@@ -26,15 +29,11 @@
  * $FreeBSD$
  */
 
-#ifndef _LIBEFI_INT_H_
-#define	_LIBEFI_INT_H_
+#ifndef __I386_INCLUDE_EFI_H_
+#define __I386_INCLUDE_EFI_H_
 
-#include <sys/errno.h>
-#include <machine/iodev.h>
+#define	EFIABI_ATTR /* __attribute__((ms_abi)) */ /* clang fails with this */
 
-int libefi_ucs2_to_utf8(u_short *, size_t *, char *);
-int libefi_utf8_to_ucs2(char *, size_t *, u_short **);
+/* Note: we don't actually support this on i386 yet */
 
-int libefi_efivar(struct iodev_efivar_req *);
-
-#endif /* _LIBEFI_INT_H_ */
+#endif /* __I386_INCLUDE_EFI_H_ */

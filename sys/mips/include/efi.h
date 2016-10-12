@@ -1,6 +1,9 @@
 /*-
- * Copyright (c) 2010 Marcel Moolenaar
+ * Copyright (c) 2016 The FreeBSD Foundation
  * All rights reserved.
+ *
+ * This software was developed by Konstantin Belousov <kib@FreeBSD.org>
+ * under sponsorship from the FreeBSD Foundation.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -14,7 +17,7 @@
  * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
  * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
@@ -22,45 +25,15 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
+ * $FreeBSD$
  */
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
+#ifndef __MIPS_INCLUDE_EFI_H_
+#define __MIPS_INCLUDE_EFI_H_
 
-#include <libefi.h>
-#include <stdlib.h>
+#define	EFIABI_ATTR
 
-#include "libefi_int.h"
+/* Note: we don't actually support this on mips */
 
-/*
- * EFI_STATUS
- * SetVariable(
- *	IN CHAR16	*VariableName,
- *	IN EFI_GUID	*VendorGuid,
- *	IN UINT32	Attributes,
- *	IN UINTN	DataSize,
- *	IN VOID		*Data
- *    );
- */
-
-int
-efi_setvar(char *name, uuid_t *vendor, uint32_t attrib, size_t datasize,
-    void *data)
-{
-	struct iodev_efivar_req req;
-	int error;
-
-	req.namesize = 0;
-	error = libefi_utf8_to_ucs2(name, &req.namesize, &req.name);
-	if (error)
-		return (error);
-
-	req.vendor = *vendor;
-	req.attrib = attrib;
-	req.datasize = datasize;
-	req.data = data;
-	req.access = IODEV_EFIVAR_SETVAR;
-	error = libefi_efivar(&req);
-	free(req.name);
-	return (error);
-}
+#endif /* __MIPS_INCLUDE_EFI_H_ */
