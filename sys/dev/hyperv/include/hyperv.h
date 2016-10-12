@@ -90,28 +90,6 @@ struct hyperv_guid {
 
 int	hyperv_guid2str(const struct hyperv_guid *, char *, size_t);
 
-typedef struct {
-	uint16_t type;
-	uint16_t data_offset8;
-	uint16_t length8;
-	uint16_t flags;
-	uint64_t transaction_id;
-} __packed hv_vm_packet_descriptor;
-
-typedef struct {
-	uint32_t byte_count;
-	uint32_t byte_offset;
-} __packed hv_vm_transfer_page;
-
-typedef struct {
-	hv_vm_packet_descriptor	d;
-	uint16_t		transfer_page_set_id;
-	hv_bool_uint8_t		sender_owns_set;
-	uint8_t			reserved;
-	uint32_t		range_count;
-	hv_vm_transfer_page	ranges[1];
-} __packed hv_vm_transfer_page_packet_header;
-
 #define HW_MACADDR_LEN	6
 
 /*
@@ -288,72 +266,6 @@ typedef struct hv_vmbus_channel {
 
 #define VMBUS_CHAN_ST_OPENED_SHIFT	0
 #define VMBUS_CHAN_ST_OPENED		(1 << VMBUS_CHAN_ST_OPENED_SHIFT)
-
-static inline void
-hv_set_channel_read_state(hv_vmbus_channel* channel, boolean_t on)
-{
-	if (!on)
-		channel->ch_flags &= ~VMBUS_CHAN_FLAG_BATCHREAD;
-	else
-		channel->ch_flags |= VMBUS_CHAN_FLAG_BATCHREAD;
-}
-
-int		hv_vmbus_channel_recv_packet(
-				hv_vmbus_channel*	channel,
-				void*			buffer,
-				uint32_t		buffer_len,
-				uint32_t*		buffer_actual_len,
-				uint64_t*		request_id);
-
-int		hv_vmbus_channel_recv_packet_raw(
-				hv_vmbus_channel*	channel,
-				void*			buffer,
-				uint32_t		buffer_len,
-				uint32_t*		buffer_actual_len,
-				uint64_t*		request_id);
-
-int		hv_vmbus_channel_open(
-				hv_vmbus_channel*	channel,
-				uint32_t		send_ring_buffer_size,
-				uint32_t		recv_ring_buffer_size,
-				void*			user_data,
-				uint32_t		user_data_len,
-				vmbus_chan_callback_t	cb,
-				void			*cbarg);
-
-void		hv_vmbus_channel_close(hv_vmbus_channel *channel);
-
-int		hv_vmbus_channel_send_packet(
-				hv_vmbus_channel*	channel,
-				void*			buffer,
-				uint32_t		buffer_len,
-				uint64_t		request_id,
-				uint16_t		type,
-				uint16_t		flags);
-
-int		hv_vmbus_channel_establish_gpadl(
-				hv_vmbus_channel*	channel,
-				/* must be phys and virt contiguous */
-				void*			contig_buffer,
-				/*  page-size multiple	*/
-				uint32_t		size,
-				uint32_t*		gpadl_handle);
-
-int		hv_vmbus_channel_teardown_gpdal(
-				hv_vmbus_channel*	channel,
-				uint32_t		gpadl_handle);
-
-int		vmbus_chan_gpadl_connect(struct hv_vmbus_channel *chan,
-		    bus_addr_t paddr, int size, uint32_t *gpadl);
-
-struct hv_vmbus_channel* vmbus_select_outgoing_channel(struct hv_vmbus_channel *promary);
-
-void		vmbus_channel_cpu_set(struct hv_vmbus_channel *chan, int cpu);
-void		vmbus_channel_cpu_rr(struct hv_vmbus_channel *chan);
-struct hv_vmbus_channel **
-		vmbus_get_subchan(struct hv_vmbus_channel *pri_chan, int subchan_cnt);
-void		vmbus_rel_subchan(struct hv_vmbus_channel **subchan, int subchan_cnt);
-void		vmbus_drain_subchan(struct hv_vmbus_channel *pri_chan);
 
 /**
  * @brief Get physical address from virtual

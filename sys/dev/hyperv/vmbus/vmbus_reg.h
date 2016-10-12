@@ -112,16 +112,15 @@ CTASSERT(sizeof(struct vmbus_mnf) == PAGE_SIZE);
  * Channel packets
  */
 
-#define VMBUS_CHANPKT_SIZE_SHIFT	3
 #define VMBUS_CHANPKT_SIZE_ALIGN	(1 << VMBUS_CHANPKT_SIZE_SHIFT)
 
-struct vmbus_chanpkt_hdr {
-	uint16_t	cph_type;
-	uint16_t	cph_data_ofs;	/* in 8 bytes */
-	uint16_t	cph_len;	/* in 8 bytes */
-	uint16_t	cph_flags;
-	uint64_t	cph_xactid;
-} __packed;
+#define VMBUS_CHANPKT_SETLEN(pktlen, len)		\
+do {							\
+	(pktlen) = (len) >> VMBUS_CHANPKT_SIZE_SHIFT;	\
+} while (0)
+
+#define VMBUS_CHANPKT_TOTLEN(tlen)	\
+	roundup2((tlen), VMBUS_CHANPKT_SIZE_ALIGN)
 
 struct vmbus_chanpkt {
 	struct vmbus_chanpkt_hdr cp_hdr;
@@ -203,7 +202,7 @@ struct vmbus_chanmsg_chopen {
 	uint32_t	chm_openid;
 	uint32_t	chm_gpadl;
 	uint32_t	chm_vcpuid;
-	uint32_t	chm_rxbr_pgofs;
+	uint32_t	chm_txbr_pgcnt;
 #define VMBUS_CHANMSG_CHOPEN_UDATA_SIZE	120
 	uint8_t		chm_udata[VMBUS_CHANMSG_CHOPEN_UDATA_SIZE];
 } __packed;
