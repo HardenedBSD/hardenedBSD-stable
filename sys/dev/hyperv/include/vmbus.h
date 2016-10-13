@@ -84,11 +84,17 @@ struct vmbus_chanpkt_hdr {
 #define VMBUS_CHANPKT_TYPE_GPA		0x0009
 #define VMBUS_CHANPKT_TYPE_COMP		0x000b
 
+#define VMBUS_CHANPKT_FLAG_NONE		0
 #define VMBUS_CHANPKT_FLAG_RC		0x0001	/* report completion */
 
 #define VMBUS_CHANPKT_CONST_DATA(pkt)		\
 	(const void *)((const uint8_t *)(pkt) +	\
 	VMBUS_CHANPKT_GETLEN((pkt)->cph_hlen))
+
+/* Include padding */
+#define VMBUS_CHANPKT_DATALEN(pkt)		\
+	(VMBUS_CHANPKT_GETLEN((pkt)->cph_tlen) -\
+	 VMBUS_CHANPKT_GETLEN((pkt)->cph_hlen))
 
 struct vmbus_rxbuf_desc {
 	uint32_t	rb_len;
