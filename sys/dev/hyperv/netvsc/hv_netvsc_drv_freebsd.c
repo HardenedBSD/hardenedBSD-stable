@@ -327,6 +327,8 @@ static int hn_rx_stat_ulong_sysctl(SYSCTL_HANDLER_ARGS);
 static int hn_tx_stat_ulong_sysctl(SYSCTL_HANDLER_ARGS);
 static int hn_tx_conf_int_sysctl(SYSCTL_HANDLER_ARGS);
 static int hn_ndis_version_sysctl(SYSCTL_HANDLER_ARGS);
+static int hn_rss_key_sysctl(SYSCTL_HANDLER_ARGS);
+static int hn_rss_ind_sysctl(SYSCTL_HANDLER_ARGS);
 static int hn_check_iplen(const struct mbuf *, int);
 static int hn_create_tx_ring(struct hn_softc *, int);
 static void hn_destroy_tx_ring(struct hn_tx_ring *);
@@ -390,6 +392,62 @@ hn_get_txswq_depth(const struct hn_tx_ring *txr)
 	if (hn_tx_swq_depth < txr->hn_txdesc_cnt)
 		return txr->hn_txdesc_cnt;
 	return hn_tx_swq_depth;
+}
+
+static int
+hn_rss_reconfig(struct hn_softc *sc)
+{
+	int error;
+
+	HN_LOCK_ASSERT(sc);
+
+	/*
+	 * Disable RSS first.
+	 *
+	 * NOTE:
+	 * Direct reconfiguration by setting the UNCHG flags does
+	 * _not_ work properly.
+	 */
+	if (bootverbose)
+		if_printf(sc->hn_ifp, "disable RSS\n");
+	error = hn_rndis_conf_rss(sc, NDIS_RSS_FLAG_DISABLE);
+	if (error) {
+		if_printf(sc->hn_ifp, "RSS disable failed\n");
+		return (error);
+	}
+
+	/*
+	 * Reenable the RSS w/ the updated RSS key or indirect
+	 * table.
+	 */
+	if (bootverbose)
+		if_printf(sc->hn_ifp, "reconfig RSS\n");
+	error = hn_rndis_conf_rss(sc, NDIS_RSS_FLAG_NONE);
+	if (error) {
+		if_printf(sc->hn_ifp, "RSS reconfig failed\n");
+		return (error);
+	}
+	return (0);
+}
+
+static void
+hn_rss_ind_fixup(struct hn_softc *sc, int nchan)
+{
+	struct ndis_rssprm_toeplitz *rss = &sc->hn_rss;
+	int i;
+
+	/*
+	 * Check indirect table to make sure that all channels in it
+	 * can be used.
+	 */
+	for (i = 0; i < NDIS_HASH_INDCNT; ++i) {
+		if (rss->rss_ind[i] >= nchan) {
+			if_printf(sc->hn_ifp,
+			    "RSS indirect table %d fixup: %u -> %d\n",
+			    i, rss->rss_ind[i], nchan - 1);
+			rss->rss_ind[i] = nchan - 1;
+		}
+	}
 }
 
 static int
@@ -471,6 +529,9 @@ netvsc_attach(device_t dev)
 	sc->hn_prichan = vmbus_get_channel(dev);
 	HN_LOCK_INIT(sc);
 
+	/*
+	 * Setup taskqueue for transmission.
+	 */
 	if (hn_tx_taskq == NULL) {
 		sc->hn_tx_taskq = taskqueue_create("hn_tx", M_WAITOK,
 		    taskqueue_thread_enqueue, &sc->hn_tx_taskq);
@@ -493,9 +554,20 @@ netvsc_attach(device_t dev)
 		sc->hn_tx_taskq = hn_tx_taskq;
 	}
 
+	/*
+	 * Allocate ifnet and setup its name earlier, so that if_printf
+	 * can be used by functions, which will be called after
+	 * ether_ifattach().
+	 */
 	ifp = sc->hn_ifp = sc->arpcom.ac_ifp = if_alloc(IFT_ETHER);
 	ifp->if_softc = sc;
 	if_initname(ifp, device_get_name(dev), device_get_unit(dev));
+
+	/*
+	 * Initialize ifmedia earlier so that it can be unconditionally
+	 * destroyed, if error happened later on.
+	 */
+	ifmedia_init(&sc->hn_media, 0, hn_ifmedia_upd, hn_ifmedia_sts);
 
 	/*
 	 * Figure out the # of RX rings (ring_cnt) and the # of TX rings
@@ -527,6 +599,10 @@ netvsc_attach(device_t dev)
 	 */
 	sc->hn_cpu = atomic_fetchadd_int(&hn_cpu_index, ring_cnt) % mp_ncpus;
 
+	/*
+	 * Create enough TX/RX rings, even if only limited number of
+	 * channels can be allocated.
+	 */
 	error = hn_create_tx_data(sc, tx_ring_cnt);
 	if (error)
 		goto failed;
@@ -549,39 +625,15 @@ netvsc_attach(device_t dev)
 	if (error)
 		goto failed;
 
-	ifp->if_flags = IFF_BROADCAST | IFF_SIMPLEX | IFF_MULTICAST;
-	ifp->if_ioctl = hn_ioctl;
-	ifp->if_init = hn_init;
-	ifp->if_mtu = ETHERMTU;
-	if (hn_use_if_start) {
-		int qdepth = hn_get_txswq_depth(&sc->hn_tx_ring[0]);
+	error = hn_rndis_get_linkstatus(sc, &link_status);
+	if (error)
+		goto failed;
+	if (link_status == NDIS_MEDIA_STATE_CONNECTED)
+		sc->hn_carrier = 1;
 
-		ifp->if_start = hn_start;
-		IFQ_SET_MAXLEN(&ifp->if_snd, qdepth);
-		ifp->if_snd.ifq_drv_maxlen = qdepth - 1;
-		IFQ_SET_READY(&ifp->if_snd);
-	} else {
-		ifp->if_transmit = hn_transmit;
-		ifp->if_qflush = hn_xmit_qflush;
-	}
-
-	ifmedia_init(&sc->hn_media, 0, hn_ifmedia_upd, hn_ifmedia_sts);
-	ifmedia_add(&sc->hn_media, IFM_ETHER | IFM_AUTO, 0, NULL);
-	ifmedia_set(&sc->hn_media, IFM_ETHER | IFM_AUTO);
-	/* XXX ifmedia_set really should do this for us */
-	sc->hn_media.ifm_media = sc->hn_media.ifm_cur->ifm_media;
-
-	/*
-	 * Tell upper layers that we support full VLAN capability.
-	 */
-	ifp->if_data.ifi_hdrlen = sizeof(struct ether_vlan_header);
-	ifp->if_capabilities |=
-	    IFCAP_VLAN_HWTAGGING | IFCAP_VLAN_MTU | IFCAP_HWCSUM | IFCAP_TSO |
-	    IFCAP_LRO;
-	ifp->if_capenable |=
-	    IFCAP_VLAN_HWTAGGING | IFCAP_VLAN_MTU | IFCAP_HWCSUM | IFCAP_TSO |
-	    IFCAP_LRO;
-	ifp->if_hwassist = sc->hn_tx_ring[0].hn_csum_assist | CSUM_TSO;
+	error = hn_rndis_get_eaddr(sc, eaddr);
+	if (error)
+		goto failed;
 
 #if __FreeBSD_version >= 1100099
 	if (sc->hn_rx_ring_inuse > 1) {
@@ -592,29 +644,6 @@ netvsc_attach(device_t dev)
 		hn_set_lro_lenlim(sc, HN_LRO_LENLIM_MULTIRX_DEF);
 	}
 #endif
-
-	error = hn_rndis_get_linkstatus(sc, &link_status);
-	if (error)
-		goto failed;
-	if (link_status == NDIS_MEDIA_STATE_CONNECTED)
-		sc->hn_carrier = 1;
-
-	tso_maxlen = hn_tso_maxlen;
-	if (tso_maxlen <= 0 || tso_maxlen > IP_MAXPACKET)
-		tso_maxlen = IP_MAXPACKET;
-
-	ifp->if_hw_tsomaxsegcount = HN_TX_DATA_SEGCNT_MAX;
-	ifp->if_hw_tsomaxsegsize = PAGE_SIZE;
-	ifp->if_hw_tsomax = tso_maxlen -
-	    (ETHER_HDR_LEN + ETHER_VLAN_ENCAP_LEN);
-
-	error = hn_rndis_get_eaddr(sc, eaddr);
-	if (error)
-		goto failed;
-	ether_ifattach(ifp, eaddr);
-
-	if_printf(ifp, "TSO: %u/%u/%u\n", ifp->if_hw_tsomax,
-	    ifp->if_hw_tsomaxsegcount, ifp->if_hw_tsomaxsegsize);
 
 	hn_set_chim_size(sc, sc->hn_chim_szmax);
 	if (hn_tx_chimney_size > 0 &&
@@ -628,9 +657,69 @@ netvsc_attach(device_t dev)
 	SYSCTL_ADD_PROC(ctx, child, OID_AUTO, "ndis_version",
 	    CTLTYPE_STRING | CTLFLAG_RD | CTLFLAG_MPSAFE, sc, 0,
 	    hn_ndis_version_sysctl, "A", "NDIS version");
+	SYSCTL_ADD_PROC(ctx, child, OID_AUTO, "rss_key",
+	    CTLTYPE_OPAQUE | CTLFLAG_RW | CTLFLAG_MPSAFE, sc, 0,
+	    hn_rss_key_sysctl, "IU", "RSS key");
+	SYSCTL_ADD_PROC(ctx, child, OID_AUTO, "rss_ind",
+	    CTLTYPE_OPAQUE | CTLFLAG_RW | CTLFLAG_MPSAFE, sc, 0,
+	    hn_rss_ind_sysctl, "IU", "RSS indirect table");
+
+	/*
+	 * Setup the ifmedia, which has been initialized earlier.
+	 */
+	ifmedia_add(&sc->hn_media, IFM_ETHER | IFM_AUTO, 0, NULL);
+	ifmedia_set(&sc->hn_media, IFM_ETHER | IFM_AUTO);
+	/* XXX ifmedia_set really should do this for us */
+	sc->hn_media.ifm_media = sc->hn_media.ifm_cur->ifm_media;
+
+	/*
+	 * Setup the ifnet for this interface.
+	 */
+
+	ifp->if_flags = IFF_BROADCAST | IFF_SIMPLEX | IFF_MULTICAST;
+	ifp->if_ioctl = hn_ioctl;
+	ifp->if_init = hn_init;
+	if (hn_use_if_start) {
+		int qdepth = hn_get_txswq_depth(&sc->hn_tx_ring[0]);
+
+		ifp->if_start = hn_start;
+		IFQ_SET_MAXLEN(&ifp->if_snd, qdepth);
+		ifp->if_snd.ifq_drv_maxlen = qdepth - 1;
+		IFQ_SET_READY(&ifp->if_snd);
+	} else {
+		ifp->if_transmit = hn_transmit;
+		ifp->if_qflush = hn_xmit_qflush;
+	}
+
+	ifp->if_capabilities |=
+	    IFCAP_VLAN_HWTAGGING | IFCAP_VLAN_MTU | IFCAP_HWCSUM | IFCAP_TSO |
+	    IFCAP_LRO;
+	ifp->if_capenable |=
+	    IFCAP_VLAN_HWTAGGING | IFCAP_VLAN_MTU | IFCAP_HWCSUM | IFCAP_TSO |
+	    IFCAP_LRO;
+	ifp->if_hwassist = sc->hn_tx_ring[0].hn_csum_assist | CSUM_TSO;
+
+	tso_maxlen = hn_tso_maxlen;
+	if (tso_maxlen <= 0 || tso_maxlen > IP_MAXPACKET)
+		tso_maxlen = IP_MAXPACKET;
+	ifp->if_hw_tsomaxsegcount = HN_TX_DATA_SEGCNT_MAX;
+	ifp->if_hw_tsomaxsegsize = PAGE_SIZE;
+	ifp->if_hw_tsomax = tso_maxlen -
+	    (ETHER_HDR_LEN + ETHER_VLAN_ENCAP_LEN);
+
+	ether_ifattach(ifp, eaddr);
+
+	if (bootverbose) {
+		if_printf(ifp, "TSO: %u/%u/%u\n", ifp->if_hw_tsomax,
+		    ifp->if_hw_tsomaxsegcount, ifp->if_hw_tsomaxsegsize);
+	}
+
+	/* Inform the upper layer about the long frame support. */
+	ifp->if_hdrlen = sizeof(struct ether_vlan_header);
 
 	return (0);
 failed:
+	/* TODO: reuse netvsc_detach() */
 	hn_destroy_tx_data(sc);
 	if (ifp != NULL)
 		if_free(ifp);
@@ -2026,6 +2115,51 @@ hn_ndis_version_sysctl(SYSCTL_HANDLER_ARGS)
 }
 
 static int
+hn_rss_key_sysctl(SYSCTL_HANDLER_ARGS)
+{
+	struct hn_softc *sc = arg1;
+	int error;
+
+	HN_LOCK(sc);
+
+	error = SYSCTL_OUT(req, sc->hn_rss.rss_key, sizeof(sc->hn_rss.rss_key));
+	if (error || req->newptr == NULL)
+		goto back;
+
+	error = SYSCTL_IN(req, sc->hn_rss.rss_key, sizeof(sc->hn_rss.rss_key));
+	if (error)
+		goto back;
+
+	error = hn_rss_reconfig(sc);
+back:
+	HN_UNLOCK(sc);
+	return (error);
+}
+
+static int
+hn_rss_ind_sysctl(SYSCTL_HANDLER_ARGS)
+{
+	struct hn_softc *sc = arg1;
+	int error;
+
+	HN_LOCK(sc);
+
+	error = SYSCTL_OUT(req, sc->hn_rss.rss_ind, sizeof(sc->hn_rss.rss_ind));
+	if (error || req->newptr == NULL)
+		goto back;
+
+	error = SYSCTL_IN(req, sc->hn_rss.rss_ind, sizeof(sc->hn_rss.rss_ind));
+	if (error)
+		goto back;
+
+	hn_rss_ind_fixup(sc, sc->hn_rx_ring_inuse);
+	error = hn_rss_reconfig(sc);
+back:
+	HN_UNLOCK(sc);
+	return (error);
+}
+
+static int
 hn_check_iplen(const struct mbuf *m, int hoff)
 {
 	const struct ip *ip;
@@ -3154,15 +3288,34 @@ hn_synth_attach(struct hn_softc *sc, int mtu)
 	 * are allocated.
 	 */
 
-	/* Setup default RSS key. */
-	memcpy(rss->rss_key, hn_rss_key_default, sizeof(rss->rss_key));
+	if (!device_is_attached(sc->hn_dev)) {
+		/*
+		 * Setup default RSS key and indirect table for the
+		 * attach DEVMETHOD.  They can be altered later on,
+		 * so don't mess them up once this interface is attached.
+		 */
+		if (bootverbose) {
+			if_printf(sc->hn_ifp, "setup default RSS key and "
+			    "indirect table\n");
+		}
 
-	/* Setup default RSS indirect table. */
-	/* TODO: Take ndis_rss_caps.ndis_nind into account. */
-	for (i = 0; i < NDIS_HASH_INDCNT; ++i)
-		rss->rss_ind[i] = i % nchan;
+		/* Setup default RSS key. */
+		memcpy(rss->rss_key, hn_rss_key_default, sizeof(rss->rss_key));
 
-	error = hn_rndis_conf_rss(sc);
+		/* Setup default RSS indirect table. */
+		/* TODO: Take ndis_rss_caps.ndis_nind into account. */
+		for (i = 0; i < NDIS_HASH_INDCNT; ++i)
+			rss->rss_ind[i] = i % nchan;
+	} else {
+		/*
+		 * # of usable channels may be changed, so we have to
+		 * make sure that all entries in RSS indirect table
+		 * are valid.
+		 */
+		hn_rss_ind_fixup(sc, nchan);
+	}
+
+	error = hn_rndis_conf_rss(sc, NDIS_RSS_FLAG_NONE);
 	if (error) {
 		/*
 		 * Failed to configure RSS key or indirect table; only
