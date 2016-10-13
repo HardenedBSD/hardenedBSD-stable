@@ -721,7 +721,20 @@ vmbus_chan_recv(struct vmbus_channel *chan, void *data, int *dlen0,
 
 	error = vmbus_rxbr_peek(&chan->ch_rxbr, &pkt, sizeof(pkt));
 	if (error)
-		return error;
+		return (error);
+
+	if (__predict_false(pkt.cph_hlen < VMBUS_CHANPKT_HLEN_MIN)) {
+		device_printf(chan->ch_dev, "invalid hlen %u\n",
+		    pkt.cph_hlen);
+		/* XXX this channel is dead actually. */
+		return (EIO);
+	}
+	if (__predict_false(pkt.cph_hlen > pkt.cph_tlen)) {
+		device_printf(chan->ch_dev, "invalid hlen %u and tlen %u\n",
+		    pkt.cph_hlen, pkt.cph_tlen);
+		/* XXX this channel is dead actually. */
+		return (EIO);
+	}
 
 	hlen = VMBUS_CHANPKT_GETLEN(pkt.cph_hlen);
 	dlen = VMBUS_CHANPKT_GETLEN(pkt.cph_tlen) - hlen;
@@ -729,7 +742,7 @@ vmbus_chan_recv(struct vmbus_channel *chan, void *data, int *dlen0,
 	if (*dlen0 < dlen) {
 		/* Return the size of this packet's data. */
 		*dlen0 = dlen;
-		return ENOBUFS;
+		return (ENOBUFS);
 	}
 
 	*xactid = pkt.cph_xactid;
@@ -739,7 +752,7 @@ vmbus_chan_recv(struct vmbus_channel *chan, void *data, int *dlen0,
 	error = vmbus_rxbr_read(&chan->ch_rxbr, data, dlen, hlen);
 	KASSERT(!error, ("vmbus_rxbr_read failed"));
 
-	return 0;
+	return (0);
 }
 
 int
@@ -751,13 +764,26 @@ vmbus_chan_recv_pkt(struct vmbus_channel *chan,
 
 	error = vmbus_rxbr_peek(&chan->ch_rxbr, &pkt, sizeof(pkt));
 	if (error)
-		return error;
+		return (error);
+
+	if (__predict_false(pkt.cph_hlen < VMBUS_CHANPKT_HLEN_MIN)) {
+		device_printf(chan->ch_dev, "invalid hlen %u\n",
+		    pkt.cph_hlen);
+		/* XXX this channel is dead actually. */
+		return (EIO);
+	}
+	if (__predict_false(pkt.cph_hlen > pkt.cph_tlen)) {
+		device_printf(chan->ch_dev, "invalid hlen %u and tlen %u\n",
+		    pkt.cph_hlen, pkt.cph_tlen);
+		/* XXX this channel is dead actually. */
+		return (EIO);
+	}
 
 	pktlen = VMBUS_CHANPKT_GETLEN(pkt.cph_tlen);
 	if (*pktlen0 < pktlen) {
 		/* Return the size of this packet. */
 		*pktlen0 = pktlen;
-		return ENOBUFS;
+		return (ENOBUFS);
 	}
 	*pktlen0 = pktlen;
 
@@ -765,7 +791,7 @@ vmbus_chan_recv_pkt(struct vmbus_channel *chan,
 	error = vmbus_rxbr_read(&chan->ch_rxbr, pkt0, pktlen, 0);
 	KASSERT(!error, ("vmbus_rxbr_read failed"));
 
-	return 0;
+	return (0);
 }
 
 static void
@@ -1320,6 +1346,8 @@ vmbus_subchan_get(struct vmbus_channel *pri_chan, int subchan_cnt)
 	struct vmbus_channel **ret, *chan;
 	int i;
 
+	KASSERT(subchan_cnt > 0, ("invalid sub-channel count %d", subchan_cnt));
+
 	ret = malloc(subchan_cnt * sizeof(struct vmbus_channel *), M_TEMP,
 	    M_WAITOK);
 
@@ -1410,4 +1438,17 @@ const struct hyperv_guid *
 vmbus_chan_guid_inst(const struct vmbus_channel *chan)
 {
 	return &chan->ch_guid_inst;
+}
+
+int
+vmbus_chan_prplist_nelem(int br_size, int prpcnt_max, int dlen_max)
+{
+	int elem_size;
+
+	elem_size = __offsetof(struct vmbus_chanpkt_prplist,
+	    cp_range[0].gpa_page[prpcnt_max]);
+	elem_size += dlen_max;
+	elem_size = VMBUS_CHANPKT_TOTLEN(elem_size);
+
+	return (vmbus_br_nelem(br_size, elem_size));
 }

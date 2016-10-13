@@ -62,120 +62,11 @@
 #include <dev/hyperv/include/hyperv_busdma.h>
 #include <dev/hyperv/include/vmbus.h>
 
+#include <dev/hyperv/netvsc/ndis.h>
+
 #define HN_USE_TXDESC_BUFRING
 
 MALLOC_DECLARE(M_NETVSC);
-
-#define NVSP_INVALID_PROTOCOL_VERSION           (0xFFFFFFFF)
-
-#define NVSP_PROTOCOL_VERSION_1                 2
-#define NVSP_PROTOCOL_VERSION_2                 0x30002
-#define NVSP_PROTOCOL_VERSION_4                 0x40000
-#define NVSP_PROTOCOL_VERSION_5                 0x50000
-#define NVSP_MIN_PROTOCOL_VERSION               (NVSP_PROTOCOL_VERSION_1)
-#define NVSP_MAX_PROTOCOL_VERSION               (NVSP_PROTOCOL_VERSION_2)
-
-#define NVSP_PROTOCOL_VERSION_CURRENT           NVSP_PROTOCOL_VERSION_2
-
-#define VERSION_4_OFFLOAD_SIZE                  22
-
-#define NVSP_OPERATIONAL_STATUS_OK              (0x00000000)
-#define NVSP_OPERATIONAL_STATUS_DEGRADED        (0x00000001)
-#define NVSP_OPERATIONAL_STATUS_NONRECOVERABLE  (0x00000002)
-#define NVSP_OPERATIONAL_STATUS_NO_CONTACT      (0x00000003)
-#define NVSP_OPERATIONAL_STATUS_LOST_COMMUNICATION (0x00000004)
-
-/*
- * Maximun number of transfer pages (packets) the VSP will use on a receive
- */
-#define NVSP_MAX_PACKETS_PER_RECEIVE            375
-
-/* vRSS stuff */
-#define RNDIS_OBJECT_TYPE_RSS_CAPABILITIES      0x88
-#define RNDIS_OBJECT_TYPE_RSS_PARAMETERS        0x89
-
-#define RNDIS_RECEIVE_SCALE_CAPABILITIES_REVISION_2     2
-#define RNDIS_RECEIVE_SCALE_PARAMETERS_REVISION_2       2
-
-struct rndis_obj_header {
-        uint8_t type;
-        uint8_t rev;
-        uint16_t size;
-} __packed;
-
-/* rndis_recv_scale_cap/cap_flag */
-#define RNDIS_RSS_CAPS_MESSAGE_SIGNALED_INTERRUPTS      0x01000000
-#define RNDIS_RSS_CAPS_CLASSIFICATION_AT_ISR            0x02000000
-#define RNDIS_RSS_CAPS_CLASSIFICATION_AT_DPC            0x04000000
-#define RNDIS_RSS_CAPS_USING_MSI_X                      0x08000000
-#define RNDIS_RSS_CAPS_RSS_AVAILABLE_ON_PORTS           0x10000000
-#define RNDIS_RSS_CAPS_SUPPORTS_MSI_X                   0x20000000
-#define RNDIS_RSS_CAPS_HASH_TYPE_TCP_IPV4               0x00000100
-#define RNDIS_RSS_CAPS_HASH_TYPE_TCP_IPV6               0x00000200
-#define RNDIS_RSS_CAPS_HASH_TYPE_TCP_IPV6_EX            0x00000400
-
-/* RNDIS_RECEIVE_SCALE_CAPABILITIES */
-struct rndis_recv_scale_cap {
-        struct rndis_obj_header hdr;
-        uint32_t cap_flag;
-        uint32_t num_int_msg;
-        uint32_t num_recv_que;
-        uint16_t num_indirect_tabent;
-} __packed;
-
-/* rndis_recv_scale_param flags */
-#define RNDIS_RSS_PARAM_FLAG_BASE_CPU_UNCHANGED         0x0001
-#define RNDIS_RSS_PARAM_FLAG_HASH_INFO_UNCHANGED        0x0002
-#define RNDIS_RSS_PARAM_FLAG_ITABLE_UNCHANGED           0x0004
-#define RNDIS_RSS_PARAM_FLAG_HASH_KEY_UNCHANGED         0x0008
-#define RNDIS_RSS_PARAM_FLAG_DISABLE_RSS                0x0010
-
-/* Hash info bits */
-#define RNDIS_HASH_FUNC_TOEPLITZ                0x00000001
-#define RNDIS_HASH_IPV4                         0x00000100
-#define RNDIS_HASH_TCP_IPV4                     0x00000200
-#define RNDIS_HASH_IPV6                         0x00000400
-#define RNDIS_HASH_IPV6_EX                      0x00000800
-#define RNDIS_HASH_TCP_IPV6                     0x00001000
-#define RNDIS_HASH_TCP_IPV6_EX                  0x00002000
-
-#define RNDIS_RSS_INDIRECTION_TABLE_MAX_SIZE_REVISION_2 (128 * 4)
-#define RNDIS_RSS_HASH_SECRET_KEY_MAX_SIZE_REVISION_2   40
-
-#define ITAB_NUM                                        128
-#define HASH_KEYLEN RNDIS_RSS_HASH_SECRET_KEY_MAX_SIZE_REVISION_2
-
-/* RNDIS_RECEIVE_SCALE_PARAMETERS */
-typedef struct rndis_recv_scale_param_ {
-        struct rndis_obj_header hdr;
-
-        /* Qualifies the rest of the information */
-        uint16_t flag;
-
-        /* The base CPU number to do receive processing. not used */
-        uint16_t base_cpu_number;
-
-        /* This describes the hash function and type being enabled */
-        uint32_t hashinfo;
-
-        /* The size of indirection table array */
-        uint16_t indirect_tabsize;
-
-        /* The offset of the indirection table from the beginning of this
-         * structure
-         */
-        uint32_t indirect_taboffset;
-
-        /* The size of the hash secret key */
-        uint16_t hashkey_size;
-
-        /* The offset of the secret key from the beginning of this structure */
-        uint32_t hashkey_offset;
-
-        uint32_t processor_masks_offset;
-        uint32_t num_processor_masks;
-        uint32_t processor_masks_entry_size;
-} rndis_recv_scale_param;
 
 /*
  * The following arguably belongs in a separate header file
@@ -186,17 +77,9 @@ typedef struct rndis_recv_scale_param_ {
  */
 
 #define NETVSC_SEND_BUFFER_SIZE			(1024*1024*15)   /* 15M */
-#define NETVSC_SEND_BUFFER_ID			0xface
 
 #define NETVSC_RECEIVE_BUFFER_SIZE_LEGACY	(1024*1024*15) /* 15MB */
 #define NETVSC_RECEIVE_BUFFER_SIZE		(1024*1024*16) /* 16MB */
-
-#define NETVSC_RECEIVE_BUFFER_ID		0xcafe
-
-#define NETVSC_RECEIVE_SG_COUNT			1
-
-/* Preallocated receive packets */
-#define NETVSC_RECEIVE_PACKETLIST_COUNT		256
 
 /*
  * Maximum MTU we permit to be configured for a netvsc interface.
@@ -206,78 +89,20 @@ typedef struct rndis_recv_scale_param_ {
 #define NETVSC_MAX_CONFIGURABLE_MTU		(9 * 1024)
 
 #define NETVSC_PACKET_SIZE			PAGE_SIZE
-#define VRSS_SEND_TABLE_SIZE			16
 
 /*
  * Data types
  */
 
-/*
- * Per netvsc channel-specific
- */
-typedef struct netvsc_dev_ {
-	struct hn_softc				*sc;
-
-	/* Send buffer allocated by us but manages by NetVSP */
-	void					*send_buf;
-	uint32_t				send_buf_size;
-	uint32_t				send_buf_gpadl_handle;
-	uint32_t				send_section_size;
-	uint32_t				send_section_count;
-	unsigned long				bitsmap_words;
-	unsigned long				*send_section_bitsmap;
-
-	/* Receive buffer allocated by us but managed by NetVSP */
-	void					*rx_buf;
-	uint32_t				rx_buf_size;
-	uint32_t				rx_buf_gpadl_handle;
-	uint32_t				rx_section_count;
-
-	/* Holds rndis device info */
-	void					*extension;
-
-	uint8_t					destroy;
-	/* Negotiated NVSP version */
-	uint32_t				nvsp_version;
-
-	uint32_t                                num_channel;
-
-	struct hyperv_dma			rxbuf_dma;
-	struct hyperv_dma			txbuf_dma;
-} netvsc_dev;
-
 struct vmbus_channel;
-
-typedef void (*pfn_on_send_rx_completion)(struct vmbus_channel *, void *);
 
 #define NETVSC_DEVICE_RING_BUFFER_SIZE	(128 * PAGE_SIZE)
 #define NETVSC_PACKET_MAXPAGE		32
 
-#define NETVSC_VLAN_PRIO_MASK		0xe000
-#define NETVSC_VLAN_PRIO_SHIFT		13
-#define NETVSC_VLAN_VID_MASK		0x0fff
-
-#define TYPE_IPV4			2
-#define TYPE_IPV6			4
-#define TYPE_TCP			2
-#define TYPE_UDP			4
-
-#define TRANSPORT_TYPE_NOT_IP		0
-#define TRANSPORT_TYPE_IPV4_TCP		((TYPE_IPV4 << 16) | TYPE_TCP)
-#define TRANSPORT_TYPE_IPV4_UDP		((TYPE_IPV4 << 16) | TYPE_UDP)
-#define TRANSPORT_TYPE_IPV6_TCP		((TYPE_IPV6 << 16) | TYPE_TCP)
-#define TRANSPORT_TYPE_IPV6_UDP		((TYPE_IPV6 << 16) | TYPE_UDP)
-
-#ifdef __LP64__
-#define BITS_PER_LONG 64
-#else
-#define BITS_PER_LONG 32
-#endif
-
-typedef struct {
-	uint8_t		mac_addr[6];  /* Assumption unsigned long */
-	uint8_t		link_state;
-} netvsc_device_info;
+#define HN_XACT_REQ_PGCNT		2
+#define HN_XACT_RESP_PGCNT		2
+#define HN_XACT_REQ_SIZE		(HN_XACT_REQ_PGCNT * PAGE_SIZE)
+#define HN_XACT_RESP_SIZE		(HN_XACT_RESP_PGCNT * PAGE_SIZE)
 
 #ifndef HN_USE_TXDESC_BUFRING
 struct hn_txdesc;
@@ -292,6 +117,7 @@ struct hn_rx_ring {
 	struct ifnet	*hn_ifp;
 	struct hn_tx_ring *hn_txr;
 	void		*hn_rdbuf;
+	uint8_t		*hn_rxbuf;	/* shadow sc->hn_rxbuf */
 	int		hn_rx_idx;
 
 	/* Trust csum verification on host side */
@@ -345,7 +171,7 @@ struct hn_tx_ring {
 	struct vmbus_channel *hn_chan;
 
 	int		hn_direct_tx_size;
-	int		hn_tx_chimney_size;
+	int		hn_chim_size;
 	bus_dma_tag_t	hn_tx_data_dtag;
 	uint64_t	hn_csum_assist;
 
@@ -372,19 +198,14 @@ struct hn_tx_ring {
 /*
  * Device-specific softc structure
  */
-typedef struct hn_softc {
+struct hn_softc {
 	struct ifnet    *hn_ifp;
 	struct arpcom   arpcom;
 	struct ifmedia	hn_media;
 	device_t        hn_dev;
-	uint8_t         hn_unit;
 	int             hn_carrier;
 	int             hn_if_flags;
-	struct mtx      hn_lock;
-	int             hn_initdone;
-	/* See hv_netvsc_drv_freebsd.c for rules on how to use */
-	int             temp_unusable;
-	netvsc_dev  	*net_dev;
+	struct sx	hn_lock;
 	struct vmbus_channel *hn_prichan;
 
 	int		hn_rx_ring_cnt;
@@ -395,13 +216,35 @@ typedef struct hn_softc {
 	int		hn_tx_ring_inuse;
 	struct hn_tx_ring *hn_tx_ring;
 
+	uint8_t		*hn_chim;
+	u_long		*hn_chim_bmap;
+	int		hn_chim_bmap_cnt;
+	int		hn_chim_cnt;
+	int		hn_chim_szmax;
+
 	int		hn_cpu;
-	int		hn_tx_chimney_max;
 	struct taskqueue *hn_tx_taskq;
 	struct sysctl_oid *hn_tx_sysctl_tree;
 	struct sysctl_oid *hn_rx_sysctl_tree;
 	struct vmbus_xact_ctx *hn_xact;
-} hn_softc_t;
+	uint32_t	hn_nvs_ver;
+
+	uint32_t		hn_flags;
+	void			*hn_rxbuf;
+	uint32_t		hn_rxbuf_gpadl;
+	struct hyperv_dma	hn_rxbuf_dma;
+
+	uint32_t		hn_chim_gpadl;
+	struct hyperv_dma	hn_chim_dma;
+
+	uint32_t		hn_rndis_rid;
+	uint32_t		hn_ndis_ver;
+
+	struct ndis_rssprm_toeplitz hn_rss;
+};
+
+#define HN_FLAG_RXBUF_CONNECTED		0x0001
+#define HN_FLAG_CHIM_CONNECTED		0x0002
 
 /*
  * Externs
@@ -410,15 +253,10 @@ extern int hv_promisc_mode;
 struct hn_send_ctx;
 
 void netvsc_linkstatus_callback(struct hn_softc *sc, uint32_t status);
-netvsc_dev *hv_nv_on_device_add(struct hn_softc *sc,
-    void *additional_info, struct hn_rx_ring *rxr);
-int hv_nv_on_device_remove(struct hn_softc *sc,
-    boolean_t destroy_channel);
+int hn_nvs_attach(struct hn_softc *sc, int mtu);
+int hv_nv_on_device_remove(struct hn_softc *sc);
 int hv_nv_on_send(struct vmbus_channel *chan, uint32_t rndis_mtype,
 	struct hn_send_ctx *sndc, struct vmbus_gpa *gpa, int gpa_cnt);
-int hv_nv_get_next_send_section(netvsc_dev *net_dev);
-void hv_nv_subchan_attach(struct vmbus_channel *chan,
-    struct hn_rx_ring *rxr);
 
 #endif  /* __HV_NET_VSC_H__ */
 
