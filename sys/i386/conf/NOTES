@@ -982,6 +982,9 @@ options 	NKPT=31
 #####################################################################
 # ABI Emulation
 
+# Enable 32-bit runtime support for CloudABI binaries.
+options 	COMPAT_CLOUDABI32
+
 # Enable Linux ABI emulation
 options 	COMPAT_LINUX
 
