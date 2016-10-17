@@ -1,7 +1,5 @@
 /*-
- * Copyright (c) 2009-2012,2016 Microsoft Corp.
- * Copyright (c) 2012 NetApp Inc.
- * Copyright (c) 2012 Citrix Inc.
+ * Copyright (c) 2016 Microsoft Corp.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,32 +26,34 @@
  * $FreeBSD$
  */
 
-#ifndef _HVUTIL_H_
-#define _HVUTIL_H_
+#ifndef _VMBUS_XACT_H_
+#define _VMBUS_XACT_H_
 
-#include <dev/hyperv/include/hyperv.h>
-#include <dev/hyperv/include/vmbus.h>
+#include <sys/param.h>
+#include <sys/bus.h>
 
-/**
- * hv_util related structures
- *
- */
-typedef struct hv_util_sc {
-	device_t		ic_dev;
-	uint8_t			*receive_buffer;
-	int			ic_buflen;
-} hv_util_sc;
+struct vmbus_xact;
+struct vmbus_xact_ctx;
 
-struct vmbus_ic_desc {
-	const struct hyperv_guid	ic_guid;
-	const char			*ic_desc;
-};
+struct vmbus_xact_ctx	*vmbus_xact_ctx_create(bus_dma_tag_t dtag,
+			    size_t req_size, size_t resp_size,
+			    size_t priv_size);
+void			vmbus_xact_ctx_destroy(struct vmbus_xact_ctx *ctx);
+struct vmbus_xact	*vmbus_xact_get(struct vmbus_xact_ctx *ctx,
+			    size_t req_len);
+void			vmbus_xact_put(struct vmbus_xact *xact);
 
-#define VMBUS_IC_DESC_END	{ .ic_desc = NULL }
+void			*vmbus_xact_req_data(const struct vmbus_xact *xact);
+bus_addr_t		vmbus_xact_req_paddr(const struct vmbus_xact *xact);
+void			*vmbus_xact_priv(const struct vmbus_xact *xact,
+			    size_t priv_len);
+void			vmbus_xact_activate(struct vmbus_xact *xact);
+void			vmbus_xact_deactivate(struct vmbus_xact *xact);
+const void		*vmbus_xact_wait(struct vmbus_xact *xact,
+			    size_t *resp_len);
+void			vmbus_xact_wakeup(struct vmbus_xact *xact,
+			    const void *data, size_t dlen);
+void			vmbus_xact_ctx_wakeup(struct vmbus_xact_ctx *ctx,
+			    const void *data, size_t dlen);
 
-int		hv_util_attach(device_t dev, vmbus_chan_callback_t cb);
-int		hv_util_detach(device_t dev);
-int		vmbus_ic_probe(device_t dev, const struct vmbus_ic_desc descs[]);
-int		vmbus_ic_negomsg(struct hv_util_sc *, void *data, int *dlen);
-
-#endif
+#endif	/* !_VMBUS_XACT_H_ */
