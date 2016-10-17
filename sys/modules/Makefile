@@ -316,6 +316,8 @@ SUBDIR=	\
 	re \
 	rl \
 	rtwn \
+	rtwn_pci \
+	rtwn_usb \
 	${_rtwnfw} \
 	${_s3} \
 	${_safe} \
@@ -369,8 +371,6 @@ SUBDIR=	\
 	ufs \
 	uinput \
 	unionfs \
-	urtwn \
-	${_urtwnfw} \
 	usb \
 	utopia \
 	${_vesa} \
@@ -498,7 +498,6 @@ _mwlfw=		mwlfw
 _otusfw=	otusfw
 _ralfw=		ralfw
 _rtwnfw=	rtwnfw
-_urtwnfw=	urtwnfw
 _sf=		sf
 _ti=		ti
 _txp=		txp
