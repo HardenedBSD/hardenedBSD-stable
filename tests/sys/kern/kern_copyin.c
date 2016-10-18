@@ -79,7 +79,12 @@ ATF_TC_BODY(kern_copyin, tc)
 #endif
 
 #ifdef __mips__
-	/* MIPS has no shared page implemented yet. */
+	/*
+	 * MIPS has different VM layout: the UVA map on mips ends the
+	 * highest mapped entry at the VM_MAXUSER_ADDRESS - PAGE_SIZE,
+	 * while all other arches map either stack or shared page up
+	 * to the VM_MAXUSER_ADDRESS.
+	 */
 	atf_tc_skip("Platform is not supported.");
 #endif
 
