@@ -168,6 +168,7 @@ struct hn_tx_ring {
 	struct buf_ring	*hn_mbuf_br;
 	int		hn_oactive;
 	int		hn_tx_idx;
+	int		hn_tx_flags;
 
 	struct mtx	hn_tx_lock;
 	struct hn_softc	*hn_sc;
@@ -178,6 +179,7 @@ struct hn_tx_ring {
 	bus_dma_tag_t	hn_tx_data_dtag;
 	uint64_t	hn_csum_assist;
 
+	int		hn_suspended;
 	int		hn_gpa_cnt;
 	struct vmbus_gpa hn_gpa[NETVSC_PACKET_MAXPAGE];
 
@@ -193,10 +195,10 @@ struct hn_tx_ring {
 	struct hn_txdesc *hn_txdesc;
 	bus_dma_tag_t	hn_tx_rndis_dtag;
 	struct sysctl_oid *hn_tx_sysctl_tree;
-	int		hn_tx_flags;
 } __aligned(CACHE_LINE_SIZE);
 
 #define HN_TX_FLAG_ATTACHED	0x1
+#define HN_TX_FLAG_HASHVAL	0x2	/* support HASHVAL pktinfo */
 
 /*
  * Device-specific softc structure
@@ -231,6 +233,10 @@ struct hn_softc {
 	struct vmbus_xact_ctx *hn_xact;
 	uint32_t	hn_nvs_ver;
 
+	struct taskqueue	*hn_mgmt_taskq;
+	struct taskqueue	*hn_mgmt_taskq0;
+	struct task		hn_link_task;
+
 	uint32_t		hn_caps;	/* HN_CAP_ */
 	uint32_t		hn_flags;	/* HN_FLAG_ */
 	void			*hn_rxbuf;
@@ -242,6 +248,8 @@ struct hn_softc {
 
 	uint32_t		hn_rndis_rid;
 	uint32_t		hn_ndis_ver;
+	int			hn_ndis_tso_szmax;
+	int			hn_ndis_tso_sgmin;
 
 	struct ndis_rssprm_toeplitz hn_rss;
 };
@@ -250,6 +258,7 @@ struct hn_softc {
 #define HN_FLAG_CHIM_CONNECTED		0x0002
 #define HN_FLAG_HAS_RSSKEY		0x0004
 #define HN_FLAG_HAS_RSSIND		0x0008
+#define HN_FLAG_SYNTH_ATTACHED		0x0010
 
 #define HN_CAP_VLAN			0x0001
 #define HN_CAP_MTU			0x0002
@@ -264,12 +273,8 @@ struct hn_softc {
 /*
  * Externs
  */
-extern int hv_promisc_mode;
 struct hn_send_ctx;
 
-void netvsc_linkstatus_callback(struct hn_softc *sc, uint32_t status);
-int hn_nvs_attach(struct hn_softc *sc, int mtu);
-int hv_nv_on_device_remove(struct hn_softc *sc);
 int hv_nv_on_send(struct vmbus_channel *chan, uint32_t rndis_mtype,
 	struct hn_send_ctx *sndc, struct vmbus_gpa *gpa, int gpa_cnt);
 
