@@ -137,7 +137,7 @@ SYSCTL_INT(_kern, KERN_SAVED_IDS, saved_ids, CTLFLAG_RD|CTLFLAG_CAPRD,
 
 char kernelname[MAXPATHLEN] = "/kernel";	/* XXX bloat */
 
-SYSCTL_STRING(_kern, KERN_BOOTFILE, bootfile, CTLFLAG_RW,
+SYSCTL_STRING(_kern, KERN_BOOTFILE, bootfile, CTLFLAG_RW | CTLFLAG_MPSAFE,
     kernelname, sizeof kernelname, "Name of kernel file booted");
 
 SYSCTL_INT(_kern, KERN_MAXPHYS, maxphys, CTLFLAG_RD | CTLFLAG_CAPRD,
@@ -259,8 +259,9 @@ sysctl_hw_machine_arch(SYSCTL_HANDLER_ARGS)
 	return (error);
 
 }
-SYSCTL_PROC(_hw, HW_MACHINE_ARCH, machine_arch, CTLTYPE_STRING | CTLFLAG_RD,
-    NULL, 0, sysctl_hw_machine_arch, "A", "System architecture");
+SYSCTL_PROC(_hw, HW_MACHINE_ARCH, machine_arch, CTLTYPE_STRING | CTLFLAG_RD |
+    CTLFLAG_MPSAFE, NULL, 0, sysctl_hw_machine_arch, "A",
+    "System architecture");
 
 SYSCTL_STRING(_kern, OID_AUTO, supported_archs, CTLFLAG_RD | CTLFLAG_MPSAFE,
 #ifdef COMPAT_FREEBSD32
@@ -388,8 +389,13 @@ SYSCTL_PROC(_kern, KERN_SECURELVL, securelevel,
 /* Actual kernel configuration options. */
 extern char kernconfstring[];
 
+<<<<<<< HEAD
 SYSCTL_STRING(_kern, OID_AUTO, conftxt, CTLFLAG_RD|CTLFLAG_ROOTONLY, kernconfstring, 0,
     "Kernel configuration file");
+=======
+SYSCTL_STRING(_kern, OID_AUTO, conftxt, CTLFLAG_RD | CTLFLAG_MPSAFE,
+    kernconfstring, 0, "Kernel configuration file");
+>>>>>>> origin/freebsd/current/master
 #endif
 
 static int

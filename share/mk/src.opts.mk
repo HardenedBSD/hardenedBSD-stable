@@ -313,6 +313,10 @@ MK_${var}:=	no
 MK_LLVM_LIBUNWIND:=	no
 .endif
 
+.if ${MK_BINUTILS} == "no"
+MK_GDB:=	no
+.endif
+
 .if ${MK_LIBPTHREAD} == "no"
 MK_LIBTHR:=	no
 .endif
