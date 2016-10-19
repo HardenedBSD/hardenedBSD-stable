@@ -1,4 +1,4 @@
-include RPI3
+include GENERIC-UP
 
 options		PAX
 options		PAX_SYSCTLS
