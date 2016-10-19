@@ -48,6 +48,7 @@
 #include <vm/uma.h>
 
 
+#include <sys/jail.h>
 #include <sys/malloc.h>
 #include <sys/socket.h> /* sockaddrs */
 #include <sys/selinfo.h>
@@ -1407,7 +1408,7 @@ freebsd_netmap_ioctl(struct cdev *dev __unused, u_long cmd, caddr_t data,
 	int error;
 	struct netmap_priv_d *priv;
 
-	CURVNET_SET(TD_TO_VNET(rd));
+	CURVNET_SET(TD_TO_VNET(td));
 	error = devfs_get_cdevpriv((void **)&priv);
 	if (error) {
 		/* XXX ENOENT should be impossible, since the priv
