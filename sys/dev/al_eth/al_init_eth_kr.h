@@ -1,9 +1,8 @@
 /*-
- * Copyright (c) 2015 The FreeBSD Foundation
+ * Copyright (c) 2015,2016 Annapurna Labs Ltd. and affiliates
  * All rights reserved.
  *
- * This software was developed by Andrew Turner under
- * sponsorship from the FreeBSD Foundation.
+ * Developed by Semihalf.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -17,7 +16,7 @@
  * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
  * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
@@ -29,41 +28,39 @@
  * $FreeBSD$
  */
 
-#ifndef _MACHINE_VFP_H_
-#define	_MACHINE_VFP_H_
-
-
-#ifndef LOCORE
-struct vfpstate {
-	__uint128_t	vfp_regs[32];
-	uint32_t	vfp_fpcr;
-	uint32_t	vfp_fpsr;
-};
-
-#ifdef _KERNEL
-void	vfp_init(void);
-void	vfp_discard(struct thread *);
-void	vfp_restore_state(void);
-void	vfp_save_state(struct thread *, struct pcb *);
-
-struct fpu_kern_ctx;
-
-/*
- * Flags for fpu_kern_alloc_ctx(), fpu_kern_enter() and fpu_kern_thread().
+/**
+ *  Ethernet
+ *  @{
+ * @file   al_init_eth_kr.h
+ *
+ * @brief auto-negotiation and link training activation sequence
+ *
+ *
  */
-#define	FPU_KERN_NORMAL	0x0000
-#define	FPU_KERN_NOWAIT	0x0001
-#define	FPU_KERN_KTHR	0x0002
 
-struct fpu_kern_ctx *fpu_kern_alloc_ctx(u_int);
-void fpu_kern_free_ctx(struct fpu_kern_ctx *);
-int fpu_kern_enter(struct thread *, struct fpu_kern_ctx *, u_int);
-int fpu_kern_leave(struct thread *, struct fpu_kern_ctx *);
-int fpu_kern_thread(u_int);
-int is_fpu_kern_thread(u_int);
+#ifndef __AL_INIT_ETH_KR_H__
+#define __AL_INIT_ETH_KR_H__
 
-#endif
+#include <al_hal_eth_kr.h>
+#include <al_serdes.h>
 
-#endif
+/**
+ * execute Auto-negotiation process
+ *
+ * @param adapter pointer to the private structure
+ * @param serdes_obj pointer to serdes private structure
+ * @param grp serdes's group
+ * @param lane serdes's lane
+ * @param an_adv pointer to the AN Advertisement Registers structure
+ *        when NULL, the registers will not be updated.
+ * @param partner_adv pointer to the AN Advertisement received from the lp
+ *
+ * @return 0 on success. otherwise on failure.
+ */
+int al_eth_an_lt_execute(struct al_hal_eth_adapter *adapter,
+			 struct al_serdes_grp_obj *serdes_obj,
+			 enum al_serdes_lane	lane,
+			 struct al_eth_an_adv	*an_adv,
+			 struct al_eth_an_adv   *partner_adv);
 
-#endif /* !_MACHINE_VFP_H_ */
+#endif /*__AL_INIT_ETH_KR_H__*/

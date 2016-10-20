@@ -1,9 +1,8 @@
 /*-
- * Copyright (c) 2015 The FreeBSD Foundation
+ * Copyright (c) 2015,2016 Annapurna Labs Ltd. and affiliates
  * All rights reserved.
  *
- * This software was developed by Andrew Turner under
- * sponsorship from the FreeBSD Foundation.
+ * Developed by Semihalf.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -17,7 +16,7 @@
  * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
  * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
@@ -29,41 +28,34 @@
  * $FreeBSD$
  */
 
-#ifndef _MACHINE_VFP_H_
-#define	_MACHINE_VFP_H_
+#ifndef __ALPINE_SERDES_H__
+#define __ALPINE_SERDES_H__
 
-
-#ifndef LOCORE
-struct vfpstate {
-	__uint128_t	vfp_regs[32];
-	uint32_t	vfp_fpcr;
-	uint32_t	vfp_fpsr;
+/* SerDes ETH mode */
+enum alpine_serdes_eth_mode {
+	ALPINE_SERDES_ETH_MODE_SGMII,
+	ALPINE_SERDES_ETH_MODE_KR,
 };
 
-#ifdef _KERNEL
-void	vfp_init(void);
-void	vfp_discard(struct thread *);
-void	vfp_restore_state(void);
-void	vfp_save_state(struct thread *, struct pcb *);
-
-struct fpu_kern_ctx;
+/*
+ * Get SerDes group regs base, to be used in relevant Alpine drivers.
+ * Valid group is 0..3.
+ * Returns virtual base address of the group regs base.
+ */
+void *alpine_serdes_resource_get(uint32_t group);
 
 /*
- * Flags for fpu_kern_alloc_ctx(), fpu_kern_enter() and fpu_kern_thread().
+ * Set SerDes ETH mode for an entire group, unless already set
+ * Valid group is 0..3.
+ * Returns 0 upon success.
  */
-#define	FPU_KERN_NORMAL	0x0000
-#define	FPU_KERN_NOWAIT	0x0001
-#define	FPU_KERN_KTHR	0x0002
+int alpine_serdes_eth_mode_set(uint32_t group,
+    enum alpine_serdes_eth_mode mode);
 
-struct fpu_kern_ctx *fpu_kern_alloc_ctx(u_int);
-void fpu_kern_free_ctx(struct fpu_kern_ctx *);
-int fpu_kern_enter(struct thread *, struct fpu_kern_ctx *, u_int);
-int fpu_kern_leave(struct thread *, struct fpu_kern_ctx *);
-int fpu_kern_thread(u_int);
-int is_fpu_kern_thread(u_int);
+/* Lock the all serdes group for using common registers */
+void alpine_serdes_eth_group_lock(uint32_t group);
 
-#endif
+/* Unlock the all serdes group for using common registers */
+void alpine_serdes_eth_group_unlock(uint32_t group);
 
-#endif
-
-#endif /* !_MACHINE_VFP_H_ */
+#endif /* __ALPINE_SERDES_H__ */
