@@ -27,10 +27,10 @@
 #include "opt_inet.h"
 #include "opt_inet6.h"
 
-#include <sys/types.h>
+#include <sys/param.h>
 #include <sys/module.h>
 #include <sys/errno.h>
-#include <sys/param.h>  /* defines used in kernel.h */
+#include <sys/jail.h>
 #include <sys/poll.h>  /* POLLIN, POLLOUT */
 #include <sys/kernel.h> /* types used in module initialization */
 #include <sys/conf.h>	/* DEV_MODULE_ORDERED */
@@ -1050,8 +1050,8 @@ nm_os_kthread_send_irq(struct nm_kthread *nmk)
 	if (ctx->user_td && ctx->irq_fd > 0) {
 		err = kern_ioctl(ctx->user_td, ctx->irq_fd, ctx->irq_ioctl.com, (caddr_t)&ctx->irq_ioctl.data.msix);
 		if (err) {
-			D("kern_ioctl error: %d ioctl parameters: fd %d com %lu data %p",
-				err, ctx->irq_fd, ctx->irq_ioctl.com, &ctx->irq_ioctl.data);
+			D("kern_ioctl error: %d ioctl parameters: fd %d com %ju data %p",
+				err, ctx->irq_fd, (uintmax_t)ctx->irq_ioctl.com, &ctx->irq_ioctl.data);
 		}
 	}
 }
