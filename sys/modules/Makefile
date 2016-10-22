@@ -109,6 +109,7 @@ SUBDIR=	\
 	${_epic} \
 	esp \
 	${_et} \
+	evdev \
 	${_ex} \
 	${_exca} \
 	ext2fs \
@@ -368,6 +369,7 @@ SUBDIR=	\
 	udf \
 	udf_iconv \
 	ufs \
+	uinput \
 	unionfs \
 	urtwn \
 	${_urtwnfw} \
