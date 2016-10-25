@@ -3,20 +3,10 @@
 
 .include	"${.CURDIR}/../Makefile.ficl"
 
-<<<<<<< HEAD
 .if ${MACHINE_CPUARCH} == "aarch64"
 NOPIE=		1
 .endif
 
-.if defined(FICL32)
-.PATH: ${FICLDIR}/${MACHINE_CPUARCH:S/amd64/i386/}
-.elif ${MACHINE_ARCH} == "mips64" || ${MACHINE_ARCH} == "mips64el"
-.PATH: ${FICLDIR}/mips64
-.else
-.PATH: ${FICLDIR}/${MACHINE_CPUARCH}
-.endif
-=======
->>>>>>> origin/freebsd/current/master
 BASE_SRCS=	dict.c ficl.c fileaccess.c float.c loader.c math64.c \
 		prefix.c search.c stack.c tools.c vm.c words.c
 
