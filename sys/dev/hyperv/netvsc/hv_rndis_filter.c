@@ -34,26 +34,30 @@ __FBSDID("$FreeBSD$");
 #include <sys/socket.h>
 #include <sys/lock.h>
 #include <sys/mutex.h>
-#include <net/if.h>
-#include <net/if_arp.h>
-#include <net/if_var.h>
+#include <sys/taskqueue.h>
+
+#include <machine/atomic.h>
+
 #include <net/ethernet.h>
+#include <net/if.h>
+#include <net/if_var.h>
+#include <net/if_media.h>
 #include <net/rndis.h>
+
 #include <netinet/in.h>
 #include <netinet/ip.h>
-#include <sys/types.h>
-#include <machine/atomic.h>
-#include <sys/sema.h>
-#include <vm/vm.h>
-#include <vm/vm_param.h>
-#include <vm/pmap.h>
+#include <netinet/tcp_lro.h>
 
 #include <dev/hyperv/include/hyperv.h>
+#include <dev/hyperv/include/hyperv_busdma.h>
+#include <dev/hyperv/include/vmbus.h>
 #include <dev/hyperv/include/vmbus_xact.h>
+
+#include <dev/hyperv/netvsc/ndis.h>
+#include <dev/hyperv/netvsc/if_hnreg.h>
+#include <dev/hyperv/netvsc/if_hnvar.h>
 #include <dev/hyperv/netvsc/hv_net_vsc.h>
 #include <dev/hyperv/netvsc/hv_rndis_filter.h>
-#include <dev/hyperv/netvsc/if_hnreg.h>
-#include <dev/hyperv/netvsc/ndis.h>
 
 #define HV_RF_RECVINFO_VLAN	0x1
 #define HV_RF_RECVINFO_CSUM	0x2
@@ -549,7 +553,7 @@ hn_rndis_get_linkstatus(struct hn_softc *sc, uint32_t *link_status)
 
 static const void *
 hn_rndis_xact_exec1(struct hn_softc *sc, struct vmbus_xact *xact, size_t reqlen,
-    struct hn_send_ctx *sndc, size_t *comp_len)
+    struct hn_nvs_sendctx *sndc, size_t *comp_len)
 {
 	struct vmbus_gpa gpa[HN_XACT_REQ_PGCNT];
 	int gpa_cnt, error;
@@ -608,7 +612,7 @@ hn_rndis_xact_execute(struct hn_softc *sc, struct vmbus_xact *xact, uint32_t rid
 	/*
 	 * Execute the xact setup by the caller.
 	 */
-	comp = hn_rndis_xact_exec1(sc, xact, reqlen, &hn_send_ctx_none,
+	comp = hn_rndis_xact_exec1(sc, xact, reqlen, &hn_nvs_sendctx_none,
 	    &comp_len);
 	if (comp == NULL)
 		return (NULL);
@@ -747,13 +751,14 @@ done:
 }
 
 int
-hn_rndis_query_rsscaps(struct hn_softc *sc, int *rxr_cnt)
+hn_rndis_query_rsscaps(struct hn_softc *sc, int *rxr_cnt0)
 {
 	struct ndis_rss_caps in, caps;
 	size_t caps_len;
-	int error;
+	int error, indsz, rxr_cnt, hash_fnidx;
+	uint32_t hash_func = 0, hash_types = 0;
 
-	*rxr_cnt = 0;
+	*rxr_cnt0 = 0;
 
 	if (sc->hn_ndis_ver < HN_NDIS_VERSION_6_20)
 		return (EOPNOTSUPP);
@@ -792,18 +797,73 @@ hn_rndis_query_rsscaps(struct hn_softc *sc, int *rxr_cnt)
 		return (EINVAL);
 	}
 
+	/*
+	 * Save information for later RSS configuration.
+	 */
 	if (caps.ndis_nrxr == 0) {
 		if_printf(sc->hn_ifp, "0 RX rings!?\n");
 		return (EINVAL);
 	}
-	*rxr_cnt = caps.ndis_nrxr;
+	if (bootverbose)
+		if_printf(sc->hn_ifp, "%u RX rings\n", caps.ndis_nrxr);
+	rxr_cnt = caps.ndis_nrxr;
 
-	if (caps.ndis_hdr.ndis_size == NDIS_RSS_CAPS_SIZE) {
+	if (caps.ndis_hdr.ndis_size == NDIS_RSS_CAPS_SIZE &&
+	    caps.ndis_hdr.ndis_rev >= NDIS_RSS_CAPS_REV_2) {
+		if (caps.ndis_nind > NDIS_HASH_INDCNT) {
+			if_printf(sc->hn_ifp,
+			    "too many RSS indirect table entries %u\n",
+			    caps.ndis_nind);
+			return (EOPNOTSUPP);
+		}
+		if (!powerof2(caps.ndis_nind)) {
+			if_printf(sc->hn_ifp, "RSS indirect table size is not "
+			    "power-of-2 %u\n", caps.ndis_nind);
+		}
+
 		if (bootverbose) {
 			if_printf(sc->hn_ifp, "RSS indirect table size %u\n",
 			    caps.ndis_nind);
 		}
+		indsz = caps.ndis_nind;
+	} else {
+		indsz = NDIS_HASH_INDCNT;
 	}
+	if (indsz < rxr_cnt) {
+		if_printf(sc->hn_ifp, "# of RX rings (%d) > "
+		    "RSS indirect table size %d\n", rxr_cnt, indsz);
+		rxr_cnt = indsz;
+	}
+
+	/*
+	 * NOTE:
+	 * Toeplitz is at the lowest bit, and it is prefered; so ffs(),
+	 * instead of fls(), is used here.
+	 */
+	hash_fnidx = ffs(caps.ndis_caps & NDIS_RSS_CAP_HASHFUNC_MASK);
+	if (hash_fnidx == 0) {
+		if_printf(sc->hn_ifp, "no hash functions, caps 0x%08x\n",
+		    caps.ndis_caps);
+		return (EOPNOTSUPP);
+	}
+	hash_func = 1 << (hash_fnidx - 1); /* ffs is 1-based */
+
+	if (caps.ndis_caps & NDIS_RSS_CAP_IPV4)
+		hash_types |= NDIS_HASH_IPV4 | NDIS_HASH_TCP_IPV4;
+	if (caps.ndis_caps & NDIS_RSS_CAP_IPV6)
+		hash_types |= NDIS_HASH_IPV6 | NDIS_HASH_TCP_IPV6;
+	if (caps.ndis_caps & NDIS_RSS_CAP_IPV6_EX)
+		hash_types |= NDIS_HASH_IPV6_EX | NDIS_HASH_TCP_IPV6_EX;
+	if (hash_types == 0) {
+		if_printf(sc->hn_ifp, "no hash types, caps 0x%08x\n",
+		    caps.ndis_caps);
+		return (EOPNOTSUPP);
+	}
+
+	/* Commit! */
+	sc->hn_rss_ind_size = indsz;
+	sc->hn_rss_hash = hash_func | hash_types;
+	*rxr_cnt0 = rxr_cnt;
 	return (0);
 }
 
@@ -1033,7 +1093,7 @@ hn_rndis_conf_rss(struct hn_softc *sc, uint16_t flags)
 {
 	struct ndis_rssprm_toeplitz *rss = &sc->hn_rss;
 	struct ndis_rss_params *prm = &rss->rss_params;
-	int error;
+	int error, rss_size;
 
 	/*
 	 * Only NDIS 6.20+ is supported:
@@ -1043,21 +1103,29 @@ hn_rndis_conf_rss(struct hn_softc *sc, uint16_t flags)
 	KASSERT(sc->hn_ndis_ver >= HN_NDIS_VERSION_6_20,
 	    ("NDIS 6.20+ is required, NDIS version 0x%08x", sc->hn_ndis_ver));
 
+	/* XXX only one can be specified through, popcnt? */
+	KASSERT((sc->hn_rss_hash & NDIS_HASH_FUNCTION_MASK), ("no hash func"));
+	KASSERT((sc->hn_rss_hash & NDIS_HASH_TYPE_MASK), ("no hash types"));
+	KASSERT(sc->hn_rss_ind_size > 0, ("no indirect table size"));
+
+	if (bootverbose) {
+		if_printf(sc->hn_ifp, "RSS indirect table size %d, "
+		    "hash 0x%08x\n", sc->hn_rss_ind_size, sc->hn_rss_hash);
+	}
+
 	/*
 	 * NOTE:
 	 * DO NOT whack rss_key and rss_ind, which are setup by the caller.
 	 */
 	memset(prm, 0, sizeof(*prm));
+	rss_size = NDIS_RSSPRM_TOEPLITZ_SIZE(sc->hn_rss_ind_size);
 
 	prm->ndis_hdr.ndis_type = NDIS_OBJTYPE_RSS_PARAMS;
 	prm->ndis_hdr.ndis_rev = NDIS_RSS_PARAMS_REV_2;
-	prm->ndis_hdr.ndis_size = sizeof(*rss);
+	prm->ndis_hdr.ndis_size = rss_size;
 	prm->ndis_flags = flags;
-	prm->ndis_hash = NDIS_HASH_FUNCTION_TOEPLITZ |
-	    NDIS_HASH_IPV4 | NDIS_HASH_TCP_IPV4 |
-	    NDIS_HASH_IPV6 | NDIS_HASH_TCP_IPV6;
-	/* TODO: Take ndis_rss_caps.ndis_nind into account */
-	prm->ndis_indsize = sizeof(rss->rss_ind);
+	prm->ndis_hash = sc->hn_rss_hash;
+	prm->ndis_indsize = sizeof(rss->rss_ind[0]) * sc->hn_rss_ind_size;
 	prm->ndis_indoffset =
 	    __offsetof(struct ndis_rssprm_toeplitz, rss_ind[0]);
 	prm->ndis_keysize = sizeof(rss->rss_key);
@@ -1065,7 +1133,7 @@ hn_rndis_conf_rss(struct hn_softc *sc, uint16_t flags)
 	    __offsetof(struct ndis_rssprm_toeplitz, rss_key[0]);
 
 	error = hn_rndis_set(sc, OID_GEN_RECEIVE_SCALE_PARAMETERS,
-	    rss, sizeof(*rss));
+	    rss, rss_size);
 	if (error) {
 		if_printf(sc->hn_ifp, "RSS config failed: %d\n", error);
 	} else {
@@ -1150,7 +1218,7 @@ hn_rndis_halt(struct hn_softc *sc)
 {
 	struct vmbus_xact *xact;
 	struct rndis_halt_req *halt;
-	struct hn_send_ctx sndc;
+	struct hn_nvs_sendctx sndc;
 	size_t comp_len;
 
 	xact = vmbus_xact_get(sc->hn_xact, sizeof(*halt));
@@ -1164,7 +1232,7 @@ hn_rndis_halt(struct hn_softc *sc)
 	halt->rm_rid = hn_rndis_rid(sc);
 
 	/* No RNDIS completion; rely on NVS message send completion */
-	hn_send_ctx_init(&sndc, hn_nvs_sent_xact, xact);
+	hn_nvs_sendctx_init(&sndc, hn_nvs_sent_xact, xact);
 	hn_rndis_xact_exec1(sc, xact, sizeof(*halt), &sndc, &comp_len);
 
 	vmbus_xact_put(xact);
