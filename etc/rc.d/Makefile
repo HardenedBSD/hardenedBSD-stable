@@ -282,6 +282,7 @@ FILES+=		wpa_supplicant
 
 .if ${MK_ZFS} != "no"
 FILES+=		zfs
+FILES+=		zfsbe
 FILES+=		zvol
 .endif
 
