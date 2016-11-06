@@ -462,7 +462,7 @@ interpret:
 	}
 
 #ifdef PAX
-	error = pax_elf(imgp, td, 0);
+	error = pax_elf(td, imgp, 0);
 	if (error)
 		goto exec_fail_dealloc;
 #endif
