@@ -159,6 +159,7 @@ static void
 hv_rf_receive_indicate_status(struct hn_softc *sc, const void *data, int dlen)
 {
 	const struct rndis_status_msg *msg;
+	int ofs;
 
 	if (dlen < sizeof(*msg)) {
 		if_printf(sc->hn_ifp, "invalid RNDIS status\n");
@@ -177,8 +178,19 @@ hv_rf_receive_indicate_status(struct hn_softc *sc, const void *data, int dlen)
 		break;
 
 	case RNDIS_STATUS_NETWORK_CHANGE:
-		/* TODO */
-		if_printf(sc->hn_ifp, "network changed\n");
+		ofs = RNDIS_STBUFOFFSET_ABS(msg->rm_stbufoffset);
+		if (dlen < ofs + msg->rm_stbuflen ||
+		    msg->rm_stbuflen < sizeof(uint32_t)) {
+			if_printf(sc->hn_ifp, "network changed\n");
+		} else {
+			uint32_t change;
+
+			memcpy(&change, ((const uint8_t *)msg) + ofs,
+			    sizeof(change));
+			if_printf(sc->hn_ifp, "network changed, change %u\n",
+			    change);
+		}
+		hn_network_change(sc);
 		break;
 
 	default:
@@ -574,8 +586,7 @@ hn_rndis_xact_exec1(struct hn_softc *sc, struct vmbus_xact *xact, size_t reqlen,
 	 * message.
 	 */
 	vmbus_xact_activate(xact);
-	error = hv_nv_on_send(sc->hn_prichan, HN_NVS_RNDIS_MTYPE_CTRL, sndc,
-	    gpa, gpa_cnt);
+	error = hn_nvs_send_rndis_ctrl(sc->hn_prichan, sndc, gpa, gpa_cnt);
 	if (error) {
 		vmbus_xact_deactivate(xact);
 		if_printf(sc->hn_ifp, "RNDIS ctrl send failed: %d\n", error);
@@ -737,7 +748,7 @@ done:
 }
 
 int
-hn_rndis_get_rsscaps(struct hn_softc *sc, int *rxr_cnt)
+hn_rndis_query_rsscaps(struct hn_softc *sc, int *rxr_cnt)
 {
 	struct ndis_rss_caps in, caps;
 	size_t caps_len;
@@ -745,15 +756,13 @@ hn_rndis_get_rsscaps(struct hn_softc *sc, int *rxr_cnt)
 
 	*rxr_cnt = 0;
 
+	if (sc->hn_ndis_ver < HN_NDIS_VERSION_6_20)
+		return (EOPNOTSUPP);
+
 	memset(&in, 0, sizeof(in));
 	in.ndis_hdr.ndis_type = NDIS_OBJTYPE_RSS_CAPS;
-	if (sc->hn_ndis_ver < HN_NDIS_VERSION_6_30) {
-		in.ndis_hdr.ndis_rev = NDIS_RSS_CAPS_REV_1;
-		in.ndis_hdr.ndis_size = NDIS_RSS_CAPS_SIZE_6_0;
-	} else {
-		in.ndis_hdr.ndis_rev = NDIS_RSS_CAPS_REV_2;
-		in.ndis_hdr.ndis_size = NDIS_RSS_CAPS_SIZE;
-	}
+	in.ndis_hdr.ndis_rev = NDIS_RSS_CAPS_REV_2;
+	in.ndis_hdr.ndis_size = NDIS_RSS_CAPS_SIZE;
 
 	caps_len = NDIS_RSS_CAPS_SIZE;
 	error = hn_rndis_query2(sc, OID_GEN_RECEIVE_SCALE_CAPABILITIES,
@@ -1028,10 +1037,12 @@ hn_rndis_conf_rss(struct hn_softc *sc, uint16_t flags)
 	int error;
 
 	/*
-	 * Only NDIS 6.30+ is supported.
+	 * Only NDIS 6.20+ is supported:
+	 * We only support 4bytes element in indirect table, which has been
+	 * adopted since NDIS 6.20.
 	 */
-	KASSERT(sc->hn_ndis_ver >= HN_NDIS_VERSION_6_30,
-	    ("NDIS 6.30+ is required, NDIS version 0x%08x", sc->hn_ndis_ver));
+	KASSERT(sc->hn_ndis_ver >= HN_NDIS_VERSION_6_20,
+	    ("NDIS 6.20+ is required, NDIS version 0x%08x", sc->hn_ndis_ver));
 
 	/*
 	 * NOTE:
@@ -1154,7 +1165,7 @@ hn_rndis_halt(struct hn_softc *sc)
 	halt->rm_rid = hn_rndis_rid(sc);
 
 	/* No RNDIS completion; rely on NVS message send completion */
-	hn_send_ctx_init_simple(&sndc, hn_nvs_sent_xact, xact);
+	hn_send_ctx_init(&sndc, hn_nvs_sent_xact, xact);
 	hn_rndis_xact_exec1(sc, xact, sizeof(*halt), &sndc, &comp_len);
 
 	vmbus_xact_put(xact);
