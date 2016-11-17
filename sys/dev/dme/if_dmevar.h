@@ -1,5 +1,6 @@
-/*-
- * Copyright (c) 2012 Hans Petter Selasky. All rights reserved.
+/*
+ * Copyright (C) 2010 Andrew Turner
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,16 +26,14 @@
  * $FreeBSD$
  */
 
-#ifndef _DWC_OTG_FDT_H_
-#define	_DWC_OTG_FDT_H_
+#ifndef __IF_DMEVAR_H__
+#define __IF_DMEVAR_H__
 
-struct dwc_otg_fdt_softc {
-	struct dwc_otg_softc sc_otg;	/* must be first */
-};
+#define DME_LOCK(cs)		mtx_lock(&(sc)->dme_mtx)
+#define DME_UNLOCK(cs)		mtx_unlock(&(sc)->dme_mtx)
+#define DME_ASSERT_LOCKED(sc)	mtx_assert(&(sc)->dme_mtx, MA_OWNED);
 
-extern driver_t dwc_otg_driver;
+#define DME_TIMEOUT	1000
 
-device_attach_t dwc_otg_attach;
-device_attach_t dwc_otg_detach;
+#endif /* __IF_DMEVAR_H__ */
 
-#endif
