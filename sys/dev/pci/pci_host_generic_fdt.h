@@ -1,6 +1,9 @@
-/*-
- * Copyright (c) 2002 Mitsuru IWASAKI
+/*
+ * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
+ * Copyright (c) 2015 The FreeBSD Foundation
  * All rights reserved.
+ *
+ * This software was developed by Semihalf.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -14,7 +17,7 @@
  * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
  * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
@@ -23,40 +26,24 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
+ *
  * $FreeBSD$
+ *
  */
 
-/******************************************************************************
- *
- * Name: acpica_machdep.h - arch-specific defines, etc.
- *       $Revision$
- *
- *****************************************************************************/
+#ifndef __PCI_HOST_GENERIC_FDT_H_
+#define	__PCI_HOST_GENERIC_FDT_H_
 
-#ifndef __ACPICA_MACHDEP_H__
-#define	__ACPICA_MACHDEP_H__
+struct generic_pcie_fdt_softc {
+	struct generic_pcie_core_softc base;
+	struct ofw_bus_iinfo	pci_iinfo;
+};
 
+DECLARE_CLASS(generic_pcie_fdt_driver);
 
-#ifdef _KERNEL
+struct resource *pci_host_generic_alloc_resource(device_t,
+    device_t, int, int *, rman_res_t, rman_res_t, rman_res_t, u_int);
+int pci_host_generic_attach(device_t);
+int generic_pcie_get_id(device_t, device_t, enum pci_id_type, uintptr_t *);
 
-#include <machine/_bus.h>
-
-/* Only use the reduced hardware model */
-#define	ACPI_REDUCED_HARDWARE	1
-
-/* Section 5.2.10.1: global lock acquire/release functions */
-int	acpi_acquire_global_lock(volatile uint32_t *);
-int	acpi_release_global_lock(volatile uint32_t *);
-
-void	*acpi_map_table(vm_paddr_t pa, const char *sig);
-void	acpi_unmap_table(void *table);
-vm_paddr_t acpi_find_table(const char *sig);
-
-struct acpi_generic_address;
-
-int	acpi_map_addr(struct acpi_generic_address  *, bus_space_tag_t *,
-    bus_space_handle_t *, bus_size_t);
-
-#endif /* _KERNEL */
-
-#endif /* __ACPICA_MACHDEP_H__ */
+#endif /* __PCI_HOST_GENERIC_FDT_H_ */
