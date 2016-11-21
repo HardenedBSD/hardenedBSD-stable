@@ -136,6 +136,12 @@ contrib/vchiq/interface/vchiq_arm/vchiq_shim.c	optional vchiq soc_brcm_bcm2837 \
 	compile-with "${NORMAL_C} -DUSE_VCHIQ_ARM -D__VCCOREVER__=0x04000000 -I$S/contrib/vchiq"
 contrib/vchiq/interface/vchiq_arm/vchiq_util.c	optional vchiq soc_brcm_bcm2837 \
 	compile-with "${NORMAL_C} -DUSE_VCHIQ_ARM -D__VCCOREVER__=0x04000000 -I$S/contrib/vchiq"
+crypto/armv8/armv8_crypto.c	optional	armv8crypto
+armv8_crypto_wrap.o		optional	armv8crypto		\
+	dependency	"$S/crypto/armv8/armv8_crypto_wrap.c"		\
+	compile-with	"${CC} -c ${CFLAGS:C/^-O2$/-O3/:N-nostdinc:N-mgeneral-regs-only} ${WERROR} ${NO_WCAST_QUAL} ${PROF} -march=armv8a+crypto ${.IMPSRC}" \
+	no-implicit-rule						\
+	clean		"armv8_crypto_wrap.o"
 crypto/blowfish/bf_enc.c	optional	crypto | ipsec
 crypto/des/des_enc.c		optional	crypto | ipsec | netsmb
 dev/acpica/acpi_if.m		optional	acpi
@@ -151,7 +157,7 @@ dev/ofw/ofwpci.c		optional 	fdt pci
 dev/pci/pci_host_generic.c	optional	pci fdt
 dev/psci/psci.c			optional	psci
 dev/psci/psci_arm64.S		optional	psci
-dev/uart/uart_cpu_fdt.c		optional	uart fdt
+dev/uart/uart_cpu_arm64.c	optional	uart
 dev/uart/uart_dev_pl011.c	optional	uart pl011
 dev/usb/controller/dwc_otg_hisi.c optional	dwcotg fdt soc_hisi_hi6220
 dev/usb/controller/generic_ehci.c optional	ehci acpi
