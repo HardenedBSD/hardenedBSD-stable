@@ -53,11 +53,8 @@ MAN=	aac.4 \
 	${_aout.4} \
 	${_apic.4} \
 	arcmsr.4 \
-<<<<<<< HEAD
-	aslr.4 \
-=======
 	${_armv8crypto.4} \
->>>>>>> origin/freebsd/current/master
+	aslr.4 \
 	${_asmc.4} \
 	ata.4 \
 	ath.4 \
