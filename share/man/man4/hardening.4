@@ -183,6 +183,45 @@ Default: 0
 Hardened: 1
 .El
 .It
+net.inet6.ip6.use_deprecated
+.Bl -dash -compact
+.It
+Type: integer
+.It
+Description: Allow the use of addresses whose preferred lifetimes
+have expired.
+.It
+Default: 1
+.It
+Hardened: 0
+.El
+.It
+net.inet6.ip6.use_tempaddr
+.Bl -dash -compact
+.It
+Type: integer
+.It
+Description: Create RFC3041 temporary addresses for autoconfigured
+addresses.
+.It
+Default: 0
+.It
+Hardened: 1
+.El
+.It
+net.inet6.ip6.prefer_tempaddr
+.Bl -dash -compact
+.It
+Type: integer
+.It
+Description: Prefer RFC3041 temporary addresses in source address
+selection.
+.It
+Default: 0
+.It
+Hardened: 1
+.El
+.It
 security.bsd.stack_guard_page
 .Bl -dash -compact
 .It
