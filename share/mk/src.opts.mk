@@ -192,6 +192,7 @@ __DEFAULT_NO_OPTIONS = \
     OFED \
     OPENLDAP \
     PORTSNAP \
+    SAFESTACK \
     SORT_THREADS \
     SVN \
 
