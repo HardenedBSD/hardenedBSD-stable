@@ -69,12 +69,23 @@ NOPIE=yes
 
 .if !defined(NOPIE)
 .if ${MK_PIE} != "no"
+
 CFLAGS+= -fPIE
 CXXFLAGS+= -fPIE
 LDFLAGS+= -pie
-.endif
-.endif
-.endif
+
+# Only toggle SafeStack for PIE binaries. SafeStack requires ASLR in
+# order to be effective.
+.if !defined(NOSAFESTACK)
+.if ${MK_SAFESTACK} != "no"
+CFLAGS+=	-fsanitize=safe-stack
+LDFLAGS+=	-fsanitize=safe-stack
+.endif # ${MK_SAFESTACK} != "no"
+.endif # !defined(NOSAFESTACK)
+
+.endif # ${MK_PIE} != no
+.endif # !defined(NOPIE)
+.endif # defined(MK_PIE)
 
 .if defined(MK_RELRO)
 .if ${MK_RELRO} != "no"
