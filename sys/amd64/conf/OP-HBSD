@@ -19,7 +19,7 @@
 # $FreeBSD$
 
 cpu		HAMMER
-ident		OP-HARDENEDBSD-11
+ident		OP-HARDENEDBSD-12
 
 options		HZ=100
 
