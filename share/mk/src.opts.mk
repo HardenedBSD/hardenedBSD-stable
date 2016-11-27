@@ -197,7 +197,6 @@ __DEFAULT_NO_OPTIONS = \
     OPENLDAP \
     PORTSNAP \
     RCS \
-    SAFESTACK \
     SHARED_TOOLCHAIN \
     SORT_THREADS \
     SVN \
@@ -287,6 +286,12 @@ BROKEN_OPTIONS+=EFI
 __DEFAULT_YES_OPTIONS+=PIE
 .else
 __DEFAULT_NO_OPTIONS+=PIE
+.endif
+
+.if ${__T} == "amd64"
+__DEFAULT_YES_OPTIONS+=SAFESTACK
+.else
+__DEFAULT_NO_OPTIONS+=SAFESTACK
 .endif
 
 .include <bsd.mkopt.mk>
