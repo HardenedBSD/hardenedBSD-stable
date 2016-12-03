@@ -156,7 +156,7 @@ dnssec_check() {
 				-v \
 				-t txt \
 				-f ${mountpoint}/${dnssec_key} \
-				${dnsrec})
+				${dnsrec} | ${TAIL} -n 1)
 
 			if ! echo ${val} | grep -qF 'has TXT record'; then
 				debug_print "[-] Could not get DNS record."
