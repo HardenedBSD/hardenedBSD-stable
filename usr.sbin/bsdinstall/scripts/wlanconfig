@@ -33,35 +33,7 @@ BSDCFG_SHARE="/usr/share/bsdconfig"
 . $BSDCFG_SHARE/common.subr || exit 1
 f_include $BSDCFG_SHARE/dialog.subr
 
-<<<<<<< HEAD
-############################################################ MAIN
-
-echo -n > $BSDINSTALL_TMPETC/wpa_supplicant.conf
-chmod 0600 $BSDINSTALL_TMPETC/wpa_supplicant.conf
-
-echo "ctrl_interface=/var/run/wpa_supplicant" >> $BSDINSTALL_TMPETC/wpa_supplicant.conf
-echo "eapol_version=2" >> $BSDINSTALL_TMPETC/wpa_supplicant.conf
-echo "ap_scan=1" >> $BSDINSTALL_TMPETC/wpa_supplicant.conf
-echo "fast_reauth=1" >> $BSDINSTALL_TMPETC/wpa_supplicant.conf
-echo >> $BSDINSTALL_TMPETC/wpa_supplicant.conf
-
-# Try to reach wpa_supplicant. If it isn't running and we can modify the
-# existing system, start it. Otherwise, fail.
-(wpa_cli ping >/dev/null 2>/dev/null || ([ ! -z $BSDINSTALL_CONFIGCURRENT ] && \
-	wpa_supplicant -B -i $1 -c $BSDINSTALL_TMPETC/wpa_supplicant.conf)) || \
-	(dialog --backtitle "HardenedBSD Installer" --title "Error" --msgbox \
-	"Could not start wpa_supplicant!" 0 0; exit 1) || exit 1
-
-# See if we succeeded
-wpa_cli ping >/dev/null 2>/dev/null
-if [ $? -ne 0 -a -z $BSDINSTALL_CONFIGCURRENT ]; then
-	dialog --backtitle "HardenedBSD Installer" --title "Error" --msgbox \
-	"Wireless cannot be configured without making changes to the local system!" \ 0 0
-	exit 1
-fi
-=======
 ############################################################ FUNCTIONS
->>>>>>> origin/freebsd/current/master
 
 country_set()
 {
@@ -196,13 +168,13 @@ echo >> $BSDINSTALL_TMPETC/wpa_supplicant.conf
 # existing system, start it. Otherwise, fail.
 (wpa_cli ping >/dev/null 2>/dev/null || ([ ! -z $BSDINSTALL_CONFIGCURRENT ] &&
 	wpa_supplicant -B -i $1 -c $BSDINSTALL_TMPETC/wpa_supplicant.conf)) ||
-	(dialog --backtitle "FreeBSD Installer" --title "Error" --msgbox \
+	(dialog --backtitle "HardenedBSD Installer" --title "Error" --msgbox \
 	"Could not start wpa_supplicant!" 0 0; exit 1) || exit 1
 
 # See if we succeeded
 wpa_cli ping >/dev/null 2>/dev/null
 if [ $? -ne 0 -a -z $BSDINSTALL_CONFIGCURRENT ]; then
-	dialog --backtitle "FreeBSD Installer" --title "Error" --msgbox \
+	dialog --backtitle "HardenedBSD Installer" --title "Error" --msgbox \
 	"Wireless cannot be configured without making changes to the local system!" \ 0 0
 	exit 1
 fi
@@ -251,13 +223,8 @@ do
 	   printf("\"%s\"\t%s\n", $5, $4);}' | sort | uniq`
 
 	if [ -z "$NETWORKS" ]; then
-<<<<<<< HEAD
 		dialog --backtitle "HardenedBSD Installer" --title "Error" \
-		    --yesno "No wireless networks were found. Rescan?" 0 0 && \
-=======
-		dialog --backtitle "FreeBSD Installer" --title "Error" \
 		    --yesno "No wireless networks were found. Rescan?" 0 0 &&
->>>>>>> origin/freebsd/current/master
 		    continue
 		exit 1
 	fi
