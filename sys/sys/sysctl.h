@@ -605,7 +605,8 @@ TAILQ_HEAD(sysctl_ctx_list, sysctl_ctx_entry);
 #define	KERN_IOV_MAX		35	/* int: value of UIO_MAXIOV */
 #define	KERN_HOSTUUID		36	/* string: host UUID identifier */
 #define	KERN_ARND		37	/* int: from arc4rand() */
-#define	KERN_MAXID		38	/* number of valid kern ids */
+#define	KERN_MAXPHYS		38	/* int: MAXPHYS value */
+#define	KERN_MAXID		39	/* number of valid kern ids */
 /*
  * KERN_PROC subtypes
  */
