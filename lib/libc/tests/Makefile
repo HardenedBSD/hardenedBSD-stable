@@ -10,7 +10,6 @@ TESTS_SUBDIRS=	c063
 TESTS_SUBDIRS+=	db
 TESTS_SUBDIRS+=	gen
 TESTS_SUBDIRS+=	hash
-TESTS_SUBDIRS+=	iconv
 TESTS_SUBDIRS+=	inet
 TESTS_SUBDIRS+=	net
 TESTS_SUBDIRS+=	nss
@@ -24,6 +23,10 @@ TESTS_SUBDIRS+=	sys
 TESTS_SUBDIRS+=	termios
 TESTS_SUBDIRS+=	tls
 TESTS_SUBDIRS+=	ttyio
+
+.if ${MK_ICONV} != "no"
+TESTS_SUBDIRS+=	iconv
+.endif
 
 .if ${MK_ICONV} != "no"
 TESTS_SUBDIRS+=	iconv
