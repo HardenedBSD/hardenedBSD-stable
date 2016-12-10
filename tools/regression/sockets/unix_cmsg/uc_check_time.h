@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2012 Gleb Smirnoff <glebius@FreeBSD.org>
+ * Copyright (c) 2016 Maksym Sobolyev <sobomax@FreeBSD.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,51 +26,11 @@
  * $FreeBSD$
  */
 
-#ifndef __SYS_COUNTER_H__
-#define __SYS_COUNTER_H__
+struct bintime;
+struct timeval;
+struct timespec;
 
-typedef uint64_t *counter_u64_t;
-
-#ifdef _KERNEL
-#include <machine/counter.h>
-
-counter_u64_t	counter_u64_alloc(int);
-void		counter_u64_free(counter_u64_t);
-
-void		counter_u64_zero(counter_u64_t);
-uint64_t	counter_u64_fetch(counter_u64_t);
-
-#define	COUNTER_ARRAY_ALLOC(a, n, wait)	do {			\
-	for (int i = 0; i < (n); i++)				\
-		(a)[i] = counter_u64_alloc(wait);		\
-} while (0)
-
-#define	COUNTER_ARRAY_FREE(a, n)	do {			\
-	for (int i = 0; i < (n); i++)				\
-		counter_u64_free((a)[i]);			\
-} while (0)
-
-#define	COUNTER_ARRAY_COPY(a, dstp, n)	do {			\
-	for (int i = 0; i < (n); i++)				\
-		((uint64_t *)(dstp))[i] = counter_u64_fetch((a)[i]);\
-} while (0)
-
-#define	COUNTER_ARRAY_ZERO(a, n)	do {			\
-	for (int i = 0; i < (n); i++)				\
-		counter_u64_zero((a)[i]);			\
-} while (0)
-
-/*
- * counter(9) based rate checking.
- */
-struct counter_rate {
-	counter_u64_t	cr_rate;	/* Events since last second */
-	volatile int	cr_lock;	/* Lock to clean the struct */
-	int		cr_ticks;	/* Ticks on last clean */
-	int		cr_over;	/* Over limit since cr_ticks? */
-};
-
-int64_t	counter_ratecheck(struct counter_rate *, int64_t);
-
-#endif	/* _KERNEL */
-#endif	/* ! __SYS_COUNTER_H__ */
+int uc_check_bintime(const struct bintime *bt);
+int uc_check_timeval(const struct timeval *bt);
+int uc_check_timespec_real(const struct timespec *bt);
+int uc_check_timespec_mono(const struct timespec *bt);
