@@ -538,11 +538,7 @@ _igb=		igb
 .if ${MACHINE_CPUARCH} == "i386" || ${MACHINE_CPUARCH} == "amd64"
 _agp=		agp
 _an=		an
-<<<<<<< HEAD
-=======
-_aout=		aout
 _bios=		bios
->>>>>>> origin/freebsd/11-stable/master
 _bktr=		bktr
 _bxe=		bxe
 _cardbus=	cardbus
