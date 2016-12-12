@@ -538,6 +538,11 @@ _igb=		igb
 .if ${MACHINE_CPUARCH} == "i386" || ${MACHINE_CPUARCH} == "amd64"
 _agp=		agp
 _an=		an
+<<<<<<< HEAD
+=======
+_aout=		aout
+_bios=		bios
+>>>>>>> origin/freebsd/11-stable/master
 _bktr=		bktr
 _bxe=		bxe
 _cardbus=	cardbus
@@ -716,7 +721,6 @@ _wds=		wds
 .if ${MK_EISA} != "no"
 _ahb=		ahb
 .endif
-_bios=		bios
 _cm=		cm
 .if ${MK_SOURCELESS_UCODE} != "no"
 _ctau=		ctau
