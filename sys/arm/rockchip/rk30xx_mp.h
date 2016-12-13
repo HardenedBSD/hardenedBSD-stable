@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2013 Thomas Skibo
+ * Copyright (C) 2016 Ganbold Tsagaankhuu <ganbold@freebsd.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -10,6 +10,9 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -26,77 +29,10 @@
  * $FreeBSD$
  */
 
-/*
- * Machine dependent code for Xilinx Zynq-7000 Soc.
- *
- * Reference: Zynq-7000 All Programmable SoC Technical Reference Manual.
- * (v1.4) November 16, 2012.  Xilinx doc UG585.
- */
+#ifndef _RK30XX_MP_H_
+#define	_RK30XX_MP_H_
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
+void rk30xx_mp_setmaxid(platform_t plat);
+void rk30xx_mp_start_ap(platform_t plat);
 
-#include <sys/param.h>
-#include <sys/systm.h>
-#include <sys/bus.h>
-#include <sys/devmap.h>
-
-#include <vm/vm.h>
-#include <vm/pmap.h>
-
-#include <machine/bus.h>
-#include <machine/machdep.h>
-#include <machine/platform.h> 
-
-#include <arm/xilinx/zy7_reg.h>
-
-void (*zynq7_cpu_reset)(void);
-
-vm_offset_t
-platform_lastaddr(void)
-{
-
-	return (devmap_lastaddr());
-}
-
-void
-platform_probe_and_attach(void)
-{
-
-}
-
-void
-platform_gpio_init(void)
-{
-}
-
-void
-platform_late_init(void)
-{
-}
-
-/*
- * Set up static device mappings.  Not strictly necessary -- simplebus will
- * dynamically establish mappings as needed -- but doing it this way gets us
- * nice efficient 1MB section mappings.
- */
-int
-platform_devmap_init(void)
-{
-
-	devmap_add_entry(ZYNQ7_PSIO_HWBASE, ZYNQ7_PSIO_SIZE);
-	devmap_add_entry(ZYNQ7_PSCTL_HWBASE, ZYNQ7_PSCTL_SIZE);
-
-	return (0);
-}
-
-void
-cpu_reset(void)
-{
-	if (zynq7_cpu_reset != NULL)
-		(*zynq7_cpu_reset)();
-
-	printf("cpu_reset: no platform cpu_reset.  hanging.\n");
-	for (;;)
-		;
-}
+#endif /* _RK30XX_MP_H_ */
