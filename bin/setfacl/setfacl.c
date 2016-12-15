@@ -111,6 +111,8 @@ sanitize_inheritance(const struct stat *sb, acl_t acl)
 		return (acl);
 
 	acl_new = acl_dup(acl);
+	if (acl_new == (acl_t)NULL)
+		return ((acl_t)NULL);
 
 	entry_id = ACL_FIRST_ENTRY;
 	while (acl_get_entry(acl_new, entry_id, &acl_entry) == 1) {
@@ -192,6 +194,10 @@ walk_path(const char *path, const struct stat *sb, int flag, struct FTW *ftwp __
 			    && (flag & FTW_D) == 0) {
 				acl_backup = acl_dup(entry->acl);
 				entry->acl = sanitize_inheritance(sb, entry->acl);
+				if (entry->acl == (acl_t)NULL) {
+					local_error++;
+					break;
+				}
 			}
 			local_error += add_acl(entry->acl,
 				entry->entry_number, &acl, path);
