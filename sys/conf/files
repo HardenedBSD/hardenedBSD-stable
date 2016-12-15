@@ -1187,6 +1187,10 @@ dev/bktr/bktr_i2c.c		optional bktr pci smbus
 dev/bktr/bktr_os.c		optional bktr pci
 dev/bktr/bktr_tuner.c		optional bktr pci
 dev/bktr/msp34xx.c		optional bktr pci
+dev/bnxt/bnxt_hwrm.c		optional bnxt iflib pci
+dev/bnxt/bnxt_sysctl.c		optional bnxt iflib pci
+dev/bnxt/bnxt_txrx.c		optional bnxt iflib pci
+dev/bnxt/if_bnxt.c		optional bnxt iflib pci
 dev/buslogic/bt.c		optional bt
 dev/buslogic/bt_eisa.c		optional bt eisa
 dev/buslogic/bt_isa.c		optional bt isa
@@ -1218,6 +1222,7 @@ dev/cfi/cfi_bus_nexus.c		optional cfi
 dev/cfi/cfi_core.c		optional cfi
 dev/cfi/cfi_dev.c		optional cfi
 dev/cfi/cfi_disk.c		optional cfid
+dev/chromebook_platform/chromebook_platform.c	optional chromebook_platform
 dev/ciss/ciss.c			optional ciss
 dev/cm/smc90cx6.c		optional cm
 dev/cmx/cmx.c			optional cmx
@@ -1303,7 +1308,7 @@ t4fw.fwo		optional cxgbe					\
 	no-implicit-rule						\
 	clean		"t4fw.fwo"
 t4fw.fw			optional cxgbe					\
-	dependency	"$S/dev/cxgbe/firmware/t4fw-1.15.37.0.bin.uu"	\
+	dependency	"$S/dev/cxgbe/firmware/t4fw-1.16.22.0.bin.uu"	\
 	compile-with	"${NORMAL_FW}"					\
 	no-obj no-implicit-rule						\
 	clean		"t4fw.fw"
@@ -1327,14 +1332,38 @@ t5fw.fwo		optional cxgbe					\
 	no-implicit-rule						\
 	clean		"t5fw.fwo"
 t5fw.fw			optional cxgbe					\
-	dependency	"$S/dev/cxgbe/firmware/t5fw-1.15.37.0.bin.uu"	\
+	dependency	"$S/dev/cxgbe/firmware/t5fw-1.16.22.0.bin.uu"	\
 	compile-with	"${NORMAL_FW}"					\
 	no-obj no-implicit-rule						\
 	clean		"t5fw.fw"
+t6fw_cfg.c		optional cxgbe					\
+	compile-with	"${AWK} -f $S/tools/fw_stub.awk t6fw_cfg.fw:t6fw_cfg t6fw.fw:t6fw -mt6fw_cfg -c${.TARGET}" \
+	no-implicit-rule before-depend local				\
+	clean		"t6fw_cfg.c"
+t6fw_cfg.fwo		optional cxgbe					\
+	dependency	"t6fw_cfg.fw"					\
+	compile-with	"${NORMAL_FWO}"					\
+	no-implicit-rule						\
+	clean		"t6fw_cfg.fwo"
+t6fw_cfg.fw		optional cxgbe					\
+	dependency	"$S/dev/cxgbe/firmware/t6fw_cfg.txt"		\
+	compile-with	"${CP} ${.ALLSRC} ${.TARGET}"			\
+	no-obj no-implicit-rule						\
+	clean		"t6fw_cfg.fw"
+t6fw.fwo		optional cxgbe					\
+	dependency	"t6fw.fw"					\
+	compile-with	"${NORMAL_FWO}"					\
+	no-implicit-rule						\
+	clean		"t6fw.fwo"
+t6fw.fw			optional cxgbe					\
+	dependency	"$S/dev/cxgbe/firmware/t6fw-1.16.22.0.bin.uu"	\
+	compile-with	"${NORMAL_FW}"					\
+	no-obj no-implicit-rule						\
+	clean		"t6fw.fw"
 dev/cy/cy.c			optional cy
 dev/cy/cy_isa.c			optional cy isa
 dev/cy/cy_pci.c			optional cy pci
-dev/cyapa/cyapa.c		optional cyapa smbus
+dev/cyapa/cyapa.c		optional cyapa iicbus
 dev/dc/if_dc.c			optional dc pci
 dev/dc/dcphy.c			optional dc pci
 dev/dc/pnphy.c			optional dc pci
@@ -1585,8 +1614,8 @@ dev/hptiop/hptiop.c		optional hptiop scbus
 dev/hwpmc/hwpmc_logging.c	optional hwpmc
 dev/hwpmc/hwpmc_mod.c		optional hwpmc
 dev/hwpmc/hwpmc_soft.c		optional hwpmc
-dev/ichiic/ig4_iic.c		optional ig4 smbus
-dev/ichiic/ig4_pci.c		optional ig4 pci smbus
+dev/ichiic/ig4_iic.c		optional ig4 iicbus
+dev/ichiic/ig4_pci.c		optional ig4 pci iicbus
 dev/ichsmb/ichsmb.c		optional ichsmb
 dev/ichsmb/ichsmb_pci.c		optional ichsmb pci
 dev/ida/ida.c			optional ida
@@ -1682,7 +1711,7 @@ dev/iscsi_initiator/isc_soc.c	optional iscsi_initiator scbus
 dev/iscsi_initiator/isc_sm.c	optional iscsi_initiator scbus
 dev/iscsi_initiator/isc_subr.c	optional iscsi_initiator scbus
 dev/ismt/ismt.c			optional ismt
-dev/isl/isl.c			optional isl smbus
+dev/isl/isl.c			optional isl iicbus
 dev/isp/isp.c			optional isp
 dev/isp/isp_freebsd.c		optional isp
 dev/isp/isp_library.c		optional isp

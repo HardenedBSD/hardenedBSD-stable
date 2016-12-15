@@ -1,5 +1,5 @@
 #
-# GENERIC -- Generic kernel configuration file for FreeBSD/amd64
+# HARDENEDBSD -- HardenedBSD kernel configuration file for FreeBSD/amd64
 #
 # For more information on this file, please read the config(5) manual page,
 # and/or the handbook section on Kernel Configuration Files:
@@ -35,9 +35,9 @@ options 	FFS			# Berkeley Fast Filesystem
 options 	SOFTUPDATES		# Enable FFS soft updates support
 options 	UFS_ACL			# Support for access control lists
 options 	UFS_DIRHASH		# Improve performance on big directories
-options 	UFS_GJOURNAL		# Enable gjournal-based UFS journaling
 options 	UFS_EXTATTR		# Extended attributes
 options 	UFS_EXTATTR_AUTOSTART	#
+options 	UFS_GJOURNAL		# Enable gjournal-based UFS journaling
 options 	QUOTA			# Enable disk quotas for UFS
 options 	MD_ROOT			# MD is a potential root device
 options 	NFSCL			# Network Filesystem Client
@@ -89,19 +89,21 @@ options 	PAX_NOEXEC		# Remove WX pages from user-space and enforce W^X
 options 	PAX_HARDENING		# Various hardening options
 options 	PAX_SEGVGUARD		# prevent brute-force attacks
 options 	HBSD_DEBUG
+options 	INVARIANTS		# Enable calls of extra sanity checking
+options 	INVARIANT_SUPPORT	# Extra sanity checks of internal structures, required by INVARIANTS
 
 # Debugging support.  Always need this:
 options 	KDB			# Enable kernel debugger support.
 options 	KDB_TRACE		# Print a stack trace for a panic.
 # For full debugger support use (turn off in stable branch):
-options 	DDB			# Support DDB.
-options 	GDB			# Support remote GDB.
-options 	DEADLKRES		# Enable the deadlock resolver
-options 	INVARIANTS		# Enable calls of extra sanity checking
-options 	INVARIANT_SUPPORT	# Extra sanity checks of internal structures, required by INVARIANTS
-options 	WITNESS			# Enable checks to detect deadlocks and cycles
-options 	WITNESS_SKIPSPIN	# Don't run witness on spinlocks for speed
-options 	MALLOC_DEBUG_MAXZONES=8	# Separate malloc(9) zones
+#options 	DDB			# Support DDB.
+#options 	GDB			# Support remote GDB.
+#options 	DEADLKRES		# Enable the deadlock resolver
+#options 	INVARIANTS		# Enable calls of extra sanity checking
+#options 	INVARIANT_SUPPORT	# Extra sanity checks of internal structures, required by INVARIANTS
+#options 	WITNESS			# Enable checks to detect deadlocks and cycles
+#options 	WITNESS_SKIPSPIN	# Don't run witness on spinlocks for speed
+#options 	MALLOC_DEBUG_MAXZONES=8	# Separate malloc(9) zones
 
 # Make an SMP-capable kernel by default
 options 	SMP			# Symmetric MultiProcessor Kernel
@@ -379,8 +381,8 @@ device		netmap			# netmap(4) support
 # The crypto framework is required by IPSEC
 device		crypto			# Required by IPSEC
 
-# Additonal devices
-device		coretemp
-device		cpuctl
-device		cryptodev		# /dev/crypto for access to h/w
-device		aesni
+# Other nice stuffs.
+device		aesni			# Accelerated AES on Intel CPUs
+device		coretemp		# CPU temperature sensors
+device		cpuctl			# for CPU microcode updates
+device		cryptodev		# /dev/crypto for access to Hardware

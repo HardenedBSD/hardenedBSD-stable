@@ -56,10 +56,12 @@ SUBDIR=	\
 	${_bios} \
 	${_bktr} \
 	${_bm} \
+	bnxt \
 	bridgestp \
 	bwi \
 	bwn \
 	bwn_pci \
+	${_bytgpio} \
 	cam \
 	${_canbepm} \
 	${_canbus} \
@@ -72,6 +74,7 @@ SUBDIR=	\
 	cd9660_iconv \
 	${_ce} \
 	${_cfi} \
+	${_chromebook_platform} \
 	${_ciss} \
 	cloudabi \
 	${_cloudabi32} \
@@ -536,6 +539,7 @@ _igb=		igb
 .if ${MACHINE_CPUARCH} == "i386" || ${MACHINE_CPUARCH} == "amd64"
 _agp=		agp
 _an=		an
+_bios=		bios
 _bktr=		bktr
 _bxe=		bxe
 _cardbus=	cardbus
@@ -595,7 +599,9 @@ _amdsbwd=	amdsbwd
 _amdtemp=	amdtemp
 _arcmsr=	arcmsr
 _asmc=		asmc
+_bytgpio=	bytgpio
 _ciss=		ciss
+_chromebook_platform=	chromebook_platform
 _cmx=		cmx
 _coretemp=	coretemp
 .if ${MK_SOURCELESS_HOST} != "no"
@@ -713,7 +719,6 @@ _wds=		wds
 .if ${MK_EISA} != "no"
 _ahb=		ahb
 .endif
-_bios=		bios
 _cm=		cm
 .if ${MK_SOURCELESS_UCODE} != "no"
 _ctau=		ctau
