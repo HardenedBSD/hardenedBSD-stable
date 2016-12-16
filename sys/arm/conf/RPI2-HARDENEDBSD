@@ -6,5 +6,3 @@ options PAX_SYSCTLS
 options PAX_HARDENING
 options PAX_SEGVGUARD
 options PAX_NOEXEC
-
-options ARM_NEW_PMAP
