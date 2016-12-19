@@ -83,8 +83,7 @@ ctl_set_sense_data_va(struct scsi_sense_data *sense_data, void *lunptr,
 		 * sense if the LUN exists and descriptor sense is turned
 		 * on for that LUN.
 		 */
-		if ((lun != NULL)
-		 && (lun->flags & CTL_LUN_SENSE_DESC))
+		if ((lun != NULL) && (lun->MODE_CTRL.rlec & SCP_DSENSE))
 			sense_format = SSD_TYPE_DESC;
 		else
 			sense_format = SSD_TYPE_FIXED;
@@ -460,6 +459,11 @@ ctl_ua_to_acsq(struct ctl_lun *lun, ctl_ua_type ua_to_build, int *asc,
 		/* 28h/00h  NOT READY TO READY CHANGE, MEDIUM MAY HAVE CHANGED */
 		*asc = 0x28;
 		*ascq = 0x00;
+		break;
+	case CTL_UA_IE:
+		/* Informational exception */
+		*asc = lun->ie_asc;
+		*ascq = lun->ie_ascq;
 		break;
 	default:
 		panic("%s: Unknown UA %x", __func__, ua_to_build);

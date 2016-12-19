@@ -93,25 +93,6 @@ struct ctl_softc *control_softc = NULL;
  * Note that these are default values only.  The actual values will be
  * filled in when the user does a mode sense.
  */
-const static struct copan_debugconf_subpage debugconf_page_default = {
-	DBGCNF_PAGE_CODE | SMPH_SPF,	/* page_code */
-	DBGCNF_SUBPAGE_CODE,		/* subpage */
-	{(sizeof(struct copan_debugconf_subpage) - 4) >> 8,
-	 (sizeof(struct copan_debugconf_subpage) - 4) >> 0}, /* page_length */
-	DBGCNF_VERSION,			/* page_version */
-	{CTL_TIME_IO_DEFAULT_SECS>>8,
-	 CTL_TIME_IO_DEFAULT_SECS>>0},	/* ctl_time_io_secs */
-};
-
-const static struct copan_debugconf_subpage debugconf_page_changeable = {
-	DBGCNF_PAGE_CODE | SMPH_SPF,	/* page_code */
-	DBGCNF_SUBPAGE_CODE,		/* subpage */
-	{(sizeof(struct copan_debugconf_subpage) - 4) >> 8,
-	 (sizeof(struct copan_debugconf_subpage) - 4) >> 0}, /* page_length */
-	0,				/* page_version */
-	{0xff,0xff},			/* ctl_time_io_secs */
-};
-
 const static struct scsi_da_rw_recovery_page rw_er_page_default = {
 	/*page_code*/SMS_RW_ERROR_RECOVERY_PAGE,
 	/*page_length*/sizeof(struct scsi_da_rw_recovery_page) - 2,
@@ -129,12 +110,12 @@ const static struct scsi_da_rw_recovery_page rw_er_page_default = {
 const static struct scsi_da_rw_recovery_page rw_er_page_changeable = {
 	/*page_code*/SMS_RW_ERROR_RECOVERY_PAGE,
 	/*page_length*/sizeof(struct scsi_da_rw_recovery_page) - 2,
-	/*byte3*/0,
+	/*byte3*/SMS_RWER_PER,
 	/*read_retry_count*/0,
 	/*correction_span*/0,
 	/*head_offset_count*/0,
 	/*data_strobe_offset_cnt*/0,
-	/*byte8*/0,
+	/*byte8*/SMS_RWER_LBPERE,
 	/*write_retry_count*/0,
 	/*reserved2*/0,
 	/*recovery_time_limit*/{0, 0},
@@ -206,6 +187,24 @@ const static struct scsi_rigid_disk_page rigid_disk_page_changeable = {
 	/*reserved2*/ {0, 0}
 };
 
+const static struct scsi_da_verify_recovery_page verify_er_page_default = {
+	/*page_code*/SMS_VERIFY_ERROR_RECOVERY_PAGE,
+	/*page_length*/sizeof(struct scsi_da_verify_recovery_page) - 2,
+	/*byte3*/0,
+	/*read_retry_count*/0,
+	/*reserved*/{ 0, 0, 0, 0, 0, 0 },
+	/*recovery_time_limit*/{0, 0},
+};
+
+const static struct scsi_da_verify_recovery_page verify_er_page_changeable = {
+	/*page_code*/SMS_VERIFY_ERROR_RECOVERY_PAGE,
+	/*page_length*/sizeof(struct scsi_da_verify_recovery_page) - 2,
+	/*byte3*/SMS_VER_PER,
+	/*read_retry_count*/0,
+	/*reserved*/{ 0, 0, 0, 0, 0, 0 },
+	/*recovery_time_limit*/{0, 0},
+};
+
 const static struct scsi_caching_page caching_page_default = {
 	/*page_code*/SMS_CACHING_PAGE,
 	/*page_length*/sizeof(struct scsi_caching_page) - 2,
@@ -254,7 +253,7 @@ const static struct scsi_control_page control_page_changeable = {
 	/*page_code*/SMS_CONTROL_MODE_PAGE,
 	/*page_length*/sizeof(struct scsi_control_page) - 2,
 	/*rlec*/SCP_DSENSE,
-	/*queue_flags*/SCP_QUEUE_ALG_MASK,
+	/*queue_flags*/SCP_QUEUE_ALG_MASK | SCP_NUAR,
 	/*eca_and_aen*/SCP_SWP,
 	/*flags4*/0,
 	/*aen_holdoff_period*/{0, 0},
@@ -285,19 +284,20 @@ const static struct scsi_control_ext_page control_ext_page_changeable = {
 const static struct scsi_info_exceptions_page ie_page_default = {
 	/*page_code*/SMS_INFO_EXCEPTIONS_PAGE,
 	/*page_length*/sizeof(struct scsi_info_exceptions_page) - 2,
-	/*info_flags*/SIEP_FLAGS_DEXCPT,
-	/*mrie*/0,
+	/*info_flags*/SIEP_FLAGS_EWASC,
+	/*mrie*/SIEP_MRIE_NO,
 	/*interval_timer*/{0, 0, 0, 0},
-	/*report_count*/{0, 0, 0, 0}
+	/*report_count*/{0, 0, 0, 1}
 };
 
 const static struct scsi_info_exceptions_page ie_page_changeable = {
 	/*page_code*/SMS_INFO_EXCEPTIONS_PAGE,
 	/*page_length*/sizeof(struct scsi_info_exceptions_page) - 2,
-	/*info_flags*/0,
-	/*mrie*/0,
-	/*interval_timer*/{0, 0, 0, 0},
-	/*report_count*/{0, 0, 0, 0}
+	/*info_flags*/SIEP_FLAGS_EWASC | SIEP_FLAGS_DEXCPT | SIEP_FLAGS_TEST |
+	    SIEP_FLAGS_LOGERR,
+	/*mrie*/0x0f,
+	/*interval_timer*/{0xff, 0xff, 0xff, 0xff},
+	/*report_count*/{0xff, 0xff, 0xff, 0xff}
 };
 
 #define CTL_LBPM_LEN	(sizeof(struct ctl_logical_block_provisioning_page) - 4)
@@ -4068,6 +4068,26 @@ ctl_init_page_index(struct ctl_lun *lun)
 				(uint8_t *)lun->mode_pages.rigid_disk_page;
 			break;
 		}
+		case SMS_VERIFY_ERROR_RECOVERY_PAGE: {
+			KASSERT(page_index->subpage == SMS_SUBPAGE_PAGE_0,
+			    ("subpage %#x for page %#x is incorrect!",
+			    page_index->subpage, page_code));
+			memcpy(&lun->mode_pages.verify_er_page[CTL_PAGE_CURRENT],
+			       &verify_er_page_default,
+			       sizeof(verify_er_page_default));
+			memcpy(&lun->mode_pages.verify_er_page[CTL_PAGE_CHANGEABLE],
+			       &verify_er_page_changeable,
+			       sizeof(verify_er_page_changeable));
+			memcpy(&lun->mode_pages.verify_er_page[CTL_PAGE_DEFAULT],
+			       &verify_er_page_default,
+			       sizeof(verify_er_page_default));
+			memcpy(&lun->mode_pages.verify_er_page[CTL_PAGE_SAVED],
+			       &verify_er_page_default,
+			       sizeof(verify_er_page_default));
+			page_index->page_data =
+				(uint8_t *)lun->mode_pages.verify_er_page;
+			break;
+		}
 		case SMS_CACHING_PAGE: {
 			struct scsi_caching_page *caching_page;
 
@@ -4278,35 +4298,6 @@ ctl_init_page_index(struct ctl_lun *lun)
 				(uint8_t *)lun->mode_pages.cddvd_page;
 			break;
 		}
-		case SMS_VENDOR_SPECIFIC_PAGE:{
-			switch (page_index->subpage) {
-			case DBGCNF_SUBPAGE_CODE: {
-				memcpy(&lun->mode_pages.debugconf_subpage[
-				       CTL_PAGE_CURRENT],
-				       &debugconf_page_default,
-				       sizeof(debugconf_page_default));
-				memcpy(&lun->mode_pages.debugconf_subpage[
-				       CTL_PAGE_CHANGEABLE],
-				       &debugconf_page_changeable,
-				       sizeof(debugconf_page_changeable));
-				memcpy(&lun->mode_pages.debugconf_subpage[
-				       CTL_PAGE_DEFAULT],
-				       &debugconf_page_default,
-				       sizeof(debugconf_page_default));
-				memcpy(&lun->mode_pages.debugconf_subpage[
-				       CTL_PAGE_SAVED],
-				       &debugconf_page_default,
-				       sizeof(debugconf_page_default));
-				page_index->page_data =
-				    (uint8_t *)lun->mode_pages.debugconf_subpage;
-				break;
-			}
-			default:
-				panic("subpage %#x for page %#x is incorrect!",
-				      page_index->subpage, page_code);
-			}
-			break;
-		}
 		default:
 			panic("invalid page code value %#x", page_code);
 		}
@@ -4359,6 +4350,8 @@ ctl_init_log_page_index(struct ctl_lun *lun)
 	lun->log_pages.index[2].page_len = 12*CTL_NUM_LBP_PARAMS;
 	lun->log_pages.index[3].page_data = (uint8_t *)&lun->log_pages.stat_page;
 	lun->log_pages.index[3].page_len = sizeof(lun->log_pages.stat_page);
+	lun->log_pages.index[4].page_data = (uint8_t *)&lun->log_pages.ie_page;
+	lun->log_pages.index[4].page_len = sizeof(lun->log_pages.ie_page);
 
 	return (CTL_RETVAL_COMPLETE);
 }
@@ -4589,6 +4582,8 @@ ctl_alloc_lun(struct ctl_softc *ctl_softc, struct ctl_lun *ctl_lun,
 	TAILQ_INIT(&lun->ooa_queue);
 	TAILQ_INIT(&lun->blocked_queue);
 	STAILQ_INIT(&lun->error_list);
+	lun->ie_reported = 1;
+	callout_init_mtx(&lun->ie_callout, &lun->lun_lock, 0);
 	ctl_tpc_lun_init(lun);
 
 	/*
@@ -4661,6 +4656,9 @@ ctl_free_lun(struct ctl_lun *lun)
 	 */
 	atomic_subtract_int(&lun->be_lun->be->num_luns, 1);
 	lun->be_lun->lun_shutdown(lun->be_lun->be_lun);
+
+	lun->ie_reportcnt = UINT32_MAX;
+	callout_drain(&lun->ie_callout);
 
 	ctl_tpc_lun_shutdown(lun);
 	mtx_destroy(&lun->lun_lock);
@@ -5830,25 +5828,12 @@ done:
 	return (CTL_RETVAL_COMPLETE);
 }
 
-/*
- * Note that this function currently doesn't actually do anything inside
- * CTL to enforce things if the DQue bit is turned on.
- *
- * Also note that this function can't be used in the default case, because
- * the DQue bit isn't set in the changeable mask for the control mode page
- * anyway.  This is just here as an example for how to implement a page
- * handler, and a placeholder in case we want to allow the user to turn
- * tagged queueing on and off.
- *
- * The D_SENSE bit handling is functional, however, and will turn
- * descriptor sense on and off for a given LUN.
- */
 int
-ctl_control_page_handler(struct ctl_scsiio *ctsio,
+ctl_default_page_handler(struct ctl_scsiio *ctsio,
 			 struct ctl_page_index *page_index, uint8_t *page_ptr)
 {
-	struct scsi_control_page *current_cp, *saved_cp, *user_cp;
 	struct ctl_lun *lun;
+	uint8_t *current_cp, *saved_cp;
 	int set_ua;
 	uint32_t initidx;
 
@@ -5856,50 +5841,15 @@ ctl_control_page_handler(struct ctl_scsiio *ctsio,
 	initidx = ctl_get_initindex(&ctsio->io_hdr.nexus);
 	set_ua = 0;
 
-	user_cp = (struct scsi_control_page *)page_ptr;
-	current_cp = (struct scsi_control_page *)
-		(page_index->page_data + (page_index->page_len *
-		CTL_PAGE_CURRENT));
-	saved_cp = (struct scsi_control_page *)
-		(page_index->page_data + (page_index->page_len *
-		CTL_PAGE_SAVED));
+	current_cp = (page_index->page_data + (page_index->page_len *
+	    CTL_PAGE_CURRENT));
+	saved_cp = (page_index->page_data + (page_index->page_len *
+	    CTL_PAGE_SAVED));
 
 	mtx_lock(&lun->lun_lock);
-	if (((current_cp->rlec & SCP_DSENSE) == 0)
-	 && ((user_cp->rlec & SCP_DSENSE) != 0)) {
-		/*
-		 * Descriptor sense is currently turned off and the user
-		 * wants to turn it on.
-		 */
-		current_cp->rlec |= SCP_DSENSE;
-		saved_cp->rlec |= SCP_DSENSE;
-		lun->flags |= CTL_LUN_SENSE_DESC;
-		set_ua = 1;
-	} else if (((current_cp->rlec & SCP_DSENSE) != 0)
-		&& ((user_cp->rlec & SCP_DSENSE) == 0)) {
-		/*
-		 * Descriptor sense is currently turned on, and the user
-		 * wants to turn it off.
-		 */
-		current_cp->rlec &= ~SCP_DSENSE;
-		saved_cp->rlec &= ~SCP_DSENSE;
-		lun->flags &= ~CTL_LUN_SENSE_DESC;
-		set_ua = 1;
-	}
-	if ((current_cp->queue_flags & SCP_QUEUE_ALG_MASK) !=
-	    (user_cp->queue_flags & SCP_QUEUE_ALG_MASK)) {
-		current_cp->queue_flags &= ~SCP_QUEUE_ALG_MASK;
-		current_cp->queue_flags |= user_cp->queue_flags & SCP_QUEUE_ALG_MASK;
-		saved_cp->queue_flags &= ~SCP_QUEUE_ALG_MASK;
-		saved_cp->queue_flags |= user_cp->queue_flags & SCP_QUEUE_ALG_MASK;
-		set_ua = 1;
-	}
-	if ((current_cp->eca_and_aen & SCP_SWP) !=
-	    (user_cp->eca_and_aen & SCP_SWP)) {
-		current_cp->eca_and_aen &= ~SCP_SWP;
-		current_cp->eca_and_aen |= user_cp->eca_and_aen & SCP_SWP;
-		saved_cp->eca_and_aen &= ~SCP_SWP;
-		saved_cp->eca_and_aen |= user_cp->eca_and_aen & SCP_SWP;
+	if (memcmp(current_cp, page_ptr, page_index->page_len)) {
+		memcpy(current_cp, page_ptr, page_index->page_len);
+		memcpy(saved_cp, page_ptr, page_index->page_len);
 		set_ua = 1;
 	}
 	if (set_ua != 0)
@@ -5910,100 +5860,75 @@ ctl_control_page_handler(struct ctl_scsiio *ctsio,
 		    ctl_get_initindex(&ctsio->io_hdr.nexus),
 		    page_index->page_code, page_index->subpage);
 	}
-	return (0);
+	return (CTL_RETVAL_COMPLETE);
+}
+
+static void
+ctl_ie_timer(void *arg)
+{
+	struct ctl_lun *lun = arg;
+	uint64_t t;
+
+	if (lun->ie_asc == 0)
+		return;
+
+	if (lun->MODE_IE.mrie == SIEP_MRIE_UA)
+		ctl_est_ua_all(lun, -1, CTL_UA_IE);
+	else
+		lun->ie_reported = 0;
+
+	if (lun->ie_reportcnt < scsi_4btoul(lun->MODE_IE.report_count)) {
+		lun->ie_reportcnt++;
+		t = scsi_4btoul(lun->MODE_IE.interval_timer);
+		if (t == 0 || t == UINT32_MAX)
+			t = 3000;  /* 5 min */
+		callout_schedule(&lun->ie_callout, t * hz / 10);
+	}
 }
 
 int
-ctl_caching_sp_handler(struct ctl_scsiio *ctsio,
-		     struct ctl_page_index *page_index, uint8_t *page_ptr)
+ctl_ie_page_handler(struct ctl_scsiio *ctsio,
+			 struct ctl_page_index *page_index, uint8_t *page_ptr)
 {
-	struct scsi_caching_page *current_cp, *saved_cp, *user_cp;
+	struct scsi_info_exceptions_page *pg;
 	struct ctl_lun *lun;
-	int set_ua;
-	uint32_t initidx;
+	uint64_t t;
+
+	(void)ctl_default_page_handler(ctsio, page_index, page_ptr);
 
 	lun = (struct ctl_lun *)ctsio->io_hdr.ctl_private[CTL_PRIV_LUN].ptr;
-	initidx = ctl_get_initindex(&ctsio->io_hdr.nexus);
-	set_ua = 0;
-
-	user_cp = (struct scsi_caching_page *)page_ptr;
-	current_cp = (struct scsi_caching_page *)
-		(page_index->page_data + (page_index->page_len *
-		CTL_PAGE_CURRENT));
-	saved_cp = (struct scsi_caching_page *)
-		(page_index->page_data + (page_index->page_len *
-		CTL_PAGE_SAVED));
-
+	pg = (struct scsi_info_exceptions_page *)page_ptr;
 	mtx_lock(&lun->lun_lock);
-	if ((current_cp->flags1 & (SCP_WCE | SCP_RCD)) !=
-	    (user_cp->flags1 & (SCP_WCE | SCP_RCD))) {
-		current_cp->flags1 &= ~(SCP_WCE | SCP_RCD);
-		current_cp->flags1 |= user_cp->flags1 & (SCP_WCE | SCP_RCD);
-		saved_cp->flags1 &= ~(SCP_WCE | SCP_RCD);
-		saved_cp->flags1 |= user_cp->flags1 & (SCP_WCE | SCP_RCD);
-		set_ua = 1;
+	if (pg->info_flags & SIEP_FLAGS_TEST) {
+		lun->ie_asc = 0x5d;
+		lun->ie_ascq = 0xff;
+		if (pg->mrie == SIEP_MRIE_UA) {
+			ctl_est_ua_all(lun, -1, CTL_UA_IE);
+			lun->ie_reported = 1;
+		} else {
+			ctl_clr_ua_all(lun, -1, CTL_UA_IE);
+			lun->ie_reported = -1;
+		}
+		lun->ie_reportcnt = 1;
+		if (lun->ie_reportcnt < scsi_4btoul(pg->report_count)) {
+			lun->ie_reportcnt++;
+			t = scsi_4btoul(pg->interval_timer);
+			if (t == 0 || t == UINT32_MAX)
+				t = 3000;  /* 5 min */
+			callout_reset(&lun->ie_callout, t * hz / 10,
+			    ctl_ie_timer, lun);
+		}
+	} else {
+		lun->ie_asc = 0;
+		lun->ie_ascq = 0;
+		lun->ie_reported = 1;
+		ctl_clr_ua_all(lun, -1, CTL_UA_IE);
+		lun->ie_reportcnt = UINT32_MAX;
+		callout_stop(&lun->ie_callout);
 	}
-	if (set_ua != 0)
-		ctl_est_ua_all(lun, initidx, CTL_UA_MODE_CHANGE);
 	mtx_unlock(&lun->lun_lock);
-	if (set_ua) {
-		ctl_isc_announce_mode(lun,
-		    ctl_get_initindex(&ctsio->io_hdr.nexus),
-		    page_index->page_code, page_index->subpage);
-	}
-	return (0);
+	return (CTL_RETVAL_COMPLETE);
 }
-
-int
-ctl_debugconf_sp_select_handler(struct ctl_scsiio *ctsio,
-				struct ctl_page_index *page_index,
-				uint8_t *page_ptr)
-{
-	uint8_t *c;
-	int i;
-
-	c = ((struct copan_debugconf_subpage *)page_ptr)->ctl_time_io_secs;
-	ctl_time_io_secs =
-		(c[0] << 8) |
-		(c[1] << 0) |
-		0;
-	CTL_DEBUG_PRINT(("set ctl_time_io_secs to %d\n", ctl_time_io_secs));
-	printf("set ctl_time_io_secs to %d\n", ctl_time_io_secs);
-	printf("page data:");
-	for (i=0; i<8; i++)
-		printf(" %.2x",page_ptr[i]);
-	printf("\n");
-	return (0);
-}
-
-int
-ctl_debugconf_sp_sense_handler(struct ctl_scsiio *ctsio,
-			       struct ctl_page_index *page_index,
-			       int pc)
-{
-	struct copan_debugconf_subpage *page;
-
-	page = (struct copan_debugconf_subpage *)page_index->page_data +
-		(page_index->page_len * pc);
-
-	switch (pc) {
-	case SMS_PAGE_CTRL_CHANGEABLE >> 6:
-	case SMS_PAGE_CTRL_DEFAULT >> 6:
-	case SMS_PAGE_CTRL_SAVED >> 6:
-		/*
-		 * We don't update the changeable or default bits for this page.
-		 */
-		break;
-	case SMS_PAGE_CTRL_CURRENT >> 6:
-		page->ctl_time_io_secs[0] = ctl_time_io_secs >> 8;
-		page->ctl_time_io_secs[1] = ctl_time_io_secs >> 0;
-		break;
-	default:
-		break;
-	}
-	return (0);
-}
-
 
 static int
 ctl_do_mode_select(union ctl_io *io)
@@ -6548,9 +6473,8 @@ ctl_mode_sense(struct ctl_scsiio *ctsio)
 		if (lun->be_lun->lun_type == T_DIRECT) {
 			header->dev_specific = 0x10; /* DPOFUA */
 			if ((lun->be_lun->flags & CTL_LUN_FLAG_READONLY) ||
-			    (lun->mode_pages.control_page[CTL_PAGE_CURRENT]
-			    .eca_and_aen & SCP_SWP) != 0)
-				    header->dev_specific |= 0x80; /* WP */
+			    (lun->MODE_CTRL.eca_and_aen & SCP_SWP) != 0)
+				header->dev_specific |= 0x80; /* WP */
 		}
 		if (dbd)
 			header->block_descr_len = 0;
@@ -6571,9 +6495,8 @@ ctl_mode_sense(struct ctl_scsiio *ctsio)
 		if (lun->be_lun->lun_type == T_DIRECT) {
 			header->dev_specific = 0x10; /* DPOFUA */
 			if ((lun->be_lun->flags & CTL_LUN_FLAG_READONLY) ||
-			    (lun->mode_pages.control_page[CTL_PAGE_CURRENT]
-			    .eca_and_aen & SCP_SWP) != 0)
-				    header->dev_specific |= 0x80; /* WP */
+			    (lun->MODE_CTRL.eca_and_aen & SCP_SWP) != 0)
+				header->dev_specific |= 0x80; /* WP */
 		}
 		if (dbd)
 			scsi_ulto2b(0, header->block_descr_len);
@@ -6822,8 +6745,27 @@ ctl_sap_log_sense_handler(struct ctl_scsiio *ctsio,
 	    sizeof(struct scsi_log_param_header);
 	scsi_ulto4b(3, data->ti.exponent);
 	scsi_ulto4b(1, data->ti.integer);
+	return (0);
+}
 
-	page_index->page_len = sizeof(*data);
+int
+ctl_ie_log_sense_handler(struct ctl_scsiio *ctsio,
+			       struct ctl_page_index *page_index,
+			       int pc)
+{
+	struct ctl_lun *lun;
+	struct scsi_log_informational_exceptions *data;
+
+	lun = (struct ctl_lun *)ctsio->io_hdr.ctl_private[CTL_PRIV_LUN].ptr;
+	data = (struct scsi_log_informational_exceptions *)page_index->page_data;
+
+	scsi_ulto2b(SLP_IE_GEN, data->hdr.param_code);
+	data->hdr.param_control = SLP_LBIN;
+	data->hdr.param_len = sizeof(struct scsi_log_informational_exceptions) -
+	    sizeof(struct scsi_log_param_header);
+	data->ie_asc = lun->ie_asc;
+	data->ie_ascq = lun->ie_ascq;
+	data->temperature = 0xff;
 	return (0);
 }
 
@@ -8496,12 +8438,11 @@ ctl_persistent_reserve_out(struct ctl_scsiio *ctsio)
 		lun->pr_res_type = 0;
 
 		/*
-		 * if this isn't an exclusive access
-		 * res generate UA for all other
-		 * registrants.
+		 * If this isn't an exclusive access reservation and NUAR
+		 * is not set, generate UA for all other registrants.
 		 */
-		if (type != SPR_TYPE_EX_AC
-		 && type != SPR_TYPE_WR_EX) {
+		if (type != SPR_TYPE_EX_AC && type != SPR_TYPE_WR_EX &&
+		    (lun->MODE_CTRL.queue_flags & SCP_NUAR) == 0) {
 			for (i = softc->init_min; i < softc->init_max; i++) {
 				if (i == residx || ctl_get_prkey(lun, i) == 0)
 					continue;
@@ -8651,11 +8592,12 @@ ctl_hndl_per_res_out_on_other_sc(union ctl_ha_msg *msg)
 
 	case CTL_PR_RELEASE:
 		/*
-		 * if this isn't an exclusive access res generate UA for all
-		 * other registrants.
+		 * If this isn't an exclusive access reservation and NUAR
+		 * is not set, generate UA for all other registrants.
 		 */
 		if (lun->pr_res_type != SPR_TYPE_EX_AC &&
-		    lun->pr_res_type != SPR_TYPE_WR_EX) {
+		    lun->pr_res_type != SPR_TYPE_WR_EX &&
+		    (lun->MODE_CTRL.queue_flags & SCP_NUAR) == 0) {
 			for (i = softc->init_min; i < softc->init_max; i++)
 				if (i == residx || ctl_get_prkey(lun, i) == 0)
 					continue;
@@ -8859,12 +8801,10 @@ ctl_read_write(struct ctl_scsiio *ctsio)
 
 	/* Set FUA and/or DPO if caches are disabled. */
 	if (isread) {
-		if ((lun->mode_pages.caching_page[CTL_PAGE_CURRENT].flags1 &
-		    SCP_RCD) != 0)
+		if ((lun->MODE_CACHING.flags1 & SCP_RCD) != 0)
 			flags |= CTL_LLF_FUA | CTL_LLF_DPO;
 	} else {
-		if ((lun->mode_pages.caching_page[CTL_PAGE_CURRENT].flags1 &
-		    SCP_WCE) == 0)
+		if ((lun->MODE_CACHING.flags1 & SCP_WCE) == 0)
 			flags |= CTL_LLF_FUA;
 	}
 
@@ -8967,8 +8907,7 @@ ctl_cnw(struct ctl_scsiio *ctsio)
 	}
 
 	/* Set FUA if write cache is disabled. */
-	if ((lun->mode_pages.caching_page[CTL_PAGE_CURRENT].flags1 &
-	    SCP_WCE) == 0)
+	if ((lun->MODE_CACHING.flags1 & SCP_WCE) == 0)
 		flags |= CTL_LLF_FUA;
 
 	ctsio->kern_total_len = 2 * num_blocks * lun->be_lun->blocksize;
@@ -9257,16 +9196,17 @@ ctl_request_sense(struct ctl_scsiio *ctsio)
 {
 	struct scsi_request_sense *cdb;
 	struct scsi_sense_data *sense_ptr;
-	struct ctl_softc *ctl_softc;
+	struct ctl_softc *softc;
 	struct ctl_lun *lun;
 	uint32_t initidx;
 	int have_error;
 	scsi_sense_data_type sense_format;
 	ctl_ua_type ua_type;
+	uint8_t asc = 0, ascq = 0;
 
 	cdb = (struct scsi_request_sense *)ctsio->cdb;
 
-	ctl_softc = control_softc;
+	softc = control_softc;
 	lun = (struct ctl_lun *)ctsio->io_hdr.ctl_private[CTL_PRIV_LUN].ptr;
 
 	CTL_DEBUG_PRINT(("ctl_request_sense\n"));
@@ -9299,8 +9239,18 @@ ctl_request_sense(struct ctl_scsiio *ctsio)
 	/*
 	 * If we don't have a LUN, we don't have any pending sense.
 	 */
-	if (lun == NULL)
-		goto no_sense;
+	if (lun == NULL ||
+	    ((lun->flags & CTL_LUN_PRIMARY_SC) == 0 &&
+	     softc->ha_link < CTL_HA_LINK_UNKNOWN)) {
+		/* "Logical unit not supported" */
+		ctl_set_sense_data(sense_ptr, NULL, sense_format,
+		    /*current_error*/ 1,
+		    /*sense_key*/ SSD_KEY_ILLEGAL_REQUEST,
+		    /*asc*/ 0x25,
+		    /*ascq*/ 0x00,
+		    SSD_ELEM_NONE);
+		goto send;
+	}
 
 	have_error = 0;
 	initidx = ctl_get_initindex(&ctsio->io_hdr.nexus);
@@ -9348,57 +9298,39 @@ ctl_request_sense(struct ctl_scsiio *ctsio)
 		have_error = 1;
 	} else
 #endif
-	{
+	if (have_error == 0) {
 		ua_type = ctl_build_ua(lun, initidx, sense_ptr, sense_format);
 		if (ua_type != CTL_UA_NONE)
 			have_error = 1;
 		if (ua_type == CTL_UA_LUN_CHANGE) {
 			mtx_unlock(&lun->lun_lock);
-			mtx_lock(&ctl_softc->ctl_lock);
-			ctl_clr_ua_allluns(ctl_softc, initidx, ua_type);
-			mtx_unlock(&ctl_softc->ctl_lock);
+			mtx_lock(&softc->ctl_lock);
+			ctl_clr_ua_allluns(softc, initidx, ua_type);
+			mtx_unlock(&softc->ctl_lock);
 			mtx_lock(&lun->lun_lock);
 		}
-
+	}
+	if (have_error == 0) {
+		/*
+		 * Report informational exception if have one and allowed.
+		 */
+		if (lun->MODE_IE.mrie != SIEP_MRIE_NO) {
+			asc = lun->ie_asc;
+			ascq = lun->ie_ascq;
+		}
+		ctl_set_sense_data(sense_ptr, lun, sense_format,
+		    /*current_error*/ 1,
+		    /*sense_key*/ SSD_KEY_NO_SENSE,
+		    /*asc*/ asc,
+		    /*ascq*/ ascq,
+		    SSD_ELEM_NONE);
 	}
 	mtx_unlock(&lun->lun_lock);
 
+send:
 	/*
-	 * We already have a pending error, return it.
-	 */
-	if (have_error != 0) {
-		/*
-		 * We report the SCSI status as OK, since the status of the
-		 * request sense command itself is OK.
-		 * We report 0 for the sense length, because we aren't doing
-		 * autosense in this case.  We're reporting sense as
-		 * parameter data.
-		 */
-		ctl_set_success(ctsio);
-		ctsio->io_hdr.flags |= CTL_FLAG_ALLOCATED;
-		ctsio->be_move_done = ctl_config_move_done;
-		ctl_datamove((union ctl_io *)ctsio);
-		return (CTL_RETVAL_COMPLETE);
-	}
-
-no_sense:
-
-	/*
-	 * No sense information to report, so we report that everything is
-	 * okay.
-	 */
-	ctl_set_sense_data(sense_ptr,
-			   lun,
-			   sense_format,
-			   /*current_error*/ 1,
-			   /*sense_key*/ SSD_KEY_NO_SENSE,
-			   /*asc*/ 0x00,
-			   /*ascq*/ 0x00,
-			   SSD_ELEM_NONE);
-
-	/*
-	 * We report 0 for the sense length, because we aren't doing
-	 * autosense in this case.  We're reporting sense as parameter data.
+	 * We report the SCSI status as OK, since the status of the command
+	 * itself is OK.  We're reporting sense as parameter data.
 	 */
 	ctl_set_success(ctsio);
 	ctsio->io_hdr.flags |= CTL_FLAG_ALLOCATED;
@@ -11147,8 +11079,8 @@ ctl_check_for_blockage(struct ctl_lun *lun, union ctl_io *pending_io,
 		return (ctl_extent_check(ooa_io, pending_io,
 		    (lun->be_lun && lun->be_lun->serseq == CTL_LUN_SERSEQ_ON)));
 	case CTL_SER_EXTENTOPT:
-		if ((lun->mode_pages.control_page[CTL_PAGE_CURRENT].queue_flags
-		    & SCP_QUEUE_ALG_MASK) != SCP_QUEUE_ALG_UNRESTRICTED)
+		if ((lun->MODE_CTRL.queue_flags & SCP_QUEUE_ALG_MASK) !=
+		    SCP_QUEUE_ALG_UNRESTRICTED)
 			return (ctl_extent_check(ooa_io, pending_io,
 			    (lun->be_lun &&
 			     lun->be_lun->serseq == CTL_LUN_SERSEQ_ON)));
@@ -11160,8 +11092,8 @@ ctl_check_for_blockage(struct ctl_lun *lun, union ctl_io *pending_io,
 	case CTL_SER_PASS:
 		return (CTL_ACTION_PASS);
 	case CTL_SER_BLOCKOPT:
-		if ((lun->mode_pages.control_page[CTL_PAGE_CURRENT].queue_flags
-		    & SCP_QUEUE_ALG_MASK) != SCP_QUEUE_ALG_UNRESTRICTED)
+		if ((lun->MODE_CTRL.queue_flags & SCP_QUEUE_ALG_MASK) !=
+		    SCP_QUEUE_ALG_UNRESTRICTED)
 			return (CTL_ACTION_BLOCK);
 		return (CTL_ACTION_PASS);
 	case CTL_SER_SKIP:
@@ -11402,8 +11334,7 @@ ctl_scsiio_lun_check(struct ctl_lun *lun,
 			retval = 1;
 			goto bailout;
 		}
-		if ((lun->mode_pages.control_page[CTL_PAGE_CURRENT]
-		    .eca_and_aen & SCP_SWP) != 0) {
+		if ((lun->MODE_CTRL.eca_and_aen & SCP_SWP) != 0) {
 			ctl_set_sense(ctsio, /*current_error*/ 1,
 			    /*sense_key*/ SSD_KEY_DATA_PROTECT,
 			    /*asc*/ 0x27, /*ascq*/ 0x02, SSD_ELEM_NONE);
@@ -13263,6 +13194,34 @@ ctl_process_done(union ctl_io *io)
 	mtx_lock(&lun->lun_lock);
 
 	/*
+	 * Check to see if we have any informational exception and status
+	 * of this command can be modified to report it in form of either
+	 * RECOVERED ERROR or NO SENSE, depending on MRIE mode page field.
+	 */
+	if (lun->ie_reported == 0 && lun->ie_asc != 0 &&
+	    io->io_hdr.status == CTL_SUCCESS &&
+	    (io->io_hdr.flags & CTL_FLAG_STATUS_SENT) == 0) {
+		uint8_t mrie = lun->MODE_IE.mrie;
+		uint8_t per = ((lun->MODE_RWER.byte3 & SMS_RWER_PER) ||
+		    (lun->MODE_VER.byte3 & SMS_VER_PER));
+		if (((mrie == SIEP_MRIE_REC_COND && per) ||
+		     mrie == SIEP_MRIE_REC_UNCOND ||
+		     mrie == SIEP_MRIE_NO_SENSE) &&
+		    (ctl_get_cmd_entry(&io->scsiio, NULL)->flags &
+		     CTL_CMD_FLAG_NO_SENSE) == 0) {
+			ctl_set_sense(&io->scsiio,
+			      /*current_error*/ 1,
+			      /*sense_key*/ (mrie == SIEP_MRIE_NO_SENSE) ?
+			        SSD_KEY_NO_SENSE : SSD_KEY_RECOVERED_ERROR,
+			      /*asc*/ lun->ie_asc,
+			      /*ascq*/ lun->ie_ascq,
+			      SSD_ELEM_NONE);
+			lun->ie_reported = 1;
+		}
+	} else if (lun->ie_reported < 0)
+		lun->ie_reported = 0;
+
+	/*
 	 * Check to see if we have any errors to inject here.  We only
 	 * inject errors for commands that don't already have errors set.
 	 */
@@ -13535,10 +13494,6 @@ ctl_done(union ctl_io *io)
 
 #ifdef CTL_IO_DELAY
 	if (io->io_hdr.flags & CTL_FLAG_DELAY_DONE) {
-		struct ctl_lun *lun;
-
-		lun =(struct ctl_lun *)io->io_hdr.ctl_private[CTL_PRIV_LUN].ptr;
-
 		io->io_hdr.flags &= ~CTL_FLAG_DELAY_DONE;
 	} else {
 		struct ctl_lun *lun;
@@ -13654,7 +13609,6 @@ ctl_thresh_thread(void *arg)
 {
 	struct ctl_softc *softc = (struct ctl_softc *)arg;
 	struct ctl_lun *lun;
-	struct scsi_da_rw_recovery_page *rwpage;
 	struct ctl_logical_block_provisioning_page *page;
 	const char *attr;
 	union ctl_ha_msg msg;
@@ -13673,11 +13627,10 @@ ctl_thresh_thread(void *arg)
 			if ((lun->flags & CTL_LUN_PRIMARY_SC) == 0 &&
 			    softc->ha_mode == CTL_HA_MODE_XFER)
 				continue;
-			rwpage = &lun->mode_pages.rw_er_page[CTL_PAGE_CURRENT];
-			if ((rwpage->byte8 & SMS_RWER_LBPERE) == 0)
+			if ((lun->MODE_RWER.byte8 & SMS_RWER_LBPERE) == 0)
 				continue;
 			e = 0;
-			page = &lun->mode_pages.lbp_page[CTL_PAGE_CURRENT];
+			page = &lun->MODE_LBP;
 			for (i = 0; i < CTL_NUM_LBP_THRESH; i++) {
 				if ((page->descr[i].flags & SLBPPD_ENABLED) == 0)
 					continue;
