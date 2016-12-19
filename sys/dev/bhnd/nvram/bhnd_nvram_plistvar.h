@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2015-2016 Landon Fuller <landonf@FreeBSD.org>
+ * Copyright (c) 2015-2016 Landon Fuller <landon@landonf.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,48 +25,51 @@
  * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  * THE POSSIBILITY OF SUCH DAMAGES.
- *
+ * 
  * $FreeBSD$
  */
 
-#ifndef _BHND_NVRAM_BHND_NVRAM_BCMVAR_H_
-#define _BHND_NVRAM_BHND_NVRAM_BCMVAR_H_
+#ifndef _BHND_NVRAM_BHND_PLISTVAR_H_
+#define _BHND_NVRAM_BHND_PLISTVAR_H_
 
-#define	BCM_NVRAM_ENCODE_OPT_VERSION	"bcm_version"
+#include "bhnd_nvram_plist.h"
+#include <sys/queue.h>
+
+LIST_HEAD(bhnd_nvram_plist_entry_list, bhnd_nvram_plist_entry);
+
+typedef struct bhnd_nvram_plist_entry		bhnd_nvram_plist_entry;
+typedef struct bhnd_nvram_plist_entry_list	bhnd_nvram_plist_entry_list;
 
 /**
- * BCM NVRAM header value data.
+ * NVRAM property.
  */
-union bhnd_nvram_bcm_hvar_value {
-	uint16_t	u16;
-	uint32_t	u32;
+struct bhnd_nvram_prop {
+	volatile u_int	 refs;	/**< refcount */
+
+	char		*name;	/**< property name */
+	bhnd_nvram_val	*val;	/**< property value */
 };
 
 /**
- * Internal representation of BCM NVRAM values that mirror (and must be
- * vended as) NVRAM variables.
+ * NVRAM property list entry.
  */
-struct bhnd_nvram_bcm_hvar {
-	const char	*name;	/**< variable name */
-	bhnd_nvram_type	 type;	/**< value type */
-	size_t		 nelem;	/**< value element count */
-	size_t		 len;	/**< value length */
-	const char	*envp;	/**< Pointer to the NVRAM variable mirroring
-				     this header value, or NULL. */
-	bool		 stale;	/**< header value does not match
-				     mirrored NVRAM value */
+struct bhnd_nvram_plist_entry {
+	bhnd_nvram_prop	*prop;
 
-	/** variable data */
-	union bhnd_nvram_bcm_hvar_value value;
+	TAILQ_ENTRY(bhnd_nvram_plist_entry)	pl_link;
+	LIST_ENTRY(bhnd_nvram_plist_entry)	pl_hash_link;
 };
-	
-/** BCM NVRAM header */
-struct bhnd_nvram_bcmhdr {
-	uint32_t magic;
-	uint32_t size;
-	uint32_t cfg0;		/**< crc:8, version:8, sdram_init:16 */
-	uint32_t cfg1;		/**< sdram_config:16, sdram_refresh:16 */
-	uint32_t sdram_ncdl;	/**< sdram_ncdl */
-} __packed;
 
-#endif /* _BHND_NVRAM_BHND_NVRAM_BCMVAR_H_ */
+/**
+ * NVRAM property list.
+ * 
+ * Provides an ordered list of property values.
+ */
+struct bhnd_nvram_plist {
+	volatile u_int				refs;		/**< refcount */
+	TAILQ_HEAD(,bhnd_nvram_plist_entry)	entries;	/**< all properties */
+	size_t					num_entries;	/**< entry count */
+	bhnd_nvram_plist_entry_list		names[16];	/**< name-based hash table */
+};
+
+#endif /* _BHND_NVRAM_BHND_PLISTVAR_H_ */
