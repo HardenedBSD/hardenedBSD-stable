@@ -1,7 +1,5 @@
 # $FreeBSD$
 
-PACKAGE=		tests
-
 TESTSDIR=		${TESTSBASE}/sys/fs
 
 TESTSRC=		${SRCTOP}/contrib/netbsd-tests/fs
@@ -9,8 +7,8 @@ TESTSRC=		${SRCTOP}/contrib/netbsd-tests/fs
 #TESTS_SUBDIRS+=	nullfs	# XXX: needs rump
 TESTS_SUBDIRS+=		tmpfs
 
-${PACKAGE}FILES+=	h_funcs.subr
-${PACKAGE}FILESDIR=	${TESTSDIR}
+FILES+=			h_funcs.subr
+FILESDIR=		${TESTSDIR}
 
 CLEANFILES+=		h_funcs.subr
 CLEANFILES+=		h_funcs.subr.tmp

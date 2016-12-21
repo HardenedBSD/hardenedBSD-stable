@@ -1,7 +1,5 @@
 # $FreeBSD$
 
-PACKAGE=		tests
-
 FILESYSTEM?=		${.CURDIR:T}
 
 TESTSDIR=		${TESTSBASE}/sys/fs/${FILESYSTEM}
@@ -35,8 +33,8 @@ NETBSD_ATF_TESTS_SH+=	truncate_test
 NETBSD_ATF_TESTS_SH+=	vnd_test
 NETBSD_ATF_TESTS_SH+=	vnode_leak_test
 
-${PACKAGE}FILES+=	h_funcs.subr
-${PACKAGE}FILESDIR=	${TESTSDIR}
+FILES+=			h_funcs.subr
+FILESDIR=		${TESTSDIR}
 
 PROGS+=			h_tools
 BINDIR.h_tools=		${TESTSDIR}
