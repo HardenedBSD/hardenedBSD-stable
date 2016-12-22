@@ -72,6 +72,7 @@ TESTS_SRCS= \
 	test_compat_pax_libarchive_2x.c		\
 	test_compat_solaris_tar_acl.c		\
 	test_compat_solaris_pax_sparse.c	\
+	test_compat_star_acl_posix1e.c		\
 	test_compat_tar_hardlink.c		\
 	test_compat_uudecode.c			\
 	test_compat_uudecode_large.c		\
@@ -321,7 +322,9 @@ FILES+=	test_compat_bzip2_1.tbz.uu
 FILES+=	test_compat_bzip2_2.tbz.uu
 FILES+=	test_compat_cpio_1.cpio.uu
 FILES+=	test_compat_gtar_1.tar.uu
+FILES+=	test_compat_gtar_2.tar.uu
 FILES+=	test_compat_gzip_1.tgz.uu
+FILES+=	test_compat_gzip_2.tgz.uu
 FILES+=	test_compat_lz4_1.tar.lz4.uu
 FILES+=	test_compat_lz4_2.tar.lz4.uu
 FILES+=	test_compat_lz4_3.tar.lz4.uu
@@ -334,7 +337,6 @@ FILES+=	test_compat_lz4_B6.tar.lz4.uu
 FILES+=	test_compat_lz4_B6BD.tar.lz4.uu
 FILES+=	test_compat_lz4_B7.tar.lz4.uu
 FILES+=	test_compat_lz4_B7BD.tar.lz4.uu
-FILES+=	test_compat_gzip_2.tgz.uu
 FILES+=	test_compat_lzip_1.tlz.uu
 FILES+=	test_compat_lzip_2.tlz.uu
 FILES+=	test_compat_lzma_1.tlz.uu
@@ -349,6 +351,7 @@ FILES+=	test_compat_pax_libarchive_2x.tar.Z.uu
 FILES+=	test_compat_solaris_pax_sparse_1.pax.Z.uu
 FILES+=	test_compat_solaris_pax_sparse_2.pax.Z.uu
 FILES+=	test_compat_solaris_tar_acl.tar.uu
+FILES+=	test_compat_star_acl_posix1e.tar.uu
 FILES+=	test_compat_tar_hardlink_1.tar.uu
 FILES+=	test_compat_uudecode_large.tar.Z.uu
 FILES+=	test_compat_xz_1.txz.uu
@@ -478,7 +481,7 @@ FILES+=	test_read_format_rar_compress_normal.rar.uu
 FILES+=	test_read_format_rar_encryption_data.rar.uu
 FILES+=	test_read_format_rar_encryption_header.rar.uu
 FILES+=	test_read_format_rar_encryption_partially.rar.uu
-FILES+=	test_read_format_rar_invalid1.rar.uu	
+FILES+=	test_read_format_rar_invalid1.rar.uu
 FILES+=	test_read_format_rar_multi_lzss_blocks.rar.uu
 FILES+=	test_read_format_rar_multivolume.part0001.rar.uu
 FILES+=	test_read_format_rar_multivolume.part0002.rar.uu
@@ -490,6 +493,7 @@ FILES+=	test_read_format_rar_sfx.exe.uu
 FILES+=	test_read_format_rar_subblock.rar.uu
 FILES+=	test_read_format_rar_unicode.rar.uu
 FILES+=	test_read_format_rar_windows.rar.uu
+FILES+=	test_read_format_raw.bufr.uu
 FILES+=	test_read_format_raw.data.Z.uu
 FILES+=	test_read_format_raw.data.uu
 FILES+=	test_read_format_tar_concatenated.tar.uu
@@ -512,7 +516,7 @@ FILES+=	test_read_format_zip_filename_koi8r.zip.uu
 FILES+=	test_read_format_zip_filename_utf8_jp.zip.uu
 FILES+=	test_read_format_zip_filename_utf8_ru.zip.uu
 FILES+=	test_read_format_zip_filename_utf8_ru2.zip.uu
-FILES+=	test_read_format_zip_high_compression.zip.uu	
+FILES+=	test_read_format_zip_high_compression.zip.uu
 FILES+=	test_read_format_zip_length_at_end.zip.uu
 FILES+=	test_read_format_zip_mac_metadata.zip.uu
 FILES+=	test_read_format_zip_malformed1.zip.uu
