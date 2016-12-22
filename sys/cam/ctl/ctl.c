@@ -5515,19 +5515,6 @@ ctl_read_buffer(struct ctl_scsiio *ctsio)
 		return (CTL_RETVAL_COMPLETE);
 	}
 
-	if ((byte2 & RWB_MODE) != RWB_MODE_DATA &&
-	    (byte2 & RWB_MODE) != RWB_MODE_ECHO_DESCR &&
-	    (byte2 & RWB_MODE) != RWB_MODE_DESCR) {
-		ctl_set_invalid_field(ctsio,
-				      /*sks_valid*/ 1,
-				      /*command*/ 1,
-				      /*field*/ 1,
-				      /*bit_valid*/ 1,
-				      /*bit*/ 4);
-		ctl_done((union ctl_io *)ctsio);
-		return (CTL_RETVAL_COMPLETE);
-	}
-
 	if (buffer_offset > CTL_WRITE_BUFFER_SIZE ||
 	    buffer_offset + len > CTL_WRITE_BUFFER_SIZE) {
 		ctl_set_invalid_field(ctsio,
@@ -5577,17 +5564,6 @@ ctl_write_buffer(struct ctl_scsiio *ctsio)
 
 	lun = (struct ctl_lun *)ctsio->io_hdr.ctl_private[CTL_PRIV_LUN].ptr;
 	cdb = (struct scsi_write_buffer *)ctsio->cdb;
-
-	if ((cdb->byte2 & RWB_MODE) != RWB_MODE_DATA) {
-		ctl_set_invalid_field(ctsio,
-				      /*sks_valid*/ 1,
-				      /*command*/ 1,
-				      /*field*/ 1,
-				      /*bit_valid*/ 1,
-				      /*bit*/ 4);
-		ctl_done((union ctl_io *)ctsio);
-		return (CTL_RETVAL_COMPLETE);
-	}
 
 	len = scsi_3btoul(cdb->length);
 	buffer_offset = scsi_3btoul(cdb->offset);
@@ -7484,7 +7460,7 @@ int
 ctl_report_supported_tmf(struct ctl_scsiio *ctsio)
 {
 	struct scsi_report_supported_tmf *cdb;
-	struct scsi_report_supported_tmf_data *data;
+	struct scsi_report_supported_tmf_ext_data *data;
 	int retval;
 	int alloc_len, total_len;
 
@@ -7494,7 +7470,10 @@ ctl_report_supported_tmf(struct ctl_scsiio *ctsio)
 
 	retval = CTL_RETVAL_COMPLETE;
 
-	total_len = sizeof(struct scsi_report_supported_tmf_data);
+	if (cdb->options & RST_REPD)
+		total_len = sizeof(struct scsi_report_supported_tmf_ext_data);
+	else
+		total_len = sizeof(struct scsi_report_supported_tmf_data);
 	alloc_len = scsi_4btoul(cdb->length);
 
 	ctsio->kern_data_ptr = malloc(total_len, M_CTL, M_WAITOK | M_ZERO);
@@ -7513,10 +7492,11 @@ ctl_report_supported_tmf(struct ctl_scsiio *ctsio)
 	ctsio->kern_data_resid = 0;
 	ctsio->kern_rel_offset = 0;
 
-	data = (struct scsi_report_supported_tmf_data *)ctsio->kern_data_ptr;
+	data = (struct scsi_report_supported_tmf_ext_data *)ctsio->kern_data_ptr;
 	data->byte1 |= RST_ATS | RST_ATSS | RST_CTSS | RST_LURS | RST_QTS |
 	    RST_TRS;
 	data->byte2 |= RST_QAES | RST_QTSS | RST_ITNRS;
+	data->length = total_len - 4;
 
 	ctl_set_success(ctsio);
 	ctsio->io_hdr.flags |= CTL_FLAG_ALLOCATED;
