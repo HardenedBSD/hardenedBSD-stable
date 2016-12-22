@@ -70,6 +70,7 @@ TESTS_SRCS= \
 	test_compat_lzop.c			\
 	test_compat_mac.c			\
 	test_compat_pax_libarchive_2x.c		\
+	test_compat_perl_archive_tar.c		\
 	test_compat_solaris_tar_acl.c		\
 	test_compat_solaris_pax_sparse.c	\
 	test_compat_star_acl_posix1e.c		\
@@ -348,6 +349,7 @@ FILES+=	test_compat_lzop_3.tar.lzo.uu
 FILES+=	test_compat_mac-1.tar.Z.uu
 FILES+=	test_compat_mac-2.tar.Z.uu
 FILES+=	test_compat_pax_libarchive_2x.tar.Z.uu
+FILES+=	test_compat_perl_archive_tar.tar.uu
 FILES+=	test_compat_solaris_pax_sparse_1.pax.Z.uu
 FILES+=	test_compat_solaris_pax_sparse_2.pax.Z.uu
 FILES+=	test_compat_solaris_tar_acl.tar.uu
