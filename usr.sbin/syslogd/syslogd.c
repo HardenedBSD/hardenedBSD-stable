@@ -127,9 +127,10 @@ static const char include_ext[] = ".conf";
 #define	MAXUNAMES	20	/* maximum number of user names */
 
 #define	sstosa(ss)	((struct sockaddr *)(ss))
-#define	satosin6(sa)	((struct sockaddr_in6 *)(void *)(sa))
-#define	sstosin(ss)	((struct sockaddr_in *)(ss))
+#define	sstosin(ss)	((struct sockaddr_in *)(void *)(ss))
 #define	satosin(sa)	((struct sockaddr_in *)(void *)(sa))
+#define	sstosin6(ss)	((struct sockaddr_in6 *)(void *)(ss))
+#define	satosin6(sa)	((struct sockaddr_in6 *)(void *)(sa))
 #define	s6_addr32	__u6_addr.__u6_addr32
 #define	IN6_ARE_MASKED_ADDR_EQUAL(d, a, m)	(	\
 	(((d)->s6_addr32[0] ^ (a)->s6_addr32[0]) & (m)->s6_addr32[0]) == 0 && \
@@ -424,7 +425,6 @@ main(int argc, char *argv[])
 	int ch, i, s, fdsrmax = 0, bflag = 0, pflag = 0, Sflag = 0;
 	fd_set *fdsr = NULL;
 	struct timeval tv, *tvp;
-	struct sigaction sact;
 	struct peer *pe;
 	struct socklist *sl;
 	sigset_t mask;
@@ -632,10 +632,11 @@ main(int argc, char *argv[])
 	 */
 	sigemptyset(&mask);
 	sigaddset(&mask, SIGHUP);
-	sact.sa_handler = reapchild;
-	sact.sa_mask = mask;
-	sact.sa_flags = SA_RESTART;
-	(void)sigaction(SIGCHLD, &sact, NULL);
+	(void)sigaction(SIGCHLD, &(struct sigaction){
+	    .sa_handler = reapchild,
+	    .sa_mask = mask,
+	    .sa_flags = SA_RESTART
+	}, NULL);
 	(void)signal(SIGALRM, domark);
 	(void)signal(SIGPIPE, SIG_IGN);	/* We'll catch EPIPE instead. */
 	(void)alarm(TIMERINTVL);
@@ -649,10 +650,11 @@ main(int argc, char *argv[])
 	/* prevent SIGHUP and SIGCHLD handlers from running in parallel */
 	sigemptyset(&mask);
 	sigaddset(&mask, SIGCHLD);
-	sact.sa_handler = init;
-	sact.sa_mask = mask;
-	sact.sa_flags = SA_RESTART;
-	(void)sigaction(SIGHUP, &sact, NULL);
+	(void)sigaction(SIGHUP, &(struct sigaction){
+	    .sa_handler = init,
+	    .sa_mask = mask,
+	    .sa_flags = SA_RESTART
+	}, NULL);
 
 	tvp = &tv;
 	tv.tv_sec = tv.tv_usec = 0;
@@ -749,7 +751,7 @@ static void
 unmapped(struct sockaddr *sa)
 {
 	struct sockaddr_in6 *sin6;
-	struct sockaddr_in sin4;
+	struct sockaddr_in sin;
 
 	if (sa == NULL ||
 	    sa->sa_family != AF_INET6 ||
@@ -758,15 +760,14 @@ unmapped(struct sockaddr *sa)
 	sin6 = satosin6(sa);
 	if (!IN6_IS_ADDR_V4MAPPED(&sin6->sin6_addr))
 		return;
-
-	memset(&sin4, 0, sizeof(sin4));
-	sin4.sin_family = AF_INET;
-	sin4.sin_len = sizeof(sin4);
-	memcpy(&sin4.sin_addr, &sin6->sin6_addr.s6_addr[12],
-	       sizeof(sin4.sin_addr));
-	sin4.sin_port = sin6->sin6_port;
-
-	memcpy(sa, &sin4, sin4.sin_len);
+	sin = (struct sockaddr_in){
+		.sin_family = AF_INET,
+		.sin_len = sizeof(sin),
+		.sin_port = sin6->sin6_port
+	};
+	memcpy(&sin.sin_addr, &sin6->sin6_addr.s6_addr[12],
+	    sizeof(sin.sin_addr));
+	memcpy(sa, &sin, sizeof(sin));
 }
 
 static void
@@ -1147,37 +1148,40 @@ static void
 fprintlog(struct filed *f, int flags, const char *msg)
 {
 	struct iovec iov[IOV_SIZE];
-	struct iovec *v;
 	struct addrinfo *r;
 	int l, lsent = 0;
 	char line[MAXLINE + 1], repbuf[80], greetings[200], *wmsg = NULL;
 	char nul[] = "", space[] = " ", lf[] = "\n", crlf[] = "\r\n";
 	const char *msgret;
 
-	v = iov;
 	if (f->f_type == F_WALL) {
-		v->iov_base = greetings;
 		/* The time displayed is not synchornized with the other log
 		 * destinations (like messages).  Following fragment was using
 		 * ctime(&now), which was updating the time every 30 sec.
 		 * With f_lasttime, time is synchronized correctly.
 		 */
-		v->iov_len = snprintf(greetings, sizeof greetings,
-		    "\r\n\7Message from syslogd@%s at %.24s ...\r\n",
-		    f->f_prevhost, f->f_lasttime);
-		if (v->iov_len >= sizeof greetings)
-			v->iov_len = sizeof greetings - 1;
-		v++;
-		v->iov_base = nul;
-		v->iov_len = 0;
-		v++;
+		iov[0] = (struct iovec){
+			.iov_base = greetings,
+			.iov_len = snprintf(greetings, sizeof(greetings),
+				    "\r\n\7Message from syslogd@%s "
+				    "at %.24s ...\r\n",
+				    f->f_prevhost, f->f_lasttime)
+		};
+		if (iov[0].iov_len >= sizeof(greetings))
+			iov[0].iov_len = sizeof(greetings) - 1;
+		iov[1] = (struct iovec){
+			.iov_base = nul,
+			.iov_len = 0
+		};
 	} else {
-		v->iov_base = f->f_lasttime;
-		v->iov_len = strlen(f->f_lasttime);
-		v++;
-		v->iov_base = space;
-		v->iov_len = 1;
-		v++;
+		iov[0] = (struct iovec){
+			.iov_base = f->f_lasttime,
+			.iov_len = strlen(f->f_lasttime)
+		};
+		iov[1] = (struct iovec){
+			.iov_base = space,
+			.iov_len = 1
+		};
 	}
 
 	if (LogFacPri) {
@@ -1214,54 +1218,69 @@ fprintlog(struct filed *f, int flags, const char *msg)
 		  p_s = p_n;
 		}
 		snprintf(fp_buf, sizeof fp_buf, "<%s.%s> ", f_s, p_s);
-		v->iov_base = fp_buf;
-		v->iov_len = strlen(fp_buf);
+		iov[2] = (struct iovec){
+			.iov_base = fp_buf,
+			.iov_len = strlen(fp_buf)
+		};
 	} else {
-		v->iov_base = nul;
-		v->iov_len = 0;
+		iov[2] = (struct iovec){
+			.iov_base = nul,
+			.iov_len = 0
+		};
 	}
-	v++;
-
-	v->iov_base = f->f_prevhost;
-	v->iov_len = strlen(v->iov_base);
-	v++;
-	v->iov_base = space;
-	v->iov_len = 1;
-	v++;
-
+	iov[3] = (struct iovec){
+		.iov_base = f->f_prevhost,
+		.iov_len = strlen(f->f_prevhost)
+	};
+	iov[4] = (struct iovec){
+		.iov_base = space,
+		.iov_len = 1
+	};
 	if (msg) {
 		wmsg = strdup(msg); /* XXX iov_base needs a `const' sibling. */
 		if (wmsg == NULL) {
 			logerror("strdup");
 			exit(1);
 		}
-		v->iov_base = wmsg;
-		v->iov_len = strlen(msg);
+		iov[5] = (struct iovec){
+			.iov_base = wmsg,
+			.iov_len = strlen(msg)
+		};
 	} else if (f->f_prevcount > 1) {
-		v->iov_base = repbuf;
-		v->iov_len = snprintf(repbuf, sizeof repbuf,
-		    "last message repeated %d times", f->f_prevcount);
+		iov[5] = (struct iovec){
+			.iov_base = repbuf,
+			.iov_len = snprintf(repbuf, sizeof(repbuf),
+			    "last message repeated %d times", f->f_prevcount)
+		};
 	} else {
-		v->iov_base = f->f_prevline;
-		v->iov_len = f->f_prevlen;
+		iov[5] = (struct iovec){
+			.iov_base = f->f_prevline,
+			.iov_len = f->f_prevlen
+		};
 	}
-	v++;
-
 	dprintf("Logging to %s", TypeNames[f->f_type]);
 	f->f_time = now;
 
 	switch (f->f_type) {
-		int port;
 	case F_UNUSED:
 		dprintf("\n");
 		break;
 
 	case F_FORW:
-		port = ntohs(satosin(f->fu_forw_addr->ai_addr)->sin_port);
-		if (port != 514) {
-			dprintf(" %s:%d\n", f->fu_forw_hname, port);
-		} else {
-			dprintf(" %s\n", f->fu_forw_hname);
+		dprintf(" %s", f->fu_forw_hname);
+		switch (f->fu_forw_addr->ai_addr->sa_family) {
+		case AF_INET:
+			dprintf(":%d\n",
+			    ntohs(satosin(f->fu_forw_addr->ai_addr)->sin_port));
+			break;
+#ifdef INET6
+		case AF_INET6:
+			dprintf(":%d\n",
+			    ntohs(satosin6(f->fu_forw_addr->ai_addr)->sin6_port));
+			break;
+#endif
+		default:
+			dprintf("\n");
 		}
 		/* check for local vs remote messages */
 		if (strcasecmp(f->f_prevhost, LocalHostName))
@@ -1325,8 +1344,10 @@ fprintlog(struct filed *f, int flags, const char *msg)
 
 	case F_FILE:
 		dprintf(" %s\n", f->fu_fname);
-		v->iov_base = lf;
-		v->iov_len = 1;
+		iov[6] = (struct iovec){
+			.iov_base = lf,
+			.iov_len = 1
+		};
 		if (writev(f->f_file, iov, nitems(iov)) < 0) {
 			/*
 			 * If writev(2) fails for potentially transient errors
@@ -1347,8 +1368,10 @@ fprintlog(struct filed *f, int flags, const char *msg)
 
 	case F_PIPE:
 		dprintf(" %s\n", f->fu_pipe_pname);
-		v->iov_base = lf;
-		v->iov_len = 1;
+		iov[6] = (struct iovec){
+			.iov_base = lf,
+			.iov_len = 1
+		};
 		if (f->fu_pipe_pid == 0) {
 			if ((f->f_file = p_open(f->fu_pipe_pname,
 						&f->fu_pipe_pid)) < 0) {
@@ -1378,9 +1401,10 @@ fprintlog(struct filed *f, int flags, const char *msg)
 
 	case F_TTY:
 		dprintf(" %s%s\n", _PATH_DEV, f->fu_fname);
-		v->iov_base = crlf;
-		v->iov_len = 2;
-
+		iov[6] = (struct iovec){
+			.iov_base = crlf,
+			.iov_len = 2
+		};
 		errno = 0;	/* ttymsg() only sometimes returns an errno */
 		if ((msgret = ttymsg(iov, nitems(iov), f->fu_fname, 10))) {
 			f->f_type = F_UNUSED;
@@ -1391,8 +1415,10 @@ fprintlog(struct filed *f, int flags, const char *msg)
 	case F_USERS:
 	case F_WALL:
 		dprintf("\n");
-		v->iov_base = crlf;
-		v->iov_len = 2;
+		iov[6] = (struct iovec){
+			.iov_base = crlf,
+			.iov_len = 2
+		};
 		wallmsg(f, iov, nitems(iov));
 		break;
 	}
@@ -2130,9 +2156,10 @@ cfline(const char *line, const char *prog, const char *host)
 		else
 			p = NULL;
 
-		memset(&hints, 0, sizeof(hints));
-		hints.ai_family = family;
-		hints.ai_socktype = SOCK_DGRAM;
+		hints = (struct addrinfo){
+			.ai_family = family,
+			.ai_socktype = SOCK_DGRAM
+		};
 		error = getaddrinfo(f->fu_forw_hname,
 				p ? p : "syslog", &hints, &res);
 		if (error) {
@@ -2371,8 +2398,7 @@ allowaddr(char *s)
 	struct addrinfo hints, *res;
 	in_addr_t *addrp, *maskp;
 #ifdef INET6
-	int i;
-	u_int32_t *addr6p, *mask6p;
+	uint32_t *addr6p, *mask6p;
 #endif
 	char ip[NI_MAXHOST];
 
@@ -2424,17 +2450,19 @@ allowaddr(char *s)
 		cp2 = NULL;
 	}
 #endif
-	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = PF_UNSPEC;
-	hints.ai_socktype = SOCK_DGRAM;
-	hints.ai_flags = AI_PASSIVE | AI_NUMERICHOST;
+	hints = (struct addrinfo){
+		.ai_family = PF_UNSPEC,
+		.ai_socktype = SOCK_DGRAM,
+		.ai_flags = AI_PASSIVE | AI_NUMERICHOST
+	};
 	if (getaddrinfo(s, NULL, &hints, &res) == 0) {
 		ap->isnumeric = 1;
 		memcpy(&ap->a_addr, res->ai_addr, res->ai_addrlen);
-		memset(&ap->a_mask, 0, sizeof(ap->a_mask));
-		ap->a_mask.ss_family = res->ai_family;
+		ap->a_mask = (struct sockaddr_storage){
+			.ss_family = res->ai_family,
+			.ss_len = res->ai_addrlen
+		};
 		if (res->ai_family == AF_INET) {
-			ap->a_mask.ss_len = sizeof(struct sockaddr_in);
 			maskp = &sstosin(&ap->a_mask)->sin_addr.s_addr;
 			addrp = &sstosin(&ap->a_addr)->sin_addr.s_addr;
 			if (masklen < 0) {
@@ -2459,24 +2487,23 @@ allowaddr(char *s)
 		}
 #ifdef INET6
 		else if (res->ai_family == AF_INET6 && masklen <= 128) {
-			ap->a_mask.ss_len = sizeof(struct sockaddr_in6);
 			if (masklen < 0)
 				masklen = 128;
-			mask6p = (u_int32_t *)&((struct sockaddr_in6 *)&ap->a_mask)->sin6_addr;
+			mask6p = (uint32_t *)&sstosin6(&ap->a_mask)->sin6_addr.s6_addr32[0];
+			addr6p = (uint32_t *)&sstosin6(&ap->a_addr)->sin6_addr.s6_addr32[0];
 			/* convert masklen to netmask */
 			while (masklen > 0) {
 				if (masklen < 32) {
-					*mask6p = htonl(~(0xffffffff >> masklen));
+					*mask6p =
+					    htonl(~(0xffffffff >> masklen));
+					*addr6p &= *mask6p;
 					break;
+				} else {
+					*mask6p++ = 0xffffffff;
+					addr6p++;
+					masklen -= 32;
 				}
-				*mask6p++ = 0xffffffff;
-				masklen -= 32;
 			}
-			/* Lose any host bits in the network number. */
-			mask6p = (u_int32_t *)&((struct sockaddr_in6 *)&ap->a_mask)->sin6_addr;
-			addr6p = (u_int32_t *)&((struct sockaddr_in6 *)&ap->a_addr)->sin6_addr;
-			for (i = 0; i < 4; i++)
-				addr6p[i] &= mask6p[i];
 		}
 #endif
 		else {
@@ -2545,10 +2572,11 @@ validate(struct sockaddr *sa, const char *hname)
 		return (1);
 
 	(void)strlcpy(name, hname, sizeof(name));
-	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = PF_UNSPEC;
-	hints.ai_socktype = SOCK_DGRAM;
-	hints.ai_flags = AI_PASSIVE | AI_NUMERICHOST;
+	hints = (struct addrinfo){
+		.ai_family = PF_UNSPEC,
+		.ai_socktype = SOCK_DGRAM,
+		.ai_flags = AI_PASSIVE | AI_NUMERICHOST
+	};
 	if (getaddrinfo(name, NULL, &hints, &res) == 0)
 		freeaddrinfo(res);
 	else if (strchr(name, '.') == NULL) {
@@ -2729,9 +2757,10 @@ deadq_enter(pid_t pid, const char *name)
 		logerror("malloc");
 		exit(1);
 	}
-
-	p->dq_pid = pid;
-	p->dq_timeout = DQ_TIMO_INIT;
+	*p = (struct deadq_entry){
+		.dq_pid = pid,
+		.dq_timeout = DQ_TIMO_INIT
+	};
 	TAILQ_INSERT_TAIL(&deadq_head, p, dq_entries);
 }
 
@@ -2809,11 +2838,11 @@ socksetup(struct peer *pe)
 		}
 #endif
 	}
-	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_DGRAM;
-	hints.ai_flags = AI_PASSIVE;
-
+	hints = (struct addrinfo){
+		.ai_family = AF_UNSPEC,
+		.ai_socktype = SOCK_DGRAM,
+		.ai_flags = AI_PASSIVE
+	};
 	dprintf("Try %s\n", pe->pe_name);
 	if (pe->pe_serv == NULL)
 		pe->pe_serv = "syslog";
@@ -2825,7 +2854,6 @@ socksetup(struct peer *pe)
 	}
 	for (res = res0; res != NULL; res = res->ai_next) {
 		int s;
-		int on = 1;
 
 		if (res->ai_family == AF_LOCAL)
 			unlink(pe->pe_name);
@@ -2846,7 +2874,7 @@ socksetup(struct peer *pe)
 #ifdef INET6
 		if (res->ai_family == AF_INET6) {
 			if (setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY,
-			       (char *)&on, sizeof(on)) < 0) {
+			       &(int){1}, sizeof(int)) < 0) {
 				logerror("setsockopt(IPV6_V6ONLY)");
 				close(s);
 				error++;
@@ -2855,7 +2883,7 @@ socksetup(struct peer *pe)
 		}
 #endif
 		if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR,
-		       (char *)&on, sizeof(on)) < 0) {
+		    &(int){1}, sizeof(int)) < 0) {
 			logerror("setsockopt(SO_REUSEADDR)");
 			close(s);
 			error++;
@@ -2916,11 +2944,10 @@ socksetup(struct peer *pe)
 static void
 increase_rcvbuf(int fd)
 {
-	socklen_t len, slen;
+	socklen_t len;
 
-	slen = sizeof(len);
-
-	if (getsockopt(fd, SOL_SOCKET, SO_RCVBUF, &len, &slen) == 0) {
+	if (getsockopt(fd, SOL_SOCKET, SO_RCVBUF, &len,
+	    &(socklen_t){sizeof(len)}) == 0) {
 		if (len < RCVBUF_MINSIZE) {
 			len = RCVBUF_MINSIZE;
 			setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &len, sizeof(len));
