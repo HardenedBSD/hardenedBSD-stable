@@ -63,6 +63,8 @@ setup_environment() {
 	INTEGRIFORCE=1
 	BUILDSRCSET=1
 	VERBOSE=0
+	TARGET=$(uname -m)
+	TARGET_ARCH=$(uname -p)
 }
 
 cleanup_chroot() {
@@ -185,8 +187,54 @@ create_src_conf() {
 	fi
 }
 
+install_binutils() {
+	local res
+
+	debug_print "[*] Cross-build detected. Installing ${TARGET_ARCH}-binutils."
+
+	if [ -f /etc/resolv.conf ]; then
+		cp /etc/resolv.conf ${CHROOTDIR}/etc/resolv.conf
+	fi
+
+	chroot ${CHROOTDIR} \
+		env ASSUME_ALWAYS_YES=yes \
+		pkg bootstrap -y
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		return ${res}
+	fi
+
+	chroot ${CHROOTDIR} \
+		env ASSUME_ALWAYS_YES=yes \
+		pkg update
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		return ${res}
+	fi
+
+	chroot ${CHROOTDIR} \
+		env ASSUME_ALWAYS_YES=yes \
+		pkg install -y ${TARGET_ARCH}-binutils
+
+	return ${?}
+}
+
 prep_release() {
-	chroot ${CHROOTDIR} make -sC /usr/src/release obj clean
+	local res
+
+	chroot ${CHROOTDIR} \
+		make -s \
+			-C /usr/src/release \
+			clean
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		return ${res}
+	fi
+
+	chroot ${CHROOTDIR} \
+		make -s \
+			-C /usr/src/release \
+			obj
 	res=${?}
 	if [ ${res} -gt 0 ]; then
 		return ${res}
@@ -197,7 +245,10 @@ prep_release() {
 
 build_base_archive() {
 	debug_print "[*] Making base.txz in /usr/src/release"
-	chroot ${CHROOTDIR} make -sC /usr/src/release base.txz
+	chroot ${CHROOTDIR} \
+		make -s \
+			-C /usr/src/release \
+			base.txz
 	res=${?}
 	if [ ${res} -gt 0 ]; then
 		return ${res}
@@ -496,9 +547,11 @@ sanity_check_archive() {
 		return 1
 	fi
 
-	if [ ! -f ${STAGEDIR}/base.txz.sig ]; then
-		debug_print "[-] Could not find ${STAGEDIR}/base.txz.sig"
-		return 1
+	if [ ${UNSIGNED} -eq 0 ]; then
+		if [ ! -f ${STAGEDIR}/base.txz.sig ]; then
+			debug_print "[-] Could not find ${STAGEDIR}/base.txz.sig"
+			return 1
+		fi
 	fi
 
 	for kernel in ${KERNELS}; do
@@ -507,9 +560,11 @@ sanity_check_archive() {
 			return 1
 		fi
 
-		if [ ! -f ${STAGEDIR}/kernel-${kernel}.txz.sig ]; then
-			debug_print "[-] Could not find ${STAGEDIR}/kernel-${kernel}.txz.sig"
-			return 1
+		if [ ${UNSIGNED} -eq 0 ]; then
+			if [ ! -f ${STAGEDIR}/kernel-${kernel}.txz.sig ]; then
+				debug_print "[-] Could not find ${STAGEDIR}/kernel-${kernel}.txz.sig"
+				return 1
+			fi
 		fi
 	done
 
@@ -518,9 +573,11 @@ sanity_check_archive() {
 		return 1
 	fi
 
-	if [ ! -f ${STAGEDIR}/etcupdate.tbz.sig ]; then
-		debug_print "[-] Could not find ${STAGEDIR}/etcupdate.tbz.sig"
-		return 1
+	if [ ${UNSIGNED} -eq 0 ]; then
+		if [ ! -f ${STAGEDIR}/etcupdate.tbz.sig ]; then
+			debug_print "[-] Could not find ${STAGEDIR}/etcupdate.tbz.sig"
+			return 1
+		fi
 	fi
 
 	if [ ! -f ${STAGEDIR}/skip.txt ]; then
@@ -528,9 +585,11 @@ sanity_check_archive() {
 		return 1
 	fi
 
-	if [ ! -f ${STAGEDIR}/skip.txt.sig ]; then
-		debug_print "[-] Could not find ${STAGEDIR}/skip.txt.sig"
-		return 1
+	if [ ${UNSIGNED} -eq 0 ]; then
+		if [ ! -f ${STAGEDIR}/skip.txt.sig ]; then
+			debug_print "[-] Could not find ${STAGEDIR}/skip.txt.sig"
+			return 1
+		fi
 	fi
 
 	return 0
@@ -580,8 +639,15 @@ main() {
 		if [ ${USE_EXISTING} -eq 0 ]; then
 			cleanup_chroot || exit 1
 			setup_chroot || exit 1
+			if [ ! $(uname -m) = "${TARGET}" ]; then
+				install_binutils || exit 1
+			fi
 			clone_source || exit 1
 			create_src_conf || exit 1
+
+			export TARGET
+			export TARGET_ARCH
+
 			build_source || exit 1
 
 			prep_release || exit 1
