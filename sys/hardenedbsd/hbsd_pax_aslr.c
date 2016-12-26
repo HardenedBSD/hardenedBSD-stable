@@ -401,19 +401,6 @@ try_again:
 	    PAX_ASLR_DELTA_MAP32BIT_LSB,
 	    pax_aslr_map32bit_len);
 #endif
-
-	CTR2(KTR_PAX, "%s: vm_aslr_delta_mmap=%p\n",
-	    __func__, (void *)vm->vm_aslr_delta_mmap);
-	CTR2(KTR_PAX, "%s: vm_aslr_delta_stack=%p\n",
-	    __func__, (void *)vm->vm_aslr_delta_stack);
-	CTR2(KTR_PAX, "%s: vm_aslr_delta_exec=%p\n",
-	    __func__, (void *)vm->vm_aslr_delta_exec);
-	CTR2(KTR_PAX, "%s: vm_aslr_delta_vdso=%p\n",
-	    __func__, (void *)vm->vm_aslr_delta_vdso);
-#ifdef MAP_32BIT
-	CTR2(KTR_PAX, "%s: vm_aslr_delta_map32bit=%p\n",
-	    __func__, (void *)vm->vm_aslr_delta_map32bit);
-#endif
 }
 
 #ifdef COMPAT_FREEBSD32
@@ -470,15 +457,6 @@ pax_aslr_init_vmspace32(struct proc *p)
 	vm->vm_aslr_delta_vdso = PAX_ASLR_DELTA(rand_buf,
 	    PAX_ASLR_COMPAT_DELTA_VDSO_LSB,
 	    pax_aslr_compat_vdso_len);
-
-	CTR2(KTR_PAX, "%s: vm_aslr_delta_mmap=%p\n",
-	    __func__, (void *)vm->vm_aslr_delta_mmap);
-	CTR2(KTR_PAX, "%s: vm_aslr_delta_stack=%p\n",
-	    __func__, (void *)vm->vm_aslr_delta_stack);
-	CTR2(KTR_PAX, "%s: vm_aslr_delta_exec=%p\n",
-	    __func__, (void *)vm->vm_aslr_delta_exec);
-	CTR2(KTR_PAX, "%s: vm_aslr_delta_vdso=%p\n",
-	    __func__, (void *)vm->vm_aslr_delta_vdso);
 }
 #endif	/* COMPAT_FREEBSD32 */
 
@@ -579,14 +557,8 @@ pax_aslr_mmap(struct proc *p, vm_offset_t *addr, vm_offset_t orig_addr, int mmap
 	 *
 	 * https://github.com/HardenedBSD/pax-docs-mirror/blob/master/randmmap.txt#L30
 	 */
-	if ((orig_addr == 0) || !(mmap_flags & MAP_ANON)) {
-		CTR4(KTR_PAX, "%s: applying to %p orig_addr=%p mmap_flags=%x\n",
-		    __func__, (void *)*addr, (void *)orig_addr, mmap_flags);
+	if ((orig_addr == 0) || !(mmap_flags & MAP_ANON))
 		*addr += p->p_vmspace->vm_aslr_delta_mmap;
-		CTR2(KTR_PAX, "%s: result %p\n", __func__, (void *)*addr);
-	} else
-		CTR4(KTR_PAX, "%s: not applying to %p orig_addr=%p mmap_flags=%x\n",
-		    __func__, (void *)*addr, (void *)orig_addr, mmap_flags);
 }
 
 void
@@ -599,7 +571,6 @@ pax_aslr_rtld(struct proc *p, vm_offset_t *addr)
 		return;
 
 	*addr += p->p_vmspace->vm_aslr_delta_mmap;
-	CTR2(KTR_PAX, "%s: result %p\n", __func__, (void *)*addr);
 }
 
 void
@@ -620,9 +591,6 @@ pax_aslr_stack(struct proc *p, vm_offset_t *addr)
 	random = p->p_vmspace->vm_aslr_delta_stack;
 	random &= (-1UL << PAX_ASLR_DELTA_STACK_LSB);
 	*addr -= random;
-
-	CTR3(KTR_PAX, "%s: orig_addr=%p, new_addr=%p\n",
-	    __func__, (void *)orig_addr, (void *)*addr);
 }
 
 void
@@ -640,9 +608,6 @@ pax_aslr_stack_with_gap(struct proc *p, vm_offset_t *addr)
 	 */
 	random = p->p_vmspace->vm_aslr_delta_stack;
 	*addr -= random;
-
-	CTR3(KTR_PAX, "%s: orig_addr=%p, new_addr=%p\n",
-	    __func__, (void *)orig_addr, (void *)*addr);
 }
 
 void
@@ -665,9 +630,6 @@ pax_aslr_vdso(struct proc *p, vm_offset_t *addr)
 
 	orig_addr = *addr;
 	*addr -= p->p_vmspace->vm_aslr_delta_vdso;
-
-	CTR3(KTR_PAX, "%s: orig_addr=%p, new_addr=%p\n",
-	    __func__, (void *)orig_addr, (void *)*addr);
 }
 
 pax_flag_t
@@ -777,13 +739,8 @@ pax_aslr_mmap_map_32bit(struct proc *p, vm_offset_t *addr, vm_offset_t orig_addr
 	 *
 	 * https://github.com/HardenedBSD/pax-docs-mirror/blob/master/randmmap.txt#L30
 	 */
-	if ((orig_addr == 0) || !(mmap_flags & MAP_ANON)) {
-		CTR4(KTR_PAX, "%s: applying to %p orig_addr=%p mmap_flags=%x\n",
-				__func__, (void *)*addr, (void *)orig_addr, mmap_flags);
-
+	if ((orig_addr == 0) || !(mmap_flags & MAP_ANON))
 		*addr += p->p_vmspace->vm_aslr_delta_map32bit;
-		CTR2(KTR_PAX, "%s: result %p\n", __func__, (void *)*addr);
-	}
 }
 
 bool
