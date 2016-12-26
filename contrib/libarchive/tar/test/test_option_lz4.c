@@ -62,7 +62,6 @@ DEFINE_TEST(test_option_lz4)
 			skipping("This version of bsdtar uses an external lz4 program "
 			    "but no such program is available on this system.");
 			goto done;
-<<<<<<< HEAD
 		}
 		/* On some systems the error won't be detected until closing
 		   time, by a 127 exit error returned by waitpid. */
@@ -70,8 +69,6 @@ DEFINE_TEST(test_option_lz4)
 			skipping("This version of bsdcpio uses an external lz4 program "
 			    "but no such program is available on this system.");
 			return;
-=======
->>>>>>> origin/freebsd/10-stable/master
 		}
 		failure("--lz4 option is broken: %s", p);
 		assertEqualInt(r, 0);
