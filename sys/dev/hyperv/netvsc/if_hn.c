@@ -333,7 +333,8 @@ static void			hn_link_status(struct hn_softc *);
 static int			hn_create_rx_data(struct hn_softc *, int);
 static void			hn_destroy_rx_data(struct hn_softc *);
 static int			hn_check_iplen(const struct mbuf *, int);
-static int			hn_set_rxfilter(struct hn_softc *);
+static int			hn_set_rxfilter(struct hn_softc *, uint32_t);
+static int			hn_rxfilter_config(struct hn_softc *);
 #ifndef RSS
 static int			hn_rss_reconfig(struct hn_softc *);
 #endif
@@ -684,11 +685,25 @@ do {							\
 #endif	/* INET6 || INET */
 
 static int
-hn_set_rxfilter(struct hn_softc *sc)
+hn_set_rxfilter(struct hn_softc *sc, uint32_t filter)
+{
+	int error = 0;
+
+	HN_LOCK_ASSERT(sc);
+
+	if (sc->hn_rx_filter != filter) {
+		error = hn_rndis_set_rxfilter(sc, filter);
+		if (!error)
+			sc->hn_rx_filter = filter;
+	}
+	return (error);
+}
+
+static int
+hn_rxfilter_config(struct hn_softc *sc)
 {
 	struct ifnet *ifp = sc->hn_ifp;
 	uint32_t filter;
-	int error = 0;
 
 	HN_LOCK_ASSERT(sc);
 
@@ -703,13 +718,7 @@ hn_set_rxfilter(struct hn_softc *sc)
 		    !TAILQ_EMPTY(&ifp->if_multiaddrs))
 			filter |= NDIS_PACKET_TYPE_ALL_MULTICAST;
 	}
-
-	if (sc->hn_rx_filter != filter) {
-		error = hn_rndis_set_rxfilter(sc, filter);
-		if (!error)
-			sc->hn_rx_filter = filter;
-	}
-	return (error);
+	return (hn_set_rxfilter(sc, filter));
 }
 
 static void
@@ -2431,7 +2440,7 @@ hn_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 				 * reply.
 				 */
 				HN_NO_SLEEPING(sc);
-				hn_set_rxfilter(sc);
+				hn_rxfilter_config(sc);
 				HN_SLEEPING_OK(sc);
 			} else {
 				hn_init_locked(sc);
@@ -2508,7 +2517,7 @@ hn_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 			 * the RNDIS reply.
 			 */
 			HN_NO_SLEEPING(sc);
-			hn_set_rxfilter(sc);
+			hn_rxfilter_config(sc);
 			HN_SLEEPING_OK(sc);
 		}
 
@@ -2566,7 +2575,7 @@ hn_init_locked(struct hn_softc *sc)
 		return;
 
 	/* Configure RX filter */
-	hn_set_rxfilter(sc);
+	hn_rxfilter_config(sc);
 
 	/* Clear OACTIVE bit. */
 	atomic_clear_int(&ifp->if_drv_flags, IFF_DRV_OACTIVE);
@@ -4817,8 +4826,7 @@ hn_suspend_data(struct hn_softc *sc)
 	/*
 	 * Disable RX by clearing RX filter.
 	 */
-	sc->hn_rx_filter = NDIS_PACKET_TYPE_NONE;
-	hn_rndis_set_rxfilter(sc, sc->hn_rx_filter);
+	hn_set_rxfilter(sc, NDIS_PACKET_TYPE_NONE);
 
 	/*
 	 * Give RNDIS enough time to flush all pending data packets.
@@ -4925,7 +4933,7 @@ hn_resume_data(struct hn_softc *sc)
 	/*
 	 * Re-enable RX.
 	 */
-	hn_set_rxfilter(sc);
+	hn_rxfilter_config(sc);
 
 	/*
 	 * Make sure to clear suspend status on "all" TX rings,
