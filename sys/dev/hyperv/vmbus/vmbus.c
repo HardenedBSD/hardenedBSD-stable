@@ -99,6 +99,8 @@ static int			vmbus_probe_guid_method(device_t, device_t,
 				    const struct hyperv_guid *);
 static uint32_t			vmbus_get_vcpu_id_method(device_t bus,
 				    device_t dev, int cpu);
+static struct taskqueue		*vmbus_get_eventtq_method(device_t, device_t,
+				    int);
 
 static int			vmbus_init(struct vmbus_softc *);
 static int			vmbus_connect(struct vmbus_softc *, uint32_t);
@@ -174,6 +176,7 @@ static device_method_t vmbus_methods[] = {
 	DEVMETHOD(vmbus_get_version,		vmbus_get_version_method),
 	DEVMETHOD(vmbus_probe_guid,		vmbus_probe_guid_method),
 	DEVMETHOD(vmbus_get_vcpu_id,		vmbus_get_vcpu_id_method),
+	DEVMETHOD(vmbus_get_event_taskq,	vmbus_get_eventtq_method),
 
 	DEVMETHOD_END
 };
@@ -309,12 +312,27 @@ vmbus_msghc_exec(struct vmbus_softc *sc __unused, struct vmbus_msghc *mh)
 	return error;
 }
 
+void
+vmbus_msghc_exec_cancel(struct vmbus_softc *sc __unused, struct vmbus_msghc *mh)
+{
+
+	vmbus_xact_deactivate(mh->mh_xact);
+}
+
 const struct vmbus_message *
 vmbus_msghc_wait_result(struct vmbus_softc *sc __unused, struct vmbus_msghc *mh)
 {
 	size_t resp_len;
 
 	return (vmbus_xact_wait(mh->mh_xact, &resp_len));
+}
+
+const struct vmbus_message *
+vmbus_msghc_poll_result(struct vmbus_softc *sc __unused, struct vmbus_msghc *mh)
+{
+	size_t resp_len;
+
+	return (vmbus_xact_poll(mh->mh_xact, &resp_len));
 }
 
 void
@@ -327,7 +345,13 @@ vmbus_msghc_wakeup(struct vmbus_softc *sc, const struct vmbus_message *msg)
 uint32_t
 vmbus_gpadl_alloc(struct vmbus_softc *sc)
 {
-	return atomic_fetchadd_int(&sc->vmbus_gpadl, 1);
+	uint32_t gpadl;
+
+again:
+	gpadl = atomic_fetchadd_int(&sc->vmbus_gpadl, 1); 
+	if (gpadl == 0)
+		goto again;
+	return (gpadl);
 }
 
 static int
@@ -1185,6 +1209,15 @@ vmbus_get_vcpu_id_method(device_t bus, device_t dev, int cpu)
 	const struct vmbus_softc *sc = device_get_softc(bus);
 
 	return (VMBUS_PCPU_GET(sc, vcpuid, cpu));
+}
+
+static struct taskqueue *
+vmbus_get_eventtq_method(device_t bus, device_t dev __unused, int cpu)
+{
+	const struct vmbus_softc *sc = device_get_softc(bus);
+
+	KASSERT(cpu >= 0 && cpu < mp_ncpus, ("invalid cpu%d", cpu));
+	return (VMBUS_PCPU_GET(sc, event_tq, cpu));
 }
 
 #ifdef NEW_PCIB
