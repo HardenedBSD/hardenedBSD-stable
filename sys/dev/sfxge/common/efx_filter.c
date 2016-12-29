@@ -152,9 +152,6 @@ efx_filter_init(
 	const efx_filter_ops_t *efop;
 	efx_rc_t rc;
 
-	/* Check that efx_filter_spec_t is 64 bytes. */
-	EFX_STATIC_ASSERT(sizeof (efx_filter_spec_t) == 64);
-
 	EFSYS_ASSERT3U(enp->en_magic, ==, EFX_NIC_MAGIC);
 	EFSYS_ASSERT3U(enp->en_mod_flags, &, EFX_MOD_PROBE);
 	EFSYS_ASSERT(!(enp->en_mod_flags & EFX_MOD_FILTER));
@@ -276,7 +273,7 @@ fail1:
 efx_filter_spec_init_rx(
 	__out		efx_filter_spec_t *spec,
 	__in		efx_filter_priority_t priority,
-	__in		efx_filter_flag_t flags,
+	__in		efx_filter_flags_t flags,
 	__in		efx_rxq_t *erp)
 {
 	EFSYS_ASSERT3P(spec, !=, NULL);
@@ -390,7 +387,7 @@ efx_filter_spec_set_uc_def(
 {
 	EFSYS_ASSERT3P(spec, !=, NULL);
 
-	spec->efs_match_flags |= EFX_FILTER_MATCH_LOC_MAC_IG;
+	spec->efs_match_flags |= EFX_FILTER_MATCH_UNKNOWN_UCAST_DST;
 	return (0);
 }
 
@@ -403,8 +400,7 @@ efx_filter_spec_set_mc_def(
 {
 	EFSYS_ASSERT3P(spec, !=, NULL);
 
-	spec->efs_match_flags |= EFX_FILTER_MATCH_LOC_MAC_IG;
-	spec->efs_loc_mac[0] = 1;
+	spec->efs_match_flags |= EFX_FILTER_MATCH_UNKNOWN_MCAST_DST;
 	return (0);
 }
 
@@ -1179,6 +1175,7 @@ siena_filter_restore(
 	efx_oword_t filter;
 	int filter_idx;
 	int state;
+	uint32_t key;
 	efx_rc_t rc;
 
 	EFSYS_LOCK(enp->en_eslp, state);
@@ -1192,8 +1189,10 @@ siena_filter_restore(
 				continue;
 
 			spec = &sftp->sft_spec[filter_idx];
-			if ((rc = siena_filter_build(&filter, spec)) != 0)
+			if ((key = siena_filter_build(&filter, spec)) == 0) {
+				rc = EINVAL;
 				goto fail1;
+			}
 			if ((rc = siena_filter_push_entry(enp,
 				    spec->sfs_type, filter_idx, &filter)) != 0)
 				goto fail2;

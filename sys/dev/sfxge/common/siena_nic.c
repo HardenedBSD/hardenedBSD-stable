@@ -105,6 +105,13 @@ siena_board_cfg(
 
 	encp->enc_board_type = board_type;
 
+	/*
+	 * There is no possibility to determine the number of PFs on Siena
+	 * by issuing MCDI request, and it is not an easy task to find the
+	 * value based on the board type, so 'enc_hw_pf_count' is set to 1
+	 */
+	encp->enc_hw_pf_count = 1;
+
 	/* Additional capabilities */
 	encp->enc_clk_mult = 1;
 	if (EFX_DWORD_FIELD(capabilities, MC_CMD_CAPABILITIES_TURBO)) {
@@ -152,11 +159,14 @@ siena_board_cfg(
 	encp->enc_hw_tx_insert_vlan_enabled = B_FALSE;
 	encp->enc_fw_assisted_tso_enabled = B_FALSE;
 	encp->enc_fw_assisted_tso_v2_enabled = B_FALSE;
+	encp->enc_fw_assisted_tso_v2_n_contexts = 0;
 	encp->enc_allow_set_mac_with_installed_filters = B_TRUE;
 
 	/* Siena supports two 10G ports, and 8 lanes of PCIe Gen2 */
 	encp->enc_required_pcie_bandwidth_mbps = 2 * 10000;
 	encp->enc_max_pcie_link_gen = EFX_PCIE_LINK_SPEED_GEN2;
+
+	encp->enc_fw_verified_nvram_update_required = B_FALSE;
 
 	return (0);
 

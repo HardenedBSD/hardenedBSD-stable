@@ -136,7 +136,7 @@ siena_nvram_partn_lock(
 	__in			efx_nic_t *enp,
 	__in			uint32_t partn);
 
-extern				void
+extern	__checkReturn		efx_rc_t
 siena_nvram_partn_unlock(
 	__in			efx_nic_t *enp,
 	__in			uint32_t partn);
@@ -208,7 +208,7 @@ siena_nvram_partn_write(
 	__out_bcount(size)	caddr_t data,
 	__in			size_t size);
 
-extern				void
+extern	__checkReturn		efx_rc_t
 siena_nvram_partn_rw_finish(
 	__in			efx_nic_t *enp,
 	__in			uint32_t partn);
@@ -404,6 +404,12 @@ siena_mac_loopback_set(
 #endif	/* EFSYS_OPT_LOOPBACK */
 
 #if EFSYS_OPT_MAC_STATS
+
+extern	__checkReturn			efx_rc_t
+siena_mac_stats_get_mask(
+	__in				efx_nic_t *enp,
+	__inout_bcount(mask_size)	uint32_t *maskp,
+	__in				size_t mask_size);
 
 extern	__checkReturn			efx_rc_t
 siena_mac_stats_update(
