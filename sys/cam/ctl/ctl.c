@@ -12517,7 +12517,7 @@ ctl_datamove(union ctl_io *io)
 {
 	void (*fe_datamove)(union ctl_io *io);
 
-	mtx_assert(&CTL_SOFTC(io)->ctl_lock, MA_NOTOWNED);
+	mtx_assert(&((struct ctl_softc *)CTL_SOFTC(io))->ctl_lock, MA_NOTOWNED);
 
 	CTL_DEBUG_PRINT(("ctl_datamove\n"));
 
@@ -13010,7 +13010,7 @@ static void
 ctl_datamove_remote(union ctl_io *io)
 {
 
-	mtx_assert(&CTL_SOFTC(io)->ctl_lock, MA_NOTOWNED);
+	mtx_assert(&((struct ctl_softc *)CTL_SOFTC(io))->ctl_lock, MA_NOTOWNED);
 
 	if (io->io_hdr.flags & CTL_FLAG_FAILOVER) {
 		ctl_failover_io(io, /*have_lock*/ 0);
