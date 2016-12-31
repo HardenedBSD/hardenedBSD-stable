@@ -169,7 +169,7 @@ extern		void
 efx_nic_unprobe(
 	__in		efx_nic_t *enp);
 
-extern 		void
+extern		void
 efx_nic_destroy(
 	__in	efx_nic_t *enp);
 
@@ -212,8 +212,7 @@ typedef enum efx_mcdi_exception_e {
 } efx_mcdi_exception_t;
 
 #if EFSYS_OPT_MCDI_LOGGING
-typedef enum efx_log_msg_e
-{
+typedef enum efx_log_msg_e {
 	EFX_LOG_INVALID,
 	EFX_LOG_MCDI_REQUEST,
 	EFX_LOG_MCDI_RESPONSE,
@@ -287,21 +286,21 @@ efx_intr_init(
 	__in		efx_intr_type_t type,
 	__in		efsys_mem_t *esmp);
 
-extern 			void
+extern			void
 efx_intr_enable(
 	__in		efx_nic_t *enp);
 
-extern 			void
+extern			void
 efx_intr_disable(
 	__in		efx_nic_t *enp);
 
-extern 			void
+extern			void
 efx_intr_disable_unlocked(
 	__in		efx_nic_t *enp);
 
 #define	EFX_INTR_NEVQS	32
 
-extern __checkReturn	efx_rc_t
+extern	__checkReturn	efx_rc_t
 efx_intr_trigger(
 	__in		efx_nic_t *enp,
 	__in		unsigned int level);
@@ -436,7 +435,7 @@ typedef enum efx_link_mode_e {
 
 #define	EFX_MAC_ADDR_LEN 6
 
-#define	EFX_MAC_ADDR_IS_MULTICAST(_address) (((uint8_t*)_address)[0] & 0x01)
+#define	EFX_MAC_ADDR_IS_MULTICAST(_address) (((uint8_t *)_address)[0] & 0x01)
 
 #define	EFX_MAC_MULTICAST_LIST_MAX	256
 
@@ -820,7 +819,7 @@ efx_port_poll(
 	__in		efx_nic_t *enp,
 	__out_opt	efx_link_mode_t	*link_modep);
 
-extern 		void
+extern		void
 efx_port_fini(
 	__in	efx_nic_t *enp);
 
@@ -848,7 +847,7 @@ typedef enum efx_phy_cap_type_e {
 extern		void
 efx_phy_adv_cap_get(
 	__in		efx_nic_t *enp,
-	__in            uint32_t flag,
+	__in		uint32_t flag,
 	__out		uint32_t *maskp);
 
 extern	__checkReturn	efx_rc_t
@@ -1106,18 +1105,16 @@ typedef struct efx_nic_cfg_s {
 #if EFSYS_OPT_PHY_STATS
 	uint64_t		enc_phy_stat_mask;
 #endif	/* EFSYS_OPT_PHY_STATS */
-#if EFSYS_OPT_SIENA
+#if EFSYS_OPT_MCDI
 	uint8_t			enc_mcdi_mdio_channel;
 #if EFSYS_OPT_PHY_STATS
 	uint32_t		enc_mcdi_phy_stat_mask;
 #endif	/* EFSYS_OPT_PHY_STATS */
-#endif /* EFSYS_OPT_SIENA */
-#if (EFSYS_OPT_SIENA || EFSYS_OPT_HUNTINGTON || EFSYS_OPT_MEDFORD)
 #if EFSYS_OPT_MON_STATS
 	uint32_t		*enc_mcdi_sensor_maskp;
 	uint32_t		enc_mcdi_sensor_mask_size;
 #endif	/* EFSYS_OPT_MON_STATS */
-#endif	/* (EFSYS_OPT_SIENA || EFSYS_OPT_HUNTINGTON || EFSYS_OPT_MEDFORD) */
+#endif	/* EFSYS_OPT_MCDI */
 #if EFSYS_OPT_BIST
 	uint32_t		enc_bist_mask;
 #endif	/* EFSYS_OPT_BIST */
@@ -1133,20 +1130,20 @@ typedef struct efx_nic_cfg_s {
 	boolean_t		enc_rx_batching_enabled;
 	/* Maximum number of descriptors completed in an rx event. */
 	uint32_t		enc_rx_batch_max;
-        /* Number of rx descriptors the hardware requires for a push. */
-        uint32_t		enc_rx_push_align;
+	/* Number of rx descriptors the hardware requires for a push. */
+	uint32_t		enc_rx_push_align;
 	/*
 	 * Maximum number of bytes into the packet the TCP header can start for
 	 * the hardware to apply TSO packet edits.
 	 */
-	uint32_t                enc_tx_tso_tcp_header_offset_limit;
-	boolean_t               enc_fw_assisted_tso_enabled;
-	boolean_t               enc_fw_assisted_tso_v2_enabled;
-	boolean_t               enc_hw_tx_insert_vlan_enabled;
+	uint32_t		enc_tx_tso_tcp_header_offset_limit;
+	boolean_t		enc_fw_assisted_tso_enabled;
+	boolean_t		enc_fw_assisted_tso_v2_enabled;
+	boolean_t		enc_hw_tx_insert_vlan_enabled;
 	/* Datapath firmware vadapter/vport/vswitch support */
 	boolean_t		enc_datapath_cap_evb;
-	boolean_t               enc_rx_disable_scatter_supported;
-	boolean_t               enc_allow_set_mac_with_installed_filters;
+	boolean_t		enc_rx_disable_scatter_supported;
+	boolean_t		enc_allow_set_mac_with_installed_filters;
 	boolean_t		enc_enhanced_set_mac_supported;
 	boolean_t		enc_init_evq_v2_supported;
 	/* External port identifier */
@@ -1172,8 +1169,7 @@ efx_nic_cfg_get(
 	__in		efx_nic_t *enp);
 
 /* Driver resource limits (minimum required/maximum usable). */
-typedef struct efx_drv_limits_s
-{
+typedef struct efx_drv_limits_s {
 	uint32_t	edl_min_evq_count;
 	uint32_t	edl_max_evq_count;
 
@@ -1255,7 +1251,7 @@ efx_vpd_verify(
 	__in_bcount(size)	caddr_t data,
 	__in			size_t size);
 
-extern  __checkReturn		efx_rc_t
+extern	__checkReturn		efx_rc_t
 efx_vpd_reinit(
 	__in			efx_nic_t *enp,
 	__in_bcount(size)	caddr_t data,
@@ -1283,7 +1279,7 @@ efx_vpd_next(
 	__out			efx_vpd_value_t *evvp,
 	__inout			unsigned int *contp);
 
-extern __checkReturn		efx_rc_t
+extern	__checkReturn		efx_rc_t
 efx_vpd_write(
 	__in			efx_nic_t *enp,
 	__in_bcount(size)	caddr_t data,
@@ -1313,6 +1309,7 @@ typedef enum efx_nvram_type_e {
 	EFX_NVRAM_FPGA_BACKUP,
 	EFX_NVRAM_DYNAMIC_CFG,
 	EFX_NVRAM_LICENSE,
+	EFX_NVRAM_UEFIROM,
 	EFX_NVRAM_NTYPES,
 } efx_nvram_type_t;
 
@@ -1501,7 +1498,7 @@ typedef enum efx_pattern_type_t {
 	EFX_PATTERN_NTYPES
 } efx_pattern_type_t;
 
-typedef 		void
+typedef			void
 (*efx_sram_pattern_fn_t)(
 	__in		size_t row,
 	__in		boolean_t negate,
@@ -1597,6 +1594,11 @@ efx_ev_fini(
 #define	EFX_EVQ_SIZE(_nevs)	((_nevs) * sizeof (efx_qword_t))
 #define	EFX_EVQ_NBUFS(_nevs)	(EFX_EVQ_SIZE(_nevs) / EFX_BUF_SIZE)
 
+#define	EFX_EVQ_FLAGS_TYPE_MASK		(0x3)
+#define	EFX_EVQ_FLAGS_TYPE_AUTO		(0x0)
+#define	EFX_EVQ_FLAGS_TYPE_THROUGHPUT	(0x1)
+#define	EFX_EVQ_FLAGS_TYPE_LOW_LATENCY	(0x2)
+
 extern	__checkReturn	efx_rc_t
 efx_ev_qcreate(
 	__in		efx_nic_t *enp,
@@ -1605,6 +1607,7 @@ efx_ev_qcreate(
 	__in		size_t n,
 	__in		uint32_t id,
 	__in		uint32_t us,
+	__in		uint32_t flags,
 	__deref_out	efx_evq_t **eepp);
 
 extern		void
@@ -1848,8 +1851,8 @@ typedef enum efx_rx_hash_support_e {
 } efx_rx_hash_support_t;
 
 #define	EFX_RSS_TBL_SIZE	128	/* Rows in RX indirection table */
-#define	EFX_MAXRSS	    	64	/* RX indirection entry range */
-#define	EFX_MAXRSS_LEGACY   	16 	/* See bug16611 and bug17213 */
+#define	EFX_MAXRSS		64	/* RX indirection entry range */
+#define	EFX_MAXRSS_LEGACY	16	/* See bug16611 and bug17213 */
 
 typedef enum efx_rx_scale_support_e {
 	EFX_RX_SCALE_UNAVAILABLE = 0,	/* Not supported */
@@ -2061,7 +2064,7 @@ efx_tx_qpio_write(
 	__in			efx_txq_t *etp,
 	__in_ecount(buf_length)	uint8_t *buffer,
 	__in			size_t buf_length,
-	__in                    size_t pio_buf_offset);
+	__in			size_t pio_buf_offset);
 
 extern	__checkReturn	efx_rc_t
 efx_tx_qpio_post(
