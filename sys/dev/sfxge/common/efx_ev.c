@@ -71,6 +71,7 @@ siena_ev_qcreate(
 	__in		size_t n,
 	__in		uint32_t id,
 	__in		uint32_t us,
+	__in		uint32_t flags,
 	__in		efx_evq_t *eep);
 
 static			void
@@ -228,6 +229,7 @@ efx_ev_qcreate(
 	__in		size_t n,
 	__in		uint32_t id,
 	__in		uint32_t us,
+	__in		uint32_t flags,
 	__deref_out	efx_evq_t **eepp)
 {
 	const efx_ev_ops_t *eevop = enp->en_eevop;
@@ -264,7 +266,8 @@ efx_ev_qcreate(
 	enp->en_ev_qcount++;
 	*eepp = eep;
 
-	if ((rc = eevop->eevo_qcreate(enp, index, esmp, n, id, us, eep)) != 0)
+	if ((rc = eevop->eevo_qcreate(enp, index, esmp, n, id, us, flags,
+	    eep)) != 0)
 		goto fail2;
 
 	return (0);
@@ -953,7 +956,7 @@ siena_ev_mcdi(
 	__in_opt	void *arg)
 {
 	efx_nic_t *enp = eep->ee_enp;
-	unsigned code;
+	unsigned int code;
 	boolean_t should_abort = B_FALSE;
 
 	EFSYS_ASSERT3U(enp->en_family, ==, EFX_FAMILY_SIENA);
@@ -1279,6 +1282,7 @@ siena_ev_qcreate(
 	__in		size_t n,
 	__in		uint32_t id,
 	__in		uint32_t us,
+	__in		uint32_t flags,
 	__in		efx_evq_t *eep)
 {
 	efx_nic_cfg_t *encp = &(enp->en_nic_cfg);
@@ -1357,8 +1361,8 @@ fail1:
 
 #if EFSYS_OPT_QSTATS
 #if EFSYS_OPT_NAMES
-/* START MKCONFIG GENERATED EfxEventQueueStatNamesBlock b693ddf85aee1bfd */
-static const char 	*__efx_ev_qstat_name[] = {
+/* START MKCONFIG GENERATED EfxEventQueueStatNamesBlock c0f3bc5083b40532 */
+static const char * const __efx_ev_qstat_name[] = {
 	"all",
 	"rx",
 	"rx_ok",
