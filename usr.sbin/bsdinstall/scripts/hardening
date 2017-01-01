@@ -56,7 +56,7 @@ if [ `sysctl -n security.bsd.stack_guard_page` -gt 0 ]; then
 fi
 
 exec 3>&1
-FEATURES=$( dialog --backtitle "FreeBSD Installer" \
+FEATURES=$( dialog --backtitle "HardenedBSD Installer" \
     --title "System Hardening" --nocancel --notags --separate-output \
     --checklist "Choose system security hardening options:" \
     0 0 0 \
