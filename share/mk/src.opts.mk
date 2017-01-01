@@ -192,6 +192,7 @@ __DEFAULT_NO_OPTIONS = \
     OFED \
     OPENLDAP \
     PORTSNAP \
+    SAFESTACK \
     SORT_THREADS \
     SVN \
 
@@ -266,12 +267,6 @@ BROKEN_OPTIONS+=LIBSOFT
 __DEFAULT_YES_OPTIONS+=PIE
 .else
 __DEFAULT_NO_OPTIONS+=PIE
-.endif
-
-.if ${__T} == "amd64"
-__DEFAULT_YES_OPTIONS+=SAFESTACK
-.else
-__DEFAULT_NO_OPTIONS+=SAFESTACK
 .endif
 
 .include <bsd.mkopt.mk>
