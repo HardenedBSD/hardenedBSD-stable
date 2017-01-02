@@ -181,6 +181,7 @@ TESTS_SRCS= \
 	test_read_format_zip_encryption_partially.c	\
 	test_read_format_zip_filename.c		\
 	test_read_format_zip_high_compression.c	\
+	test_read_format_zip_jar.c		\
 	test_read_format_zip_mac_metadata.c	\
 	test_read_format_zip_malformed.c	\
 	test_read_format_zip_msdos.c		\
@@ -520,7 +521,12 @@ FILES+=	test_read_format_zip_filename_koi8r.zip.uu
 FILES+=	test_read_format_zip_filename_utf8_jp.zip.uu
 FILES+=	test_read_format_zip_filename_utf8_ru.zip.uu
 FILES+=	test_read_format_zip_filename_utf8_ru2.zip.uu
+<<<<<<< HEAD
 FILES+=	test_read_format_zip_high_compression.zip.uu
+=======
+FILES+=	test_read_format_zip_high_compression.zip.uu	
+FILES+=	test_read_format_zip_jar.jar.uu
+>>>>>>> origin/freebsd/10-stable/master
 FILES+=	test_read_format_zip_length_at_end.zip.uu
 FILES+=	test_read_format_zip_mac_metadata.zip.uu
 FILES+=	test_read_format_zip_malformed1.zip.uu
