@@ -194,11 +194,7 @@ __DEFAULT_NO_OPTIONS = \
     NAND \
     OFED \
     OPENLDAP \
-<<<<<<< HEAD
     PORTSNAP \
-    RCS \
-=======
->>>>>>> origin/freebsd/current/master
     REPRODUCIBLE_BUILD \
     SHARED_TOOLCHAIN \
     SORT_THREADS \
