@@ -38,6 +38,11 @@
 #   xargs -n1 | sort | uniq -d;
 # done
 
+# 20170102: librt move to /lib
+OLD_LIBS+=usr/lib/librt.a
+OLD_LIBS+=usr/lib/librt.so
+OLD_LIBS+=usr/lib/librt.so.1
+OLD_LIBS+=usr/lib/librt_p.a
 # 20161230: libarchive ACL pax test renamed to test_acl_pax_posix1e.tar.uu
 OLD_FILES+=usr/tests/lib/libarchive/test_acl_pax.tar.uu
 # 20161229: Three files from gnop tests consolidated into one
