@@ -38,6 +38,11 @@
 #   xargs -n1 | sort | uniq -d;
 # done
 
+# 20170704: librt move to /lib
+OLD_LIBS+=usr/lib/librt.a
+OLD_LIBS+=usr/lib/librt.so
+OLD_LIBS+=usr/lib/librt.so.1
+OLD_LIBS+=usr/lib/librt_p.a
 # 20161217: new clang import which bumps version from 3.9.0 to 3.9.1.
 OLD_FILES+=usr/lib/clang/3.9.0/include/sanitizer/allocator_interface.h
 OLD_FILES+=usr/lib/clang/3.9.0/include/sanitizer/asan_interface.h
