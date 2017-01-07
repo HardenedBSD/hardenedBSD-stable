@@ -647,7 +647,7 @@ Set to not build and install
 .Xr ee 1 ,
 and related programs.
 .It Va WITHOUT_EFI
-.\" from FreeBSD: head/tools/build/options/WITHOUT_EFI 311135 2017-01-02 20:07:56Z ngie
+.\" $FreeBSD$
 Set not to build
 .Xr efivar 3
 and
@@ -656,7 +656,7 @@ and
 It is a default setting on
 mips/mipsel, mips/mips, mips/mips64el, mips/mips64, mips/mipsn32, mips/mipselhf, mips/mipshf, mips/mips64elhf, mips/mips64hf, powerpc/powerpc, powerpc/powerpc64, powerpc/powerpcspe and sparc64/sparc64.
 .It Va WITH_EFI
-.\" from FreeBSD: head/tools/build/options/WITH_EFI 311135 2017-01-02 20:07:56Z ngie
+.\" $FreeBSD$
 Set to build
 .Xr efivar 3
 and
@@ -1412,7 +1412,7 @@ This includes
 .Xr rsh 1 ,
 etc.
 .It Va WITH_REPRODUCIBLE_BUILD
-.\" from FreeBSD: head/tools/build/options/WITH_REPRODUCIBLE_BUILD 310271 2016-12-19 15:09:30Z gjb
+.\" $FreeBSD$
 Set to exclude build metadata (such as the build time, user, or host)
 from the kernel, boot loaders, and uname output, so that builds produce
 bit-for-bit identical output.
@@ -1450,6 +1450,16 @@ as a set-user-ID root program.
 Set to not build the
 .Bx 4.4
 legacy docs.
+.It Va WITH_SHARED_TOOLCHAIN
+.\" $FreeBSD$
+Set to build the toolchain binaries shared.
+The set includes
+.Xr cc 1 ,
+.Xr make 1
+and necessary utilities like assembler, linker and library archive manager.
+.Pp
+It is a default setting on
+amd64/amd64, arm/arm, arm/armeb, arm64/aarch64, i386/i386, mips/mipsel, mips/mips, mips/mips64el, mips/mips64, mips/mipsn32, mips/mipselhf, mips/mipshf, mips/mips64elhf, mips/mips64hf, pc98/i386, powerpc/powerpc, powerpc/powerpc64, powerpc/powerpcspe and sparc64/sparc64.
 .It Va WITH_SORT_THREADS
 .\" $FreeBSD$
 Set to enable threads in
@@ -1478,7 +1488,7 @@ Set to not build world with propolice stack smashing protection.
 It is a default setting on
 mips/mipsel, mips/mips, mips/mips64el, mips/mips64, mips/mipsn32, mips/mipselhf, mips/mipshf, mips/mips64elhf and mips/mips64hf.
 .It Va WITH_SSP
-.\" from FreeBSD: head/tools/build/options/WITH_SSP 311136 2017-01-02 20:09:09Z ngie
+.\" $FreeBSD$
 Set to build world with propolice stack smashing protection.
 .Pp
 It is a default setting on
@@ -1656,13 +1666,8 @@ and related programs.
 .\" $FreeBSD$
 Set to not build USB-related programs and libraries.
 .It Va WITHOUT_USB_GADGET_EXAMPLES
-<<<<<<< HEAD
 .\" $FreeBSD$
-Set to build USB gadget kernel modules.
-=======
-.\" from FreeBSD: head/tools/build/options/WITHOUT_USB_GADGET_EXAMPLES 311548 2017-01-06 21:08:19Z ngie
 Set to not build USB gadget kernel modules.
->>>>>>> origin/freebsd/current/master
 .It Va WITHOUT_UTMPX
 .\" $FreeBSD$
 Set to not build user accounting tools such as
