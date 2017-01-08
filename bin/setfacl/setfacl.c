@@ -35,6 +35,7 @@ __FBSDID("$FreeBSD$");
 
 #include <err.h>
 #include <errno.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -75,11 +76,19 @@ static int h_flag;
 static int R_flag;
 static unsigned int carried_error;
 static acl_type_t acl_type;
+static volatile sig_atomic_t siginfo;
 
 static void	add_filename(const char *filename);
 static acl_t	sanitize_inheritance(const struct stat *sb, acl_t acl);
 static int	walk_path(const char *path, const struct stat *sb, int flag, struct FTW *ftwp);
 static void	usage(void);
+static void	siginfo_handler(int signo __unused);
+
+static void
+siginfo_handler(int signo __unused)
+{
+	siginfo = 1;
+}
 
 static void
 add_filename(const char *filename)
@@ -140,6 +149,11 @@ walk_path(const char *path, const struct stat *sb, int flag, struct FTW *ftwp __
 	int ret;
 
 	local_error = 0;
+
+	if (siginfo) {
+		puts(path);
+		siginfo = 0;
+	}
 
 	if (acl_type == ACL_TYPE_DEFAULT && (flag & FTW_D) == 0) {
 		warnx("%s: default ACL may only be set on a directory",
@@ -223,10 +237,10 @@ walk_path(const char *path, const struct stat *sb, int flag, struct FTW *ftwp __
 			need_mask = 1;
 			break;
 		case OP_REMOVE_EXT:
-			/*
-				* Don't try to call remove_ext() for empty
-				* default ACL.
-				*/
+				/*
+				 * Don't try to call remove_ext() for empty
+				 * default ACL.
+				 */
 			if (acl_type == ACL_TYPE_DEFAULT &&
 				acl_get_entry(acl, ACL_FIRST_ENTRY,
 				&unused_entry) == 0) {
@@ -337,6 +351,8 @@ main(int argc, char *argv[])
 
 	TAILQ_INIT(&entrylist);
 	TAILQ_INIT(&filelist);
+
+	signal(SIGINFO, siginfo_handler);
 
 	while ((ch = getopt(argc, argv, "M:RX:a:bdhkm:nx:")) != -1)
 		switch(ch) {
