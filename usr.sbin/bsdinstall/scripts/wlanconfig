@@ -32,37 +32,9 @@
 BSDCFG_SHARE="/usr/share/bsdconfig"
 . $BSDCFG_SHARE/common.subr || exit 1
 f_include $BSDCFG_SHARE/dialog.subr
-f_dialog_backtitle "FreeBSD Installer"
+f_dialog_backtitle "HardenedBSD Installer"
 
-<<<<<<< HEAD
-############################################################ MAIN
-
-echo -n > $BSDINSTALL_TMPETC/wpa_supplicant.conf
-chmod 0600 $BSDINSTALL_TMPETC/wpa_supplicant.conf
-
-echo "ctrl_interface=/var/run/wpa_supplicant" >> $BSDINSTALL_TMPETC/wpa_supplicant.conf
-echo "eapol_version=2" >> $BSDINSTALL_TMPETC/wpa_supplicant.conf
-echo "ap_scan=1" >> $BSDINSTALL_TMPETC/wpa_supplicant.conf
-echo "fast_reauth=1" >> $BSDINSTALL_TMPETC/wpa_supplicant.conf
-echo >> $BSDINSTALL_TMPETC/wpa_supplicant.conf
-
-# Try to reach wpa_supplicant. If it isn't running and we can modify the
-# existing system, start it. Otherwise, fail.
-(wpa_cli ping >/dev/null 2>/dev/null || ([ ! -z $BSDINSTALL_CONFIGCURRENT ] && \
-	wpa_supplicant -B -i $1 -c $BSDINSTALL_TMPETC/wpa_supplicant.conf)) || \
-	(dialog --backtitle "HardenedBSD Installer" --title "Error" --msgbox \
-	"Could not start wpa_supplicant!" 0 0; exit 1) || exit 1
-
-# See if we succeeded
-wpa_cli ping >/dev/null 2>/dev/null
-if [ $? -ne 0 -a -z $BSDINSTALL_CONFIGCURRENT ]; then
-	dialog --backtitle "HardenedBSD Installer" --title "Error" --msgbox \
-	"Wireless cannot be configured without making changes to the local system!" \ 0 0
-	exit 1
-fi
-=======
 ############################################################ FUNCTIONS
->>>>>>> origin/freebsd/11-stable/master
 
 country_set()
 {
@@ -78,28 +50,6 @@ country_set()
 	ifconfig_args="${ifconfig_args# }"
 
 	# Regdomain/country cannot be applied while interface is running
-<<<<<<< HEAD
-	iface_up=`ifconfig -lu | grep -w $WLAN_IFACE`
-	if [ ! -z "$iface_up" ]; then
-		ifconfig $WLAN_IFACE down
-	fi
-	error_str=`ifconfig $WLAN_IFACE $ifconfig_args 2>&1 | \
-		sed 's/ifconfig: //'`
-	if [ ! -z "$iface_up" ]; then
-		# Restart wpa_supplicant(8) (should not fail).
-		wpa_supplicant -B -i $WLAN_IFACE -c \
-		    $BSDINSTALL_TMPETC/wpa_supplicant.conf
-	fi
-	if [ ! -z "$error_str" ]; then
-		dialog --backtitle "HardenedBSD Installer" --title "Error" \
-		    --yes-label Change --no-label Ignore --yesno \
-		    "Error while applying chosen settings ($error_str)" 0 0
-		if [ $? -eq $DIALOG_OK ]; then
-			return $FAILURE		# Restart
-		else
-			return $SUCCESS		# Skip
-		fi
-=======
 	iface_up=$( ifconfig -lu | grep -w "$WLAN_IFACE" )
 	[ "$iface_up" ] && ifconfig "$WLAN_IFACE" down
 	f_eval_catch -dk error_str wlanconfig ifconfig "ifconfig %s %s" \
@@ -119,7 +69,6 @@ country_set()
 			"Error while applying chosen settings ($error_str)" \
 			0 0 || return $SUCCESS # Skip
 		return $FAILURE # Restart
->>>>>>> origin/freebsd/11-stable/master
 	else
 		awk 'sub(/^\t\t/,"")||1' \
 			> "$BSDINSTALL_TMPETC/rc.conf.net.wlan" <<-EOF
@@ -162,32 +111,6 @@ dialog_country_select()
 		}
 	' | sort )
 
-<<<<<<< HEAD
-	f_dialog_menu_size height width rows \"Regdomain selection\" \
-	    \"HardenedBSD Installer\" \"Select your regdomain.\" \
-	    \"\" $regdomains
-	regdomain=`sh -c "dialog \
-	    --backtitle \"HardenedBSD Installer\" \
-	    --title \"Regdomain selection\" \
-	    --cancel-label \"Skip\" \
-	    $def_item_regdomain \
-	    --no-items \
-	    --stdout \
-	    --menu \"Select your regdomain.\" \
-	    $height $width $rows $regdomains"`
-
-	f_dialog_menu_size height width rows \"Country selection\" \
-	    \"HardenedBSD Installer\" \"Select your country.\" \
-	    \"\" $countries
-	country=`sh -c "dialog \
-	    --backtitle \"HardenedBSD Installer\" \
-	    --title \"Country selection\" \
-	    --cancel-label \"Skip\" \
-	    $def_item_country \
-	    --stdout \
-	    --menu \"Select your country.\" \
-	    $height $width $rows $countries"`
-=======
 	f_dialog_title "Regdomain selection"
 	prompt="Select your regdomain."
 	eval f_dialog_menu_size height width rows \
@@ -221,7 +144,6 @@ dialog_country_select()
 		2>&1 >&$DIALOG_TERMINAL_PASSTHRU_FD
 	)
 	f_dialog_data_sanitize country
->>>>>>> origin/freebsd/11-stable/master
 
 	country_set "$regdomain" "$country"
 }
@@ -263,40 +185,6 @@ fi
 #
 if [ "$BSDINSTALL_CONFIGCURRENT" ]; then
 	# Get current country/regdomain for selected interface
-<<<<<<< HEAD
-	WLAN_IFACE=`wpa_cli ifname | tail -n 1`
-	INPUT=`ifconfig $WLAN_IFACE list regdomain | head -n 1`
-	DEF_REGDOMAIN=`echo $INPUT | cut -w -f 2`
-	if [ "$DEF_REGDOMAIN" = "0" ]; then
-		DEF_REGDOMAIN="<not selected>"
-	fi
-	DEF_COUNTRY=`echo $INPUT | cut -w -f 4`
-	if [ "$DEF_COUNTRY" = "0" ]; then
-		DEF_COUNTRY="<not selected>"
-	fi
-	dialog --backtitle "HardenedBSD Installer" --title "Regdomain/country" \
-	    --yesno "Change regdomain/country (now \
-	    $DEF_REGDOMAIN/$DEF_COUNTRY)?" 0 0
-	if [ $? -eq 0 ]; then
-		while :
-		do
-			dialog_country_select "$DEF_REGDOMAIN" "$DEF_COUNTRY"
-			if [ $? -eq $SUCCESS ]; then
-				break
-			fi
-		done
-	fi
-fi
-
-while :
-do
-	output=$( wpa_cli scan 2>&1 )
-	f_dprintf "%s" "$output"
-	dialog --backtitle "HardenedBSD Installer" --title "Scanning" \
-	    --ok-label "Skip" \
-	    --pause "Waiting 5 seconds to scan for wireless networks..." \
-	    9 40 5 || exit 1
-=======
 	WLAN_IFACE=$( wpa_cli ifname | tail -n 1 )
 	INPUT=$( ifconfig "$WLAN_IFACE" list regdomain | head -n 1 )
 	DEF_REGDOMAIN=$( echo "$INPUT" | cut -w -f 2 )
@@ -317,29 +205,12 @@ while :; do
 	f_dialog_title "Scanning"
 	f_dialog_pause "Waiting 5 seconds to scan for wireless networks..." 5 ||
 		exit 1
->>>>>>> origin/freebsd/11-stable/master
 
 	f_eval_catch -dk SCAN_RESULTS wlanconfig wpa_cli "wpa_cli scan_results"
 	NETWORKS=$( echo "$SCAN_RESULTS" | awk -F '\t' '
 		/..:..:..:..:..:../ && $5 { printf "\"%s\"\t\"%s\"\n", $5, $4 }
 	' | sort | uniq )
 
-<<<<<<< HEAD
-	if [ -z "$NETWORKS" ]; then
-		dialog --backtitle "HardenedBSD Installer" --title "Error" \
-		    --yesno "No wireless networks were found. Rescan?" 0 0 && \
-		    continue
-		exit 1
-	fi
-
-	exec 3>&1
-	NETWORK=`sh -c "dialog --extra-button --extra-label \"Rescan\" \
-	    --backtitle \"HardenedBSD Installer\" --title \"Network Selection\" \
-	    --menu \"Select a wireless network to connect to.\" 0 0 0 \
-	    $(echo $NETWORKS | tr '\n' ' ')" 2>&1 1>&3`
-	case $? in
-	0)	# OK
-=======
 	if [ ! "$NETWORKS" ]; then
 		f_dialog_title "$msg_error"
 		f_yesno "No wireless networks were found. Rescan?" && continue
@@ -387,7 +258,6 @@ while :; do
 			2>&1 >&$DIALOG_TERMINAL_PASSTHRU_FD
 		) || exit 1
 		SCANSSID=1
->>>>>>> origin/freebsd/11-stable/master
 		break
 		;;
 	$DIALOG_EXTRA) # Rescan
@@ -398,26 +268,6 @@ done
 [ "$ENCRYPTION" ] || ENCRYPTION=$( echo "$NETWORKS" |
 	awk -F '\t' "/^\"$NETWORK\"\t/ { print \$2 }" )
 
-<<<<<<< HEAD
-if echo $ENCRYPTION | grep -q 'PSK'; then
-	exec 3>&1
-	PASS=`dialog --insecure --backtitle "HardenedBSD Installer" \
-	    --title "WPA Setup" --mixedform "" 0 0 0 \
-		"SSID" 1 0 "$NETWORK" 1 12 0 0 2 \
-		"Password" 2 0 "" 2 12 15 63 1 \
-		2>&1 1>&3` \
-	|| exec $0 $@
-	exec 3>&-
-echo "network={
-	ssid=\"$NETWORK\"
-	psk=\"$PASS\"
-	priority=5
-}" >> $BSDINSTALL_TMPETC/wpa_supplicant.conf
-elif echo $ENCRYPTION | grep -q EAP; then
-	exec 3>&1
-	USERPASS=`dialog --insecure --backtitle "HardenedBSD Installer" \
-	    --title "WPA-Enterprise Setup" --mixedform "" 0 0 0 \
-=======
 if echo "$ENCRYPTION" | grep -q PSK; then
 	PASS=$( $DIALOG \
 		--title "WPA Setup"              \
@@ -445,7 +295,6 @@ elif echo "$ENCRYPTION" | grep -q EAP; then
 		--insecure                       \
 		--mixedform ""                   \
 		0 0 0                            \
->>>>>>> origin/freebsd/11-stable/master
 		"SSID" 1 0 "$NETWORK" 1 12 0 0 2 \
 		"Username" 2 0 "" 2 12 25 63 0   \
 		"Password" 3 0 "" 3 12 25 63 1   \
@@ -463,15 +312,6 @@ elif echo "$ENCRYPTION" | grep -q EAP; then
 		' )
 		priority=5
 	}
-<<<<<<< HEAD
-}' >> $BSDINSTALL_TMPETC/wpa_supplicant.conf
-echo "	priority=5
-}" >> $BSDINSTALL_TMPETC/wpa_supplicant.conf
-elif echo $ENCRYPTION | grep -q WEP; then
-	exec 3>&1
-	WEPKEY=`dialog --insecure --backtitle "HardenedBSD Installer" \
-	    --title "WEP Setup" --mixedform "" 0 0 0 \
-=======
 	EOF
 elif echo "$ENCRYPTION" | grep -q WEP; then
 	WEPKEY=$( $DIALOG \
@@ -480,7 +320,6 @@ elif echo "$ENCRYPTION" | grep -q WEP; then
 		--insecure                       \
 		--mixedform ""                   \
 		0 0 0                            \
->>>>>>> origin/freebsd/11-stable/master
 		"SSID" 1 0 "$NETWORK" 1 12 0 0 2 \
 		"WEP Key 0" 2 0 "" 2 12 15 0 1   \
 		2>&1 >&$DIALOG_TERMINAL_PASSTHRU_FD
