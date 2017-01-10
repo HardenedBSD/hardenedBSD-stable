@@ -160,7 +160,6 @@ SUBDIR=	\
 	if_tun \
 	if_vlan \
 	if_vxlan \
-	${_igb} \
 	${_iir} \
 	imgact_binmisc \
 	${_intelspi} \
@@ -539,7 +538,6 @@ _cxgb=		cxgb
 .if ${MACHINE_CPUARCH} == "aarch64"
 _armv8crypto=	armv8crypto
 _em=		em
-_igb=		igb
 .endif
 
 .if ${MACHINE_CPUARCH} == "i386" || ${MACHINE_CPUARCH} == "amd64"
@@ -566,7 +564,6 @@ _fe=		fe
 _ibcore=        ibcore
 .endif
 _if_ndis=	if_ndis
-_igb=		igb
 _io=		io
 .if ${MK_OFED} != "no" || defined(ALL_MODULES)
 _ipoib=         ipoib
@@ -769,7 +766,6 @@ _nvram=		powermac_nvram
 _auxio=		auxio
 _em=		em
 _epic=		epic
-_igb=		igb
 .endif
 
 .if (${MACHINE_CPUARCH} == "amd64" || ${MACHINE_ARCH} == "armv6" || \
