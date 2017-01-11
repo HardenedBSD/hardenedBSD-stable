@@ -329,6 +329,7 @@ SUBDIR=	\
 	scc \
 	${_scsi_low} \
 	sdhci \
+	${_sdhci_acpi} \
 	sdhci_pci \
 	sem \
 	send \
@@ -659,6 +660,7 @@ _padlock_rng=	padlock_rng
 _rdrand_rng=	rdrand_rng
 .endif
 _s3=		s3
+_sdhci_acpi=	sdhci_acpi
 _tpm=		tpm
 _twa=		twa
 _vesa=		vesa
