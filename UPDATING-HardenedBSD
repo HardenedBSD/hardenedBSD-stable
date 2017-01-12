@@ -1,3 +1,16 @@
+[20170112] Enable SafeStack by default for amd64
+__HardenedBSD_version = 48
+
+	Enable WITH_SAFESTACK by default on HardenedBSD/amd64.
+	SafeStack is an exploit mitigation technique developed in the
+	clang/llvm project, born in the Code-Pointer Integrity
+	(CPI) project. Now that base has clang 3.9.1, which contains
+	a more mature CFI/CPI implementation, SafeStack can be enabled
+	by default for amd64.
+
+	Disable SafeStack for base by setting WITHOUT_SAFESTACK in
+	src.conf(5).
+
 [20160820] Enable LibreSSL by default
 __HardenedBSD_version = 47
 
