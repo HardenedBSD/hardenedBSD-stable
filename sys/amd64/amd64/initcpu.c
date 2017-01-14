@@ -48,12 +48,22 @@ __FBSDID("$FreeBSD$");
 static int	hw_instruction_sse;
 SYSCTL_INT(_hw, OID_AUTO, instruction_sse, CTLFLAG_RD,
     &hw_instruction_sse, 0, "SIMD/MMX2 instructions available in CPU");
+
 /*
  * -1: automatic (default)
  *  0: keep enable CLFLUSH
  *  1: force disable CLFLUSH
  */
 static int	hw_clflush_disable = -1;
+
+/*
+ * -1: SDBG not supported (default)
+ *  0: disabled SDBG
+ *  1: enabled SDBG
+ */
+static int	hw_sdbg_status = -1;
+SYSCTL_INT(_hw, OID_AUTO, intel_sdbg, CTLFLAG_RD,
+    &hw_sdbg_status, 0, "Intel Silicon Debug Interface status");
 
 int	cpu;			/* Are we 386, 386sx, 486, etc? */
 u_int	cpu_feature;		/* Feature flags */
@@ -85,6 +95,28 @@ SYSCTL_UINT(_hw, OID_AUTO, via_feature_rng, CTLFLAG_RD,
 	&via_feature_rng, 0, "VIA RNG feature available in CPU");
 SYSCTL_UINT(_hw, OID_AUTO, via_feature_xcrypt, CTLFLAG_RD,
 	&via_feature_xcrypt, 0, "VIA xcrypt feature available in CPU");
+
+static void
+init_intel(void)
+{
+	uint64_t msr;
+
+	if (cpu_feature2 & CPUID2_SDBG) {
+		msr = rdmsr(MSR_IA32_DEBUG_INTERFACE);
+		if ((msr & IA32_DEBUG_INTERFACE_EN) != 0 &&
+		    (msr & IA32_DEBUG_INTERFACE_LOCK) == 0) {
+			msr &= IA32_DEBUG_INTERFACE_MASK;
+			msr |= IA32_DEBUG_INTERFACE_LOCK;
+			wrmsr(MSR_IA32_DEBUG_INTERFACE, msr);
+		}
+
+		/*
+		 * Reread the status after applied quirk.
+		 */
+		msr = rdmsr(MSR_IA32_DEBUG_INTERFACE);
+		hw_sdbg_status = (msr & IA32_DEBUG_INTERFACE_EN) ? 1 : 0;
+	}
+}
 
 static void
 init_amd(void)
@@ -226,6 +258,9 @@ initializecpu(void)
 		pg_nx = PG_NX;
 	}
 	switch (cpu_vendor_id) {
+	case CPU_VENDOR_INTEL:
+		init_intel();
+		break;
 	case CPU_VENDOR_AMD:
 		init_amd();
 		break;
