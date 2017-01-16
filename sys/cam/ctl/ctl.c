@@ -5051,18 +5051,13 @@ ctl_config_move_done(union ctl_io *io)
 	if ((io->io_hdr.port_status != 0) &&
 	    ((io->io_hdr.status & CTL_STATUS_MASK) == CTL_STATUS_NONE ||
 	     (io->io_hdr.status & CTL_STATUS_MASK) == CTL_SUCCESS)) {
-		/*
-		 * For hardware error sense keys, the sense key
-		 * specific value is defined to be a retry count,
-		 * but we use it to pass back an internal FETD
-		 * error code.  XXX KDM  Hopefully the FETD is only
-		 * using 16 bits for an error code, since that's
-		 * all the space we have in the sks field.
-		 */
-		ctl_set_internal_failure(&io->scsiio,
-					 /*sks_valid*/ 1,
-					 /*retry_count*/
-					 io->io_hdr.port_status);
+		ctl_set_internal_failure(&io->scsiio, /*sks_valid*/ 1,
+		    /*retry_count*/ io->io_hdr.port_status);
+	} else if (io->scsiio.kern_data_resid != 0 &&
+	    (io->io_hdr.flags & CTL_FLAG_DATA_MASK) == CTL_FLAG_DATA_OUT &&
+	    ((io->io_hdr.status & CTL_STATUS_MASK) == CTL_STATUS_NONE ||
+	     (io->io_hdr.status & CTL_STATUS_MASK) == CTL_SUCCESS)) {
+		ctl_set_invalid_field_ciu(&io->scsiio);
 	}
 
 	if (ctl_debug & CTL_DEBUG_CDB_DATA)
@@ -5460,7 +5455,6 @@ ctl_format(struct ctl_scsiio *ctsio)
 		ctsio->kern_data_ptr = malloc(length, M_CTL, M_WAITOK);
 		ctsio->kern_data_len = length;
 		ctsio->kern_total_len = length;
-		ctsio->kern_data_resid = 0;
 		ctsio->kern_rel_offset = 0;
 		ctsio->kern_sg_entries = 0;
 		ctsio->io_hdr.flags |= CTL_FLAG_ALLOCATED;
@@ -5586,7 +5580,6 @@ ctl_read_buffer(struct ctl_scsiio *ctsio)
 	}
 	ctsio->kern_data_len = len;
 	ctsio->kern_total_len = len;
-	ctsio->kern_data_resid = 0;
 	ctsio->kern_rel_offset = 0;
 	ctsio->kern_sg_entries = 0;
 	ctl_set_success(ctsio);
@@ -5632,7 +5625,6 @@ ctl_write_buffer(struct ctl_scsiio *ctsio)
 		ctsio->kern_data_ptr = lun->write_buffer + buffer_offset;
 		ctsio->kern_data_len = len;
 		ctsio->kern_total_len = len;
-		ctsio->kern_data_resid = 0;
 		ctsio->kern_rel_offset = 0;
 		ctsio->kern_sg_entries = 0;
 		ctsio->io_hdr.flags |= CTL_FLAG_ALLOCATED;
@@ -5740,7 +5732,6 @@ ctl_write_same(struct ctl_scsiio *ctsio)
 		ctsio->kern_data_ptr = malloc(len, M_CTL, M_WAITOK);
 		ctsio->kern_data_len = len;
 		ctsio->kern_total_len = len;
-		ctsio->kern_data_resid = 0;
 		ctsio->kern_rel_offset = 0;
 		ctsio->kern_sg_entries = 0;
 		ctsio->io_hdr.flags |= CTL_FLAG_ALLOCATED;
@@ -5786,7 +5777,6 @@ ctl_unmap(struct ctl_scsiio *ctsio)
 		ctsio->kern_data_ptr = malloc(len, M_CTL, M_WAITOK);
 		ctsio->kern_data_len = len;
 		ctsio->kern_total_len = len;
-		ctsio->kern_data_resid = 0;
 		ctsio->kern_rel_offset = 0;
 		ctsio->kern_sg_entries = 0;
 		ctsio->io_hdr.flags |= CTL_FLAG_ALLOCATED;
@@ -6276,7 +6266,6 @@ ctl_mode_select(struct ctl_scsiio *ctsio)
 		ctsio->kern_data_ptr = malloc(param_len, M_CTL, M_WAITOK);
 		ctsio->kern_data_len = param_len;
 		ctsio->kern_total_len = param_len;
-		ctsio->kern_data_resid = 0;
 		ctsio->kern_rel_offset = 0;
 		ctsio->kern_sg_entries = 0;
 		ctsio->io_hdr.flags |= CTL_FLAG_ALLOCATED;
@@ -6506,7 +6495,6 @@ ctl_mode_sense(struct ctl_scsiio *ctsio)
 
 	ctsio->kern_data_ptr = malloc(total_len, M_CTL, M_WAITOK | M_ZERO);
 	ctsio->kern_sg_entries = 0;
-	ctsio->kern_data_resid = 0;
 	ctsio->kern_rel_offset = 0;
 	if (total_len < alloc_len) {
 		ctsio->residual = alloc_len - total_len;
@@ -6859,7 +6847,6 @@ ctl_log_sense(struct ctl_scsiio *ctsio)
 
 	ctsio->kern_data_ptr = malloc(total_len, M_CTL, M_WAITOK | M_ZERO);
 	ctsio->kern_sg_entries = 0;
-	ctsio->kern_data_resid = 0;
 	ctsio->kern_rel_offset = 0;
 	if (total_len < alloc_len) {
 		ctsio->residual = alloc_len - total_len;
@@ -6927,7 +6914,6 @@ ctl_read_capacity(struct ctl_scsiio *ctsio)
 	ctsio->residual = 0;
 	ctsio->kern_data_len = sizeof(*data);
 	ctsio->kern_total_len = sizeof(*data);
-	ctsio->kern_data_resid = 0;
 	ctsio->kern_rel_offset = 0;
 	ctsio->kern_sg_entries = 0;
 
@@ -6993,7 +6979,6 @@ ctl_read_capacity_16(struct ctl_scsiio *ctsio)
 		ctsio->kern_data_len = alloc_len;
 		ctsio->kern_total_len = alloc_len;
 	}
-	ctsio->kern_data_resid = 0;
 	ctsio->kern_rel_offset = 0;
 	ctsio->kern_sg_entries = 0;
 
@@ -7048,7 +7033,6 @@ ctl_get_lba_status(struct ctl_scsiio *ctsio)
 		ctsio->kern_data_len = alloc_len;
 		ctsio->kern_total_len = alloc_len;
 	}
-	ctsio->kern_data_resid = 0;
 	ctsio->kern_rel_offset = 0;
 	ctsio->kern_sg_entries = 0;
 
@@ -7110,7 +7094,6 @@ ctl_read_defect(struct ctl_scsiio *ctsio)
 		ctsio->kern_data_len = alloc_len;
 		ctsio->kern_total_len = alloc_len;
 	}
-	ctsio->kern_data_resid = 0;
 	ctsio->kern_rel_offset = 0;
 	ctsio->kern_sg_entries = 0;
 
@@ -7209,7 +7192,6 @@ ctl_report_tagret_port_groups(struct ctl_scsiio *ctsio)
 		ctsio->kern_data_len = alloc_len;
 		ctsio->kern_total_len = alloc_len;
 	}
-	ctsio->kern_data_resid = 0;
 	ctsio->kern_rel_offset = 0;
 
 	if (ext) {
@@ -7410,7 +7392,6 @@ ctl_report_supported_opcodes(struct ctl_scsiio *ctsio)
 		ctsio->kern_data_len = alloc_len;
 		ctsio->kern_total_len = alloc_len;
 	}
-	ctsio->kern_data_resid = 0;
 	ctsio->kern_rel_offset = 0;
 
 	switch (cdb->options & RSO_OPTIONS_MASK) {
@@ -7524,7 +7505,6 @@ ctl_report_supported_tmf(struct ctl_scsiio *ctsio)
 		ctsio->kern_data_len = alloc_len;
 		ctsio->kern_total_len = alloc_len;
 	}
-	ctsio->kern_data_resid = 0;
 	ctsio->kern_rel_offset = 0;
 
 	data = (struct scsi_report_supported_tmf_ext_data *)ctsio->kern_data_ptr;
@@ -7572,7 +7552,6 @@ ctl_report_timestamp(struct ctl_scsiio *ctsio)
 		ctsio->kern_data_len = alloc_len;
 		ctsio->kern_total_len = alloc_len;
 	}
-	ctsio->kern_data_resid = 0;
 	ctsio->kern_rel_offset = 0;
 
 	data = (struct scsi_report_timestamp_data *)ctsio->kern_data_ptr;
@@ -7645,7 +7624,6 @@ retry:
 		ctsio->kern_total_len = alloc_len;
 	}
 
-	ctsio->kern_data_resid = 0;
 	ctsio->kern_rel_offset = 0;
 	ctsio->kern_sg_entries = 0;
 
@@ -8223,7 +8201,6 @@ ctl_persistent_reserve_out(struct ctl_scsiio *ctsio)
 		ctsio->kern_data_ptr = malloc(param_len, M_CTL, M_WAITOK);
 		ctsio->kern_data_len = param_len;
 		ctsio->kern_total_len = param_len;
-		ctsio->kern_data_resid = 0;
 		ctsio->kern_rel_offset = 0;
 		ctsio->kern_sg_entries = 0;
 		ctsio->io_hdr.flags |= CTL_FLAG_ALLOCATED;
@@ -9205,7 +9182,6 @@ ctl_report_luns(struct ctl_scsiio *ctsio)
 		ctsio->kern_data_len = alloc_len;
 		ctsio->kern_total_len = alloc_len;
 	}
-	ctsio->kern_data_resid = 0;
 	ctsio->kern_rel_offset = 0;
 	ctsio->kern_sg_entries = 0;
 
@@ -9268,7 +9244,6 @@ ctl_request_sense(struct ctl_scsiio *ctsio)
 	ctsio->kern_data_len = cdb->length;
 	ctsio->kern_total_len = cdb->length;
 
-	ctsio->kern_data_resid = 0;
 	ctsio->kern_rel_offset = 0;
 	ctsio->kern_sg_entries = 0;
 
@@ -9407,7 +9382,6 @@ ctl_inquiry_evpd_supported(struct ctl_scsiio *ctsio, int alloc_len)
 		ctsio->kern_data_len = alloc_len;
 		ctsio->kern_total_len = alloc_len;
 	}
-	ctsio->kern_data_resid = 0;
 	ctsio->kern_rel_offset = 0;
 	ctsio->kern_sg_entries = 0;
 
@@ -9476,7 +9450,6 @@ ctl_inquiry_evpd_serial(struct ctl_scsiio *ctsio, int alloc_len)
 		ctsio->kern_data_len = alloc_len;
 		ctsio->kern_total_len = alloc_len;
 	}
-	ctsio->kern_data_resid = 0;
 	ctsio->kern_rel_offset = 0;
 	ctsio->kern_sg_entries = 0;
 
@@ -9535,7 +9508,6 @@ ctl_inquiry_evpd_eid(struct ctl_scsiio *ctsio, int alloc_len)
 		ctsio->kern_data_len = alloc_len;
 		ctsio->kern_total_len = alloc_len;
 	}
-	ctsio->kern_data_resid = 0;
 	ctsio->kern_rel_offset = 0;
 	ctsio->kern_sg_entries = 0;
 
@@ -9611,7 +9583,6 @@ ctl_inquiry_evpd_mpp(struct ctl_scsiio *ctsio, int alloc_len)
 		ctsio->kern_data_len = alloc_len;
 		ctsio->kern_total_len = alloc_len;
 	}
-	ctsio->kern_data_resid = 0;
 	ctsio->kern_rel_offset = 0;
 	ctsio->kern_sg_entries = 0;
 
@@ -9676,7 +9647,6 @@ ctl_inquiry_evpd_devid(struct ctl_scsiio *ctsio, int alloc_len)
 		ctsio->kern_data_len = alloc_len;
 		ctsio->kern_total_len = alloc_len;
 	}
-	ctsio->kern_data_resid = 0;
 	ctsio->kern_rel_offset = 0;
 	ctsio->kern_sg_entries = 0;
 
@@ -9805,7 +9775,6 @@ ctl_inquiry_evpd_scsi_ports(struct ctl_scsiio *ctsio, int alloc_len)
 		ctsio->kern_data_len = alloc_len;
 		ctsio->kern_total_len = alloc_len;
 	}
-	ctsio->kern_data_resid = 0;
 	ctsio->kern_rel_offset = 0;
 	ctsio->kern_sg_entries = 0;
 
@@ -9881,7 +9850,6 @@ ctl_inquiry_evpd_block_limits(struct ctl_scsiio *ctsio, int alloc_len)
 		ctsio->kern_data_len = alloc_len;
 		ctsio->kern_total_len = alloc_len;
 	}
-	ctsio->kern_data_resid = 0;
 	ctsio->kern_rel_offset = 0;
 	ctsio->kern_sg_entries = 0;
 
@@ -9957,7 +9925,6 @@ ctl_inquiry_evpd_bdc(struct ctl_scsiio *ctsio, int alloc_len)
 		ctsio->kern_data_len = alloc_len;
 		ctsio->kern_total_len = alloc_len;
 	}
-	ctsio->kern_data_resid = 0;
 	ctsio->kern_rel_offset = 0;
 	ctsio->kern_sg_entries = 0;
 
@@ -10014,7 +9981,6 @@ ctl_inquiry_evpd_lbp(struct ctl_scsiio *ctsio, int alloc_len)
 		ctsio->kern_data_len = alloc_len;
 		ctsio->kern_total_len = alloc_len;
 	}
-	ctsio->kern_data_resid = 0;
 	ctsio->kern_rel_offset = 0;
 	ctsio->kern_sg_entries = 0;
 
@@ -10149,7 +10115,6 @@ ctl_inquiry_std(struct ctl_scsiio *ctsio)
 	ctsio->kern_data_ptr = malloc(data_len, M_CTL, M_WAITOK | M_ZERO);
 	inq_ptr = (struct scsi_inquiry_data *)ctsio->kern_data_ptr;
 	ctsio->kern_sg_entries = 0;
-	ctsio->kern_data_resid = 0;
 	ctsio->kern_rel_offset = 0;
 
 	if (data_len < alloc_len) {
@@ -10377,7 +10342,6 @@ ctl_get_config(struct ctl_scsiio *ctsio)
 	    sizeof(struct scsi_get_config_feature) + 4;
 	ctsio->kern_data_ptr = malloc(data_len, M_CTL, M_WAITOK | M_ZERO);
 	ctsio->kern_sg_entries = 0;
-	ctsio->kern_data_resid = 0;
 	ctsio->kern_rel_offset = 0;
 
 	hdr = (struct scsi_get_config_header *)ctsio->kern_data_ptr;
@@ -10583,7 +10547,6 @@ ctl_get_event_status(struct ctl_scsiio *ctsio)
 	data_len = sizeof(struct scsi_get_event_status_header);
 	ctsio->kern_data_ptr = malloc(data_len, M_CTL, M_WAITOK | M_ZERO);
 	ctsio->kern_sg_entries = 0;
-	ctsio->kern_data_resid = 0;
 	ctsio->kern_rel_offset = 0;
 
 	if (data_len < alloc_len) {
@@ -10621,7 +10584,6 @@ ctl_mechanism_status(struct ctl_scsiio *ctsio)
 	data_len = sizeof(struct scsi_mechanism_status_header);
 	ctsio->kern_data_ptr = malloc(data_len, M_CTL, M_WAITOK | M_ZERO);
 	ctsio->kern_sg_entries = 0;
-	ctsio->kern_data_resid = 0;
 	ctsio->kern_rel_offset = 0;
 
 	if (data_len < alloc_len) {
@@ -10681,7 +10643,6 @@ ctl_read_toc(struct ctl_scsiio *ctsio)
 		data_len += sizeof(struct scsi_read_toc_type01_descr);
 	ctsio->kern_data_ptr = malloc(data_len, M_CTL, M_WAITOK | M_ZERO);
 	ctsio->kern_sg_entries = 0;
-	ctsio->kern_data_resid = 0;
 	ctsio->kern_rel_offset = 0;
 
 	if (data_len < alloc_len) {
@@ -12582,6 +12543,9 @@ ctl_datamove(union ctl_io *io)
 	mtx_assert(&((struct ctl_softc *)CTL_SOFTC(io))->ctl_lock, MA_NOTOWNED);
 
 	CTL_DEBUG_PRINT(("ctl_datamove\n"));
+
+	/* No data transferred yet.  Frontend must update this when done. */
+	io->scsiio.kern_data_resid = io->scsiio.kern_data_len;
 
 #ifdef CTL_TIME_IO
 	if ((time_uptime - io->io_hdr.start_time) > ctl_time_io_secs) {
