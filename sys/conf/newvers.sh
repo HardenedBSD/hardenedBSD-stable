@@ -252,10 +252,6 @@ if [ -n "$hg_cmd" ] ; then
 	fi
 fi
 
-<<<<<<< HEAD
-if [ -n "${HBSD_EXTRA}" ] ; then
-	hbsdv=" [${HBSD_EXTRA}]"
-=======
 include_metadata=true
 while getopts rR opt; do
 	case "$opt" in
@@ -270,24 +266,24 @@ while getopts rR opt; do
 done
 shift $((OPTIND - 1))
 
+if [ -n "${HBSD_EXTRA}" ] ; then
+	hbsdv=" [${HBSD_EXTRA}]"
+else
+	hbsdv=" "
+fi
+
 if [ -z "${include_metadata}" ]; then
-	VERINFO="${VERSION} ${svn}${git}${hg}${p4version}"
+	VERINFO="${VERSION}${hbsdv}${svn}${git}${hg}${p4version}"
 	VERSTR="${VERINFO}\\n"
 else
-	VERINFO="${VERSION} #${v}${svn}${git}${hg}${p4version}: ${t}"
+	VERINFO="${VERSION} #${v}${hbsdv}${svn}${git}${hg}${p4version}: ${t}"
 	VERSTR="${VERINFO}\\n    ${u}@${h}:${d}\\n"
->>>>>>> origin/freebsd/11-stable/master
 fi
 
 cat << EOF > vers.c
 $COPYRIGHT
-<<<<<<< HEAD
-#define SCCSSTR "@(#)${VERSION} #${v}${hbsdv}${svn}${git}${hg}${p4version}: ${t}"
-#define VERSTR "${VERSION} #${v}${hbsdv}${svn}${git}${hg}${p4version}: ${t}\\n    ${u}@${h}:${d}\\n"
-=======
 #define SCCSSTR "@(#)${VERINFO}"
 #define VERSTR "${VERSTR}"
->>>>>>> origin/freebsd/11-stable/master
 #define RELSTR "${RELEASE}"
 
 char sccs[sizeof(SCCSSTR) > 128 ? sizeof(SCCSSTR) : 128] = SCCSSTR;
