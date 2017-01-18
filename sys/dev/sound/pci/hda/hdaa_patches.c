@@ -733,14 +733,7 @@ hdaa_patch_direct(struct hdaa_devinfo *devinfo)
 	case HDA_CODEC_ALC1150:
 		if (subid == 0xd9781462) {
 			/* Too low volume on MSI H170 GAMING M3. */
-<<<<<<< HEAD
 			hdaa_write_coef(dev, 0x20, 0x07, 0x7cb);
-=======
-			hda_command(dev, HDA_CMD_SET_COEFF_INDEX(0, 0x20,
-			    0x07));
-			hda_command(dev, HDA_CMD_SET_PROCESSING_COEFF(0, 0x20,
-			    0x7cb));
->>>>>>> origin/freebsd/10-stable/master
 		}
 		break;
 	}
