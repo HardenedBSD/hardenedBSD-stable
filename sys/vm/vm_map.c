@@ -4347,7 +4347,7 @@ DB_SHOW_COMMAND(procvm, procvm)
 	struct proc *p;
 
 	if (have_addr) {
-		p = (struct proc *) addr;
+		p = db_lookup_proc(addr);
 	} else {
 		p = curproc;
 	}
