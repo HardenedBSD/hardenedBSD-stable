@@ -158,9 +158,11 @@ struct tmpfs_node {
 	 * Doubly-linked list entry which links all existing nodes for
 	 * a single file system.  This is provided to ease the removal
 	 * of all nodes during the unmount operation, and to support
-	 * the implementation of VOP_VNTOCNP().
+	 * the implementation of VOP_VNTOCNP().  tn_attached is false
+	 * when the node is removed from list and unlocked.
 	 */
 	LIST_ENTRY(tmpfs_node)	tn_entries;	/* (m) */
+	bool			tn_attached;	/* (m) */
 
 	/*
 	 * The node's type.  Any of 'VBLK', 'VCHR', 'VDIR', 'VFIFO',
@@ -230,6 +232,9 @@ struct tmpfs_node {
 	 * or allocating vnode.
 	 */
 	int		tn_vpstate;		/* (i) */
+
+	/* Transient refcounter on this node. */
+	u_int		tn_refcount;		/* (m) + (i) */
 
 	/* misc data field for different tn_type node */
 	union {
@@ -342,8 +347,6 @@ struct tmpfs_mount {
 	 */
 	struct tmpfs_node *	tm_root;
 
-	struct mount *		tm_mnt;
-
 	/*
 	 * Maximum number of possible nodes for this file system; set
 	 * during mount time.  We need a hard limit on the maximum number
@@ -359,6 +362,9 @@ struct tmpfs_mount {
 
 	/* Number of nodes currently that are in use. */
 	ino_t			tm_nodes_inuse;
+
+	/* Refcounter on this struct tmpfs_mount. */
+	uint64_t		tm_refcount;
 
 	/* maximum representable file size */
 	u_int64_t		tm_maxfilesize;
@@ -377,7 +383,9 @@ struct tmpfs_mount {
 	uma_zone_t		tm_node_pool;
 
 	/* Read-only status. */
-	int			tm_ronly;
+	bool			tm_ronly;
+	/* Do not use namecache. */
+	bool			tm_nonc;
 };
 #define	TMPFS_LOCK(tm) mtx_lock(&(tm)->tm_allnode_lock)
 #define	TMPFS_UNLOCK(tm) mtx_unlock(&(tm)->tm_allnode_lock)
@@ -394,15 +402,24 @@ struct tmpfs_fid {
 	unsigned long		tf_gen;
 };
 
+struct tmpfs_dir_cursor {
+	struct tmpfs_dirent	*tdc_current;
+	struct tmpfs_dirent	*tdc_tree;
+};
+
 #ifdef _KERNEL
 /*
  * Prototypes for tmpfs_subr.c.
  */
 
+void	tmpfs_ref_node(struct tmpfs_node *node);
+void	tmpfs_ref_node_locked(struct tmpfs_node *node);
 int	tmpfs_alloc_node(struct mount *mp, struct tmpfs_mount *, enum vtype,
 	    uid_t uid, gid_t gid, mode_t mode, struct tmpfs_node *,
 	    char *, dev_t, struct tmpfs_node **);
 void	tmpfs_free_node(struct tmpfs_mount *, struct tmpfs_node *);
+bool	tmpfs_free_node_locked(struct tmpfs_mount *, struct tmpfs_node *, bool);
+void	tmpfs_free_tmp(struct tmpfs_mount *);
 int	tmpfs_alloc_dirent(struct tmpfs_mount *, struct tmpfs_node *,
 	    const char *, u_int, struct tmpfs_dirent **);
 void	tmpfs_free_dirent(struct tmpfs_mount *, struct tmpfs_dirent *);
@@ -438,6 +455,10 @@ void	tmpfs_itimes(struct vnode *, const struct timespec *,
 void	tmpfs_set_status(struct tmpfs_node *node, int status);
 void	tmpfs_update(struct vnode *);
 int	tmpfs_truncate(struct vnode *, off_t);
+struct tmpfs_dirent *tmpfs_dir_first(struct tmpfs_node *dnode,
+	    struct tmpfs_dir_cursor *dc);
+struct tmpfs_dirent *tmpfs_dir_next(struct tmpfs_node *dnode,
+	    struct tmpfs_dir_cursor *dc);
 
 /*
  * Convenience macros to simplify some logical expressions.
@@ -507,6 +528,13 @@ VP_TO_TMPFS_DIR(struct vnode *vp)
 	node = VP_TO_TMPFS_NODE(vp);
 	TMPFS_VALIDATE_DIR(node);
 	return (node);
+}
+
+static inline bool
+tmpfs_use_nc(struct vnode *vp)
+{
+
+	return (!(VFS_TO_TMPFS(vp->v_mount)->tm_nonc));
 }
 
 #endif /* _FS_TMPFS_TMPFS_H_ */
