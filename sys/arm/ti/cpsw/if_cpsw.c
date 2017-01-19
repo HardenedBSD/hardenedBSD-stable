@@ -1395,6 +1395,16 @@ cpswp_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 	ifr = (struct ifreq *)data;
 
 	switch (command) {
+	case SIOCSIFCAP:
+		changed = ifp->if_capenable ^ ifr->ifr_reqcap;
+		if (changed & IFCAP_HWCSUM) {
+			if ((ifr->ifr_reqcap & changed) & IFCAP_HWCSUM)
+				ifp->if_capenable |= IFCAP_HWCSUM;
+			else
+				ifp->if_capenable &= ~IFCAP_HWCSUM;
+		}
+		error = 0;
+		break;
 	case SIOCSIFFLAGS:
 		CPSW_PORT_LOCK(sc);
 		if (ifp->if_flags & IFF_UP) {
@@ -1632,15 +1642,22 @@ cpsw_rx_dequeue(struct cpsw_softc *sc)
 		/* TODO: track SOP/EOP bits to assemble a full mbuf
 		   out of received fragments. */
 		slot->mbuf->m_data += bd.bufoff;
-		slot->mbuf->m_len = bd.pktlen - 4;
-		slot->mbuf->m_pkthdr.len = bd.pktlen - 4;
-		slot->mbuf->m_flags |= M_PKTHDR;
-		slot->mbuf->m_pkthdr.rcvif = psc->ifp;
+		slot->mbuf->m_len = bd.buflen;
+		if (bd.flags & CPDMA_BD_SOP) {
+			slot->mbuf->m_pkthdr.len = bd.pktlen;
+			slot->mbuf->m_pkthdr.rcvif = psc->ifp;
+			slot->mbuf->m_flags |= M_PKTHDR;
+		}
+		slot->mbuf->m_next = NULL;
 		slot->mbuf->m_nextpkt = NULL;
+		if (bd.flags & CPDMA_BD_PASS_CRC)
+			m_adj(slot->mbuf, -ETHER_CRC_LEN);
 
 		if ((psc->ifp->if_capenable & IFCAP_RXCSUM) != 0) {
 			/* check for valid CRC by looking into pkt_err[5:4] */
-			if ((bd.flags & CPDMA_BD_PKT_ERR_MASK) == 0) {
+			if ((bd.flags &
+			    (CPDMA_BD_SOP | CPDMA_BD_PKT_ERR_MASK)) ==
+			    CPDMA_BD_SOP) {
 				slot->mbuf->m_pkthdr.csum_flags |= CSUM_IP_CHECKED;
 				slot->mbuf->m_pkthdr.csum_flags |= CSUM_IP_VALID;
 				slot->mbuf->m_pkthdr.csum_data = 0xffff;
@@ -1800,13 +1817,8 @@ cpswp_tx_enqueue(struct cpswp_softc *sc)
 	struct cpsw_cpdma_bd bd;
 	struct cpsw_slot *first_new_slot, *last, *last_old_slot, *next, *slot;
 	struct mbuf *m0;
-	int error, flags, nsegs, seg, added = 0, padlen;
+	int error, nsegs, seg, added = 0, padlen;
 
-	flags = 0;
-	if (sc->swsc->dualemac) {
-		flags = CPDMA_BD_TO_PORT |
-		    ((sc->unit + 1) & CPDMA_BD_PORT_MASK);
-	}
 	/* Pull pending packets from IF queue and prep them for DMA. */
 	last = NULL;
 	first_new_slot = NULL;
@@ -1884,7 +1896,11 @@ cpswp_tx_enqueue(struct cpswp_softc *sc)
 		bd.bufoff = 0;
 		bd.buflen = segs[0].ds_len;
 		bd.pktlen = m_length(slot->mbuf, NULL) + padlen;
-		bd.flags =  CPDMA_BD_SOP | CPDMA_BD_OWNER | flags;
+		bd.flags =  CPDMA_BD_SOP | CPDMA_BD_OWNER;
+		if (sc->swsc->dualemac) {
+			bd.flags |= CPDMA_BD_TO_PORT;
+			bd.flags |= ((sc->unit + 1) & CPDMA_BD_PORT_MASK);
+		}
 		for (seg = 1; seg < nsegs; ++seg) {
 			/* Save the previous buffer (which isn't EOP) */
 			cpsw_cpdma_write_bd(sc->swsc, slot, &bd);
@@ -1902,7 +1918,7 @@ cpswp_tx_enqueue(struct cpswp_softc *sc)
 			bd.bufoff = 0;
 			bd.buflen = segs[seg].ds_len;
 			bd.pktlen = 0;
-			bd.flags = CPDMA_BD_OWNER | flags;
+			bd.flags = CPDMA_BD_OWNER;
 		}
 		/* Save the final buffer. */
 		if (padlen <= 0)
@@ -1924,7 +1940,7 @@ cpswp_tx_enqueue(struct cpswp_softc *sc)
 			bd.bufoff = 0;
 			bd.buflen = padlen;
 			bd.pktlen = 0;
-			bd.flags = CPDMA_BD_EOP | CPDMA_BD_OWNER | flags;
+			bd.flags = CPDMA_BD_EOP | CPDMA_BD_OWNER;
 			cpsw_cpdma_write_bd(sc->swsc, slot, &bd);
 			++nsegs;
 
