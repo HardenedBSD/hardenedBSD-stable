@@ -8,7 +8,7 @@ LIBDIR?=	/lib
 PACKAGE=lib${LIB}
 LIB=rt
 SHLIB_MAJOR= 1
-CFLAGS+=-I${.CURDIR}/../libc/include -I${.CURDIR}
+CFLAGS+=-I${SRCTOP}/lib/libc/include -I${.CURDIR}
 .ifndef NO_THREAD_STACK_UNWIND
 CFLAGS+=-fexceptions
 .endif
@@ -24,7 +24,7 @@ SYMLINKS= \
 
 PRECIOUSLIB=
 
-VERSION_DEF=${.CURDIR}/../libc/Versions.def
+VERSION_DEF=${SRCTOP}/lib/libc/Versions.def
 SYMBOL_MAPS=${.CURDIR}/Symbol.map
 
 .if ${MK_TESTS} != "no"
