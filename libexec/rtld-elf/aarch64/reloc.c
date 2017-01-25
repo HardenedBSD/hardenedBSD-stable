@@ -396,16 +396,6 @@ reloc_non_plt(Obj_Entry *obj, Obj_Entry *obj_rtld, int flags,
 			*where = def->st_value + rela->r_addend +
 			    defobj->tlsoffset;
 			break;
-		case R_AARCH64_TLSDESC:
-			if (ELF_R_SYM(rela->r_info) == 0) {
-				where[0] = (Elf_Addr)_rtld_tlsdesc;
-				where[1] = obj->tlsoffset + rela->r_addend;
-			} else {
-				where[0] = (Elf_Addr)_rtld_tlsdesc_dynamic;
-				where[1] = (Elf_Addr)reloc_tlsdesc_alloc(obj,
-				    rela);
-			}
-			break;
 		case R_AARCH64_RELATIVE:
 			*where = (Elf_Addr)(obj->relocbase + rela->r_addend);
 			break;
