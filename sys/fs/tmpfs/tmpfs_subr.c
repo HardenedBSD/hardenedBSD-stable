@@ -61,11 +61,6 @@ __FBSDID("$FreeBSD$");
 #include <fs/tmpfs/tmpfs_fifoops.h>
 #include <fs/tmpfs/tmpfs_vnops.h>
 
-struct tmpfs_dir_cursor {
-	struct tmpfs_dirent	*tdc_current;
-	struct tmpfs_dirent	*tdc_tree;
-};
-
 SYSCTL_NODE(_vfs, OID_AUTO, tmpfs, CTLFLAG_RW, 0, "tmpfs file system");
 
 static long tmpfs_pages_reserved = TMPFS_PAGES_MINRESERVED;
@@ -129,7 +124,7 @@ tmpfs_pages_check_avail(struct tmpfs_mount *tmp, size_t req_pages)
 	if (tmpfs_mem_avail() < req_pages)
 		return (0);
 
-	if (tmp->tm_pages_max != SIZE_MAX &&
+	if (tmp->tm_pages_max != ULONG_MAX &&
 	    tmp->tm_pages_max < req_pages + tmpfs_pages_used(tmp))
 			return (0);
 
@@ -198,8 +193,8 @@ tmpfs_alloc_node(struct mount *mp, struct tmpfs_mount *tmp, enum vtype type,
 		return (EBUSY);
 	}
 
-	nnode = (struct tmpfs_node *)uma_zalloc_arg(
-				tmp->tm_node_pool, tmp, M_WAITOK);
+	nnode = (struct tmpfs_node *)uma_zalloc_arg(tmp->tm_node_pool, tmp,
+	    M_WAITOK);
 
 	/* Generic initialization. */
 	nnode->tn_type = type;
@@ -257,7 +252,8 @@ tmpfs_alloc_node(struct mount *mp, struct tmpfs_mount *tmp, enum vtype type,
 		break;
 
 	default:
-		panic("tmpfs_alloc_node: type %p %d", nnode, (int)nnode->tn_type);
+		panic("tmpfs_alloc_node: type %p %d", nnode,
+		    (int)nnode->tn_type);
 	}
 
 	TMPFS_LOCK(tmp);
@@ -266,25 +262,12 @@ tmpfs_alloc_node(struct mount *mp, struct tmpfs_mount *tmp, enum vtype type,
 	TMPFS_UNLOCK(tmp);
 
 	*node = nnode;
-	return 0;
+	return (0);
 }
 
 /*
  * Destroys the node pointed to by node from the file system 'tmp'.
- * If the node does not belong to the given mount point, the results are
- * unpredicted.
- *
- * If the node references a directory; no entries are allowed because
- * their removal could need a recursive algorithm, something forbidden in
- * kernel space.  Furthermore, there is not need to provide such
- * functionality (recursive removal) because the only primitives offered
- * to the user are the removal of empty directories and the deletion of
- * individual files.
- *
- * Note that nodes are not really deleted; in fact, when a node has been
- * allocated, it cannot be deleted during the whole life of the file
- * system.  Instead, they are moved to the available list and remain there
- * until reused.
+ * If the node references a directory, no entries are allowed.
  */
 void
 tmpfs_free_node(struct tmpfs_mount *tmp, struct tmpfs_node *node)
@@ -327,9 +310,7 @@ tmpfs_free_node(struct tmpfs_mount *tmp, struct tmpfs_node *node)
 	case VREG:
 		uobj = node->tn_reg.tn_aobj;
 		if (uobj != NULL) {
-			TMPFS_LOCK(tmp);
-			tmp->tm_pages_used -= uobj->size;
-			TMPFS_UNLOCK(tmp);
+			atomic_subtract_long(&tmp->tm_pages_used, uobj->size);
 			KASSERT((uobj->flags & OBJ_TMPFS) == 0,
 			    ("leaked OBJ_TMPFS node %p vm_obj %p", node, uobj));
 			vm_object_deallocate(uobj);
@@ -611,7 +592,7 @@ loop1:
 		VN_LOCK_ASHARE(vp);
 
 	error = insmntque1(vp, mp, tmpfs_insmntque_dtr, NULL);
-	if (error)
+	if (error != 0)
 		vp = NULL;
 
 unlock:
@@ -640,7 +621,7 @@ out:
 	}
 #endif
 
-	return error;
+	return (error);
 }
 
 /*
@@ -683,7 +664,7 @@ tmpfs_alloc_file(struct vnode *dvp, struct vnode **vpp, struct vattr *vap,
 	struct tmpfs_node *node;
 	struct tmpfs_node *parent;
 
-	MPASS(VOP_ISLOCKED(dvp));
+	ASSERT_VOP_ELOCKED(dvp, "tmpfs_alloc_file");
 	MPASS(cnp->cn_flags & HASBUF);
 
 	tmp = VFS_TO_TMPFS(dvp->v_mount);
@@ -708,8 +689,8 @@ tmpfs_alloc_file(struct vnode *dvp, struct vnode **vpp, struct vattr *vap,
 
 	/* Allocate a node that represents the new file. */
 	error = tmpfs_alloc_node(dvp->v_mount, tmp, vap->va_type,
-	    cnp->cn_cred->cr_uid,
-	    dnode->tn_gid, vap->va_mode, parent, target, vap->va_rdev, &node);
+	    cnp->cn_cred->cr_uid, dnode->tn_gid, vap->va_mode, parent,
+	    target, vap->va_rdev, &node);
 	if (error != 0)
 		return (error);
 
@@ -738,7 +719,7 @@ tmpfs_alloc_file(struct vnode *dvp, struct vnode **vpp, struct vattr *vap,
 	return (0);
 }
 
-static struct tmpfs_dirent *
+struct tmpfs_dirent *
 tmpfs_dir_first(struct tmpfs_node *dnode, struct tmpfs_dir_cursor *dc)
 {
 	struct tmpfs_dirent *de;
@@ -752,7 +733,7 @@ tmpfs_dir_first(struct tmpfs_node *dnode, struct tmpfs_dir_cursor *dc)
 	return (dc->tdc_current);
 }
 
-static struct tmpfs_dirent *
+struct tmpfs_dirent *
 tmpfs_dir_next(struct tmpfs_node *dnode, struct tmpfs_dir_cursor *dc)
 {
 	struct tmpfs_dirent *de;
@@ -1117,9 +1098,8 @@ tmpfs_dir_getdotdotdent(struct tmpfs_node *node, struct uio *uio)
 	 * Return ENOENT if the current node is already removed.
 	 */
 	TMPFS_ASSERT_LOCKED(node);
-	if (node->tn_dir.tn_parent == NULL) {
+	if (node->tn_dir.tn_parent == NULL)
 		return (ENOENT);
-	}
 
 	TMPFS_NODE_LOCK(node->tn_dir.tn_parent);
 	dent.d_fileno = node->tn_dir.tn_parent->tn_id;
@@ -1413,9 +1393,7 @@ retry:
 	uobj->size = newpages;
 	VM_OBJECT_WUNLOCK(uobj);
 
-	TMPFS_LOCK(tmp);
-	tmp->tm_pages_used += (newpages - oldpages);
-	TMPFS_UNLOCK(tmp);
+	atomic_add_long(&tmp->tm_pages_used, newpages - oldpages);
 
 	node->tn_size = newsize;
 	return (0);
@@ -1745,19 +1723,22 @@ tmpfs_set_status(struct tmpfs_node *node, int status)
 }
 
 /* Sync timestamps */
-static void
-tmpfs_itimes_locked(struct tmpfs_node *node, const struct timespec *acc,
+void
+tmpfs_itimes(struct vnode *vp, const struct timespec *acc,
     const struct timespec *mod)
 {
+	struct tmpfs_node *node;
 	struct timespec now;
 
-	TMPFS_ASSERT_LOCKED(node);
+	ASSERT_VOP_LOCKED(vp, "tmpfs_itimes");
+	node = VP_TO_TMPFS_NODE(vp);
 
 	if ((node->tn_status & (TMPFS_NODE_ACCESSED | TMPFS_NODE_MODIFIED |
 	    TMPFS_NODE_CHANGED)) == 0)
 		return;
 
 	vfs_timestamp(&now);
+	TMPFS_NODE_LOCK(node);
 	if (node->tn_status & TMPFS_NODE_ACCESSED) {
 		if (acc == NULL)
 			 acc = &now;
@@ -1772,19 +1753,6 @@ tmpfs_itimes_locked(struct tmpfs_node *node, const struct timespec *acc,
 		node->tn_ctime = now;
 	node->tn_status &= ~(TMPFS_NODE_ACCESSED | TMPFS_NODE_MODIFIED |
 	    TMPFS_NODE_CHANGED);
-}
-
-void
-tmpfs_itimes(struct vnode *vp, const struct timespec *acc,
-    const struct timespec *mod)
-{
-	struct tmpfs_node *node;
-
-	ASSERT_VOP_LOCKED(vp, "tmpfs_itimes");
-	node = VP_TO_TMPFS_NODE(vp);
-
-	TMPFS_NODE_LOCK(node);
-	tmpfs_itimes_locked(node, acc, mod);
 	TMPFS_NODE_UNLOCK(node);
 
 }
