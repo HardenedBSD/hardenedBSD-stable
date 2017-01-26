@@ -191,8 +191,13 @@ __DEFAULT_NO_OPTIONS = \
     NAND \
     OFED \
     OPENLDAP \
+<<<<<<< HEAD
     PORTSNAP \
     SAFESTACK \
+=======
+    REPRODUCIBLE_BUILD \
+    SHARED_TOOLCHAIN \
+>>>>>>> origin/freebsd/11-stable/master
     SORT_THREADS \
     SVN \
 
