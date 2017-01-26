@@ -40,18 +40,15 @@
 
 # 20170112: sysdecode_getfsstat_flags() renamed to sysdecode_getfsstat_mode()
 OLD_FILES+=usr/share/man/man3/sysdecode_getfsstat_flags.3.gz
-<<<<<<< HEAD
 # 20170104: librt move to /lib
 OLD_LIBS+=usr/lib/librt.a
 OLD_LIBS+=usr/lib/librt.so
 OLD_LIBS+=usr/lib/librt.so.1
 OLD_LIBS+=usr/lib/librt_p.a
-=======
 # 20161229: Three files from gnop tests consolidated into one
 OLD_FILES+=usr/tests/sys/geom/class/nop/1_test
 OLD_FILES+=usr/tests/sys/geom/class/nop/2_test
 OLD_FILES+=usr/tests/sys/geom/class/nop/conf.sh
->>>>>>> origin/freebsd/11-stable/master
 # 20161217: new clang import which bumps version from 3.9.0 to 3.9.1.
 OLD_FILES+=usr/lib/clang/3.9.0/include/sanitizer/allocator_interface.h
 OLD_FILES+=usr/lib/clang/3.9.0/include/sanitizer/asan_interface.h
