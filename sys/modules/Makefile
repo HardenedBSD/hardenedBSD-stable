@@ -719,11 +719,7 @@ _pcfclock=	pcfclock
 _pst=		pst
 _sbni=		sbni
 _stg=		stg
-<<<<<<< HEAD
 .if ${MACHINE} == "i386"
-=======
-_svr4=		svr4
->>>>>>> origin/freebsd/current/master
 .if ${MK_EISA} != "no"
 _ahb=		ahb
 .endif
