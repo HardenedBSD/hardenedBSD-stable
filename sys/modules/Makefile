@@ -719,7 +719,6 @@ _pcfclock=	pcfclock
 _pst=		pst
 _sbni=		sbni
 _stg=		stg
-.if ${MACHINE} == "i386"
 .if ${MK_EISA} != "no"
 _ahb=		ahb
 .endif
