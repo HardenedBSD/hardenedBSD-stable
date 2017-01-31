@@ -505,6 +505,11 @@ isa/syscons_isa.c		optional sc
 isa/vga_isa.c			optional vga
 kern/kern_clocksource.c		standard
 kern/subr_sfbuf.c		standard
+crc32_sse42.o			standard				\
+	dependency	"$S/libkern/x86/crc32_sse42.c"			\
+	compile-with	"${CC} -c ${CFLAGS:N-nostdinc} ${WERROR} ${PROF} -msse4 ${.IMPSRC}" \
+	no-implicit-rule						\
+	clean		"crc32_sse42.o"
 libkern/divdi3.c		standard
 libkern/ffsll.c			standard
 libkern/flsll.c			standard
