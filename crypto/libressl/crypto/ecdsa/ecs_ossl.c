@@ -1,4 +1,4 @@
-/* $OpenBSD: ecs_ossl.c,v 1.5 2014/07/12 16:03:37 miod Exp $ */
+/* $OpenBSD: ecs_ossl.c,v 1.6 2015/02/08 13:35:07 jsing Exp $ */
 /*
  * Written by Nils Larsch for the OpenSSL project
  */
