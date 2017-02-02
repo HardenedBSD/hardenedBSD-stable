@@ -271,6 +271,7 @@ vm_phys_fictitious_cmp(struct vm_phys_fictitious_seg *p1,
 	    (uintmax_t)p1->end, (uintmax_t)p2->start, (uintmax_t)p2->end);
 }
 
+#ifdef notyet
 static __inline int
 vm_rr_selectdomain(void)
 {
@@ -286,6 +287,7 @@ vm_rr_selectdomain(void)
 	return (0);
 #endif
 }
+#endif /* notyet */
 
 /*
  * Initialise a VM domain iterator.
