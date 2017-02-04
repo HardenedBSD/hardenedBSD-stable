@@ -49,7 +49,6 @@ SUBDIR=	\
 	${_auxio} \
 	${_bce} \
 	bfe \
-	bhnd \
 	bge \
 	bhnd \
 	${_bxe} \
