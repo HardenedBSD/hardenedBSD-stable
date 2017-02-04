@@ -195,21 +195,23 @@ get_version() {
 
 	res=""
 
-	if [ ! -z "${buildver}" ]; then
+	if [ ! -z "${buildver}" ] && [ -z "${update_hash}" ]; then
 		# User-specified version
-		echo ${buildver}
-		return 0
-	fi
+		update_hash=$(echo ${buildver} | ${SED} 's,|, ,g' | ${AWK} '{print $3;}')
+		if [ ${#update_hash} -gt 0 ]; then
+			buildver=$(echo ${buildver} | ${SED} 's,|, ,g' | ${AWK} '{print $2;}')
+		fi
+	elif [ -z "${buildver}" ]; then
+		# Prefer DNS, fallback to HTTP
+		res=$(dnssec_check)
+		if [ ${?} -eq 2 ]; then
+			debug_print "    [-] Bailing."
+			return 1
+		fi
 
-	# Prefer DNS, fallback to HTTP
-	res=$(dnssec_check)
-	if [ ${?} -eq 2 ]; then
-		debug_print "    [-] Bailing."
-		return 1
+		buildver=$(echo ${res} | ${SED} 's,|, ,g' | ${AWK} '{print $2;}')
+		update_hash=$(echo ${res} | ${SED} 's,|, ,g' | ${AWK} '{print $3;}')
 	fi
-
-	buildver=$(echo ${res} | ${SED} 's,|, ,g' | ${AWK} '{print $2;}')
-	update_hash=$(echo ${res} | ${SED} 's,|, ,g' | ${AWK} '{print $3;}')
 
 	if [ -z "${buildver}" ]; then
 		# Attempt to grab the version from the mirror.
@@ -905,14 +907,12 @@ main() {
 		get_tmpdir > /dev/null
 	fi
 
-	if [ -z "${buildver}" ]; then
-		get_version > /dev/null
-		res=${?}
-		if [ ${res} -gt 0 ]; then
-			debug_print "[*] Could not get the version number"
-			cleanup
-			exit 1
-		fi
+	get_version > /dev/null 2>&1
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		debug_print "[*] Could not get the version number"
+		cleanup
+		exit 1
 	fi
 
 	check_version
