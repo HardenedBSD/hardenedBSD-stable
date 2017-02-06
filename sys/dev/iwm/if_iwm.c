@@ -153,6 +153,7 @@ __FBSDID("$FreeBSD$");
 #include <dev/iwm/if_iwmreg.h>
 #include <dev/iwm/if_iwmvar.h>
 #include <dev/iwm/if_iwm_debug.h>
+#include <dev/iwm/if_iwm_notif_wait.h>
 #include <dev/iwm/if_iwm_util.h>
 #include <dev/iwm/if_iwm_binding.h>
 #include <dev/iwm/if_iwm_phy_db.h>
@@ -282,6 +283,8 @@ struct iwm_nvm_section {
 	uint16_t length;
 	uint8_t *data;
 };
+
+#define IWM_MVM_UCODE_CALIB_TIMEOUT	(2*hz)
 
 static int	iwm_store_cscheme(struct iwm_softc *, const uint8_t *, size_t);
 static int	iwm_firmware_store_section(struct iwm_softc *,
@@ -490,7 +493,7 @@ iwm_firmware_store_section(struct iwm_softc *sc,
 		return EINVAL;
 
 	fws = &sc->sc_fw.fw_sects[type];
-	if (fws->fw_count >= IWM_UCODE_SECT_MAX)
+	if (fws->fw_count >= IWM_UCODE_SECTION_MAX)
 		return EINVAL;
 
 	fwone = &fws->fw_sect[fws->fw_count];
@@ -554,11 +557,13 @@ iwm_read_firmware(struct iwm_softc *sc, enum iwm_ucode_type ucode_type)
 	enum iwm_ucode_tlv_type tlv_type;
 	const struct firmware *fwp;
 	const uint8_t *data;
+	uint32_t usniffer_img;
+	uint32_t paging_mem_size;
 	int error = 0;
 	size_t len;
 
 	if (fw->fw_status == IWM_FW_STATUS_DONE &&
-	    ucode_type != IWM_UCODE_TYPE_INIT)
+	    ucode_type != IWM_UCODE_INIT)
 		return 0;
 
 	while (fw->fw_status == IWM_FW_STATUS_INPROGRESS)
@@ -716,9 +721,9 @@ iwm_read_firmware(struct iwm_softc *sc, enum iwm_ucode_type ucode_type)
 		}
 		case IWM_UCODE_TLV_SEC_RT:
 			if ((error = iwm_firmware_store_section(sc,
-			    IWM_UCODE_TYPE_REGULAR, tlv_data, tlv_len)) != 0) {
+			    IWM_UCODE_REGULAR, tlv_data, tlv_len)) != 0) {
 				device_printf(sc->sc_dev,
-				    "%s: IWM_UCODE_TYPE_REGULAR: iwm_firmware_store_section() failed; %d\n",
+				    "%s: IWM_UCODE_REGULAR: iwm_firmware_store_section() failed; %d\n",
 				    __func__,
 				    error);
 				goto parse_out;
@@ -726,9 +731,9 @@ iwm_read_firmware(struct iwm_softc *sc, enum iwm_ucode_type ucode_type)
 			break;
 		case IWM_UCODE_TLV_SEC_INIT:
 			if ((error = iwm_firmware_store_section(sc,
-			    IWM_UCODE_TYPE_INIT, tlv_data, tlv_len)) != 0) {
+			    IWM_UCODE_INIT, tlv_data, tlv_len)) != 0) {
 				device_printf(sc->sc_dev,
-				    "%s: IWM_UCODE_TYPE_INIT: iwm_firmware_store_section() failed; %d\n",
+				    "%s: IWM_UCODE_INIT: iwm_firmware_store_section() failed; %d\n",
 				    __func__,
 				    error);
 				goto parse_out;
@@ -736,9 +741,9 @@ iwm_read_firmware(struct iwm_softc *sc, enum iwm_ucode_type ucode_type)
 			break;
 		case IWM_UCODE_TLV_SEC_WOWLAN:
 			if ((error = iwm_firmware_store_section(sc,
-			    IWM_UCODE_TYPE_WOW, tlv_data, tlv_len)) != 0) {
+			    IWM_UCODE_WOWLAN, tlv_data, tlv_len)) != 0) {
 				device_printf(sc->sc_dev,
-				    "%s: IWM_UCODE_TYPE_WOW: iwm_firmware_store_section() failed; %d\n",
+				    "%s: IWM_UCODE_WOWLAN: iwm_firmware_store_section() failed; %d\n",
 				    __func__,
 				    error);
 				goto parse_out;
@@ -771,8 +776,14 @@ iwm_read_firmware(struct iwm_softc *sc, enum iwm_ucode_type ucode_type)
 				    (int) tlv_len);
 				goto parse_out;
 			}
-			sc->sc_fw_phy_config =
+			sc->sc_fw.phy_config =
 			    le32toh(*(const uint32_t *)tlv_data);
+			sc->sc_fw.valid_tx_ant = (sc->sc_fw.phy_config &
+						  IWM_FW_PHY_CFG_TX_CHAIN) >>
+						  IWM_FW_PHY_CFG_TX_CHAIN_POS;
+			sc->sc_fw.valid_rx_ant = (sc->sc_fw.phy_config &
+						  IWM_FW_PHY_CFG_RX_CHAIN) >>
+						  IWM_FW_PHY_CFG_RX_CHAIN_POS;
 			break;
 
 		case IWM_UCODE_TLV_API_CHANGES_SET: {
@@ -823,9 +834,41 @@ iwm_read_firmware(struct iwm_softc *sc, enum iwm_ucode_type ucode_type)
 
 		case IWM_UCODE_TLV_SEC_RT_USNIFFER:
 			if ((error = iwm_firmware_store_section(sc,
-			    IWM_UCODE_TYPE_REGULAR_USNIFFER, tlv_data,
+			    IWM_UCODE_REGULAR_USNIFFER, tlv_data,
 			    tlv_len)) != 0)
 				goto parse_out;
+			break;
+
+		case IWM_UCODE_TLV_PAGING:
+			if (tlv_len != sizeof(uint32_t)) {
+				error = EINVAL;
+				goto parse_out;
+			}
+			paging_mem_size = le32toh(*(const uint32_t *)tlv_data);
+
+			IWM_DPRINTF(sc, IWM_DEBUG_FIRMWARE_TLV,
+			    "%s: Paging: paging enabled (size = %u bytes)\n",
+			    __func__, paging_mem_size);
+			if (paging_mem_size > IWM_MAX_PAGING_IMAGE_SIZE) {
+				device_printf(sc->sc_dev,
+					"%s: Paging: driver supports up to %u bytes for paging image\n",
+					__func__, IWM_MAX_PAGING_IMAGE_SIZE);
+				error = EINVAL;
+				goto out;
+			}
+			if (paging_mem_size & (IWM_FW_PAGING_SIZE - 1)) {
+				device_printf(sc->sc_dev,
+				    "%s: Paging: image isn't multiple %u\n",
+				    __func__, IWM_FW_PAGING_SIZE);
+				error = EINVAL;
+				goto out;
+			}
+
+			sc->sc_fw.fw_sects[IWM_UCODE_REGULAR].paging_mem_size =
+			    paging_mem_size;
+			usniffer_img = IWM_UCODE_REGULAR_USNIFFER;
+			sc->sc_fw.fw_sects[usniffer_img].paging_mem_size =
+			    paging_mem_size;
 			break;
 
 		case IWM_UCODE_TLV_N_SCAN_CHANNELS:
@@ -1401,12 +1444,13 @@ iwm_mvm_nic_config(struct iwm_softc *sc)
 {
 	uint8_t radio_cfg_type, radio_cfg_step, radio_cfg_dash;
 	uint32_t reg_val = 0;
+	uint32_t phy_config = iwm_mvm_get_phy_config(sc);
 
-	radio_cfg_type = (sc->sc_fw_phy_config & IWM_FW_PHY_CFG_RADIO_TYPE) >>
+	radio_cfg_type = (phy_config & IWM_FW_PHY_CFG_RADIO_TYPE) >>
 	    IWM_FW_PHY_CFG_RADIO_TYPE_POS;
-	radio_cfg_step = (sc->sc_fw_phy_config & IWM_FW_PHY_CFG_RADIO_STEP) >>
+	radio_cfg_step = (phy_config & IWM_FW_PHY_CFG_RADIO_STEP) >>
 	    IWM_FW_PHY_CFG_RADIO_STEP_POS;
-	radio_cfg_dash = (sc->sc_fw_phy_config & IWM_FW_PHY_CFG_RADIO_DASH) >>
+	radio_cfg_dash = (phy_config & IWM_FW_PHY_CFG_RADIO_DASH) >>
 	    IWM_FW_PHY_CFG_RADIO_DASH_POS;
 
 	/* SKU control */
@@ -2485,7 +2529,7 @@ iwm_load_cpu_sections_8000(struct iwm_softc *sc, struct iwm_fw_sects *fws,
 		(*first_ucode_section)++;
 	}
 
-	for (i = *first_ucode_section; i < IWM_UCODE_SECT_MAX; i++) {
+	for (i = *first_ucode_section; i < IWM_UCODE_SECTION_MAX; i++) {
 		last_read_idx = i;
 		data = fws->fw_sect[i].fws_data;
 		dlen = fws->fw_sect[i].fws_len;
@@ -2696,7 +2740,7 @@ iwm_send_phy_cfg_cmd(struct iwm_softc *sc)
 	enum iwm_ucode_type ucode_type = sc->sc_uc_current;
 
 	/* Set parameters */
-	phy_cfg_cmd.phy_cfg = htole32(sc->sc_fw_phy_config);
+	phy_cfg_cmd.phy_cfg = htole32(iwm_mvm_get_phy_config(sc));
 	phy_cfg_cmd.calib_control.event_trigger =
 	    sc->sc_default_calib[ucode_type].event_trigger;
 	phy_cfg_cmd.calib_control.flow_trigger =
@@ -2706,6 +2750,28 @@ iwm_send_phy_cfg_cmd(struct iwm_softc *sc)
 	    "Sending Phy CFG command: 0x%x\n", phy_cfg_cmd.phy_cfg);
 	return iwm_mvm_send_cmd_pdu(sc, IWM_PHY_CONFIGURATION_CMD, IWM_CMD_SYNC,
 	    sizeof(phy_cfg_cmd), &phy_cfg_cmd);
+}
+
+static int
+iwm_wait_phy_db_entry(struct iwm_softc *sc,
+	struct iwm_rx_packet *pkt, void *data)
+{
+	struct iwm_phy_db *phy_db = data;
+
+	if (pkt->hdr.code != IWM_CALIB_RES_NOTIF_PHY_DB) {
+		if(pkt->hdr.code != IWM_INIT_COMPLETE_NOTIF) {
+			device_printf(sc->sc_dev, "%s: Unexpected cmd: %d\n",
+			    __func__, pkt->hdr.code);
+		}
+		return TRUE;
+	}
+
+	if (iwm_phy_db_set_section(phy_db, pkt)) {
+		device_printf(sc->sc_dev,
+		    "%s: iwm_phy_db_set_section failed\n", __func__);
+	}
+
+	return FALSE;
 }
 
 static int
@@ -2746,7 +2812,12 @@ iwm_mvm_load_ucode_wait_alive(struct iwm_softc *sc,
 static int
 iwm_run_init_mvm_ucode(struct iwm_softc *sc, int justnvm)
 {
-	int error;
+	struct iwm_notification_wait calib_wait;
+	static const uint16_t init_complete[] = {
+		IWM_INIT_COMPLETE_NOTIF,
+		IWM_CALIB_RES_NOTIF_PHY_DB
+	};
+	int ret;
 
 	/* do not operate with rfkill switch turned on */
 	if ((sc->sc_flags & IWM_FLAG_RFKILL) && !justnvm) {
@@ -2755,79 +2826,80 @@ iwm_run_init_mvm_ucode(struct iwm_softc *sc, int justnvm)
 		return EPERM;
 	}
 
-	sc->sc_init_complete = 0;
-	if ((error = iwm_mvm_load_ucode_wait_alive(sc,
-	    IWM_UCODE_TYPE_INIT)) != 0) {
-		device_printf(sc->sc_dev, "failed to load init firmware\n");
-		return error;
+	iwm_init_notification_wait(sc->sc_notif_wait,
+				   &calib_wait,
+				   init_complete,
+				   nitems(init_complete),
+				   iwm_wait_phy_db_entry,
+				   sc->sc_phy_db);
+
+	/* Will also start the device */
+	ret = iwm_mvm_load_ucode_wait_alive(sc, IWM_UCODE_INIT);
+	if (ret) {
+		device_printf(sc->sc_dev, "Failed to start INIT ucode: %d\n",
+		    ret);
+		goto error;
 	}
 
 	if (justnvm) {
-		if ((error = iwm_nvm_init(sc)) != 0) {
+		/* Read nvm */
+		ret = iwm_nvm_init(sc);
+		if (ret) {
 			device_printf(sc->sc_dev, "failed to read nvm\n");
-			return error;
+			goto error;
 		}
 		IEEE80211_ADDR_COPY(sc->sc_ic.ic_macaddr, sc->nvm_data->hw_addr);
-
-		return 0;
+		goto error;
 	}
 
-	if ((error = iwm_send_bt_init_conf(sc)) != 0) {
+	ret = iwm_send_bt_init_conf(sc);
+	if (ret) {
 		device_printf(sc->sc_dev,
-		    "failed to send bt coex configuration: %d\n", error);
-		return error;
+		    "failed to send bt coex configuration: %d\n", ret);
+		goto error;
 	}
 
 	/* Init Smart FIFO. */
-	error = iwm_mvm_sf_config(sc, IWM_SF_INIT_OFF);
-	if (error != 0)
-		return error;
-
-	IWM_DPRINTF(sc, IWM_DEBUG_RESET,
-	    "%s: phy_txant=0x%08x, nvm_valid_tx_ant=0x%02x, valid=0x%02x\n",
-	    __func__,
-	    ((sc->sc_fw_phy_config & IWM_FW_PHY_CFG_TX_CHAIN)
-	      >> IWM_FW_PHY_CFG_TX_CHAIN_POS),
-	    sc->nvm_data->valid_tx_ant,
-	    iwm_fw_valid_tx_ant(sc));
-
+	ret = iwm_mvm_sf_config(sc, IWM_SF_INIT_OFF);
+	if (ret)
+		goto error;
 
 	/* Send TX valid antennas before triggering calibrations */
-	if ((error = iwm_send_tx_ant_cfg(sc, iwm_fw_valid_tx_ant(sc))) != 0) {
+	ret = iwm_send_tx_ant_cfg(sc, iwm_mvm_get_valid_tx_ant(sc));
+	if (ret) {
 		device_printf(sc->sc_dev,
-		    "failed to send antennas before calibration: %d\n", error);
-		return error;
+		    "failed to send antennas before calibration: %d\n", ret);
+		goto error;
 	}
 
 	/*
 	 * Send phy configurations command to init uCode
 	 * to start the 16.0 uCode init image internal calibrations.
 	 */
-	if ((error = iwm_send_phy_cfg_cmd(sc)) != 0 ) {
+	ret = iwm_send_phy_cfg_cmd(sc);
+	if (ret) {
 		device_printf(sc->sc_dev,
-		    "%s: failed to run internal calibration: %d\n",
-		    __func__, error);
-		return error;
+		    "%s: Failed to run INIT calibrations: %d\n",
+		    __func__, ret);
+		goto error;
 	}
 
 	/*
 	 * Nothing to do but wait for the init complete notification
-	 * from the firmware
+	 * from the firmware.
 	 */
-	while (!sc->sc_init_complete) {
-		error = msleep(&sc->sc_init_complete, &sc->sc_mtx,
-				 0, "iwminit", 2*hz);
-		if (error) {
-			device_printf(sc->sc_dev, "init complete failed: %d\n",
-				sc->sc_init_complete);
-			break;
-		}
-	}
+	IWM_UNLOCK(sc);
+	ret = iwm_wait_notification(sc->sc_notif_wait, &calib_wait,
+	    IWM_MVM_UCODE_CALIB_TIMEOUT);
+	IWM_LOCK(sc);
 
-	IWM_DPRINTF(sc, IWM_DEBUG_RESET, "init %scomplete\n",
-	    sc->sc_init_complete ? "" : "not ");
 
-	return error;
+	goto out;
+
+error:
+	iwm_remove_notification(sc->sc_notif_wait, &calib_wait);
+out:
+	return ret;
 }
 
 /*
@@ -4238,11 +4310,11 @@ iwm_setrates(struct iwm_softc *sc, struct iwm_node *in)
 
 #if 0
 		if (txant == 0)
-			txant = iwm_fw_valid_tx_ant(sc);
+			txant = iwm_mvm_get_valid_tx_ant(sc);
 		nextant = 1<<(ffs(txant)-1);
 		txant &= ~nextant;
 #else
-		nextant = iwm_fw_valid_tx_ant(sc);
+		nextant = iwm_mvm_get_valid_tx_ant(sc);
 #endif
 		/*
 		 * Map the rate id into a rate index into
@@ -4697,7 +4769,7 @@ iwm_init_hw(struct iwm_softc *sc)
 	}
 
 	/* omstart, this time with the regular firmware */
-	error = iwm_mvm_load_ucode_wait_alive(sc, IWM_UCODE_TYPE_REGULAR);
+	error = iwm_mvm_load_ucode_wait_alive(sc, IWM_UCODE_REGULAR);
 	if (error) {
 		device_printf(sc->sc_dev, "could not load firmware\n");
 		goto error;
@@ -4708,7 +4780,8 @@ iwm_init_hw(struct iwm_softc *sc)
 		goto error;
 	}
 
-	if ((error = iwm_send_tx_ant_cfg(sc, iwm_fw_valid_tx_ant(sc))) != 0) {
+	error = iwm_send_tx_ant_cfg(sc, iwm_mvm_get_valid_tx_ant(sc));
+	if (error != 0) {
 		device_printf(sc->sc_dev, "antenna config failed\n");
 		goto error;
 	}
@@ -5233,6 +5306,8 @@ iwm_notif_intr(struct iwm_softc *sc)
 			continue;
 		}
 
+		iwm_notification_wait_notify(sc->sc_notif_wait, code, pkt);
+
 		switch (code) {
 		case IWM_REPLY_RX_PHY_CMD:
 			iwm_mvm_rx_rx_phy_cmd(sc, pkt, data);
@@ -5339,13 +5414,8 @@ iwm_notif_intr(struct iwm_softc *sc)
 			wakeup(&sc->sc_uc);
 			break; }
 
-		case IWM_CALIB_RES_NOTIF_PHY_DB: {
-			struct iwm_calib_res_notif_phy_db *phy_db_notif;
-			phy_db_notif = (void *)pkt->data;
-
-			iwm_phy_db_set_section(sc->sc_phy_db, phy_db_notif);
-
-			break; }
+		case IWM_CALIB_RES_NOTIF_PHY_DB:
+			break;
 
 		case IWM_STATISTICS_NOTIFICATION: {
 			struct iwm_notif_statistics *stats;
@@ -5409,8 +5479,6 @@ iwm_notif_intr(struct iwm_softc *sc)
 			break;
 
 		case IWM_INIT_COMPLETE_NOTIF:
-			sc->sc_init_complete = 1;
-			wakeup(&sc->sc_init_complete);
 			break;
 
 		case IWM_SCAN_OFFLOAD_COMPLETE: {
@@ -5855,6 +5923,12 @@ iwm_attach(device_t dev)
 	callout_init_mtx(&sc->sc_watchdog_to, &sc->sc_mtx, 0);
 	callout_init_mtx(&sc->sc_led_blink_to, &sc->sc_mtx, 0);
 	TASK_INIT(&sc->sc_es_task, 0, iwm_endscan_cb, sc);
+
+	sc->sc_notif_wait = iwm_notification_wait_init(sc);
+	if (sc->sc_notif_wait == NULL) {
+		device_printf(dev, "failed to init notification wait struct\n");
+		goto fail;
+	}
 
 	/* Init phy db */
 	sc->sc_phy_db = iwm_phy_db_init(sc);
@@ -6342,6 +6416,11 @@ iwm_detach_local(struct iwm_softc *sc, int do_net80211)
 
 	/* Finished with the hardware - detach things */
 	iwm_pci_detach(dev);
+
+	if (sc->sc_notif_wait != NULL) {
+		iwm_notification_wait_free(sc->sc_notif_wait);
+		sc->sc_notif_wait = NULL;
+	}
 
 	mbufq_drain(&sc->sc_snd);
 	IWM_LOCK_DESTROY(sc);

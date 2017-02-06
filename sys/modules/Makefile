@@ -174,6 +174,7 @@ SUBDIR=	\
 	ip6_mroute_mod \
 	ip_mroute_mod \
 	${_ips} \
+	${_ipsec} \
 	${_ipw} \
 	${_ipwfw} \
 	${_isci} \
@@ -352,6 +353,7 @@ SUBDIR=	\
 	sysvipc \
 	${_ti} \
 	${_tcp_fastpath} \
+	${_tcpmd5} \
 	tests/framework \
 	tests/callout_test \
 	tl \
@@ -442,6 +444,10 @@ _toecore=	toecore
 _if_enc=	if_enc
 _if_gif=	if_gif
 _if_gre=	if_gre
+.if ${MK_IPSEC_SUPPORT} != "no"
+_ipsec=		ipsec
+_tcpmd5=	tcp/tcpmd5
+.endif
 .endif
 
 .if (${MK_INET_SUPPORT} != "no" && ${MK_INET6_SUPPORT} != "no") || \

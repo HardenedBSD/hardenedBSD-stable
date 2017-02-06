@@ -137,7 +137,7 @@ struct iwm_tx_radiotap_header {
 	 (1 << IEEE80211_RADIOTAP_CHANNEL))
 
 
-#define IWM_UCODE_SECT_MAX 16
+#define IWM_UCODE_SECTION_MAX 16
 #define IWM_FWDMASEGSZ (192*1024)
 #define IWM_FWDMASEGSZ_8000 (320*1024)
 /* sanity check value */
@@ -152,11 +152,21 @@ struct iwm_tx_radiotap_header {
 #define IWM_FW_STATUS_INPROGRESS	1
 #define IWM_FW_STATUS_DONE		2
 
+/**
+ * enum iwm_ucode_type
+ *
+ * The type of ucode.
+ *
+ * @IWM_UCODE_REGULAR: Normal runtime ucode
+ * @IWM_UCODE_INIT: Initial ucode
+ * @IWM_UCODE_WOWLAN: Wake on Wireless enabled ucode
+ * @IWM_UCODE_REGULAR_USNIFFER: Normal runtime ucode when using usniffer image
+ */
 enum iwm_ucode_type {
-	IWM_UCODE_TYPE_REGULAR,
-	IWM_UCODE_TYPE_INIT,
-	IWM_UCODE_TYPE_WOW,
-	IWM_UCODE_TYPE_REGULAR_USNIFFER,
+	IWM_UCODE_REGULAR,
+	IWM_UCODE_INIT,
+	IWM_UCODE_WOWLAN,
+	IWM_UCODE_REGULAR_USNIFFER,
 	IWM_UCODE_TYPE_MAX
 };
 
@@ -169,9 +179,14 @@ struct iwm_fw_info {
 			const void *fws_data;
 			uint32_t fws_len;
 			uint32_t fws_devoff;
-		} fw_sect[IWM_UCODE_SECT_MAX];
+		} fw_sect[IWM_UCODE_SECTION_MAX];
 		int fw_count;
+		uint32_t paging_mem_size;
 	} fw_sects[IWM_UCODE_TYPE_MAX];
+
+	uint32_t phy_config;
+	uint8_t valid_tx_ant;
+	uint8_t valid_rx_ant;
 };
 
 struct iwm_nvm_data {
@@ -437,7 +452,6 @@ struct iwm_softc {
 	struct iwm_dma_info	fw_dma;
 
 	int			sc_fw_chunk_done;
-	int			sc_init_complete;
 
 	struct iwm_ucode_status	sc_uc;
 	enum iwm_ucode_type	sc_uc_current;
@@ -465,7 +479,6 @@ struct iwm_softc {
 
 	bus_size_t		sc_fwdmasegsz;
 	struct iwm_fw_info	sc_fw;
-	int			sc_fw_phy_config;
 	struct iwm_tlv_calib_ctrl sc_default_calib[IWM_UCODE_TYPE_MAX];
 
 	const struct iwm_cfg	*cfg;
@@ -505,6 +518,8 @@ struct iwm_softc {
 	struct iwm_tx_radiotap_header sc_txtap;
 
 	int			sc_max_rssi;
+
+	struct iwm_notif_wait_data *sc_notif_wait;
 };
 
 #define IWM_LOCK_INIT(_sc) \

@@ -4,7 +4,7 @@
 
 SUBDIR=
 .if ${MK_OPENSSL} != "no"
-SUBDIR+=bdes openssl
+SUBDIR+= openssl
 .if ${MK_LIBRESSL} != "no"
 .  if ${MK_NETCAT} == "yes"
 SUBDIR+=nc
