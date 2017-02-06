@@ -201,20 +201,13 @@ kern_vm_mmap(struct thread *td, vm_offset_t addr, vm_size_t size,
     vm_prot_t prot, int flags, int fd, off_t pos)
 {
 	struct file *fp;
-<<<<<<< HEAD
-	vm_offset_t addr;
-	vm_size_t size, pageoff;
-	vm_prot_t cap_maxprot, prot;
-	int align, error, flags;
-	off_t pos;
-=======
 	vm_size_t pageoff;
 	vm_prot_t cap_maxprot;
 	int align, error;
->>>>>>> freebsd/current/master
 	struct vmspace *vms = td->td_proc->p_vmspace;
 	cap_rights_t rights;
 #ifdef PAX_ASLR
+	vm_offset_t orig_addr;
 	int pax_aslr_done;
 #endif
 
@@ -222,6 +215,7 @@ kern_vm_mmap(struct thread *td, vm_offset_t addr, vm_size_t size,
 	AUDIT_ARG_FD(fd);
 
 #ifdef PAX_ASLR
+	orig_addr = addr;
 	pax_aslr_done = 0;
 #endif
 
@@ -239,20 +233,9 @@ kern_vm_mmap(struct thread *td, vm_offset_t addr, vm_size_t size,
 	 * ld.so sometimes issues anonymous map requests with non-zero
 	 * pos.
 	 */
-<<<<<<< HEAD
-	if ((uap->len == 0 && curproc->p_osrel >= P_OSREL_MAP_ANON) ||
-	    ((flags & MAP_ANON) != 0 && (uap->fd != -1 || pos != 0)))
+	if ((size == 0 && curproc->p_osrel >= P_OSREL_MAP_ANON) ||
+	    ((flags & MAP_ANON) != 0 && (fd != -1 || pos != 0)))
 		return (EINVAL);
-=======
-	if (!SV_CURPROC_FLAG(SV_AOUT)) {
-		if ((size == 0 && curproc->p_osrel >= P_OSREL_MAP_ANON) ||
-		    ((flags & MAP_ANON) != 0 && (fd != -1 || pos != 0)))
-			return (EINVAL);
-	} else {
-		if ((flags & MAP_ANON) != 0)
-			pos = 0;
-	}
->>>>>>> freebsd/current/master
 
 	if (flags & MAP_STACK) {
 		if ((fd != -1) ||
@@ -333,7 +316,7 @@ kern_vm_mmap(struct thread *td, vm_offset_t addr, vm_size_t size,
 			addr = 0;
 #ifdef PAX_ASLR
 		PROC_LOCK(td->td_proc);
-		pax_aslr_mmap_map_32bit(td->td_proc, &addr, (vm_offset_t)uap->addr, flags);
+		pax_aslr_mmap_map_32bit(td->td_proc, &addr, orig_addr, flags);
 		pax_aslr_done = 1;
 		PROC_UNLOCK(td->td_proc);
 #endif /* PAX_ASLR */
@@ -355,7 +338,7 @@ kern_vm_mmap(struct thread *td, vm_offset_t addr, vm_size_t size,
 			    lim_max(td, RLIMIT_DATA));
 #ifdef PAX_ASLR
 		PROC_LOCK(td->td_proc);
-		pax_aslr_mmap(td->td_proc, &addr, (vm_offset_t)uap->addr, flags);
+		pax_aslr_mmap(td->td_proc, &addr, orig_addr, flags);
 		pax_aslr_done = 1;
 		PROC_UNLOCK(td->td_proc);
 #endif
@@ -474,22 +457,8 @@ ommap(struct thread *td, struct ommap_args *uap)
 #define	OMAP_SHARED	0x0010
 #define	OMAP_FIXED	0x0100
 
-<<<<<<< HEAD
-	nargs.addr = uap->addr;
-	nargs.len = uap->len;
-	nargs.prot = cvtbsdprot[uap->prot & 0x7];
-	nargs.flags = 0;
-=======
 	prot = cvtbsdprot[uap->prot & 0x7];
-#ifdef COMPAT_FREEBSD32
-#if defined(__amd64__)
-	if (i386_read_exec && SV_PROC_FLAG(td->td_proc, SV_ILP32) &&
-	    prot != 0)
-		prot |= PROT_EXEC;
-#endif
-#endif
 	flags = 0;
->>>>>>> freebsd/current/master
 	if (uap->flags & OMAP_ANON)
 		flags |= MAP_ANON;
 	if (uap->flags & OMAP_COPY)
