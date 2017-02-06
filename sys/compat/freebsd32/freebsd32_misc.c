@@ -453,20 +453,10 @@ freebsd32_mprotect(struct thread *td, struct freebsd32_mprotect_args *uap)
 {
 	int prot;
 
-<<<<<<< HEAD
-	ap.addr = PTRIN(uap->addr);
-	ap.len = uap->len;
-	ap.prot = uap->prot;
-	return (sys_mprotect(td, &ap));
-=======
 	prot = uap->prot;
-#if defined(__amd64__)
-	if (i386_read_exec && (prot & PROT_READ) != 0)
-		prot |= PROT_EXEC;
-#endif
+
 	return (kern_vm_mprotect(td, (vm_offset_t)PTRIN(uap->addr),
 	    uap->len, prot));
->>>>>>> freebsd/current/master
 }
 
 int
@@ -474,25 +464,10 @@ freebsd32_mmap(struct thread *td, struct freebsd32_mmap_args *uap)
 {
 	int prot;
 
-<<<<<<< HEAD
-	ap.addr = (void *) addr;
-	ap.len = len;
-	ap.prot = prot;
-	ap.flags = flags;
-	ap.fd = fd;
-	ap.pos = pos;
-
-	return (sys_mmap(td, &ap));
-=======
 	prot = uap->prot;
-#if defined(__amd64__)
-	if (i386_read_exec && (prot & PROT_READ))
-		prot |= PROT_EXEC;
-#endif
 
 	return (kern_vm_mmap(td, (vm_offset_t)uap->addr, uap->len, prot,
 	    uap->flags, uap->fd, PAIR32TO64(off_t, uap->pos)));
->>>>>>> freebsd/current/master
 }
 
 #ifdef COMPAT_FREEBSD6
