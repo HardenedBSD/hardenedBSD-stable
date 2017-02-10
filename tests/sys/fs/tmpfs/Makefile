@@ -1,5 +1,10 @@
 # $FreeBSD$
 
+<<<<<<< HEAD
+=======
+PACKAGE=		tests
+
+>>>>>>> origin/freebsd/10-stable/master
 FILESYSTEM?=		${.CURDIR:T}
 
 TESTSDIR=		${TESTSBASE}/sys/fs/${FILESYSTEM}

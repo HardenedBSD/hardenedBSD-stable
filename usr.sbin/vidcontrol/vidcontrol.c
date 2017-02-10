@@ -393,8 +393,13 @@ load_vt4mappingtable(unsigned int nmappings, FILE *f)
 	if (nmappings == 0)
 		return (NULL);
 
+<<<<<<< HEAD
 	if ((t = calloc(nmappings, sizeof(*t))) == NULL) {
 		warn("calloc");
+=======
+	if ((t = malloc(sizeof *t * nmappings)) == NULL) {
+		warn("malloc");
+>>>>>>> origin/freebsd/10-stable/master
 		return (NULL);
 	}
 
