@@ -21,11 +21,12 @@ CFLAGS+= -DHAVE_LIBLZMA=1 -DHAVE_LZMA_H=1
 
 .PATH: ${LIBARCHIVEDIR}/libarchive/test
 TESTS_SRCS= \
-	test_acl_freebsd_nfs4.c			\
-	test_acl_freebsd_posix1e.c		\
 	test_acl_nfs4.c				\
 	test_acl_pax.c				\
+	test_acl_platform_nfs4.c		\
+	test_acl_platform_posix1e.c		\
 	test_acl_posix1e.c			\
+	test_acl_text.c				\
 	test_archive_api_feature.c		\
 	test_archive_clear_error.c		\
 	test_archive_cmdline.c			\
@@ -74,7 +75,7 @@ TESTS_SRCS= \
 	test_compat_plexus_archiver_tar.c	\
 	test_compat_solaris_tar_acl.c		\
 	test_compat_solaris_pax_sparse.c	\
-	test_compat_star_acl_posix1e.c		\
+	test_compat_star_acl.c			\
 	test_compat_tar_hardlink.c		\
 	test_compat_uudecode.c			\
 	test_compat_uudecode_large.c		\
@@ -521,7 +522,7 @@ FILES+=	test_read_format_zip_filename_koi8r.zip.uu
 FILES+=	test_read_format_zip_filename_utf8_jp.zip.uu
 FILES+=	test_read_format_zip_filename_utf8_ru.zip.uu
 FILES+=	test_read_format_zip_filename_utf8_ru2.zip.uu
-FILES+=	test_read_format_zip_high_compression.zip.uu	
+FILES+=	test_read_format_zip_high_compression.zip.uu
 FILES+=	test_read_format_zip_jar.jar.uu
 FILES+=	test_read_format_zip_length_at_end.zip.uu
 FILES+=	test_read_format_zip_mac_metadata.zip.uu
