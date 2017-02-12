@@ -360,8 +360,8 @@ kern_vm_mmap(struct thread *td, vm_offset_t addr, vm_size_t size,
 #ifdef PAX_NOEXEC
 		cap_maxprot = VM_PROT_ALL;
 
-		pax_pageexec(td->td_proc, &prot, &cap_maxprot);
-		pax_mprotect(td->td_proc, &prot, &cap_maxprot);
+		pax_pageexec(td->td_proc, (vm_prot_t *)&prot, &cap_maxprot);
+		pax_mprotect(td->td_proc, (vm_prot_t *)&prot, &cap_maxprot);
 
 		error = vm_mmap_object(&vms->vm_map, &addr, size, prot,
 		    cap_maxprot, flags, NULL, pos, FALSE, td);
@@ -395,8 +395,8 @@ kern_vm_mmap(struct thread *td, vm_offset_t addr, vm_size_t size,
 		}
 
 #ifdef PAX_NOEXEC
-		pax_pageexec(td->td_proc, &prot, &cap_maxprot);
-		pax_mprotect(td->td_proc, &prot, &cap_maxprot);
+		pax_pageexec(td->td_proc, (vm_prot_t *)&prot, &cap_maxprot);
+		pax_mprotect(td->td_proc, (vm_prot_t *)&prot, &cap_maxprot);
 #endif
 #ifdef PAX_ASLR
 		KASSERT((flags & MAP_FIXED) == MAP_FIXED || pax_aslr_done == 1,
