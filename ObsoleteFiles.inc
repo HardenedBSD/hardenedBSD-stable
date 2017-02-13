@@ -48,7 +48,6 @@ OLD_LIBS+=usr/lib/libbsnmptools.so
 # 20170112: sysdecode_getfsstat_flags() renamed to sysdecode_getfsstat_mode()
 OLD_FILES+=usr/share/man/man3/sysdecode_getfsstat_flags.3.gz
 # 20170104: librt move to /lib
-OLD_LIBS+=usr/lib/librt.a
 OLD_LIBS+=usr/lib/librt.so.1
 OLD_LIBS+=usr/lib/librt_p.a
 # 20161229: Three files from gnop tests consolidated into one
