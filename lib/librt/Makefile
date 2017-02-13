@@ -19,6 +19,10 @@ WARNS?=	2
 
 SRCS+= aio.c mq.c sigev_thread.c timer.c
 
+SYMLINKS= \
+	/lib/lib${LIB}.so /usr/lib/lib${LIB}.so \
+	/lib/lib${LIB}.a /usr/lib/lib${LIB}.a
+
 PRECIOUSLIB=
 
 VERSION_DEF=${SRCTOP}/lib/libc/Versions.def
