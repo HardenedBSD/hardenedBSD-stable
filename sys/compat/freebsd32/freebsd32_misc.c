@@ -454,18 +454,9 @@ freebsd32_mprotect(struct thread *td, struct freebsd32_mprotect_args *uap)
 	int prot;
 
 	prot = uap->prot;
-<<<<<<< HEAD
 
-	return (kern_vm_mprotect(td, (vm_offset_t)PTRIN(uap->addr),
-	    uap->len, prot));
-=======
-#if defined(__amd64__)
-	if (i386_read_exec && (prot & PROT_READ) != 0)
-		prot |= PROT_EXEC;
-#endif
 	return (kern_mprotect(td, (uintptr_t)PTRIN(uap->addr), uap->len,
 	    prot));
->>>>>>> origin/freebsd/current/master
 }
 
 int
