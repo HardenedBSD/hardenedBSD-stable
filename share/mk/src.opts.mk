@@ -186,8 +186,11 @@ __DEFAULT_NO_OPTIONS = \
     CLANG_EXTRAS \
     DEVD_PIE \
     DTRACE_TESTS \
+<<<<<<< HEAD
     EISA \
     FREEBSD_UPDATE \
+=======
+>>>>>>> origin/freebsd/current/master
     HESIOD \
     LIB32 \
     LIBSOFT \
