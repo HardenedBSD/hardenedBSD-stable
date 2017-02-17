@@ -37,47 +37,73 @@ _HBSD_VERSION=`uname -v | sed -n 's/.*\[\(.*\)\].*/\1/p'`
 _BUILD_TYPE=`echo ${_HBSD_VERSION} | cut -d ':' -f 1`
 
 case ${_BUILD_TYPE} in
-	"DEVEL")
-	;&
-	"PLAYGROUND")
-		_BUILD_BRANCH=`echo ${_HBSD_VERSION} | cut -d ':' -f 2`
-		_BUILD_NUMBER=`echo ${_HBSD_VERSION} | cut -d ':' -f 3`
-		_mirror_prefix="jenkins"
-		_hbsd_dist_dir="builds/${_BUILD_BRANCH}/build-${_BUILD_NUMBER}"
-	;;
-	"STABLE")
-		_BUILD_TAG=`echo ${_HBSD_VERSION} | cut -d ':' -f 2`
-		_mirror_prefix="installer"
-		_hbsd_dist_dir="pub/HardenedBSD/releases/`uname -m`/`uname -p`/${_BUILD_TAG}"
-	;;
+DEVEL|PLAYGROUND)
+	_BUILD_BRANCH=`echo ${_HBSD_VERSION} | cut -d ':' -f 2`
+	_BUILD_NUMBER=`echo ${_HBSD_VERSION} | cut -d ':' -f 3`
+
+	exec 3>&1
+	MIRROR=`dialog --backtitle "HardenedBSD Installer" \
+	    --title "Mirror Selection - development and experimental version" \
+	    --extra-button --extra-label "Other" \
+	    --menu "Please select the site closest to you or \"other\" if you'd like to specify a different choice.  Also note that not every site listed here carries more than the base distribution kits. Only Primary sites are guaranteed to carry the full range of possible distributions. Select a site that's close!" \
+	    0 0 0 \
+		http://jenkins.hardenedbsd.org	"Main Site"\
+		http://jenkins.hardenedbsd.org 	"IPv6 Main Site"\
+	    2>&1 1>&3`
+	MIRROR_BUTTON=$?
+	exec 3>&-
+
+	BSDINSTALL_DISTSITE="$MIRROR/builds/${_BUILD_BRANCH}/build-${_BUILD_NUMBER}"
+;;
+"STABLE")
+	_BUILD_TAG=`echo ${_HBSD_VERSION} | cut -d ':' -f 2`
+	_mirror_prefix="installer"
+
+	exec 3>&1
+	MIRROR=`dialog --backtitle "HardenedBSD Installer" \
+	    --title "Mirror Selection - HardenedBSD-stable ${_BUILD_TAG}" \
+	    --extra-button --extra-label "Other" \
+	    --menu "Please select the site closest to you or \"other\" if you'd like to specify a different choice.  Also note that not every site listed here carries more than the base distribution kits. Only Primary sites are guaranteed to carry the full range of possible distributions. Select a site that's close!" \
+	    0 0 0 \
+		http://installer.hardenedbsd.org	"Main Site (NYI)"\
+		http://ipv6.installer.hardenedbsd.org 	"IPv6 Main Site (NYI)"\
+		http://fr-01.installer.hardenedbsd.org	"France Mirror Site"\
+	    2>&1 1>&3`
+	MIRROR_BUTTON=$?
+	exec 3>&-
+
+	BSDINSTALL_DISTSITE="$MIRROR/pub/HardenedBSD/releases/`uname -m`/`uname -p`/${_BUILD_TAG}"
+;;
+*)
+	case `uname -r` in
+	10.*)
+		_hbsd_dist_dir="pub/HardenedBSD/releases/`uname -m`/`uname -p`/hardenedbsd-10-stable-LAST"
+		;;
+	11.*)
+		_hbsd_dist_dir="pub/HardenedBSD/releases/`uname -m`/`uname -p`/hardenedbsd-11-stable-LAST"
+		;;
 	*)
-		case `uname -r` in
-			10.*)
-				_hbsd_dist_dir="pub/HardenedBSD/releases/`uname -m`/`uname -p`/hardenedbsd-10-stable-LAST"
-				;;
-			11.*)
-				_hbsd_dist_dir="pub/HardenedBSD/releases/`uname -m`/`uname -p`/hardenedbsd-11-stable-LAST"
-				;;
-			*)
-				_hbsd_dist_dir="pub/HardenedBSD/releases/`uname -m`/`uname -p`/hardenedbsd-master-LAST"
-				;;
-		esac
-		_mirror_prefix="installer"
-	;;
+		_hbsd_dist_dir="pub/HardenedBSD/releases/`uname -m`/`uname -p`/hardenedbsd-master-LAST"
+		;;
+	esac
+
+	exec 3>&1
+	MIRROR=`dialog --backtitle "HardenedBSD Installer" \
+	    --title "Mirror Selection - Latest HardenedBSD-stable" \
+	    --extra-button --extra-label "Other" \
+	    --menu "Please select the site closest to you or \"other\" if you'd like to specify a different choice.  Also note that not every site listed here carries more than the base distribution kits. Only Primary sites are guaranteed to carry the full range of possible distributions. Select a site that's close!" \
+	    0 0 0 \
+		http://installer.hardenedbsd.org	"Main Site (NYI)"\
+		http://ipv6.installer.hardenedbsd.org 	"IPv6 Main Site (NYI)"\
+		http://fr-01.installer.hardenedbsd.org	"France Mirror Site"\
+	    2>&1 1>&3`
+	MIRROR_BUTTON=$?
+	exec 3>&-
+
+	BSDINSTALL_DISTSITE="$MIRROR/${_hbsd_dist_dir}"
+;;
 esac
 
-exec 3>&1
-MIRROR=`dialog --backtitle "HardenedBSD Installer" \
-    --title "Mirror Selection - experimental and not all branch supported" --extra-button --extra-label "Other" \
-    --menu "Please select the site closest to you or \"other\" if you'd like to specify a different choice.  Also note that not every site listed here carries more than the base distribution kits. Only Primary sites are guaranteed to carry the full range of possible distributions. Select a site that's close!" \
-    0 0 0 \
-	http://${_mirror_prefix}.hardenedbsd.org	"Main Site"\
-	http://${_mirror_prefix}.hardenedbsd.org 	"IPv6 Main Site"\
-    2>&1 1>&3`
-MIRROR_BUTTON=$?
-exec 3>&-
-
-BSDINSTALL_DISTSITE="$MIRROR/${_hbsd_dist_dir}"
 
 case $MIRROR_BUTTON in
 $DIALOG_CANCEL)
