@@ -524,7 +524,7 @@ __elfN(load_section)(struct image_params *imgp, vm_offset_t offset,
 				      map_addr,		/* virtual start */
 				      map_addr + map_len,/* virtual end */
 				      prot,
-				      VM_PROT_ALL,
+				      prot,
 				      cow);
 		if (rv != KERN_SUCCESS)
 			return (EINVAL);
@@ -578,8 +578,13 @@ __elfN(load_section)(struct image_params *imgp, vm_offset_t offset,
 	 * set it to the specified protection.
 	 * XXX had better undo the damage from pasting over the cracks here!
 	 */
+#ifdef PAX_NOEXEC
+	vm_map_protect(map, trunc_page(map_addr), round_page(map_addr +
+	    map_len), prot, TRUE);
+#else
 	vm_map_protect(map, trunc_page(map_addr), round_page(map_addr +
 	    map_len), prot, FALSE);
+#endif
 
 	return (0);
 }
