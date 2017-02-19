@@ -384,9 +384,13 @@ sys_mmap(td, uap)
 		 * credentials do we use for determination? What if
 		 * proc does a setuid?
 		 */
-		if (vp->v_mount != NULL && vp->v_mount->mnt_flag & MNT_NOEXEC)
+		if (vp->v_mount != NULL && vp->v_mount->mnt_flag & MNT_NOEXEC) {
 			maxprot = VM_PROT_NONE;
-		else
+			if ((prot & VM_PROT_EXECUTE) != 0) {
+				error = EACCES;
+				goto done;
+			}
+		} else
 			maxprot = VM_PROT_EXECUTE;
 		if (fp->f_flag & FREAD) {
 			maxprot |= VM_PROT_READ;
