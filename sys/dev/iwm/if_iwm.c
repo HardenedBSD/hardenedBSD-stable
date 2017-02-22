@@ -152,6 +152,7 @@ __FBSDID("$FreeBSD$");
 
 #include <dev/iwm/if_iwmreg.h>
 #include <dev/iwm/if_iwmvar.h>
+#include <dev/iwm/if_iwm_config.h>
 #include <dev/iwm/if_iwm_debug.h>
 #include <dev/iwm/if_iwm_notif_wait.h>
 #include <dev/iwm/if_iwm_util.h>
@@ -165,68 +166,6 @@ __FBSDID("$FreeBSD$");
 
 #include <dev/iwm/if_iwm_pcie_trans.h>
 #include <dev/iwm/if_iwm_led.h>
-
-#define IWM_NVM_HW_SECTION_NUM_FAMILY_7000	0
-#define IWM_NVM_HW_SECTION_NUM_FAMILY_8000	10
-
-/* lower blocks contain EEPROM image and calibration data */
-#define IWM_OTP_LOW_IMAGE_SIZE_FAMILY_7000	(16 * 512 * sizeof(uint16_t)) /* 16 KB */
-#define IWM_OTP_LOW_IMAGE_SIZE_FAMILY_8000	(32 * 512 * sizeof(uint16_t)) /* 32 KB */
-
-#define IWM7260_FW	"iwm7260fw"
-#define IWM3160_FW	"iwm3160fw"
-#define IWM7265_FW	"iwm7265fw"
-#define IWM7265D_FW	"iwm7265Dfw"
-#define IWM8000_FW	"iwm8000Cfw"
-
-#define IWM_DEVICE_7000_COMMON						\
-	.device_family = IWM_DEVICE_FAMILY_7000,			\
-	.eeprom_size = IWM_OTP_LOW_IMAGE_SIZE_FAMILY_7000,		\
-	.nvm_hw_section_num = IWM_NVM_HW_SECTION_NUM_FAMILY_7000,	\
-	.apmg_wake_up_wa = 1
-
-const struct iwm_cfg iwm7260_cfg = {
-	.fw_name = IWM7260_FW,
-	IWM_DEVICE_7000_COMMON,
-	.host_interrupt_operation_mode = 1,
-};
-
-const struct iwm_cfg iwm3160_cfg = {
-	.fw_name = IWM3160_FW,
-	IWM_DEVICE_7000_COMMON,
-	.host_interrupt_operation_mode = 1,
-};
-
-const struct iwm_cfg iwm3165_cfg = {
-	/* XXX IWM7265D_FW doesn't seem to work properly yet */
-	.fw_name = IWM7265_FW,
-	IWM_DEVICE_7000_COMMON,
-	.host_interrupt_operation_mode = 0,
-};
-
-const struct iwm_cfg iwm7265_cfg = {
-	.fw_name = IWM7265_FW,
-	IWM_DEVICE_7000_COMMON,
-	.host_interrupt_operation_mode = 0,
-};
-
-const struct iwm_cfg iwm7265d_cfg = {
-	/* XXX IWM7265D_FW doesn't seem to work properly yet */
-	.fw_name = IWM7265_FW,
-	IWM_DEVICE_7000_COMMON,
-	.host_interrupt_operation_mode = 0,
-};
-
-#define IWM_DEVICE_8000_COMMON						\
-	.device_family = IWM_DEVICE_FAMILY_8000,			\
-	.eeprom_size = IWM_OTP_LOW_IMAGE_SIZE_FAMILY_8000,		\
-	.nvm_hw_section_num = IWM_NVM_HW_SECTION_NUM_FAMILY_8000
-
-const struct iwm_cfg iwm8260_cfg = {
-	.fw_name = IWM8000_FW,
-	IWM_DEVICE_8000_COMMON,
-	.host_interrupt_operation_mode = 0,
-};
 
 const uint8_t iwm_nvm_channels[] = {
 	/* 2.4 GHz */
@@ -300,10 +239,6 @@ static int	iwm_firmware_store_section(struct iwm_softc *,
 static int	iwm_set_default_calib(struct iwm_softc *, const void *);
 static void	iwm_fw_info_free(struct iwm_fw_info *);
 static int	iwm_read_firmware(struct iwm_softc *, enum iwm_ucode_type);
-static void	iwm_dma_map_addr(void *, bus_dma_segment_t *, int, int);
-static int	iwm_dma_contig_alloc(bus_dma_tag_t, struct iwm_dma_info *,
-                                     bus_size_t, bus_size_t);
-static void	iwm_dma_contig_free(struct iwm_dma_info *);
 static int	iwm_alloc_fwmem(struct iwm_softc *);
 static int	iwm_alloc_sched(struct iwm_softc *);
 static int	iwm_alloc_kw(struct iwm_softc *);
@@ -953,71 +888,6 @@ iwm_read_firmware(struct iwm_softc *sc, enum iwm_ucode_type ucode_type)
 /*
  * DMA resource routines
  */
-
-static void
-iwm_dma_map_addr(void *arg, bus_dma_segment_t *segs, int nsegs, int error)
-{
-        if (error != 0)
-                return;
-	KASSERT(nsegs == 1, ("too many DMA segments, %d should be 1", nsegs));
-	*(bus_addr_t *)arg = segs[0].ds_addr;
-}
-
-static int
-iwm_dma_contig_alloc(bus_dma_tag_t tag, struct iwm_dma_info *dma,
-    bus_size_t size, bus_size_t alignment)
-{
-	int error;
-
-	dma->tag = NULL;
-	dma->map = NULL;
-	dma->size = size;
-	dma->vaddr = NULL;
-
-	error = bus_dma_tag_create(tag, alignment,
-            0, BUS_SPACE_MAXADDR_32BIT, BUS_SPACE_MAXADDR, NULL, NULL, size,
-            1, size, 0, NULL, NULL, &dma->tag);
-        if (error != 0)
-                goto fail;
-
-        error = bus_dmamem_alloc(dma->tag, (void **)&dma->vaddr,
-            BUS_DMA_NOWAIT | BUS_DMA_ZERO | BUS_DMA_COHERENT, &dma->map);
-        if (error != 0)
-                goto fail;
-
-        error = bus_dmamap_load(dma->tag, dma->map, dma->vaddr, size,
-            iwm_dma_map_addr, &dma->paddr, BUS_DMA_NOWAIT);
-        if (error != 0) {
-		bus_dmamem_free(dma->tag, dma->vaddr, dma->map);
-		dma->vaddr = NULL;
-		goto fail;
-	}
-
-	bus_dmamap_sync(dma->tag, dma->map, BUS_DMASYNC_PREWRITE);
-
-	return 0;
-
-fail:
-	iwm_dma_contig_free(dma);
-
-	return error;
-}
-
-static void
-iwm_dma_contig_free(struct iwm_dma_info *dma)
-{
-	if (dma->vaddr != NULL) {
-		bus_dmamap_sync(dma->tag, dma->map,
-		    BUS_DMASYNC_POSTREAD | BUS_DMASYNC_POSTWRITE);
-		bus_dmamap_unload(dma->tag, dma->map);
-		bus_dmamem_free(dma->tag, dma->vaddr, dma->map);
-		dma->vaddr = NULL;
-	}
-	if (dma->tag != NULL) {
-		bus_dma_tag_destroy(dma->tag);
-		dma->tag = NULL;
-	}
-}
 
 /* fwmem is used to load firmware onto the card */
 static int
@@ -3511,11 +3381,6 @@ iwm_mvm_rx_tx_cmd(struct iwm_softc *sc,
 	if (--ring->queued < IWM_TX_RING_LOMARK) {
 		sc->qfullmsk &= ~(1 << ring->qid);
 		if (sc->qfullmsk == 0) {
-			/*
-			 * Well, we're in interrupt context, but then again
-			 * I guess net80211 does all sorts of stunts in
-			 * interrupt context, so maybe this is no biggie.
-			 */
 			iwm_start(sc);
 		}
 	}
@@ -5955,19 +5820,19 @@ iwm_intr(void *arg)
 #define	PCI_PRODUCT_INTEL_WL_8260_2	0x24f4
 
 static const struct iwm_devices {
-	uint16_t	device;
-	const char	*name;
+	uint16_t		device;
+	const struct iwm_cfg	*cfg;
 } iwm_devices[] = {
-	{ PCI_PRODUCT_INTEL_WL_3160_1, "Intel Dual Band Wireless AC 3160" },
-	{ PCI_PRODUCT_INTEL_WL_3160_2, "Intel Dual Band Wireless AC 3160" },
-	{ PCI_PRODUCT_INTEL_WL_3165_1, "Intel Dual Band Wireless AC 3165" },
-	{ PCI_PRODUCT_INTEL_WL_3165_2, "Intel Dual Band Wireless AC 3165" },
-	{ PCI_PRODUCT_INTEL_WL_7260_1, "Intel Dual Band Wireless AC 7260" },
-	{ PCI_PRODUCT_INTEL_WL_7260_2, "Intel Dual Band Wireless AC 7260" },
-	{ PCI_PRODUCT_INTEL_WL_7265_1, "Intel Dual Band Wireless AC 7265" },
-	{ PCI_PRODUCT_INTEL_WL_7265_2, "Intel Dual Band Wireless AC 7265" },
-	{ PCI_PRODUCT_INTEL_WL_8260_1, "Intel Dual Band Wireless AC 8260" },
-	{ PCI_PRODUCT_INTEL_WL_8260_2, "Intel Dual Band Wireless AC 8260" },
+	{ PCI_PRODUCT_INTEL_WL_3160_1, &iwm3160_cfg },
+	{ PCI_PRODUCT_INTEL_WL_3160_2, &iwm3160_cfg },
+	{ PCI_PRODUCT_INTEL_WL_3165_1, &iwm3165_cfg },
+	{ PCI_PRODUCT_INTEL_WL_3165_2, &iwm3165_cfg },
+	{ PCI_PRODUCT_INTEL_WL_7260_1, &iwm7260_cfg },
+	{ PCI_PRODUCT_INTEL_WL_7260_2, &iwm7260_cfg },
+	{ PCI_PRODUCT_INTEL_WL_7265_1, &iwm7265_cfg },
+	{ PCI_PRODUCT_INTEL_WL_7265_2, &iwm7265_cfg },
+	{ PCI_PRODUCT_INTEL_WL_8260_1, &iwm8260_cfg },
+	{ PCI_PRODUCT_INTEL_WL_8260_2, &iwm8260_cfg },
 };
 
 static int
@@ -5978,7 +5843,7 @@ iwm_probe(device_t dev)
 	for (i = 0; i < nitems(iwm_devices); i++) {
 		if (pci_get_vendor(dev) == PCI_VENDOR_INTEL &&
 		    pci_get_device(dev) == iwm_devices[i].device) {
-			device_set_desc(dev, iwm_devices[i].name);
+			device_set_desc(dev, iwm_devices[i].cfg->name);
 			return (BUS_PROBE_DEFAULT);
 		}
 	}
@@ -5990,35 +5855,24 @@ static int
 iwm_dev_check(device_t dev)
 {
 	struct iwm_softc *sc;
+	uint16_t devid;
+	int i;
 
 	sc = device_get_softc(dev);
 
-	switch (pci_get_device(dev)) {
-	case PCI_PRODUCT_INTEL_WL_3160_1:
-	case PCI_PRODUCT_INTEL_WL_3160_2:
-		sc->cfg = &iwm3160_cfg;
-		return (0);
-	case PCI_PRODUCT_INTEL_WL_3165_1:
-	case PCI_PRODUCT_INTEL_WL_3165_2:
-		sc->cfg = &iwm3165_cfg;
-		return (0);
-	case PCI_PRODUCT_INTEL_WL_7260_1:
-	case PCI_PRODUCT_INTEL_WL_7260_2:
-		sc->cfg = &iwm7260_cfg;
-		return (0);
-	case PCI_PRODUCT_INTEL_WL_7265_1:
-	case PCI_PRODUCT_INTEL_WL_7265_2:
-		sc->cfg = &iwm7265_cfg;
-		return (0);
-	case PCI_PRODUCT_INTEL_WL_8260_1:
-	case PCI_PRODUCT_INTEL_WL_8260_2:
-		sc->cfg = &iwm8260_cfg;
-		return (0);
-	default:
-		device_printf(dev, "unknown adapter type\n");
-		return ENXIO;
+	devid = pci_get_device(dev);
+	for (i = 0; i < nitems(iwm_devices); i++) {
+		if (iwm_devices[i].device == devid) {
+			sc->cfg = iwm_devices[i].cfg;
+			return (0);
+		}
 	}
+	device_printf(dev, "unknown adapter type\n");
+	return ENXIO;
 }
+
+/* PCI registers */
+#define PCI_CFG_RETRY_TIMEOUT	0x041
 
 static int
 iwm_pci_attach(device_t dev)
@@ -6029,9 +5883,9 @@ iwm_pci_attach(device_t dev)
 
 	sc = device_get_softc(dev);
 
-	/* Clear device-specific "PCI retry timeout" register (41h). */
-	reg = pci_read_config(dev, 0x40, sizeof(reg));
-	pci_write_config(dev, 0x40, reg & ~0xff00, sizeof(reg));
+	/* We disable the RETRY_TIMEOUT register (0x41) to keep
+	 * PCI Tx retries from interfering with C3 CPU state */
+	pci_write_config(dev, PCI_CFG_RETRY_TIMEOUT, 0x00, 1);
 
 	/* Enable bus-mastering and hardware bug workaround. */
 	pci_enable_busmaster(dev);
@@ -6539,11 +6393,12 @@ iwm_resume(device_t dev)
 {
 	struct iwm_softc *sc = device_get_softc(dev);
 	int do_reinit = 0;
-	uint16_t reg;
 
-	/* Clear device-specific "PCI retry timeout" register (41h). */
-	reg = pci_read_config(dev, 0x40, sizeof(reg));
-	pci_write_config(dev, 0x40, reg & ~0xff00, sizeof(reg));
+	/*
+	 * We disable the RETRY_TIMEOUT register (0x41) to keep
+	 * PCI Tx retries from interfering with C3 CPU state.
+	 */
+	pci_write_config(dev, PCI_CFG_RETRY_TIMEOUT, 0x00, 1);
 	iwm_init_task(device_get_softc(dev));
 
 	IWM_LOCK(sc);
