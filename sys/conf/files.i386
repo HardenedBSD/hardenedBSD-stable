@@ -42,22 +42,6 @@ linux_vdso.so			optional	compat_linux		\
 	compile-with	"${OBJCOPY} --input-target binary --output-target elf32-i386-freebsd --binary-architecture i386 linux_locore.o ${.TARGET}" \
 	no-implicit-rule						\
 	clean		"linux_vdso.so"
-<<<<<<< HEAD
-=======
-#
-svr4_genassym.o			optional	compat_svr4		\
-	dependency 	"$S/i386/svr4/svr4_genassym.c"			\
-	compile-with	"${CC} ${CFLAGS:N-flto:N-fno-common} -c ${.IMPSRC}" \
-	no-obj no-implicit-rule						\
-	clean		"svr4_genassym.o"
-#
-svr4_assym.h			optional	compat_svr4		\
-	dependency 	"$S/kern/genassym.sh svr4_genassym.o"	   	\
-	compile-with	"sh $S/kern/genassym.sh svr4_genassym.o > ${.TARGET}" \
-	no-obj no-implicit-rule before-depend				\
-	clean		"svr4_assym.h"
-#
->>>>>>> origin/freebsd/current/master
 font.h				optional	sc_dflt_font		\
 	compile-with	"uudecode < /usr/share/syscons/fonts/${SC_DFLT_FONT}-8x16.fnt && file2c 'static u_char dflt_font_16[16*256] = {' '};' < ${SC_DFLT_FONT}-8x16 > font.h && uudecode < /usr/share/syscons/fonts/${SC_DFLT_FONT}-8x14.fnt && file2c 'static u_char dflt_font_14[14*256] = {' '};' < ${SC_DFLT_FONT}-8x14 >> font.h && uudecode < /usr/share/syscons/fonts/${SC_DFLT_FONT}-8x8.fnt && file2c 'static u_char dflt_font_8[8*256] = {' '};' < ${SC_DFLT_FONT}-8x8 >> font.h"										\
 	no-obj no-implicit-rule before-depend				\
