@@ -478,10 +478,6 @@ freebsd6_freebsd32_mmap(struct thread *td,
 	int prot;
 
 	prot = uap->prot;
-#if defined(__amd64__)
-	if (i386_read_exec && (prot & PROT_READ))
-		prot |= PROT_EXEC;
-#endif
 
 	return (kern_mmap(td, (uintptr_t)uap->addr, uap->len, prot,
 	    uap->flags, uap->fd, PAIR32TO64(off_t, uap->pos)));
