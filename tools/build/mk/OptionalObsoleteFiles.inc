@@ -1197,6 +1197,7 @@ OLD_FILES+=usr/share/man/man8/casperd.8.gz
 
 .if ${MK_CCD} == no
 OLD_FILES+=etc/rc.d/ccd
+OLD_FILES+=rescue/ccdconfig
 OLD_FILES+=sbin/ccdconfig
 OLD_FILES+=usr/share/man/man4/ccd.4.gz
 OLD_FILES+=usr/share/man/man8/ccdconfig.8.gz
@@ -1513,10 +1514,6 @@ OLD_FILES+=usr/share/man/man1/opt.1.gz
 OLD_FILES+=usr/bin/cpp
 OLD_FILES+=usr/share/man/man1/cpp.1.gz
 .endif
-
-#.if ${MK_CRYPT} == no
-# to be filled in
-#.endif
 
 .if ${MK_CTM} == no
 OLD_FILES+=usr/sbin/ctm
@@ -4825,6 +4822,7 @@ OLD_DIRS+=usr/include/c++/v1/ext
 OLD_DIRS+=usr/include/c++/v1
 .endif
 
+<<<<<<< HEAD
 .if ${MK_LIBRESSL} == yes
 OLD_FILES+=usr/share/openssl/man/man3/ASN1_TIME_adj.3
 OLD_FILES+=usr/share/openssl/man/man3/ASN1_TIME_check.3
@@ -5388,6 +5386,14 @@ OLD_LIBS+=usr/lib32/libtls.so.11
 #.if ${MK_LIBTHR} == no
 # to be filled in
 #.endif
+=======
+.if ${MK_LIBTHR} == no
+OLD_LIBS+=lib/libthr.so.3
+OLD_FILES+=usr/lib/libthr.a
+OLD_FILES+=usr/lib/libthr_p.a
+OLD_FILES+=usr/share/man/man3/libthr.3.gz
+.endif
+>>>>>>> origin/freebsd/current/master
 
 .if ${MK_LLD} == no
 OLD_FILES+=usr/bin/ld.lld
@@ -7590,10 +7596,6 @@ OLD_FILES+=usr/share/man/man8/ntpq.8.gz
 OLD_FILES+=usr/share/man/man8/ntptime.8.gz
 .endif
 
-#.if ${MK_OBJC} == no
-# to be filled in
-#.endif
-
 .if ${MK_OPENSSH} == no
 OLD_FILES+=etc/rc.d/sshd
 OLD_FILES+=etc/ssh/moduli
@@ -8034,11 +8036,18 @@ OLD_FILES+=usr/share/man/man8/rshd.8.gz
 OLD_FILES+=usr/share/man/man8/rwhod.8.gz
 .endif
 
-#.if ${MK_RESCUE} == no
-# to be filled in or replaced with a special target
-#.endif
+.if ${MK_RESCUE} == no
+. if exists(${DESTDIR}${TESTSBASE})
+RESCUE_DIRS!=find ${DESTDIR}/rescue -type d | sed -e 's,^${DESTDIR}/,,'; echo
+OLD_DIRS+=${RESCUE_DIRS}
+RESCUE_FILES!=find ${DESTDIR}/rescue \! -type d | sed -e 's,^${DESTDIR}/,,'; echo
+OLD_FILES+=${RESCUE_FILES}
+. endif
+.endif
 
 .if ${MK_ROUTED} == no
+OLD_FILES+=rescue/routed
+OLD_FILES+=rescue/rtquery
 OLD_FILES+=sbin/routed
 OLD_FILES+=sbin/rtquery
 OLD_FILES+=usr/share/man/man8/routed.8.gz
