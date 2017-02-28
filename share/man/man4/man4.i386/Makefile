@@ -25,10 +25,6 @@ MAN=	aic.4 \
 	pnpbios.4 \
 	sbni.4 \
 	smapi.4 \
-<<<<<<< HEAD
-	snc.4 \
-=======
->>>>>>> upstream/master
 	vpd.4 \
 	vx.4
 
