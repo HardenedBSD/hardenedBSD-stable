@@ -626,7 +626,10 @@ options 	LINPROCFS
 # and PSEUDOFS)
 options 	LINSYSFS
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> upstream/master
 #####################################################################
 # VM OPTIONS
 

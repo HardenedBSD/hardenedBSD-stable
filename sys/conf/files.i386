@@ -42,6 +42,10 @@ linux_vdso.so			optional	compat_linux		\
 	compile-with	"${OBJCOPY} --input-target binary --output-target elf32-i386-freebsd --binary-architecture i386 linux_locore.o ${.TARGET}" \
 	no-implicit-rule						\
 	clean		"linux_vdso.so"
+<<<<<<< HEAD
+=======
+#
+>>>>>>> upstream/master
 font.h				optional	sc_dflt_font		\
 	compile-with	"uudecode < /usr/share/syscons/fonts/${SC_DFLT_FONT}-8x16.fnt && file2c 'static u_char dflt_font_16[16*256] = {' '};' < ${SC_DFLT_FONT}-8x16 > font.h && uudecode < /usr/share/syscons/fonts/${SC_DFLT_FONT}-8x14.fnt && file2c 'static u_char dflt_font_14[14*256] = {' '};' < ${SC_DFLT_FONT}-8x14 >> font.h && uudecode < /usr/share/syscons/fonts/${SC_DFLT_FONT}-8x8.fnt && file2c 'static u_char dflt_font_8[8*256] = {' '};' < ${SC_DFLT_FONT}-8x8 >> font.h"										\
 	no-obj no-implicit-rule before-depend				\
@@ -119,7 +123,10 @@ compat/ndis/subr_ntoskrnl.c	optional ndisapi pci
 compat/ndis/subr_pe.c		optional ndisapi pci
 compat/ndis/subr_usbd.c		optional ndisapi pci
 compat/ndis/winx32_wrap.S	optional ndisapi pci
+<<<<<<< HEAD
 compat/svr4/imgact_svr4.c	optional compat_svr4
+=======
+>>>>>>> upstream/master
 bf_enc.o			optional crypto | ipsec	| ipsec_support \
 	dependency	"$S/crypto/blowfish/arch/i386/bf_enc.S $S/crypto/blowfish/arch/i386/bf_enc_586.S $S/crypto/blowfish/arch/i386/bf_enc_686.S" \
 	compile-with	"${CC} -c -I$S/crypto/blowfish/arch/i386 ${ASM_CFLAGS} ${WERROR} ${.IMPSRC}" \
@@ -504,7 +511,10 @@ i386/linux/linux_sysent.c	optional compat_linux
 i386/linux/linux_sysvec.c	optional compat_linux
 i386/pci/pci_cfgreg.c		optional pci
 i386/pci/pci_pir.c		optional pci
+<<<<<<< HEAD
 #
+=======
+>>>>>>> upstream/master
 isa/syscons_isa.c		optional sc
 isa/vga_isa.c			optional vga
 kern/kern_clocksource.c		standard
