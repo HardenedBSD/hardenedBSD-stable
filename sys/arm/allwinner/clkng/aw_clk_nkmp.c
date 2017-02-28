@@ -55,9 +55,12 @@ struct aw_clk_nkmp_sc {
 	struct aw_clk_factor	m;
 	struct aw_clk_factor	p;
 
+	uint32_t	mux_shift;
+	uint32_t	mux_mask;
 	uint32_t	gate_shift;
 	uint32_t	lock_shift;
 	uint32_t	lock_retries;
+	uint32_t	update_shift;
 
 	uint32_t	flags;
 };
@@ -76,7 +79,21 @@ struct aw_clk_nkmp_sc {
 static int
 aw_clk_nkmp_init(struct clknode *clk, device_t dev)
 {
-	clknode_init_parent_idx(clk, 0);
+	struct aw_clk_nkmp_sc *sc;
+	uint32_t val, idx;
+
+	sc = clknode_get_softc(clk);
+
+	idx = 0;
+	if ((sc->flags & AW_CLK_HAS_MUX) != 0) {
+		DEVICE_LOCK(clk);
+		READ4(clk, sc->offset, &val);
+		DEVICE_UNLOCK(clk);
+
+		idx = (val & sc->mux_mask) >> sc->mux_shift;
+	}
+
+	clknode_init_parent_idx(clk, idx);
 	return (0);
 }
 
@@ -97,6 +114,27 @@ aw_clk_nkmp_set_gate(struct clknode *clk, bool enable)
 		val |= (1 << sc->gate_shift);
 	else
 		val &= ~(1 << sc->gate_shift);
+	WRITE4(clk, sc->offset, val);
+	DEVICE_UNLOCK(clk);
+
+	return (0);
+}
+
+static int
+aw_clk_nkmp_set_mux(struct clknode *clk, int index)
+{
+	struct aw_clk_nkmp_sc *sc;
+	uint32_t val;
+
+	sc = clknode_get_softc(clk);
+
+	if ((sc->flags & AW_CLK_HAS_MUX) != 0)
+		return (0);
+
+	DEVICE_LOCK(clk);
+	READ4(clk, sc->offset, &val);
+	val &= ~(sc->mux_mask >> sc->mux_shift);
+	val |= index << sc->mux_shift;
 	WRITE4(clk, sc->offset, val);
 	DEVICE_UNLOCK(clk);
 
@@ -263,6 +301,14 @@ aw_clk_nkmp_set_freq(struct clknode *clk, uint64_t fparent, uint64_t *fout,
 		WRITE4(clk, sc->offset, val);
 		DELAY(2000);
 
+		if ((sc->flags & AW_CLK_HAS_UPDATE) != 0) {
+			DEVICE_LOCK(clk);
+			READ4(clk, sc->offset, &val);
+			val |= 1 << sc->update_shift;
+			WRITE4(clk, sc->offset, val);
+			DELAY(2000);
+		}
+
 		if ((sc->flags & AW_CLK_HAS_LOCK) != 0) {
 			for (retry = 0; retry < sc->lock_retries; retry++) {
 				READ4(clk, sc->offset, &val);
@@ -305,6 +351,7 @@ static clknode_method_t aw_nkmp_clknode_methods[] = {
 	/* Device interface */
 	CLKNODEMETHOD(clknode_init,		aw_clk_nkmp_init),
 	CLKNODEMETHOD(clknode_set_gate,		aw_clk_nkmp_set_gate),
+	CLKNODEMETHOD(clknode_set_mux,		aw_clk_nkmp_set_mux),
 	CLKNODEMETHOD(clknode_recalc_freq,	aw_clk_nkmp_recalc),
 	CLKNODEMETHOD(clknode_set_freq,		aw_clk_nkmp_set_freq),
 	CLKNODEMETHOD_END
@@ -351,9 +398,13 @@ aw_clk_nkmp_register(struct clkdom *clkdom, struct aw_clk_nkmp_def *clkdef)
 	sc->p.value = clkdef->p.value;
 	sc->p.flags = clkdef->p.flags;
 
+	sc->mux_shift = clkdef->mux_shift;
+	sc->mux_mask = ((1 << clkdef->mux_width) - 1) << sc->mux_shift;
+
 	sc->gate_shift = clkdef->gate_shift;
 	sc->lock_shift = clkdef->lock_shift;
 	sc->lock_retries = clkdef->lock_retries;
+	sc->update_shift = clkdef->update_shift;
 	sc->flags = clkdef->flags;
 
 	clknode_register(clkdom, clk);
