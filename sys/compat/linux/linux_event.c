@@ -357,14 +357,15 @@ kevent_to_epoll(struct kevent *kevent, struct epoll_event *l_event)
 		return;
 	}
 
+	/* XXX EPOLLPRI, EPOLLHUP */
 	switch (kevent->filter) {
 	case EVFILT_READ:
-		l_event->events = LINUX_EPOLLIN|LINUX_EPOLLRDNORM|LINUX_EPOLLPRI;
+		l_event->events = LINUX_EPOLLIN;
 		if ((kevent->flags & EV_EOF) != 0)
 			l_event->events |= LINUX_EPOLLRDHUP;
 	break;
 	case EVFILT_WRITE:
-		l_event->events = LINUX_EPOLLOUT|LINUX_EPOLLWRNORM;
+		l_event->events = LINUX_EPOLLOUT;
 	break;
 	}
 }
@@ -480,20 +481,34 @@ linux_epoll_ctl(struct thread *td, struct linux_epoll_ctl_args *args)
 
 	ciargs.changelist = kev;
 
+	if (args->op != LINUX_EPOLL_CTL_DEL) {
+		kev_flags = EV_ADD | EV_ENABLE;
+		error = epoll_to_kevent(td, epfp, args->fd, &le,
+		    &kev_flags, kev, &nchanges);
+		if (error != 0)
+			goto leave0;
+	}
+
 	switch (args->op) {
 	case LINUX_EPOLL_CTL_MOD:
-		/*
-		 * We don't memorize which events were set for this FD
-		 * on this level, so just delete all we could have set:
-		 * EVFILT_READ and EVFILT_WRITE, ignoring any errors
-		 */
 		error = epoll_delete_all_events(td, epfp, args->fd);
 		if (error != 0)
 			goto leave0;
-		/* FALLTHROUGH */
+		break;
 
 	case LINUX_EPOLL_CTL_ADD:
-			kev_flags = EV_ADD | EV_ENABLE;
+		/*
+		 * kqueue_register() return ENOENT if event does not exists
+		 * and the EV_ADD flag is not set.
+		 */
+		kev[0].flags &= ~EV_ADD;
+		error = kqfd_register(args->epfd, &kev[0], td, 1);
+		if (error != ENOENT) {
+			error = EEXIST;
+			goto leave0;
+		}
+		error = 0;
+		kev[0].flags |= EV_ADD;
 		break;
 
 	case LINUX_EPOLL_CTL_DEL:
@@ -505,11 +520,6 @@ linux_epoll_ctl(struct thread *td, struct linux_epoll_ctl_args *args)
 		error = EINVAL;
 		goto leave0;
 	}
-
-	error = epoll_to_kevent(td, epfp, args->fd, &le, &kev_flags,
-	    kev, &nchanges);
-	if (error != 0)
-		goto leave0;
 
 	epoll_fd_install(td, args->fd, le.data);
 
@@ -643,19 +653,11 @@ epoll_delete_event(struct thread *td, struct file *epfp, int fd, int filter)
 	struct kevent_copyops k_ops = { &ciargs,
 					NULL,
 					epoll_kev_copyin};
-	int error;
 
 	ciargs.changelist = &kev;
 	EV_SET(&kev, fd, filter, EV_DELETE | EV_DISABLE, 0, 0, 0);
 
-	error = kern_kevent_fp(td, epfp, 1, 0, &k_ops, NULL);
-
-	/*
-	 * here we ignore ENONT, because we don't keep track of events here
-	 */
-	if (error == ENOENT)
-		error = 0;
-	return (error);
+	return (kern_kevent_fp(td, epfp, 1, 0, &k_ops, NULL));
 }
 
 static int
@@ -666,8 +668,8 @@ epoll_delete_all_events(struct thread *td, struct file *epfp, int fd)
 	error1 = epoll_delete_event(td, epfp, fd, EVFILT_READ);
 	error2 = epoll_delete_event(td, epfp, fd, EVFILT_WRITE);
 
-	/* report any errors we got */
-	return (error1 == 0 ? error2 : error1);
+	/* return 0 if at least one result positive */
+	return (error1 == 0 ? 0 : error2);
 }
 
 static int
