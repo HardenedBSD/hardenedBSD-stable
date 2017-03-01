@@ -416,14 +416,19 @@ __elfN(map_partial)(vm_map_t map, vm_object_t object, vm_ooffset_t offset,
 }
 
 static int
+<<<<<<< HEAD
 __elfN(map_insert)(vm_map_t map, vm_object_t object, vm_ooffset_t offset,
     vm_offset_t start, vm_offset_t end, vm_prot_t prot, vm_prot_t maxprot,
+=======
+__elfN(map_insert)(struct image_params *imgp, vm_map_t map, vm_object_t object,
+    vm_ooffset_t offset, vm_offset_t start, vm_offset_t end, vm_prot_t prot,
+>>>>>>> freebsd/current/master
     int cow)
 {
 	struct sf_buf *sf;
 	vm_offset_t off;
 	vm_size_t sz;
-	int error, rv;
+	int error, locked, rv;
 
 	if (start != trunc_page(start)) {
 		rv = __elfN(map_partial)(map, object, offset, start,
@@ -447,8 +452,15 @@ __elfN(map_insert)(vm_map_t map, vm_object_t object, vm_ooffset_t offset,
 			 * The mapping is not page aligned. This means we have
 			 * to copy the data. Sigh.
 			 */
+<<<<<<< HEAD
 			rv = vm_map_find(map, NULL, 0, &start, end - start, 0,
 			    VMFS_NO_SPACE, prot | VM_PROT_WRITE, maxprot, 0);
+=======
+			vm_map_lock(map);
+			rv = vm_map_insert(map, NULL, 0, start, end,
+			    prot | VM_PROT_WRITE, VM_PROT_ALL, 0);
+			vm_map_unlock(map);
+>>>>>>> freebsd/current/master
 			if (rv != KERN_SUCCESS)
 				return (rv);
 			if (object == NULL)
@@ -475,8 +487,12 @@ __elfN(map_insert)(vm_map_t map, vm_object_t object, vm_ooffset_t offset,
 			rv = vm_map_insert(map, object, offset, start, end,
 			    prot, maxprot, cow);
 			vm_map_unlock(map);
-			if (rv != KERN_SUCCESS)
+			if (rv != KERN_SUCCESS) {
+				locked = VOP_ISLOCKED(imgp->vp);
+				VOP_UNLOCK(imgp->vp, 0);
 				vm_object_deallocate(object);
+				vn_lock(imgp->vp, locked | LK_RETRY);
+			}
 		}
 		return (rv);
 	} else {
@@ -533,7 +549,7 @@ __elfN(load_section)(struct image_params *imgp, vm_offset_t offset,
 		cow = MAP_COPY_ON_WRITE | MAP_PREFAULT |
 		    (prot & VM_PROT_WRITE ? 0 : MAP_DISABLE_COREDUMP);
 
-		rv = __elfN(map_insert)(map,
+		rv = __elfN(map_insert)(imgp, map,
 				      object,
 				      file_addr,	/* file offset */
 				      map_addr,		/* virtual start */
@@ -564,8 +580,13 @@ __elfN(load_section)(struct image_params *imgp, vm_offset_t offset,
 
 	/* This had damn well better be true! */
 	if (map_len != 0) {
+<<<<<<< HEAD
 		rv = __elfN(map_insert)(map, NULL, 0, map_addr, map_addr +
 		    map_len, VM_PROT_ALL, VM_PROT_ALL, 0);
+=======
+		rv = __elfN(map_insert)(imgp, map, NULL, 0, map_addr,
+		    map_addr + map_len, VM_PROT_ALL, 0);
+>>>>>>> freebsd/current/master
 		if (rv != KERN_SUCCESS) {
 			return (EINVAL);
 		}
