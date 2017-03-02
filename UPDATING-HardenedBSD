@@ -1,3 +1,16 @@
+[20170302] Enable CFI by default for amd64
+__HardenedBSD_version = 49
+
+	Enable WITH_CFI by default on HardenedBSD/amd64.
+	Control-Flow Integrity (CFI) is an exploit mitigation
+	technique developed in the clang/llvm project. Now that
+	base has clang 4.0.0, which brings a linker that supports
+	Link-Time Optimization (LTO), lld, we can now make use of
+	CFI, which requires LTO.
+
+	This also enables lld by default for amd64 and arm64. Disable
+	CFI by setting WITHOUT_CFI in src.conf(5).
+
 [20170112] Enable SafeStack by default for amd64
 __HardenedBSD_version = 48
 
