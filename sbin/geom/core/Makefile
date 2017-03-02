@@ -7,6 +7,8 @@ PROG=	geom
 MAN=	geom.8
 SRCS=	geom.c subr.c
 
+NOCFI=	yes
+
 NO_SHARED=NO
 
 CFLAGS+= -DGEOM_CLASS_DIR=\"${GEOM_CLASS_DIR}\"

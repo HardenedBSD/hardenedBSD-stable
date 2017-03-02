@@ -10,6 +10,8 @@ INSTALLFLAGS=-b -B.bak
 CFLAGS+=-DDEBUGSHELL -DSECURE -DLOGIN_CAP -DCOMPAT_SYSV_INIT
 LIBADD=	util crypt
 
+NOCFI=	yes
+
 # Needed for getmntopts.c
 MOUNT=	${.CURDIR}/../../sbin/mount
 CFLAGS+=-I${MOUNT}

@@ -4,6 +4,8 @@
 
 .include <src.opts.mk>
 
+NOCFI=	yes
+
 .if ${MK_BSD_GREP} == "yes"
 PROG=	grep
 .else

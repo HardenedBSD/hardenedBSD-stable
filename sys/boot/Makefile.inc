@@ -17,6 +17,7 @@ CFLAGS.clang+=  -mfpu=none
 .endif
 
 NOSAFESTACK=	yes
+NOCFI=		yes
 
 # The boot loader build uses dd status=none, where possible, for reproducible
 # build output (since performance varies from run to run). Trouble is that

@@ -333,12 +333,22 @@ When set, it enforces these options:
 .It
 .Va WITHOUT_ZFS
 .El
+.It Va WITHOUT_CFI
+Set to build without Control-Flow Integrity (CFI)
+.Pp
+This is a default setting on
+arm/arm, arm/armeb, arm/armv6, arm64/aarch64, i386/i386, mips/mipsel, mips/mips, mips/mips64el, mips/mips64, mips/mipsn32, mips/mipselhf, mips/mipshf, mips/mips64elhf, mips/mips64hf, powerpc/powerpc, powerpc/powerpc64, powerpc/powerpcspe and sparc64/sparc64.
+.It Va WITH_CFI
+Set to build with Control-Flow Integrity (CFI)
+.Pp
+This is a default setting on
+amd64/amd64.
 .It Va WITHOUT_CLANG
 .\" $FreeBSD$
 Set to not build the Clang C/C++ compiler during the regular phase of the build.
 .Pp
 This is a default setting on
-mips/mipsel, mips/mips, mips/mips64el, mips/mips64, mips/mipsn32, mips/mipselhf, mips/mipshf, mips/mips64elhf, mips/mips64hf and sparc64/sparc64.
+sparc64/sparc64.
 When set, it enforces these options:
 .Pp
 .Bl -item -compact
@@ -352,7 +362,7 @@ When set, it enforces these options:
 Set to build the Clang C/C++ compiler during the normal phase of the build.
 .Pp
 This is a default setting on
-amd64/amd64, arm/arm, arm/armeb, arm/armv6, arm64/aarch64, i386/i386, powerpc/powerpc, powerpc/powerpc64 and powerpc/powerpcspe.
+amd64/amd64, arm/arm, arm/armeb, arm/armv6, arm64/aarch64, i386/i386, mips/mipsel, mips/mips, mips/mips64el, mips/mips64, mips/mipsn32, mips/mipselhf, mips/mipshf, mips/mips64elhf, mips/mips64hf, powerpc/powerpc, powerpc/powerpc64 and powerpc/powerpcspe.
 .It Va WITHOUT_CLANG_BOOTSTRAP
 .\" $FreeBSD$
 Set to not build the Clang C/C++ compiler during the bootstrap phase of
@@ -377,14 +387,14 @@ Set to avoid building the ARCMigrate, Rewriter and StaticAnalyzer components of
 the Clang C/C++ compiler.
 .Pp
 This is a default setting on
-mips/mipsel, mips/mips, mips/mips64el, mips/mips64, mips/mipsn32, mips/mipselhf, mips/mipshf, mips/mips64elhf, mips/mips64hf and sparc64/sparc64.
+sparc64/sparc64.
 .It Va WITH_CLANG_FULL
 .\" $FreeBSD$
 Set to build the ARCMigrate, Rewriter and StaticAnalyzer components of the
 Clang C/C++ compiler.
 .Pp
 This is a default setting on
-amd64/amd64, arm/arm, arm/armeb, arm/armv6, arm64/aarch64, i386/i386, powerpc/powerpc, powerpc/powerpc64 and powerpc/powerpcspe.
+amd64/amd64, arm/arm, arm/armeb, arm/armv6, arm64/aarch64, i386/i386, mips/mipsel, mips/mips, mips/mips64el, mips/mips64, mips/mipsn32, mips/mipselhf, mips/mipshf, mips/mips64elhf, mips/mips64hf, powerpc/powerpc, powerpc/powerpc64 and powerpc/powerpcspe.
 .It Va WITHOUT_CLANG_IS_CC
 .\" $FreeBSD$
 Set to install the GCC compiler as
@@ -1058,13 +1068,28 @@ library.
 Set to not build LLVM's lld linker.
 .Pp
 This is a default setting on
-arm/arm, arm/armeb, arm/armv6, i386/i386, mips/mipsel, mips/mips, mips/mips64el, mips/mips64, mips/mipsn32, mips/mipselhf, mips/mipshf, mips/mips64elhf, mips/mips64hf, powerpc/powerpc, powerpc/powerpc64, powerpc/powerpcspe and sparc64/sparc64.
+mips/mipsel, mips/mips, mips/mips64el, mips/mips64, mips/mipsn32, mips/mipselhf, mips/mipshf, mips/mips64elhf, mips/mips64hf, powerpc/powerpc, powerpc/powerpc64, powerpc/powerpcspe and sparc64/sparc64.
+When set, it enforces these options:
+.Pp
+.Bl -item -compact
+.It
+.Va WITHOUT_LLD_IS_LD
+.El
+.Pp
+When set, these options are also in effect:
+.Pp
+.Bl -inset -compact
+.It Va WITH_SYSTEM_COMPILER
+(unless
+.Va WITHOUT_SYSTEM_COMPILER
+is set explicitly)
+.El
 .It Va WITH_LLD
 .\" $FreeBSD$
 Set to build LLVM's lld linker.
 .Pp
 This is a default setting on
-amd64/amd64 and arm64/aarch64.
+amd64/amd64, arm/arm, arm/armeb, arm/armv6, arm64/aarch64 and i386/i386.
 .It Va WITHOUT_LLDB
 .\" $FreeBSD$
 Set to not build the LLDB debugger.
@@ -1082,13 +1107,21 @@ amd64/amd64 and arm64/aarch64.
 Set to use GNU binutils ld as the system linker, instead of LLVM's LLD.
 .Pp
 This is a default setting on
-amd64/amd64, arm/arm, arm/armeb, arm/armv6, i386/i386, mips/mipsel, mips/mips, mips/mips64el, mips/mips64, mips/mipsn32, mips/mipselhf, mips/mipshf, mips/mips64elhf, mips/mips64hf, powerpc/powerpc, powerpc/powerpc64, powerpc/powerpcspe and sparc64/sparc64.
+arm/arm, arm/armeb, arm/armv6, i386/i386, mips/mipsel, mips/mips, mips/mips64el, mips/mips64, mips/mipsn32, mips/mipselhf, mips/mipshf, mips/mips64elhf, mips/mips64hf, powerpc/powerpc, powerpc/powerpc64, powerpc/powerpcspe and sparc64/sparc64.
+When set, these options are also in effect:
+.Pp
+.Bl -inset -compact
+.It Va WITH_SYSTEM_COMPILER
+(unless
+.Va WITHOUT_SYSTEM_COMPILER
+is set explicitly)
+.El
 .It Va WITH_LLD_IS_LD
 .\" $FreeBSD$
 Set to use LLVM's LLD as the system linker, instead of GNU binutils ld.
 .Pp
 This is a default setting on
-arm64/aarch64.
+amd64/amd64 and arm64/aarch64.
 .It Va WITHOUT_LLVM_LIBUNWIND
 .\" $FreeBSD$
 Set to use GCC's stack unwinder (instead of LLVM's libunwind).
@@ -1572,6 +1605,25 @@ The
 and
 .Va WITHOUT_GCC
 options control those.
+.Pp
+This is a default setting on
+amd64/amd64 and arm64/aarch64.
+.It Va WITH_SYSTEM_COMPILER
+.\" $FreeBSD$
+Set to opportunistically skip building a cross-compiler during the
+bootstrap phase of the build.
+If the currently installed compiler matches the planned bootstrap compiler
+type and revision, then it will not be built.
+This does not prevent a compiler from being built for installation though,
+only for building one for the build itself.
+The
+.Va WITHOUT_CLANG
+and
+.Va WITHOUT_GCC
+options control those.
+.Pp
+This is a default setting on
+arm/arm, arm/armeb, arm/armv6, i386/i386, mips/mipsel, mips/mips, mips/mips64el, mips/mips64, mips/mipsn32, mips/mipselhf, mips/mipshf, mips/mips64elhf, mips/mips64hf, powerpc/powerpc, powerpc/powerpc64, powerpc/powerpcspe and sparc64/sparc64.
 .It Va WITHOUT_TALK
 .\" $FreeBSD$
 Set to not build or install
