@@ -441,6 +441,11 @@ MK_LLDB:=	no
 .if ${MK_CLANG} == "no"
 MK_CLANG_EXTRAS:= no
 MK_CLANG_FULL:= no
+MK_SAFESTACK:=	no
+.endif
+
+.if ${MK_LLD_IS_LD} == "no"
+MK_CFI:=	no
 .endif
 
 #
