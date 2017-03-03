@@ -36,6 +36,7 @@ __FBSDID("$FreeBSD$");
 #include <stdlib.h>
 #include <string.h>
 
+#include "efivar.h"
 #include "libefivar_int.h"
 
 static int efi_fd = -2;
@@ -44,12 +45,7 @@ static int efi_fd = -2;
 
 const efi_guid_t efi_guid_empty = Z;
 
-static struct uuid_table
-{
-	const char *uuid_str;
-	const char *name;
-	efi_guid_t guid;
-} guid_tbl [] =
+static struct uuid_table guid_tbl [] =
 {
 	{ "00000000-0000-0000-0000-000000000000", "zero", Z },
 	{ "093e0fae-a6c4-4f50-9f1b-d41e2b89c19a", "sha512", Z },
@@ -92,7 +88,10 @@ efi_guid_tbl_compile(void)
 {
 	size_t i;
 	uint32_t status;
+	static int done = 0;
 
+	if (done)
+		return;
 	for (i = 0; i < nitems(guid_tbl); i++) {
 		uuid_from_string(guid_tbl[i].uuid_str, &guid_tbl[i].guid,
 		    &status);
@@ -101,6 +100,15 @@ efi_guid_tbl_compile(void)
 			fprintf(stderr, "Can't convert %s to a uuid for %s: %d\n",
 			    guid_tbl[i].uuid_str, guid_tbl[i].name, (int)status);
 	}
+	done = 1;
+}
+
+int
+efi_known_guid(struct uuid_table **tbl)
+{
+
+	*tbl = guid_tbl;
+	return (nitems(guid_tbl));
 }
 
 static int
@@ -293,6 +301,7 @@ efi_guid_to_name(efi_guid_t *guid, char **name)
 	size_t i;
 	uint32_t status;
 
+	efi_guid_tbl_compile();
 	for (i = 0; i < nitems(guid_tbl); i++) {
 		if (uuid_equal(guid, &guid_tbl[i].guid, &status)) {
 			*name = strdup(guid_tbl[i].name);
@@ -329,6 +338,7 @@ efi_name_to_guid(const char *name, efi_guid_t *guid)
 {
 	size_t i;
 
+	efi_guid_tbl_compile();
 	for (i = 0; i < nitems(guid_tbl); i++) {
 		if (strcmp(name, guid_tbl[i].name) == 0) {
 			*guid = guid_tbl[i].guid;
