@@ -64,6 +64,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/bitset.h>
+#include <sys/eventhandler.h>
 #include <sys/kernel.h>
 #include <sys/types.h>
 #include <sys/queue.h>
@@ -1895,7 +1896,7 @@ uma_startup3(void)
 #ifdef UMA_DEBUG
 	printf("Starting callout.\n");
 #endif
-	callout_init(&uma_callout, CALLOUT_MPSAFE);
+	callout_init(&uma_callout, 1);
 	callout_reset(&uma_callout, UMA_TIMEOUT * hz, uma_timeout, NULL);
 #ifdef UMA_DEBUG
 	printf("UMA startup3 complete.\n");
@@ -3244,6 +3245,9 @@ uma_reclaim_worker(void *arg __unused)
 		    "umarcl", 0);
 		if (uma_reclaim_needed) {
 			uma_reclaim_needed = 0;
+			sx_xunlock(&uma_drain_lock);
+			EVENTHANDLER_INVOKE(vm_lowmem, VM_LOW_KMEM);
+			sx_xlock(&uma_drain_lock);
 			uma_reclaim_locked(true);
 		}
 	}
