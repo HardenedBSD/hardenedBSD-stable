@@ -8,6 +8,8 @@ LDADD=		${LIBGROFF}
 LIBADD=		m
 CLEANFILES=	majorminor.cpp ${MAN}
 
+NOCFI=		yes
+
 .include <bsd.prog.mk>
 
 majorminor.cpp: ${GROFF_DIST}/VERSION ${GROFF_DIST}/REVISION
