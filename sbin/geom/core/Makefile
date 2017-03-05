@@ -1,6 +1,6 @@
 # $FreeBSD$
 
-.PATH: ${.CURDIR}/../misc
+.PATH: ${.CURDIR:H}/misc
 
 PACKAGE=runtime
 PROG=	geom
@@ -12,7 +12,7 @@ NOCFI=	yes
 NO_SHARED=NO
 
 CFLAGS+= -DGEOM_CLASS_DIR=\"${GEOM_CLASS_DIR}\"
-CFLAGS+= -I${.CURDIR}/../../../sys -I${.CURDIR} -I${.CURDIR}/..
+CFLAGS+= -I${SRCTOP}/sys -I${.CURDIR} -I${.CURDIR:H}
 
 LIBADD=	geom util
 

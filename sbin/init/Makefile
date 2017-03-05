@@ -13,7 +13,7 @@ LIBADD=	util crypt
 NOCFI=	yes
 
 # Needed for getmntopts.c
-MOUNT=	${.CURDIR}/../../sbin/mount
+MOUNT=	${SRCTOP}/sbin/mount
 CFLAGS+=-I${MOUNT}
 .PATH:	${MOUNT}
 
