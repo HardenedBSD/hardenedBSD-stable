@@ -97,4 +97,6 @@ DPADD+=	${RELTOP}/libiberty/libiberty.a
 DPADD+=	${RELTOP}/libopcodes/libopcodes.a
 LDADD=	${DPADD}
 
+NOCFI=	yes
+
 .include <bsd.prog.mk>
