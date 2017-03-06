@@ -28,8 +28,9 @@ options 	SCHED_ULE		# ULE scheduler
 options 	PREEMPTION		# Enable kernel thread preemption
 options 	INET			# InterNETworking
 options 	INET6			# IPv6 communications protocols
-options		IPSEC			# IP (v4/v6) security
+options 	IPSEC			# IP (v5/v6) security
 options 	TCP_OFFLOAD		# TCP offload
+options 	TCP_HHOOK		# hhook(9) framework for TCP
 options 	SCTP			# Stream Control Transmission Protocol
 options 	FFS			# Berkeley Fast Filesystem
 options 	SOFTUPDATES		# Enable FFS soft updates support
@@ -78,6 +79,7 @@ options 	KDTRACE_HOOKS		# Kernel DTrace hooks
 options 	DDB_CTF			# Kernel ELF linker loads CTF data
 options 	INCLUDE_CONFIG_FILE	# Include this file in kernel
 options 	RACCT			# Resource accounting framework
+#options 	RACCT_DEFAULT_TO_DISABLED # Set kern.racct.enable=0 by default
 options 	RCTL			# Resource limits
 
 # HardenedBSD hardening options
@@ -104,7 +106,8 @@ options 	MALLOC_DEBUG_MAXZONES=8	# Separate malloc(9) zones
 
 # Make an SMP-capable kernel by default
 options 	SMP			# Symmetric MultiProcessor Kernel
-options		EARLY_AP_STARTUP
+options 	DEVICE_NUMA		# I/O Device Affinity
+options 	EARLY_AP_STARTUP
 
 # CPU frequency control
 device		cpufreq
@@ -113,6 +116,7 @@ device		cpufreq
 device		acpi
 options 	ACPI_DMAR
 device		pci
+options 	PCI_HP			# PCI-Express native HotPlug
 options		PCI_IOV			# PCI SR-IOV support
 
 # Floppy drives
@@ -238,6 +242,7 @@ device		em			# Intel PRO/1000 Gigabit Ethernet Family
 device		ix			# Intel PRO/10GbE PCIE PF Ethernet
 device		ixv			# Intel PRO/10GbE PCIE VF Ethernet
 device		ixl			# Intel XL710 40Gbe PCIE Ethernet
+options		IXL_IW			# Enable iWARP Client Interface in ixl(4)
 device		ixlv			# Intel XL710 40Gbe VF PCIE Ethernet
 device		le			# AMD Am7900 LANCE and Am79C9xx PCnet
 device		ti			# Alteon Networks Tigon I/II gigabit Ethernet
@@ -359,8 +364,7 @@ device		virtio_blk		# VirtIO Block device
 device		virtio_scsi		# VirtIO SCSI device
 device		virtio_balloon		# VirtIO Memory Balloon device
 
-# HyperV drivers and enchancement support
-# NOTE: HYPERV depends on hyperv.  They must be added or removed together.
+# HyperV drivers and enhancement support
 device		hyperv			# HyperV drivers 
 
 # Xen HVM Guest Optimizations
