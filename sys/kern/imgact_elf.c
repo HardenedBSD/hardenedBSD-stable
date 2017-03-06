@@ -399,7 +399,7 @@ __elfN(map_partial)(vm_map_t map, vm_object_t object, vm_ooffset_t offset,
 	/*
 	 * Find the page from the underlying object.
 	 */
-	if (object) {
+	if (object != NULL) {
 		sf = vm_imgact_map_page(object, offset);
 		if (sf == NULL)
 			return (KERN_FAILURE);
@@ -426,17 +426,27 @@ __elfN(map_insert)(struct image_params *imgp, vm_map_t map, vm_object_t object,
 
 	if (start != trunc_page(start)) {
 		rv = __elfN(map_partial)(map, object, offset, start,
+<<<<<<< HEAD
 		    round_page(start), prot, maxprot);
 		if (rv)
+=======
+		    round_page(start), prot);
+		if (rv != KERN_SUCCESS)
+>>>>>>> origin/freebsd/current/master
 			return (rv);
 		offset += round_page(start) - start;
 		start = round_page(start);
 	}
 	if (end != round_page(end)) {
 		rv = __elfN(map_partial)(map, object, offset +
+<<<<<<< HEAD
 		    trunc_page(end) - start, trunc_page(end), end, prot,
 		    maxprot);
 		if (rv)
+=======
+		    trunc_page(end) - start, trunc_page(end), end, prot);
+		if (rv != KERN_SUCCESS)
+>>>>>>> origin/freebsd/current/master
 			return (rv);
 		end = trunc_page(end);
 	}
@@ -526,7 +536,7 @@ __elfN(load_section)(struct image_params *imgp, vm_offset_t offset,
 	 * We have two choices.  We can either clear the data in the last page
 	 * of an oversized mapping, or we can start the anon mapping a page
 	 * early and copy the initialized data into that first page.  We
-	 * choose the second..
+	 * choose the second.
 	 */
 	if (memsz > filsz)
 		map_len = trunc_page_ps(offset + filsz, pagesize) - file_addr;
