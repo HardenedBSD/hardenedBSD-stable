@@ -91,7 +91,7 @@ static Elf_Brandinfo *__elfN(get_brandinfo)(struct image_params *imgp,
     const char *interp, int interp_name_len, int32_t *osrel);
 static int __elfN(load_file)(struct proc *p, const char *file, u_long *addr,
     u_long *entry, size_t pagesize);
-static int __elfN(load_section)(struct image_params *imgp, vm_offset_t offset,
+static int __elfN(load_section)(struct image_params *imgp, vm_ooffset_t offset,
     caddr_t vmaddr, size_t memsz, size_t filsz, vm_prot_t prot,
     size_t pagesize);
 static int __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp);
@@ -303,13 +303,26 @@ __elfN(get_brandinfo)(struct image_params *imgp, const char *interp,
 			continue;
 		if (hdr->e_machine == bi->machine &&
 		    (hdr->e_ident[EI_OSABI] == bi->brand ||
-		    strncmp((const char *)&hdr->e_ident[OLD_EI_BRAND],
-		    bi->compat_3_brand, strlen(bi->compat_3_brand)) == 0)) {
+		    strcmp((const char *)&hdr->e_ident[OLD_EI_BRAND],
+		    bi->compat_3_brand) == 0)) {
 			/* Looks good, but give brand a chance to veto */
-			if (!bi->header_supported || bi->header_supported(imgp))
-				return (bi);
+			if (!bi->header_supported ||
+			    bi->header_supported(imgp)) {
+				/*
+				 * Again, prefer strictly matching
+				 * interpreter path.
+				 */
+				if (strlen(bi->interp_path) + 1 ==
+				    interp_name_len && strncmp(interp,
+				    bi->interp_path, interp_name_len) == 0)
+					return (bi);
+				if (bi_m == NULL)
+					bi_m = bi;
+			}
 		}
 	}
+	if (bi_m != NULL)
+		return (bi_m);
 
 	/* No known brand, see if the header is recognized by any brand */
 	for (i = 0; i < MAX_BRANDS; i++) {
@@ -485,7 +498,7 @@ __elfN(map_insert)(struct image_params *imgp, vm_map_t map, vm_object_t object,
 }
 
 static int
-__elfN(load_section)(struct image_params *imgp, vm_offset_t offset,
+__elfN(load_section)(struct image_params *imgp, vm_ooffset_t offset,
     caddr_t vmaddr, size_t memsz, size_t filsz, vm_prot_t prot,
     size_t pagesize)
 {
@@ -496,7 +509,7 @@ __elfN(load_section)(struct image_params *imgp, vm_offset_t offset,
 	vm_offset_t map_addr;
 	int error, rv, cow;
 	size_t copy_len;
-	vm_offset_t file_addr;
+	vm_ooffset_t file_addr;
 
 	/*
 	 * It's necessary to fail if the filsz + offset taken from the
