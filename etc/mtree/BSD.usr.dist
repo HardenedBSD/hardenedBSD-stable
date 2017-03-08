@@ -496,8 +496,6 @@
                 ..
             ..
         ..
-        info
-        ..
         keys
             hbsd-update
                 revoked
