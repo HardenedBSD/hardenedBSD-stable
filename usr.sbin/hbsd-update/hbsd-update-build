@@ -65,6 +65,7 @@ setup_environment() {
 	VERBOSE=0
 	TARGET=$(uname -m)
 	TARGET_ARCH=$(uname -p)
+	NEED_CROSS_UTILS=1
 }
 
 cleanup_chroot() {
@@ -189,6 +190,12 @@ create_src_conf() {
 
 install_binutils() {
 	local res
+
+	if [ ${NEED_CROSS_UTILS} -eq 0 ]; then
+		debug_print "[*] Cross-build detected, but configured not to need binutils."
+		export CROSS_BINUTILS_PREFIX="/usr"
+		return 0
+	fi
 
 	debug_print "[*] Cross-build detected. Installing ${TARGET_ARCH}-binutils."
 
