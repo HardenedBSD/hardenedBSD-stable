@@ -433,7 +433,23 @@ mpt_read_config_info_fc(struct mpt_softc *mpt)
 	}
 	mpt2host_config_page_fc_port_0(&mpt->mpt_fcport_page0);
 
-	mpt->mpt_fcport_speed = mpt->mpt_fcport_page0.CurrentSpeed;
+	switch (mpt->mpt_fcport_page0.CurrentSpeed) {
+	case MPI_FCPORTPAGE0_CURRENT_SPEED_1GBIT:
+		mpt->mpt_fcport_speed = 1;
+		break;
+	case MPI_FCPORTPAGE0_CURRENT_SPEED_2GBIT:
+		mpt->mpt_fcport_speed = 2;
+		break;
+	case MPI_FCPORTPAGE0_CURRENT_SPEED_10GBIT:
+		mpt->mpt_fcport_speed = 10;
+		break;
+	case MPI_FCPORTPAGE0_CURRENT_SPEED_4GBIT:
+		mpt->mpt_fcport_speed = 4;
+		break;
+	default:
+		mpt->mpt_fcport_speed = 0;
+		break;
+	}
 
 	switch (mpt->mpt_fcport_page0.Flags &
 	    MPI_FCPORTPAGE0_FLAGS_ATTACH_TYPE_MASK) {
@@ -459,32 +475,27 @@ mpt_read_config_info_fc(struct mpt_softc *mpt)
 		break;
 	}
 
+	mpt->scinfo.fc.wwnn = ((uint64_t)mpt->mpt_fcport_page0.WWNN.High << 32)
+	    | mpt->mpt_fcport_page0.WWNN.Low;
+	mpt->scinfo.fc.wwpn = ((uint64_t)mpt->mpt_fcport_page0.WWPN.High << 32)
+	    | mpt->mpt_fcport_page0.WWPN.Low;
+	mpt->scinfo.fc.portid = mpt->mpt_fcport_page0.PortIdentifier;
+
 	mpt_lprt(mpt, MPT_PRT_INFO,
-	    "FC Port Page 0: Topology <%s> WWNN 0x%08x%08x WWPN 0x%08x%08x "
+	    "FC Port Page 0: Topology <%s> WWNN 0x%16jx WWPN 0x%16jx "
 	    "Speed %u-Gbit\n", topology,
-	    mpt->mpt_fcport_page0.WWNN.High,
-	    mpt->mpt_fcport_page0.WWNN.Low,
-	    mpt->mpt_fcport_page0.WWPN.High,
-	    mpt->mpt_fcport_page0.WWPN.Low,
+	    (uintmax_t)mpt->scinfo.fc.wwnn, (uintmax_t)mpt->scinfo.fc.wwpn,
 	    mpt->mpt_fcport_speed);
 	MPT_UNLOCK(mpt);
 	ctx = device_get_sysctl_ctx(mpt->dev);
 	tree = device_get_sysctl_tree(mpt->dev);
 
-	snprintf(mpt->scinfo.fc.wwnn, sizeof (mpt->scinfo.fc.wwnn),
-	    "0x%08x%08x", mpt->mpt_fcport_page0.WWNN.High,
-	    mpt->mpt_fcport_page0.WWNN.Low);
-
-	snprintf(mpt->scinfo.fc.wwpn, sizeof (mpt->scinfo.fc.wwpn),
-	    "0x%08x%08x", mpt->mpt_fcport_page0.WWPN.High,
-	    mpt->mpt_fcport_page0.WWPN.Low);
-
-	SYSCTL_ADD_STRING(ctx, SYSCTL_CHILDREN(tree), OID_AUTO,
-	    "wwnn", CTLFLAG_RD, mpt->scinfo.fc.wwnn, 0,
+	SYSCTL_ADD_QUAD(ctx, SYSCTL_CHILDREN(tree), OID_AUTO,
+	    "wwnn", CTLFLAG_RD, &mpt->scinfo.fc.wwnn,
 	    "World Wide Node Name");
 
-	SYSCTL_ADD_STRING(ctx, SYSCTL_CHILDREN(tree), OID_AUTO,
-	     "wwpn", CTLFLAG_RD, mpt->scinfo.fc.wwpn, 0,
+	SYSCTL_ADD_QUAD(ctx, SYSCTL_CHILDREN(tree), OID_AUTO,
+	     "wwpn", CTLFLAG_RD, &mpt->scinfo.fc.wwpn,
 	     "World Wide Port Name");
 
 	MPT_LOCK(mpt);
@@ -3465,8 +3476,10 @@ mpt_action(struct cam_sim *sim, union ccb *ccb)
 			cts->protocol_version = SCSI_REV_SPC;
 			cts->transport = XPORT_FC;
 			cts->transport_version = 0;
-			fc->valid = CTS_FC_VALID_SPEED;
-			fc->bitrate = 100000;
+			if (mpt->mpt_fcport_speed != 0) {
+				fc->valid = CTS_FC_VALID_SPEED;
+				fc->bitrate = 100000 * mpt->mpt_fcport_speed;
+			}
 		} else if (mpt->is_sas) {
 			struct ccb_trans_settings_sas *sas =
 			    &cts->xport_specific.sas;
@@ -3502,6 +3515,36 @@ mpt_action(struct cam_sim *sim, union ccb *ccb)
 		}
 		cam_calc_geometry(ccg, /* extended */ 1);
 		KASSERT(ccb->ccb_h.status, ("zero ccb sts at %d", __LINE__));
+		break;
+	}
+	case XPT_GET_SIM_KNOB:
+	{
+		struct ccb_sim_knob *kp = &ccb->knob;
+
+		if (mpt->is_fc) {
+			kp->xport_specific.fc.wwnn = mpt->scinfo.fc.wwnn;
+			kp->xport_specific.fc.wwpn = mpt->scinfo.fc.wwpn;
+			switch (mpt->role) {
+			case MPT_ROLE_NONE:
+				kp->xport_specific.fc.role = KNOB_ROLE_NONE;
+				break;
+			case MPT_ROLE_INITIATOR:
+				kp->xport_specific.fc.role = KNOB_ROLE_INITIATOR;
+				break;
+			case MPT_ROLE_TARGET:
+				kp->xport_specific.fc.role = KNOB_ROLE_TARGET;
+				break;
+			case MPT_ROLE_BOTH:
+				kp->xport_specific.fc.role = KNOB_ROLE_BOTH;
+				break;
+			}
+			kp->xport_specific.fc.valid =
+			    KNOB_VALID_ADDRESS | KNOB_VALID_ROLE;
+			ccb->ccb_h.status = CAM_REQ_CMP;
+		} else {
+			ccb->ccb_h.status = CAM_REQ_INVALID;
+		}
+		xpt_done(ccb);
 		break;
 	}
 	case XPT_PATH_INQ:		/* Path routing inquiry */
@@ -3548,6 +3591,11 @@ mpt_action(struct cam_sim *sim, union ccb *ccb)
 			cpi->transport = XPORT_FC;
 			cpi->transport_version = 0;
 			cpi->protocol_version = SCSI_REV_SPC;
+			cpi->xport_specific.fc.wwnn = mpt->scinfo.fc.wwnn;
+			cpi->xport_specific.fc.wwpn = mpt->scinfo.fc.wwpn;
+			cpi->xport_specific.fc.port = mpt->scinfo.fc.portid;
+			cpi->xport_specific.fc.bitrate =
+			    100000 * mpt->mpt_fcport_speed;
 		} else if (mpt->is_sas) {
 			cpi->hba_misc = PIM_NOBUSRESET | PIM_UNMAPPED;
 			cpi->base_transfer_speed = 300000;
