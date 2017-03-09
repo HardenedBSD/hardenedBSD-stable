@@ -138,6 +138,13 @@ ATF_TC_BODY(test_zero_input, tc)
 {
 	long double complex zero = CMPLXL(0.0, 0.0);
 
+#if defined(__amd64__)
+#if defined(__clang__) && \
+	((__clang_major__ >= 4))
+	atf_tc_expect_fail("test fails with clang 4.x+ - bug 217528");
+#endif
+#endif
+
 	/* csinh(0) = ctanh(0) = 0; ccosh(0) = 1 (no exceptions raised) */
 	testall_odd(csinh, zero, zero, ALL_STD_EXCEPT, 0, CS_BOTH);
 	testall_odd(csin, zero, zero, ALL_STD_EXCEPT, 0, CS_BOTH);
@@ -435,10 +442,6 @@ ATF_TC_HEAD(test_large_inputs, tc)
 ATF_TC_BODY(test_large_inputs, tc)
 {
 	long double complex z;
-
-#ifdef	__i386__
-	atf_tc_expect_fail("test fails on i386 - bug 205446");
-#endif
 
 	/* tanh() uses a threshold around x=22, so check both sides. */
 	z = CMPLXL(21, 0.78539816339744830961566084581987572L);
