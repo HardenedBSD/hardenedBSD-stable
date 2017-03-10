@@ -109,7 +109,6 @@ static void initlist_add_objects(Obj_Entry *, Obj_Entry *, Objlist *);
 static void linkmap_add(Obj_Entry *);
 static void linkmap_delete(Obj_Entry *);
 static void load_filtees(Obj_Entry *, int flags, RtldLockState *);
-static void unload_filtees(Obj_Entry *);
 static void unload_filtees(Obj_Entry *, RtldLockState *);
 #if defined(HARDENEDBSD) && defined(SHLIBRANDOM)
 static void randomize_neededs(Obj_Entry *obj, int flags);
