@@ -109,14 +109,11 @@ static void initlist_add_objects(Obj_Entry *, Obj_Entry *, Objlist *);
 static void linkmap_add(Obj_Entry *);
 static void linkmap_delete(Obj_Entry *);
 static void load_filtees(Obj_Entry *, int flags, RtldLockState *);
-<<<<<<< HEAD
 static void unload_filtees(Obj_Entry *);
+static void unload_filtees(Obj_Entry *, RtldLockState *);
 #if defined(HARDENEDBSD) && defined(SHLIBRANDOM)
 static void randomize_neededs(Obj_Entry *obj, int flags);
 #endif
-=======
-static void unload_filtees(Obj_Entry *, RtldLockState *);
->>>>>>> origin/freebsd/current/master
 static int load_needed_objects(Obj_Entry *, int);
 static int load_preload_objects(void);
 static Obj_Entry *load_object(const char *, int fd, const Obj_Entry *, int);
