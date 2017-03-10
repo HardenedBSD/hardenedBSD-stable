@@ -133,7 +133,7 @@ static void mpt_recovery_thread(void *arg);
 static void mpt_recover_commands(struct mpt_softc *mpt);
 
 static int mpt_scsi_send_tmf(struct mpt_softc *, u_int, u_int, u_int,
-    u_int, u_int, u_int, int);
+    target_id_t, lun_id_t, u_int, int);
 
 static void mpt_fc_post_els(struct mpt_softc *mpt, request_t *, int);
 static void mpt_post_target_command(struct mpt_softc *, request_t *, int);
@@ -145,7 +145,7 @@ static void mpt_target_start_io(struct mpt_softc *, union ccb *);
 static cam_status mpt_abort_target_ccb(struct mpt_softc *, union ccb *);
 static int mpt_abort_target_cmd(struct mpt_softc *, request_t *);
 static void mpt_scsi_tgt_status(struct mpt_softc *, union ccb *, request_t *,
-    uint8_t, uint8_t const *);
+    uint8_t, uint8_t const *, u_int);
 static void
 mpt_scsi_tgt_tsk_mgmt(struct mpt_softc *, request_t *, mpt_task_mgmt_t,
     tgt_resource_t *, int);
@@ -2133,13 +2133,7 @@ mpt_start(struct cam_sim *sim, union ccb *ccb)
 	/* Which physical device to do the I/O on */
 	mpt_req->TargetID = tgt;
 
-	/* We assume a single level LUN type */
-	if (ccb->ccb_h.target_lun >= MPT_MAX_LUNS) {
-		mpt_req->LUN[0] = 0x40 | ((ccb->ccb_h.target_lun >> 8) & 0x3f);
-		mpt_req->LUN[1] = ccb->ccb_h.target_lun & 0xff;
-	} else {
-		mpt_req->LUN[1] = ccb->ccb_h.target_lun;
-	}
+	be64enc(mpt_req->LUN, CAM_EXTLUN_BYTE_SWIZZLE(ccb->ccb_h.target_lun));
 
 	/* Set the direction of the transfer */
 	if ((ccb->ccb_h.flags & CAM_DIR_MASK) == CAM_DIR_IN) {
@@ -3585,7 +3579,8 @@ mpt_action(struct cam_sim *sim, union ccb *ccb)
 		 */
 		cpi->protocol = PROTO_SCSI;
 		if (mpt->is_fc) {
-			cpi->hba_misc = PIM_NOBUSRESET | PIM_UNMAPPED;
+			cpi->hba_misc = PIM_NOBUSRESET | PIM_UNMAPPED |
+			    PIM_EXTLUNS;
 			cpi->base_transfer_speed = 100000;
 			cpi->hba_inquiry = PI_TAG_ABLE;
 			cpi->transport = XPORT_FC;
@@ -3597,14 +3592,16 @@ mpt_action(struct cam_sim *sim, union ccb *ccb)
 			cpi->xport_specific.fc.bitrate =
 			    100000 * mpt->mpt_fcport_speed;
 		} else if (mpt->is_sas) {
-			cpi->hba_misc = PIM_NOBUSRESET | PIM_UNMAPPED;
+			cpi->hba_misc = PIM_NOBUSRESET | PIM_UNMAPPED |
+			    PIM_EXTLUNS;
 			cpi->base_transfer_speed = 300000;
 			cpi->hba_inquiry = PI_TAG_ABLE;
 			cpi->transport = XPORT_SAS;
 			cpi->transport_version = 0;
 			cpi->protocol_version = SCSI_REV_SPC2;
 		} else {
-			cpi->hba_misc = PIM_SEQSCAN | PIM_UNMAPPED;
+			cpi->hba_misc = PIM_SEQSCAN | PIM_UNMAPPED |
+			    PIM_EXTLUNS;
 			cpi->base_transfer_speed = 3300;
 			cpi->hba_inquiry = PI_SDTR_ABLE|PI_TAG_ABLE|PI_WIDE_16;
 			cpi->transport = XPORT_SPI;
@@ -3913,7 +3910,8 @@ mpt_recovery_thread(void *arg)
 
 static int
 mpt_scsi_send_tmf(struct mpt_softc *mpt, u_int type, u_int flags,
-    u_int channel, u_int target, u_int lun, u_int abort_ctx, int sleep_ok)
+    u_int channel, target_id_t target, lun_id_t lun, u_int abort_ctx,
+    int sleep_ok)
 {
 	MSG_SCSI_TASK_MGMT *tmf_req;
 	int		    error;
@@ -3941,12 +3939,7 @@ mpt_scsi_send_tmf(struct mpt_softc *mpt, u_int type, u_int flags,
 	tmf_req->MsgFlags = flags;
 	tmf_req->MsgContext =
 	    htole32(mpt->tmf_req->index | scsi_tmf_handler_id);
-	if (lun > MPT_MAX_LUNS) {
-		tmf_req->LUN[0] = 0x40 | ((lun >> 8) & 0x3f);
-		tmf_req->LUN[1] = lun & 0xff;
-	} else {
-		tmf_req->LUN[1] = lun;
-	}
+	be64enc(tmf_req->LUN, CAM_EXTLUN_BYTE_SWIZZLE(lun));
 	tmf_req->TaskMsgContext = abort_ctx;
 
 	mpt_lprt(mpt, MPT_PRT_DEBUG,
@@ -4168,6 +4161,7 @@ mpt_post_target_command(struct mpt_softc *mpt, request_t *req, int ioindex)
 	fc = req->req_vbuf;
 	fc->BufferCount = 1;
 	fc->Function = MPI_FUNCTION_TARGET_CMD_BUFFER_POST;
+	fc->BufferLength = MIN(MPT_REQUEST_AREA - MPT_RQSL(mpt), UINT8_MAX);
 	fc->MsgContext = htole32(req->index | mpt->scsi_tgt_handler_id);
 
 	cb = &fc->Buffer[0];
@@ -4318,7 +4312,7 @@ mpt_disable_lun(struct mpt_softc *mpt, target_id_t tgt, lun_id_t lun)
 		mpt->trt[lun].enabled = 0;
 	}
 	for (i = 0; i < MPT_MAX_LUNS; i++) {
-		if (mpt->trt[lun].enabled) {
+		if (mpt->trt[i].enabled) {
 			break;
 		}
 	}
@@ -4412,13 +4406,7 @@ mpt_target_start_io(struct mpt_softc *mpt, union ccb *ccb)
 		ta->Function = MPI_FUNCTION_TARGET_ASSIST;
 		ta->MsgContext = htole32(req->index | mpt->scsi_tgt_handler_id);
 		ta->ReplyWord = htole32(tgt->reply_desc);
-		if (csio->ccb_h.target_lun > MPT_MAX_LUNS) {
-			ta->LUN[0] =
-			    0x40 | ((csio->ccb_h.target_lun >> 8) & 0x3f);
-			ta->LUN[1] = csio->ccb_h.target_lun & 0xff;
-		} else {
-			ta->LUN[1] = csio->ccb_h.target_lun;
-		}
+		be64enc(ta->LUN, CAM_EXTLUN_BYTE_SWIZZLE(csio->ccb_h.target_lun));
 
 		ta->RelativeOffset = tgt->bytes_xfered;
 		ta->DataLength = ccb->csio.dxfer_len;
@@ -4429,6 +4417,7 @@ mpt_target_start_io(struct mpt_softc *mpt, union ccb *ccb)
 		/*
 		 * XXX Should be done after data transfer completes?
 		 */
+		csio->resid = csio->dxfer_len - ta->DataLength;
 		tgt->resid -= csio->dxfer_len;
 		tgt->bytes_xfered += csio->dxfer_len;
 
@@ -4458,8 +4447,6 @@ mpt_target_start_io(struct mpt_softc *mpt, union ccb *ccb)
 			ccb->ccb_h.status |= CAM_RELEASE_SIMQ;
 		}
 	} else {
-		uint8_t *sp = NULL, sense[MPT_SENSE_SIZE];
-
 		/*
 		 * XXX: I don't know why this seems to happen, but
 		 * XXX: completing the CCB seems to make things happy.
@@ -4476,18 +4463,16 @@ mpt_target_start_io(struct mpt_softc *mpt, union ccb *ccb)
 			xpt_done(ccb);
 			return;
 		}
-		if (ccb->ccb_h.flags & CAM_SEND_SENSE) {
-			sp = sense;
-			memcpy(sp, &csio->sense_data,
-			   min(csio->sense_len, MPT_SENSE_SIZE));
-		}
-		mpt_scsi_tgt_status(mpt, ccb, cmd_req, csio->scsi_status, sp);
+		mpt_scsi_tgt_status(mpt, ccb, cmd_req, csio->scsi_status,
+		    (void *)&csio->sense_data,
+		    (ccb->ccb_h.flags & CAM_SEND_SENSE) ?
+		     csio->sense_len : 0);
 	}
 }
 
 static void
 mpt_scsi_tgt_local(struct mpt_softc *mpt, request_t *cmd_req,
-    uint32_t lun, int send, uint8_t *data, size_t length)
+    lun_id_t lun, int send, uint8_t *data, size_t length)
 {
 	mpt_tgt_state_t *tgt;
 	PTR_MSG_TARGET_ASSIST_REQUEST ta;
@@ -4503,7 +4488,7 @@ mpt_scsi_tgt_local(struct mpt_softc *mpt, request_t *cmd_req,
 	tgt = MPT_TGT_STATE(mpt, cmd_req);
 	if (length == 0 || tgt->resid == 0) {
 		tgt->resid = 0;
-		mpt_scsi_tgt_status(mpt, NULL, cmd_req, 0, NULL);
+		mpt_scsi_tgt_status(mpt, NULL, cmd_req, 0, NULL, 0);
 		return;
 	}
 
@@ -4527,12 +4512,7 @@ mpt_scsi_tgt_local(struct mpt_softc *mpt, request_t *cmd_req,
 	ta->Function = MPI_FUNCTION_TARGET_ASSIST;
 	ta->MsgContext = htole32(req->index | mpt->scsi_tgt_handler_id);
 	ta->ReplyWord = htole32(tgt->reply_desc);
-	if (lun > MPT_MAX_LUNS) {
-		ta->LUN[0] = 0x40 | ((lun >> 8) & 0x3f);
-		ta->LUN[1] = lun & 0xff;
-	} else {
-		ta->LUN[1] = lun;
-	}
+	be64enc(ta->LUN, CAM_EXTLUN_BYTE_SWIZZLE(lun));
 	ta->RelativeOffset = 0;
 	ta->DataLength = length;
 
@@ -4656,7 +4636,7 @@ mpt_abort_target_cmd(struct mpt_softc *mpt, request_t *cmd_req)
 
 static void
 mpt_scsi_tgt_status(struct mpt_softc *mpt, union ccb *ccb, request_t *cmd_req,
-    uint8_t status, uint8_t const *sense_data)
+    uint8_t status, uint8_t const *sense_data, u_int sense_len)
 {
 	uint8_t *cmd_vbuf;
 	mpt_tgt_state_t *tgt;
@@ -4730,37 +4710,26 @@ mpt_scsi_tgt_status(struct mpt_softc *mpt, union ccb *ccb, request_t *cmd_req,
 		 */
 		memset(rsp, 0, sizeof (MPI_TARGET_FCP_RSP_BUFFER));
 
-		rsp[2] = status;
-		if (tgt->resid) {
-			rsp[2] |= 0x800;	/* XXXX NEED MNEMONIC!!!! */
-			rsp[3] = htobe32(tgt->resid);
-#ifdef	WE_TRUST_AUTO_GOOD_STATUS
-			resplen = sizeof (MPI_TARGET_FCP_RSP_BUFFER);
-#endif
-		}
-		if (status == SCSI_STATUS_CHECK_COND) {
-			int i;
-
-			rsp[2] |= 0x200;	/* XXXX NEED MNEMONIC!!!! */
-			rsp[4] = htobe32(MPT_SENSE_SIZE);
-			if (sense_data) {
-				memcpy(&rsp[8], sense_data, MPT_SENSE_SIZE);
-			} else {
-				mpt_prt(mpt, "mpt_scsi_tgt_status: CHECK CONDI"
-				    "TION but no sense data?\n");
-				memset(&rsp, 0, MPT_SENSE_SIZE);
-			}
-			for (i = 8; i < (8 + (MPT_SENSE_SIZE >> 2)); i++) {
-				rsp[i] = htobe32(rsp[i]);
-			}
-#ifdef	WE_TRUST_AUTO_GOOD_STATUS
-			resplen = sizeof (MPI_TARGET_FCP_RSP_BUFFER);
-#endif
-		}
+		rsp[2] = htobe32(status);
+#define	MIN_FCP_RESPONSE_SIZE	24
 #ifndef	WE_TRUST_AUTO_GOOD_STATUS
-		resplen = sizeof (MPI_TARGET_FCP_RSP_BUFFER);
+		resplen = MIN_FCP_RESPONSE_SIZE;
 #endif
-		rsp[2] = htobe32(rsp[2]);
+		if (tgt->resid < 0) {
+			rsp[2] |= htobe32(0x400); /* XXXX NEED MNEMONIC!!!! */
+			rsp[3] = htobe32(-tgt->resid);
+			resplen = MIN_FCP_RESPONSE_SIZE;
+		} else if (tgt->resid > 0) {
+			rsp[2] |= htobe32(0x800); /* XXXX NEED MNEMONIC!!!! */
+			rsp[3] = htobe32(tgt->resid);
+			resplen = MIN_FCP_RESPONSE_SIZE;
+		}
+		if (sense_len > 0) {
+			rsp[2] |= htobe32(0x200); /* XXXX NEED MNEMONIC!!!! */
+			rsp[4] = htobe32(sense_len);
+			memcpy(&rsp[6], sense_data, sense_len);
+			resplen = MIN_FCP_RESPONSE_SIZE + sense_len;
+		}
 	} else if (mpt->is_sas) {
 		PTR_MPI_TARGET_SSP_CMD_BUFFER ssp =
 		    (PTR_MPI_TARGET_SSP_CMD_BUFFER) cmd_vbuf;
@@ -4795,9 +4764,9 @@ mpt_scsi_tgt_status(struct mpt_softc *mpt, union ccb *ccb, request_t *cmd_req,
 	}
 
 	mpt_lprt(mpt, MPT_PRT_DEBUG, 
-	    "STATUS_CCB %p (wit%s sense) tag %x req %p:%u resid %u\n",
-	    ccb, sense_data?"h" : "hout", ccb? ccb->csio.tag_id : -1, req,
-	    req->serno, tgt->resid);
+	    "STATUS_CCB %p (with%s sense) tag %x req %p:%u resid %u\n",
+	    ccb, sense_len > 0 ? "" : "out", ccb ? ccb->csio.tag_id : -1,
+	    req, req->serno, tgt->resid);
 	if (ccb) {
 		ccb->ccb_h.status = CAM_SIM_QUEUED | CAM_REQ_INPROG;
 		mpt_req_timeout(req, SBT_1S * 60, mpt_timeout, ccb);
@@ -4816,7 +4785,7 @@ mpt_scsi_tgt_tsk_mgmt(struct mpt_softc *mpt, request_t *req, mpt_task_mgmt_t fc,
 	inot = (struct ccb_immediate_notify *) STAILQ_FIRST(&trtp->inots);
 	if (inot == NULL) {
 		mpt_lprt(mpt, MPT_PRT_WARN, "no INOTSs- sending back BSY\n");
-		mpt_scsi_tgt_status(mpt, NULL, req, SCSI_STATUS_BUSY, NULL);
+		mpt_scsi_tgt_status(mpt, NULL, req, SCSI_STATUS_BUSY, NULL, 0);
 		return;
 	}
 	STAILQ_REMOVE_HEAD(&trtp->inots, sim_links.stqe);
@@ -4930,8 +4899,8 @@ mpt_scsi_tgt_atio(struct mpt_softc *mpt, request_t *req, uint32_t reply_desc)
 			default:
 				mpt_prt(mpt, "CORRUPTED TASK MGMT BITS: 0x%x\n",
 				    fc->FcpCntl[2]);
-				mpt_scsi_tgt_status(mpt, 0, req,
-				    SCSI_STATUS_OK, 0);
+				mpt_scsi_tgt_status(mpt, NULL, req,
+				    SCSI_STATUS_OK, NULL, 0);
 				return;
 			}
 		} else {
@@ -4971,21 +4940,7 @@ mpt_scsi_tgt_atio(struct mpt_softc *mpt, request_t *req, uint32_t reply_desc)
 		itag = sp->Tag;
 	}
 
-	/*
-	 * Generate a simple lun
-	 */
-	switch (lunptr[0] & 0xc0) {
-	case 0x40:
-		lun = ((lunptr[0] & 0x3f) << 8) | lunptr[1];
-		break;
-	case 0:
-		lun = lunptr[1];
-		break;
-	default:
-		mpt_lprt(mpt, MPT_PRT_ERROR, "cannot handle this type lun\n");
-		lun = 0xffff;
-		break;
-	}
+	lun = CAM_EXTLUN_BYTE_SWIZZLE(be64dec(lunptr));
 
 	/*
 	 * Deal with non-enabled or bad luns here.
@@ -5005,23 +4960,21 @@ mpt_scsi_tgt_atio(struct mpt_softc *mpt, request_t *req, uint32_t reply_desc)
 			 * REPORT LUNS gets illegal command.
 			 * All other commands get 'no such device'.
 			 */
-			uint8_t *sp, cond, buf[MPT_SENSE_SIZE];
+			uint8_t sense[MPT_SENSE_SIZE];
 			size_t len;
 
-			memset(buf, 0, MPT_SENSE_SIZE);
-			cond = SCSI_STATUS_CHECK_COND;
-			buf[0] = 0xf0;
-			buf[2] = 0x5;
-			buf[7] = 0x8;
-			sp = buf;
+			memset(sense, 0, sizeof(sense));
+			sense[0] = 0xf0;
+			sense[2] = 0x5;
+			sense[7] = 0x8;
 			tgt->tag_id = MPT_MAKE_TAGID(mpt, req, ioindex);
 
 			switch (cdbp[0]) {
 			case INQUIRY:
 			{
 				if (cdbp[1] != 0) {
-					buf[12] = 0x26;
-					buf[13] = 0x01;
+					sense[12] = 0x26;
+					sense[13] = 0x01;
 					break;
 				}
 				len = min(tgt->resid, cdbp[4]);
@@ -5034,27 +4987,28 @@ mpt_scsi_tgt_atio(struct mpt_softc *mpt, request_t *req, uint32_t reply_desc)
 			}
 			case REQUEST_SENSE:
 			{
-				buf[2] = 0x0;
+				sense[2] = 0x0;
 				len = min(tgt->resid, cdbp[4]);
-				len = min(len, sizeof (buf));
+				len = min(len, sizeof (sense));
 				mpt_lprt(mpt, MPT_PRT_DEBUG,
 				    "local reqsense %ld bytes\n", (long) len);
 				mpt_scsi_tgt_local(mpt, req, lun, 1,
-				    buf, len);
+				    sense, len);
 				return;
 			}
 			case REPORT_LUNS:
 				mpt_lprt(mpt, MPT_PRT_DEBUG, "REPORT LUNS\n");
-				buf[12] = 0x26;
+				sense[12] = 0x26;
 				return;
 			default:
 				mpt_lprt(mpt, MPT_PRT_DEBUG,
 				    "CMD 0x%x to unmanaged lun %jx\n",
 				    cdbp[0], (uintmax_t)lun);
-				buf[12] = 0x25;
+				sense[12] = 0x25;
 				break;
 			}
-			mpt_scsi_tgt_status(mpt, NULL, req, cond, sp);
+			mpt_scsi_tgt_status(mpt, NULL, req,
+			    SCSI_STATUS_CHECK_COND, sense, sizeof(sense));
 			return;
 		}
 		/* otherwise, leave trtp NULL */
@@ -5069,8 +5023,8 @@ mpt_scsi_tgt_atio(struct mpt_softc *mpt, request_t *req, uint32_t reply_desc)
 		if (trtp == NULL) {
 			mpt_prt(mpt, "task mgmt function %x but no listener\n",
 			    fct);
-			mpt_scsi_tgt_status(mpt, 0, req,
-			    SCSI_STATUS_OK, 0);
+			mpt_scsi_tgt_status(mpt, NULL, req,
+			    SCSI_STATUS_OK, NULL, 0);
 		} else {
 			mpt_scsi_tgt_tsk_mgmt(mpt, req, fct, trtp,
 			    GET_INITIATOR_INDEX(reply_desc));
@@ -5086,7 +5040,7 @@ mpt_scsi_tgt_atio(struct mpt_softc *mpt, request_t *req, uint32_t reply_desc)
 		    mpt->tenabled? "QUEUE FULL" : "BUSY");
 		mpt_scsi_tgt_status(mpt, NULL, req,
 		    mpt->tenabled? SCSI_STATUS_QUEUE_FULL : SCSI_STATUS_BUSY,
-		    NULL);
+		    NULL, 0);
 		return;
 	}
 	STAILQ_REMOVE_HEAD(&trtp->atios, sim_links.stqe);
@@ -5098,7 +5052,7 @@ mpt_scsi_tgt_atio(struct mpt_softc *mpt, request_t *req, uint32_t reply_desc)
 	atiop->ccb_h.target_lun = lun;
 	atiop->sense_len = 0;
 	atiop->init_id = GET_INITIATOR_INDEX(reply_desc);
-	atiop->cdb_len = mpt_cdblen(cdbp[0], 16);
+	atiop->cdb_len = 16;
 	memcpy(atiop->cdb_io.cdb_bytes, cdbp, atiop->cdb_len);
 
 	/*
@@ -5179,8 +5133,6 @@ mpt_scsi_tgt_reply_handler(struct mpt_softc *mpt, request_t *req,
 			break;
 		case TGT_STATE_MOVING_DATA:
 		{
-			uint8_t *sp = NULL, sense[MPT_SENSE_SIZE];
-
 			ccb = tgt->ccb;
 			if (tgt->req == NULL) {
 				panic("mpt: turbo target reply with null "
@@ -5200,12 +5152,12 @@ mpt_scsi_tgt_reply_handler(struct mpt_softc *mpt, request_t *req,
 				mpt_free_request(mpt, tgt->req);
 				tgt->req = NULL;
 				mpt_scsi_tgt_status(mpt, NULL, req,
-				    0, NULL);
+				    0, NULL, 0);
 				return (TRUE);
 			}
 			tgt->ccb = NULL;
 			tgt->nxfers++;
-			mpt_req_untimeout(req, mpt_timeout, ccb);
+			mpt_req_untimeout(tgt->req, mpt_timeout, ccb);
 			mpt_lprt(mpt, MPT_PRT_DEBUG,
 			    "TARGET_ASSIST %p (req %p:%u) done tag 0x%x\n",
 			    ccb, tgt->req, tgt->req->serno, ccb->csio.tag_id);
@@ -5241,13 +5193,11 @@ mpt_scsi_tgt_reply_handler(struct mpt_softc *mpt, request_t *req,
 			/*
 			 * Otherwise, send status (and sense)
 			 */
-			if (ccb->ccb_h.flags & CAM_SEND_SENSE) {
-				sp = sense;
-				memcpy(sp, &ccb->csio.sense_data,
-				   min(ccb->csio.sense_len, MPT_SENSE_SIZE));
-			}
 			mpt_scsi_tgt_status(mpt, ccb, req,
-			    ccb->csio.scsi_status, sp);
+			    ccb->csio.scsi_status,
+			    (void *)&ccb->csio.sense_data,
+			    (ccb->ccb_h.flags & CAM_SEND_SENSE) ?
+			     ccb->csio.sense_len : 0);
 			break;
 		}
 		case TGT_STATE_SENDING_STATUS:
@@ -5268,7 +5218,7 @@ mpt_scsi_tgt_reply_handler(struct mpt_softc *mpt, request_t *req,
 				    TGT_STATE_MOVING_DATA_AND_STATUS) {
 					tgt->nxfers++;
 				}
-				mpt_req_untimeout(req, mpt_timeout, ccb);
+				mpt_req_untimeout(tgt->req, mpt_timeout, ccb);
 				if (ccb->ccb_h.flags & CAM_SEND_SENSE) {
 					ccb->ccb_h.status |= CAM_SENT_SENSE;
 				}

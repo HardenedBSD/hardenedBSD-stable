@@ -91,16 +91,6 @@ __FBSDID("$FreeBSD$");
 /* NULL-safe version of "tty_opened()" */
 #define	tty_opened_ns(tp)	((tp) != NULL && tty_opened(tp))
 
-typedef struct default_attr {
-	int		std_color;		/* normal hardware color */
-	int		rev_color;		/* reverse hardware color */
-} default_attr;
-
-static default_attr user_default = {
-    SC_NORM_ATTR,
-    SC_NORM_REV_ATTR,
-};
-
 static	u_char		sc_kattrtab[MAXCPU];
 
 static	int		sc_console_unit = -1;
@@ -277,7 +267,9 @@ static	u_int	ec_scroffset;
  * set (likely non-fake) graphics mode to get a null initial ec_putc().
  */
 static	scr_stat	fake_main_console = {
+#ifndef __sparc64__
 	.scr.vtb_buffer = 0xb8000,
+#endif
 	.xsize = 80,
 	.ysize = 25,
 #if !defined(__amd64__) && !defined(__i386__)
@@ -290,6 +282,7 @@ static	scr_stat	fake_main_console = {
 static void
 ec_putc(int c)
 {
+#ifndef __sparc64__
 	u_short *scrptr;
 	u_int ind;
 	int attr, column, mysize, width, xsize, yborder, ysize;
@@ -321,6 +314,7 @@ ec_putc(int c)
 	do
 		scrptr[ind++ % mysize] = (attr << 8) | c;
 	while (--width != 0);
+#endif /* !__sparc64__ */
 }
 
 #undef main_console
@@ -3158,9 +3152,7 @@ scinit(int unit, int flags)
 
 	    if (sc_init_emulator(scp, SC_DFLT_TERM))
 		sc_init_emulator(scp, "*");
-	    (*scp->tsw->te_default_attr)(scp,
-					 user_default.std_color,
-					 user_default.rev_color);
+	    (*scp->tsw->te_default_attr)(scp, SC_NORM_ATTR, SC_NORM_REV_ATTR);
 	} else {
 	    /* assert(sc_malloc) */
 	    sc->dev = malloc(sizeof(struct tty *)*sc->vtys, M_DEVBUF,
@@ -3574,8 +3566,7 @@ sc_init_emulator(scr_stat *scp, char *name)
     scp->rndr = rndr;
     scp->rndr->init(scp);
 
-    /* XXX */
-    (*sw->te_default_attr)(scp, user_default.std_color, user_default.rev_color);
+    (*sw->te_default_attr)(scp, SC_NORM_ATTR, SC_NORM_REV_ATTR);
     sc_clear_screen(scp);
 
     return 0;

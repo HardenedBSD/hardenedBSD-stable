@@ -331,8 +331,8 @@ typedef struct mpt_config_params {
 /**************************** MPI Target State Info ***************************/
 typedef struct {
 	uint32_t reply_desc;	/* current reply descriptor */
-	uint32_t resid;		/* current data residual */
 	uint32_t bytes_xfered;	/* current relative offset */
+	int resid;		/* current data residual */
 	union ccb *ccb;		/* pointer to currently active ccb */
 	request_t *req;		/* pointer to currently active assist request */
 	uint32_t
@@ -949,24 +949,6 @@ void mpt_prtc(struct mpt_softc *, const char *, ...)
 	__printflike(2, 3);
 
 /**************************** Target Mode Related ***************************/
-static __inline int mpt_cdblen(uint8_t, int);
-static __inline int
-mpt_cdblen(uint8_t cdb0, int maxlen)
-{
-	int group = cdb0 >> 5;
-	switch (group) {
-	case 0:
-		return (6);
-	case 1:
-		return (10);
-	case 4:
-	case 5:
-		return (12);
-	default:
-		return (16);
-	}
-}
-
 #ifdef	INVARIANTS
 static __inline request_t * mpt_tag_2_req(struct mpt_softc *, uint32_t);
 static __inline request_t *
