@@ -356,6 +356,8 @@ When set, it enforces these options:
 .Va WITHOUT_CLANG_EXTRAS
 .It
 .Va WITHOUT_CLANG_FULL
+.It
+.Va WITHOUT_SAFESTACK
 .El
 .It Va WITH_CLANG
 .\" $FreeBSD$
@@ -520,6 +522,8 @@ When set, it enforces these options:
 .Va WITHOUT_GNUCXX
 .It
 .Va WITHOUT_GROFF
+.It
+.Va WITHOUT_SAFESTACK
 .It
 .Va WITHOUT_TESTS
 .It
@@ -1087,6 +1091,8 @@ When set, it enforces these options:
 .Pp
 .Bl -item -compact
 .It
+.Va WITHOUT_CFI
+.It
 .Va WITHOUT_LLD_IS_LD
 .El
 .Pp
@@ -1122,6 +1128,13 @@ Set to use GNU binutils ld as the system linker, instead of LLVM's LLD.
 .Pp
 This is a default setting on
 arm/arm, arm/armeb, arm/armv6, i386/i386, mips/mipsel, mips/mips, mips/mips64el, mips/mips64, mips/mipsn32, mips/mipselhf, mips/mipshf, mips/mips64elhf, mips/mips64hf, powerpc/powerpc, powerpc/powerpc64, powerpc/powerpcspe and sparc64/sparc64.
+When set, it enforces these options:
+.Pp
+.Bl -item -compact
+.It
+.Va WITHOUT_CFI
+.El
+.Pp
 When set, these options are also in effect:
 .Pp
 .Bl -inset -compact
@@ -1208,19 +1221,6 @@ is set explicitly)
 .\" $FreeBSD$
 Set to not to install compressed man pages.
 Only the uncompressed versions will be installed.
-<<<<<<< HEAD
-.It Va WITHOUT_MANDOCDB
-.\" $FreeBSD$
-Use the version of
-.Xr makewhatis 1
-introduced in
-.Fx 2.1 ,
-instead of the
-.Xr makewhatis 8
-database and utilities from
-.Xr mandoc 1 .
-=======
->>>>>>> origin/freebsd/current/master
 .It Va WITHOUT_MAN_UTILS
 .\" $FreeBSD$
 Set to not build utilities for manual pages,
@@ -1728,6 +1728,8 @@ When set, it enforces these options:
 .Va WITHOUT_INCLUDES
 .It
 .Va WITHOUT_LLDB
+.It
+.Va WITHOUT_SAFESTACK
 .El
 .It Va WITHOUT_UNBOUND
 .\" $FreeBSD$
