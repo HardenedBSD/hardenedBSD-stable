@@ -34,6 +34,7 @@ SUBDIR=	alias \
 	csplit \
 	ctlstat \
 	cut \
+	diff \
 	dirname \
 	du \
 	elf2aout \
@@ -236,9 +237,6 @@ SUBDIR.${MK_MAIL}+=	mail
 SUBDIR.${MK_MAIL}+=	msgs
 SUBDIR.${MK_MAKE}+=	bmake
 SUBDIR.${MK_MAN_UTILS}+=	catman
-.if ${MK_MANDOCDB} == "no"	# AND
-SUBDIR.${MK_MAN_UTILS}+=	makewhatis
-.endif
 SUBDIR.${MK_MAN_UTILS}+=	man
 .if ${MK_LIBRESSL} == "no"
 SUBDIR.${MK_NETCAT}+=	nc
