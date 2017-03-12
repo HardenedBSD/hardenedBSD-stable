@@ -805,8 +805,7 @@ check_sanity() {
 }
 
 report_version() {
-	local ver
-	ver=$(get_version)
+	get_version > /dev/null 2>&1
 	if [ ! ${?} -eq 0 ]; then
 		echo "[-] Could not get remote version number" >&2
 		exit 1
@@ -816,7 +815,13 @@ report_version() {
 		echo "[+] Local version: $(cat ${mountpoint}/var/db/hbsd-update/version)"
 	fi
 
-	echo "[+] Remote version: ${ver}"
+	echo -n "[+] Remote version: ${buildver}"
+	
+	if [ ! -z "${update_hash}" ]; then
+		echo -n " $(echo ${update_hash} | sed 's,:, ,')"
+	fi
+
+	echo
 
 	exit 0
 }
