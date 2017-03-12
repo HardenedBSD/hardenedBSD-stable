@@ -391,9 +391,7 @@ isp_freeze_loopdown(ispsoftc_t *isp, int chan)
 			isp_prt(isp, ISP_LOGDEBUG0,
 			    "Chan %d Freeze simq (loopdown)", chan);
 			fc->simqfrozen = SIMQFRZ_LOOPDOWN;
-#if __FreeBSD_version >= 1000039
 			xpt_hold_boot();
-#endif
 			xpt_freeze_simq(fc->sim, 1);
 		} else {
 			isp_prt(isp, ISP_LOGDEBUG0,
@@ -414,9 +412,7 @@ isp_unfreeze_loopdown(ispsoftc_t *isp, int chan)
 			isp_prt(isp, ISP_LOGDEBUG0,
 			    "Chan %d Release simq", chan);
 			xpt_release_simq(fc->sim, 1);
-#if __FreeBSD_version >= 1000039
 			xpt_release_boot();
-#endif
 		}
 	}
 }
@@ -1736,10 +1732,6 @@ isp_target_putback_atio(union ccb *ccb)
 	at->at_header.rqs_entry_count = 1;
 	if (ISP_CAP_SCCFW(isp)) {
 		at->at_scclun = (uint16_t) ccb->ccb_h.target_lun;
-#if __FreeBSD_version < 1000700
-		if (at->at_scclun >= 256)
-			at->at_scclun |= 0x4000;
-#endif
 	} else {
 		at->at_lun = (uint8_t) ccb->ccb_h.target_lun;
 	}
@@ -1788,9 +1780,6 @@ isp_handle_platform_atio2(ispsoftc_t *isp, at2_entry_t *aep)
 	fcp = FCPARAM(isp, 0);
 	if (ISP_CAP_SCCFW(isp)) {
 		lun = aep->at_scclun;
-#if __FreeBSD_version < 1000700
-		lun &= 0x3fff;
-#endif
 	} else {
 		lun = aep->at_lun;
 	}
@@ -1926,12 +1915,7 @@ isp_handle_platform_atio7(ispsoftc_t *isp, at7_entry_t *aep)
 
 	did = (aep->at_hdr.d_id[0] << 16) | (aep->at_hdr.d_id[1] << 8) | aep->at_hdr.d_id[2];
 	sid = (aep->at_hdr.s_id[0] << 16) | (aep->at_hdr.s_id[1] << 8) | aep->at_hdr.s_id[2];
-#if __FreeBSD_version >= 1000700
 	lun = CAM_EXTLUN_BYTE_SWIZZLE(be64dec(aep->at_cmnd.fcp_cmnd_lun));
-#else
-	lun = (aep->at_cmnd.fcp_cmnd_lun[0] & 0x3f << 8) |
-	    aep->at_cmnd.fcp_cmnd_lun[1];
-#endif
 
 	/*
 	 * Find the N-port handle, and Virtual Port Index for this command.
@@ -2419,9 +2403,6 @@ isp_handle_platform_notify_fc(ispsoftc_t *isp, in_fcentry_t *inp)
 
 		if (ISP_CAP_SCCFW(isp)) {
 			lun = inp->in_scclun;
-#if __FreeBSD_version < 1000700
-			lun &= 0x3fff;
-#endif
 		} else {
 			lun = inp->in_lun;
 		}
@@ -3092,7 +3073,6 @@ isp_loop_changed(ispsoftc_t *isp, int chan)
 	isp_prt(isp, ISP_LOG_SANCFG|ISP_LOGDEBUG0, "Chan %d Loop changed", chan);
 	if (fcp->role & ISP_ROLE_INITIATOR)
 		isp_freeze_loopdown(isp, chan);
-	fc->loop_dead = 0;
 	fc->loop_down_time = time_uptime;
 	wakeup(fc);
 }
@@ -3104,7 +3084,6 @@ isp_loop_up(ispsoftc_t *isp, int chan)
 
 	isp_prt(isp, ISP_LOG_SANCFG|ISP_LOGDEBUG0, "Chan %d Loop is up", chan);
 	fc->loop_seen_once = 1;
-	fc->loop_dead = 0;
 	fc->loop_down_time = 0;
 	isp_unfreeze_loopdown(isp, chan);
 }
@@ -3168,7 +3147,6 @@ isp_loop_dead(ispsoftc_t *isp, int chan)
 	}
 
 	isp_unfreeze_loopdown(isp, chan);
-	fc->loop_dead = 1;
 	fc->loop_down_time = 0;
 }
 
@@ -3396,18 +3374,6 @@ isp_action(struct cam_sim *sim, union ccb *ccb)
 			callout_reset(&PISP_PCMD(ccb)->wdog, ts, isp_watchdog, ccb);
 			break;
 		case CMD_RQLATER:
-			/*
-			 * We get this result if the loop isn't ready
-			 * or if the device in question has gone zombie.
-			 */
-			if (ISP_FC_PC(isp, bus)->loop_dead) {
-				isp_prt(isp, ISP_LOGDEBUG0,
-				    "%d.%jx loop is dead",
-				    XS_TGT(ccb), (uintmax_t)XS_LUN(ccb));
-				ccb->ccb_h.status = CAM_SEL_TIMEOUT;
-				isp_done((struct ccb_scsiio *) ccb);
-				break;
-			}
 			isp_prt(isp, ISP_LOGDEBUG0, "%d.%jx retry later",
 			    XS_TGT(ccb), (uintmax_t)XS_LUN(ccb));
 			cam_freeze_devq(ccb->ccb_h.path);
@@ -3879,12 +3845,7 @@ isp_action(struct cam_sim *sim, union ccb *ccb)
 			fcparam *fcp = FCPARAM(isp, bus);
 
 			cpi->hba_misc = PIM_NOBUSRESET | PIM_UNMAPPED;
-#if __FreeBSD_version >= 1000700
-			cpi->hba_misc |= PIM_EXTLUNS;
-#endif
-#if __FreeBSD_version >= 1000039
-			cpi->hba_misc |= PIM_NOSCAN;
-#endif
+			cpi->hba_misc |= PIM_EXTLUNS | PIM_NOSCAN;
 
 			/*
 			 * Because our loop ID can shift from time to time,
@@ -3937,8 +3898,6 @@ isp_action(struct cam_sim *sim, union ccb *ccb)
 	}
 }
 
-#define	ISPDDB	(CAM_DEBUG_INFO|CAM_DEBUG_TRACE|CAM_DEBUG_CDB)
-
 void
 isp_done(XS_T *sccb)
 {
@@ -3959,27 +3918,10 @@ isp_done(XS_T *sccb)
 
 	sccb->ccb_h.status &= ~CAM_SIM_QUEUED;
 	status = sccb->ccb_h.status & CAM_STATUS_MASK;
-	if (status != CAM_REQ_CMP) {
-		if (status != CAM_SEL_TIMEOUT)
-			isp_prt(isp, ISP_LOGDEBUG0,
-			    "target %d lun %jx CAM status 0x%x SCSI status 0x%x",
-			    XS_TGT(sccb), (uintmax_t)XS_LUN(sccb),
-			    sccb->ccb_h.status, sccb->scsi_status);
-		else if ((IS_FC(isp))
-		      && (XS_TGT(sccb) < MAX_FC_TARG)) {
-			fcparam *fcp;
-
-			fcp = FCPARAM(isp, XS_CHANNEL(sccb));
-			fcp->portdb[XS_TGT(sccb)].is_target = 0;
-		}
-		if ((sccb->ccb_h.status & CAM_DEV_QFRZN) == 0) {
-			sccb->ccb_h.status |= CAM_DEV_QFRZN;
-			xpt_freeze_devq(sccb->ccb_h.path, 1);
-		}
-	}
-
-	if ((CAM_DEBUGGED(sccb->ccb_h.path, ISPDDB)) && (sccb->ccb_h.status & CAM_STATUS_MASK) != CAM_REQ_CMP) {
-		xpt_print(sccb->ccb_h.path, "cam completion status 0x%x\n", sccb->ccb_h.status);
+	if (status != CAM_REQ_CMP &&
+	    (sccb->ccb_h.status & CAM_DEV_QFRZN) == 0) {
+		sccb->ccb_h.status |= CAM_DEV_QFRZN;
+		xpt_freeze_devq(sccb->ccb_h.path, 1);
 	}
 
 	if (ISP_PCMD(sccb)) {

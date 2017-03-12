@@ -225,8 +225,6 @@ struct isp_fc {
 		simqfrozen	: 3,
 		default_id	: 8,
 		def_role	: 2,	/* default role */
-		gdt_running	: 1,
-		loop_dead	: 1,
 		loop_seen_once	: 1,
 		fcbsy		: 1,
 		ready		: 1;
@@ -384,13 +382,8 @@ struct isposinfo {
 #define	ISP_MEMCPY		memcpy
 #define	ISP_SNPRINTF		snprintf
 #define	ISP_DELAY(x)		DELAY(x)
-#if __FreeBSD_version < 1000029
-#define	ISP_SLEEP(isp, x)	msleep(&(isp)->isp_osinfo.is_exiting, \
-    &(isp)->isp_osinfo.lock, 0, "isp_sleep", ((x) + tick - 1) / tick)
-#else
 #define	ISP_SLEEP(isp, x)	msleep_sbt(&(isp)->isp_osinfo.is_exiting, \
     &(isp)->isp_osinfo.lock, 0, "isp_sleep", (x) * SBT_1US, 0, 0)
-#endif
 
 #define	ISP_MIN			imin
 
