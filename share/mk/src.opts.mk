@@ -132,7 +132,6 @@ __DEFAULT_YES_OPTIONS = \
     MAIL \
     MAILWRAPPER \
     MAKE \
-    MANDOCDB \
     NDIS \
     NETCAT \
     NETGRAPH \
