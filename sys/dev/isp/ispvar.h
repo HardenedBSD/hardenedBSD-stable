@@ -575,12 +575,7 @@ struct ispsoftc {
 	volatile uint32_t	isp_serno;	/* rolling serial number */
 	volatile uint16_t	isp_mboxtmp[MAX_MAILBOX];
 	volatile uint16_t	isp_lastmbxcmd;	/* last mbox command sent */
-	volatile uint16_t	isp_mbxwrk0;
-	volatile uint16_t	isp_mbxwrk1;
-	volatile uint16_t	isp_mbxwrk2;
-	volatile uint16_t	isp_mbxwrk8;
 	volatile uint16_t	isp_seqno;	/* running sequence number */
-	void *			isp_mbxworkp;
 
 	/*
 	 * Active commands are stored here, indexed by handle functions.
@@ -1146,9 +1141,7 @@ int isp_endcmd(ispsoftc_t *, ...);
 
 /*
  * Handle an asynchronous event
- *
- * Return nonzero if the interrupt that generated this event has been dismissed.
  */
-int isp_target_async(ispsoftc_t *, int, int);
+void isp_target_async(ispsoftc_t *, int, int);
 #endif
 #endif	/* _ISPVAR_H */
