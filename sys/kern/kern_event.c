@@ -887,6 +887,7 @@ kern_kqueue(struct thread *td, int flags, struct filecaps *fcaps)
 	return (0);
 }
 
+#ifdef KTRACE
 static size_t
 kev_iovlen(int n, u_int kgio)
 {
@@ -895,6 +896,7 @@ kev_iovlen(int n, u_int kgio)
 		return (kgio);
 	return (n * sizeof(struct kevent));
 }
+#endif
 
 #ifndef _SYS_SYSPROTO_H_
 struct kevent_args {
@@ -910,9 +912,11 @@ int
 sys_kevent(struct thread *td, struct kevent_args *uap)
 {
 	struct timespec ts, *tsp;
-	struct kevent_copyops k_ops = { uap,
-					kevent_copyout,
-					kevent_copyin};
+	struct kevent_copyops k_ops = {
+		.arg = uap,
+		.k_copyout = kevent_copyout,
+		.k_copyin = kevent_copyin,
+	};
 	int error;
 #ifdef KTRACE
 	struct uio ktruio;
