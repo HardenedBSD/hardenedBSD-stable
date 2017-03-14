@@ -428,7 +428,7 @@ __elfN(map_partial)(vm_map_t map, vm_object_t object, vm_ooffset_t offset,
 static int
 __elfN(map_insert)(struct image_params *imgp, vm_map_t map, vm_object_t object,
     vm_ooffset_t offset, vm_offset_t start, vm_offset_t end, vm_prot_t prot,
-    vm_prot_t maxprot, pint cow)
+    vm_prot_t maxprot, int cow)
 {
 	struct sf_buf *sf;
 	vm_offset_t off;
