@@ -909,6 +909,7 @@ OLD_FILES+=etc/periodic/daily/800.scrub-zfs
 OLD_LIBS+=lib/libzfs.so.2
 OLD_LIBS+=lib/libzfs_core.so.2
 OLD_LIBS+=lib/libzpool.so.2
+OLD_FILES+=rescue/zdb
 OLD_FILES+=rescue/zfs
 OLD_FILES+=rescue/zpool
 OLD_FILES+=sbin/zfs
@@ -2501,6 +2502,7 @@ OLD_FILES+=usr/share/man/man8/traceroute6.8.gz
 
 .if ${MK_INET6_SUPPORT} == no
 OLD_FILES+=rescue/ping6
+OLD_FILES+=rescue/rtsol
 .endif
 
 #.if ${MK_INFO} == no
@@ -2630,6 +2632,8 @@ OLD_FILES+=usr/share/man/man8/IPXrouted.8.gz
 .if ${MK_ISCSI} == no
 OLD_FILES+=etc/rc.d/iscsictl
 OLD_FILES+=etc/rc.d/iscsid
+OLD_FILES+=rescue/iscsictl
+OLD_FILES+=rescue/iscsid
 OLD_FILES+=sbin/iscontrol
 OLD_FILES+=usr/bin/iscsictl
 OLD_FILES+=usr/sbin/iscsid
@@ -3899,6 +3903,7 @@ OLD_FILES+=usr/share/misc/windrv_stub.c
 .endif
 
 .if ${MK_NETCAT} == no
+OLD_FILES+=rescue/nc
 OLD_FILES+=usr/bin/nc
 OLD_FILES+=usr/share/man/man1/nc.1.gz
 .endif
