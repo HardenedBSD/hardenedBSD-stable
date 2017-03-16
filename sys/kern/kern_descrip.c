@@ -97,8 +97,8 @@ MALLOC_DEFINE(M_FILECAPS, "filecaps", "descriptor capabilities");
 
 MALLOC_DECLARE(M_FADVISE);
 
-static uma_zone_t file_zone;
-static uma_zone_t filedesc0_zone;
+static __read_mostly uma_zone_t file_zone;
+static __read_mostly uma_zone_t filedesc0_zone;
 
 static int	closefp(struct filedesc *fdp, int fd, struct file *fp,
 		    struct thread *td, int holdleaders);
@@ -168,9 +168,9 @@ struct filedesc0 {
 /*
  * Descriptor management.
  */
-volatile int openfiles;			/* actual number of open files */
+volatile int __exclusive_cache_line openfiles; /* actual number of open files */
 struct mtx sigio_lock;		/* mtx to protect pointers to sigio */
-void (*mq_fdclose)(struct thread *td, int fd, struct file *fp);
+void __read_mostly (*mq_fdclose)(struct thread *td, int fd, struct file *fp);
 
 /*
  * If low >= size, just return low. Otherwise find the first zero bit in the
@@ -2567,8 +2567,8 @@ fget_unlocked(struct filedesc *fdp, int fd, cap_rights_t *needrightsp,
 		if (error != 0)
 			return (error);
 #endif
-	retry:
 		count = fp->f_count;
+	retry:
 		if (count == 0) {
 			/*
 			 * Force a reload. Other thread could reallocate the
@@ -2582,7 +2582,7 @@ fget_unlocked(struct filedesc *fdp, int fd, cap_rights_t *needrightsp,
 		 * Use an acquire barrier to force re-reading of fdt so it is
 		 * refreshed for verification.
 		 */
-		if (atomic_cmpset_acq_int(&fp->f_count, count, count + 1) == 0)
+		if (atomic_fcmpset_acq_int(&fp->f_count, &count, count + 1) == 0)
 			goto retry;
 		fdt = fdp->fd_files;
 #ifdef	CAPABILITIES
