@@ -157,10 +157,14 @@ sdhci_dumpregs(struct sdhci_slot *slot)
 	    RD1(slot, SDHCI_TIMEOUT_CONTROL), RD4(slot, SDHCI_INT_STATUS));
 	slot_printf(slot, "Int enab: 0x%08x | Sig enab: 0x%08x\n",
 	    RD4(slot, SDHCI_INT_ENABLE), RD4(slot, SDHCI_SIGNAL_ENABLE));
-	slot_printf(slot, "AC12 err: 0x%08x | Slot int: 0x%08x\n",
-	    RD2(slot, SDHCI_ACMD12_ERR), RD2(slot, SDHCI_SLOT_INT_STATUS));
-	slot_printf(slot, "Caps:     0x%08x | Max curr: 0x%08x\n",
-	    RD4(slot, SDHCI_CAPABILITIES), RD4(slot, SDHCI_MAX_CURRENT));
+	slot_printf(slot, "AC12 err: 0x%08x | Host ctl2: 0x%08x\n",
+	    RD2(slot, SDHCI_ACMD12_ERR), RD2(slot, SDHCI_HOST_CONTROL2));
+	slot_printf(slot, "Caps:     0x%08x | Caps2:    0x%08x\n",
+	    RD4(slot, SDHCI_CAPABILITIES), RD4(slot, SDHCI_CAPABILITIES2));
+	slot_printf(slot, "Max curr: 0x%08x | ADMA err: 0x%08x\n",
+	    RD4(slot, SDHCI_MAX_CURRENT), RD1(slot, SDHCI_ADMA_ERR));
+	slot_printf(slot, "ADMA addr: 0x%08x | Slot int: 0x%08x\n",
+	    RD4(slot, SDHCI_ADMA_ADDRESS_LO), RD2(slot, SDHCI_SLOT_INT_STATUS));
 
 	slot_printf(slot,
 	    "===========================================\n");
@@ -686,6 +690,10 @@ sdhci_init_slot(device_t dev, struct sdhci_slot *slot, int num)
 		slot->host.caps |= MMC_CAP_8_BIT_DATA;
 	if (caps & SDHCI_CAN_DO_HISPD)
 		slot->host.caps |= MMC_CAP_HSPEED;
+	if (slot->quirks & SDHCI_QUIRK_BOOT_NOACC)
+		slot->host.caps |= MMC_CAP_BOOT_NOACC;
+	if (slot->quirks & SDHCI_QUIRK_WAIT_WHILE_BUSY)
+		slot->host.caps |= MMC_CAP_WAIT_WHILE_BUSY;
 	/* Decide if we have usable DMA. */
 	if (caps & SDHCI_CAN_DO_DMA)
 		slot->opt |= SDHCI_HAVE_DMA;
@@ -1013,9 +1021,11 @@ sdhci_finish_command(struct sdhci_slot *slot)
 	uint8_t extra;
 
 	slot->cmd_done = 1;
-	/* Interrupt aggregation: Restore command interrupt.
+	/*
+	 * Interrupt aggregation: Restore command interrupt.
 	 * Main restore point for the case when command interrupt
-	 * happened first. */
+	 * happened first.
+	 */
 	WR4(slot, SDHCI_SIGNAL_ENABLE, slot->intmask |= SDHCI_INT_RESPONSE);
 	/* In case of error - reset host and return. */
 	if (slot->curcmd->error) {
@@ -1522,6 +1532,12 @@ sdhci_generic_read_ivar(device_t bus, device_t child, int which,
 		break;
 	case MMCBR_IVAR_MAX_DATA:
 		*result = 65535;
+		break;
+	case MMCBR_IVAR_MAX_BUSY_TIMEOUT:
+		/*
+		 * Currently, sdhci_start_data() hardcodes 1 s for all CMDs.
+		 */
+		*result = 1000000;
 		break;
 	}
 	return (0);
