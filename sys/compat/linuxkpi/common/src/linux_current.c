@@ -43,6 +43,7 @@ int
 linux_alloc_current(struct thread *td, int flags)
 {
 	struct task_struct *ts;
+	struct mm_struct *mm;
 
 	MPASS(td->td_lkpi_task == NULL);
 
@@ -50,18 +51,56 @@ linux_alloc_current(struct thread *td, int flags)
 	if (ts == NULL)
 		return (ENOMEM);
 
+	mm = malloc(sizeof(*mm), M_LINUX_CURRENT, flags | M_ZERO);
+	if (mm == NULL) {
+		free(ts, M_LINUX_CURRENT);
+		return (ENOMEM);
+	}
+
 	atomic_set(&ts->kthread_flags, 0);
 	ts->task_thread = td;
 	ts->comm = td->td_name;
 	ts->pid = td->td_tid;
+	ts->mm = mm;
+	atomic_set(&ts->usage, 1);
 	ts->state = TASK_RUNNING;
+
+	/* setup mm_struct */
+	init_rwsem(&mm->mmap_sem);
+	atomic_set(&mm->mm_count, 1);
+	atomic_set(&mm->mm_users, 1);
+	mm->vmspace = vmspace_acquire_ref(td->td_proc);
+
+	/* store pointer to task struct */
 	td->td_lkpi_task = ts;
 	return (0);
+}
+
+struct mm_struct *
+linux_get_task_mm(struct task_struct *task)
+{
+	struct mm_struct *mm;
+
+	mm = task->mm;
+	if (mm != NULL && mm->vmspace != NULL) {
+		atomic_inc(&mm->mm_users);
+		return (mm);
+	}
+	return (NULL);
+}
+
+void
+linux_mm_dtor(struct mm_struct *mm)
+{
+	if (mm->vmspace != NULL)
+		vmspace_free(mm->vmspace);
+	free(mm, M_LINUX_CURRENT);
 }
 
 void
 linux_free_current(struct task_struct *ts)
 {
+	mmput(ts->mm);
 	free(ts, M_LINUX_CURRENT);
 }
 
@@ -75,7 +114,37 @@ linuxkpi_thread_dtor(void *arg __unused, struct thread *td)
 		return;
 
 	td->td_lkpi_task = NULL;
-	free(ts, M_LINUX_CURRENT);
+	put_task_struct(ts);
+}
+
+struct task_struct *
+linux_pid_task(pid_t pid)
+{
+	struct thread *td;
+
+	td = tdfind(pid, -1);
+	if (td != NULL) {
+		struct task_struct *ts = td->td_lkpi_task;
+		PROC_UNLOCK(td->td_proc);
+		return (ts);
+	}
+	return (NULL);
+}
+
+struct task_struct *
+linux_get_pid_task(pid_t pid)
+{
+	struct thread *td;
+
+	td = tdfind(pid, -1);
+	if (td != NULL) {
+		struct task_struct *ts = td->td_lkpi_task;
+		if (ts != NULL)
+			get_task_struct(ts);
+		PROC_UNLOCK(td->td_proc);
+		return (ts);
+	}
+	return (NULL);
 }
 
 static void

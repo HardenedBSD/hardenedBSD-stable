@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2015 Andrew Turner
+ * Copyright (c) 2017 Andrew Turner
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -23,52 +23,13 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
+ * $FreeBSD$
  */
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
+#ifndef IMX6_MP_H
+#define	IMX6_MP_H
 
-#include <sys/param.h>
-#include <sys/systm.h>
-#include <sys/bus.h>
-#include <sys/pcpu.h>
-#include <sys/smp.h>
+void imx6_mp_start_ap(platform_t);
+void imx6_mp_setmaxid(platform_t);
 
-#include <vm/vm.h>
-#include <vm/pmap.h>
-
-#include <machine/intr.h>
-#include <machine/platformvar.h>
-#include <machine/smp.h>
-
-#include <dev/ofw/openfirm.h>
-#include <dev/ofw/ofw_cpu.h>
-#include <dev/psci/psci.h>
-
-#include <arm/qemu/virt_mp.h>
-
-static int running_cpus;
-
-static boolean_t
-virt_start_ap(u_int id, phandle_t node, u_int addr_cells, pcell_t *reg)
-{
-	int err;
-
-	if (running_cpus >= mp_ncpus)
-		return (false);
-	running_cpus++;
-
-	err = psci_cpu_on(*reg, pmap_kextract((vm_offset_t)mpentry), id);
-
-	if (err != PSCI_RETVAL_SUCCESS)
-		return (false);
-
-	return (true);
-}
-
-void
-virt_mp_start_ap(platform_t plat)
-{
-
-	ofw_cpu_early_foreach(virt_start_ap, true);
-}
+#endif /* IMX6_MP_H */
