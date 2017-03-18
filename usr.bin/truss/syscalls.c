@@ -92,10 +92,17 @@ static struct syscall decoded_syscalls[] = {
 		    { Int, 3 } } },
 	{ .name = "break", .ret_type = 1, .nargs = 1,
 	  .args = { { Ptr, 0 } } },
+	{ .name = "cap_fcntls_get", .ret_type = 1, .nargs = 2,
+	  .args = { { Int, 0 }, { CapFcntlRights | OUT, 1 } } },
+	{ .name = "cap_fcntls_limit", .ret_type = 1, .nargs = 2,
+	  .args = { { Int, 0 }, { CapFcntlRights, 1 } } },
 	{ .name = "chdir", .ret_type = 1, .nargs = 1,
 	  .args = { { Name, 0 } } },
 	{ .name = "chflags", .ret_type = 1, .nargs = 2,
-	  .args = { { Name | IN, 0 }, { Hex, 1 } } },
+	  .args = { { Name | IN, 0 }, { FileFlags, 1 } } },
+	{ .name = "chflagsat", .ret_type = 1, .nargs = 4,
+	  .args = { { Atfd, 0 }, { Name | IN, 1 }, { FileFlags, 2 },
+		    { Atflags, 3 } } },
 	{ .name = "chmod", .ret_type = 1, .nargs = 2,
 	  .args = { { Name, 0 }, { Octal, 1 } } },
 	{ .name = "chown", .ret_type = 1, .nargs = 3,
@@ -121,6 +128,8 @@ static struct syscall decoded_syscalls[] = {
 	{ .name = "faccessat", .ret_type = 1, .nargs = 4,
 	  .args = { { Atfd, 0 }, { Name | IN, 1 }, { Accessmode, 2 },
 		    { Atflags, 3 } } },
+	{ .name = "fchflags", .ret_type = 1, .nargs = 2,
+	  .args = { { Int, 0 }, { FileFlags, 1 } } },
 	{ .name = "fchmod", .ret_type = 1, .nargs = 2,
 	  .args = { { Int, 0 }, { Octal, 1 } } },
 	{ .name = "fchmodat", .ret_type = 1, .nargs = 4,
@@ -132,6 +141,8 @@ static struct syscall decoded_syscalls[] = {
 		    { Atflags, 4 } } },
 	{ .name = "fcntl", .ret_type = 1, .nargs = 3,
 	  .args = { { Int, 0 }, { Fcntl, 1 }, { Fcntlflag, 2 } } },
+	{ .name = "flock", .ret_type = 1, .nargs = 2,
+	  .args = { { Int, 0 }, { Flockop, 1 } } },
 	{ .name = "fstat", .ret_type = 1, .nargs = 2,
 	  .args = { { Int, 0 }, { Stat | OUT, 1 } } },
 	{ .name = "fstatat", .ret_type = 1, .nargs = 4,
@@ -147,6 +158,8 @@ static struct syscall decoded_syscalls[] = {
 	  .args = { { Int, 0 }, { Timeval2 | IN, 1 } } },
 	{ .name = "futimesat", .ret_type = 1, .nargs = 3,
 	  .args = { { Atfd, 0 }, { Name | IN, 1 }, { Timeval2 | IN, 2 } } },
+	{ .name = "getfsstat", .ret_type = 1, .nargs = 3,
+	  .args = { { Ptr, 0 }, { Long, 1 }, { Getfsstatmode, 2 } } },
 	{ .name = "getitimer", .ret_type = 1, .nargs = 2,
 	  .args = { { Int, 0 }, { Itimerval | OUT, 2 } } },
 	{ .name = "getpeername", .ret_type = 1, .nargs = 3,
@@ -180,12 +193,16 @@ static struct syscall decoded_syscalls[] = {
 	  .args = { { Int, 0 } } },
 	{ .name = "kldstat", .ret_type = 1, .nargs = 2,
 	  .args = { { Int, 0 }, { Ptr, 1 } } },
+	{ .name = "kldsym", .ret_type = 1, .nargs = 3,
+	  .args = { { Int, 0 }, { Kldsymcmd, 1 }, { Ptr, 2 } } },
 	{ .name = "kldunload", .ret_type = 1, .nargs = 1,
 	  .args = { { Int, 0 } } },
+	{ .name = "kldunloadf", .ret_type = 1, .nargs = 2,
+	  .args = { { Int, 0 }, { Kldunloadflags, 1 } } },
 	{ .name = "kse_release", .ret_type = 0, .nargs = 1,
 	  .args = { { Timespec, 0 } } },
 	{ .name = "lchflags", .ret_type = 1, .nargs = 2,
-	  .args = { { Name | IN, 0 }, { Hex, 1 } } },
+	  .args = { { Name | IN, 0 }, { FileFlags, 1 } } },
 	{ .name = "lchmod", .ret_type = 1, .nargs = 2,
 	  .args = { { Name, 0 }, { Octal, 1 } } },
 	{ .name = "lchown", .ret_type = 1, .nargs = 3,
@@ -239,6 +256,9 @@ static struct syscall decoded_syscalls[] = {
 	  .args = { { Ptr, 0 }, { Pipe2, 1 } } },
 	{ .name = "poll", .ret_type = 1, .nargs = 3,
 	  .args = { { Pollfd, 0 }, { Int, 1 }, { Int, 2 } } },
+	{ .name = "posix_fadvise", .ret_type = 1, .nargs = 4,
+	  .args = { { Int, 0 }, { QuadHex, 1 }, { QuadHex, 2 },
+		    { Fadvice, 3 } } },
 	{ .name = "posix_openpt", .ret_type = 1, .nargs = 1,
 	  .args = { { Open, 0 } } },
 	{ .name = "procctl", .ret_type = 1, .nargs = 4,
@@ -784,6 +804,18 @@ static void
 print_mask_arg(bool (*decoder)(FILE *, int, int *), FILE *fp, int value)
 {
 	int rem;
+
+	if (!decoder(fp, value, &rem))
+		fprintf(fp, "0x%x", rem);
+	else if (rem != 0)
+		fprintf(fp, "|0x%x", rem);
+}
+
+static void
+print_mask_arg32(bool (*decoder)(FILE *, uint32_t, uint32_t *), FILE *fp,
+    uint32_t value)
+{
+	uint32_t rem;
 
 	if (!decoder(fp, value, &rem))
 		fprintf(fp, "0x%x", rem);
@@ -1831,6 +1863,46 @@ print_arg(struct syscall_args *sc, unsigned long *args, long *retval,
 	}
 	case Pipe2:
 		print_mask_arg(sysdecode_pipe2_flags, fp, args[sc->offset]);
+		break;
+	case CapFcntlRights: {
+		uint32_t rights;
+
+		if (sc->type & OUT) {
+			if (get_struct(pid, (void *)args[sc->offset], &rights,
+			    sizeof(rights)) == -1) {
+				fprintf(fp, "0x%lx", args[sc->offset]);
+				break;
+			}
+		} else
+			rights = args[sc->offset];
+		print_mask_arg32(sysdecode_cap_fcntlrights, fp, rights);
+		break;
+	}
+	case Fadvice:
+		print_integer_arg(sysdecode_fadvice, fp, args[sc->offset]);
+		break;
+	case FileFlags: {
+		fflags_t rem;
+
+		if (!sysdecode_fileflags(fp, args[sc->offset], &rem))
+			fprintf(fp, "0x%x", rem);
+		else if (rem != 0)
+			fprintf(fp, "|0x%x", rem);
+		break;
+	}
+	case Flockop:
+		print_mask_arg(sysdecode_flock_operation, fp, args[sc->offset]);
+		break;
+	case Getfsstatmode:
+		print_integer_arg(sysdecode_getfsstat_mode, fp,
+		    args[sc->offset]);
+		break;
+	case Kldsymcmd:
+		print_integer_arg(sysdecode_kldsym_cmd, fp, args[sc->offset]);
+		break;
+	case Kldunloadflags:
+		print_integer_arg(sysdecode_kldunload_flags, fp,
+		    args[sc->offset]);
 		break;
 
 	case CloudABIAdvice:

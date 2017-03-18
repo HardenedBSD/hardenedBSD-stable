@@ -142,7 +142,7 @@ linux_to_native_timespec(struct timespec *ntp, struct l_timespec *ltp)
 
 	LIN_SDT_PROBE2(time, linux_to_native_timespec, entry, ntp, ltp);
 
-	if (ltp->tv_sec < 0 || ltp->tv_nsec > (l_long)999999999L) {
+	if (ltp->tv_sec < 0 || (l_ulong)ltp->tv_nsec > 999999999L) {
 		LIN_SDT_PROBE1(time, linux_to_native_timespec, return, EINVAL);
 		return (EINVAL);
 	}
@@ -519,7 +519,7 @@ linux_nanosleep(struct thread *td, struct linux_nanosleep_args *args)
 		return (error);
 	}
 	error = kern_nanosleep(td, &rqts, rmtp);
-	if (args->rmtp != NULL) {
+	if (error == EINTR && args->rmtp != NULL) {
 		error2 = native_to_linux_timespec(&lrmts, rmtp);
 		if (error2 != 0)
 			return (error2);
@@ -583,7 +583,7 @@ linux_clock_nanosleep(struct thread *td, struct linux_clock_nanosleep_args *args
 		return (error);
 	}
 	error = kern_nanosleep(td, &rqts, rmtp);
-	if (args->rmtp != NULL) {
+	if (error == EINTR && args->rmtp != NULL) {
 		/* XXX. Not for TIMER_ABSTIME */
 		error2 = native_to_linux_timespec(&lrmts, rmtp);
 		if (error2 != 0)

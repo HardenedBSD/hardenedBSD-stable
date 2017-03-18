@@ -788,7 +788,6 @@ static void isp_target_start_ctio(ispsoftc_t *, union ccb *, enum Start_Ctio_How
 static void isp_handle_platform_atio2(ispsoftc_t *, at2_entry_t *);
 static void isp_handle_platform_atio7(ispsoftc_t *, at7_entry_t *);
 static void isp_handle_platform_ctio(ispsoftc_t *, void *);
-static void isp_handle_platform_notify_fc(ispsoftc_t *, in_fcentry_t *);
 static void isp_handle_platform_notify_24xx(ispsoftc_t *, in_fcentry_24xx_t *);
 static int isp_handle_platform_target_notify_ack(ispsoftc_t *, isp_notify_t *, uint32_t rsp);
 static void isp_handle_platform_target_tmf(ispsoftc_t *, isp_notify_t *);
@@ -2283,80 +2282,6 @@ isp_handle_platform_ctio(ispsoftc_t *isp, void *arg)
 }
 
 static void
-isp_handle_platform_notify_fc(ispsoftc_t *isp, in_fcentry_t *inp)
-{
-	int needack = 1;
-	switch (inp->in_status) {
-	case IN_PORT_LOGOUT:
-		/*
-		 * XXX: Need to delete this initiator's WWN from the database
-		 * XXX: Need to send this LOGOUT upstream
-		 */
-		isp_prt(isp, ISP_LOGWARN, "port logout of S_ID 0x%x", inp->in_iid);
-		break;
-	case IN_PORT_CHANGED:
-		isp_prt(isp, ISP_LOGWARN, "port changed for S_ID 0x%x", inp->in_iid);
-		break;
-	case IN_GLOBAL_LOGO:
-		isp_del_all_wwn_entries(isp, 0);
-		isp_prt(isp, ISP_LOGINFO, "all ports logged out");
-		break;
-	case IN_ABORT_TASK:
-	{
-		lun_id_t lun;
-		uint16_t nphdl;
-		uint32_t sid;
-		uint64_t wwn;
-		fcportdb_t *lp;
-		isp_notify_t tmp, *nt = &tmp;
-
-		if (ISP_CAP_SCCFW(isp)) {
-			lun = inp->in_scclun;
-		} else {
-			lun = inp->in_lun;
-		}
-		if (ISP_CAP_2KLOGIN(isp)) {
-			nphdl = ((in_fcentry_e_t *)inp)->in_iid;
-		} else {
-			nphdl = inp->in_iid;
-		}
-		if (isp_find_pdb_by_handle(isp, 0, nphdl, &lp)) {
-			wwn = lp->port_wwn;
-			sid = lp->portid;
-		} else {
-			wwn = INI_ANY;
-			sid = PORT_ANY;
-		}
-		isp_prt(isp, ISP_LOGTDEBUG0, "ABORT TASK RX_ID %x WWN 0x%016llx",
-		    inp->in_seqid, (unsigned long long) wwn);
-
-		ISP_MEMZERO(nt, sizeof (isp_notify_t));
-		nt->nt_hba = isp;
-		nt->nt_tgt = FCPARAM(isp, 0)->isp_wwpn;
-		nt->nt_wwn = wwn;
-		nt->nt_nphdl = nphdl;
-		nt->nt_sid = sid;
-		nt->nt_did = PORT_ANY;
-		nt->nt_lun = lun;
-		nt->nt_tagval = inp->in_seqid;
-		nt->nt_tagval |= (((uint64_t)(isp->isp_serno++)) << 32);
-		nt->nt_need_ack = 1;
-		nt->nt_channel = 0;
-		nt->nt_ncode = NT_ABORT_TASK;
-		nt->nt_lreserved = inp;
-		isp_handle_platform_target_tmf(isp, nt);
-		needack = 0;
-		break;
-	}
-	default:
-		break;
-	}
-	if (needack) {
-		isp_async(isp, ISPASYNC_TARGET_NOTIFY_ACK, inp);
-	}
-}
-
-static void
 isp_handle_platform_notify_24xx(ispsoftc_t *isp, in_fcentry_24xx_t *inot)
 {
 	uint16_t nphdl;
@@ -2601,18 +2526,19 @@ isp_handle_platform_target_tmf(ispsoftc_t *isp, isp_notify_t *notify)
 	fcportdb_t *lp;
 	struct ccb_immediate_notify *inot;
 	inot_private_data_t *ntp = NULL;
+	atio_private_data_t *atp;
 	lun_id_t lun;
 
 	isp_prt(isp, ISP_LOGTDEBUG0, "%s: code 0x%x sid  0x%x tagval 0x%016llx chan %d lun %jx", __func__, notify->nt_ncode,
 	    notify->nt_sid, (unsigned long long) notify->nt_tagval, notify->nt_channel, notify->nt_lun);
-	/*
-	 * NB: This assignment is necessary because of tricky type conversion.
-	 * XXX: This is tricky and I need to check this. If the lun isn't known
-	 * XXX: for the task management function, it does not of necessity follow
-	 * XXX: that it should go up stream to the wildcard listener.
-	 */
 	if (notify->nt_lun == LUN_ANY) {
-		lun = CAM_LUN_WILDCARD;
+		if (notify->nt_tagval == TAG_ANY) {
+			lun = CAM_LUN_WILDCARD;
+		} else {
+			atp = isp_find_atpd(isp, notify->nt_channel,
+			    notify->nt_tagval & 0xffffffff);
+			lun = atp ? atp->lun : CAM_LUN_WILDCARD;
+		}
 	} else {
 		lun = notify->nt_lun;
 	}
@@ -4158,11 +4084,7 @@ changed:
 			isp_prt(isp, ISP_LOGWARN, "%s: unhandled target action 0x%x", __func__, hp->rqs_entry_type);
 			break;
 		case RQSTYPE_NOTIFY:
-			if (IS_24XX(isp)) {
-				isp_handle_platform_notify_24xx(isp, (in_fcentry_24xx_t *) hp);
-			} else {
-				isp_handle_platform_notify_fc(isp, (in_fcentry_t *) hp);
-			}
+			isp_handle_platform_notify_24xx(isp, (in_fcentry_24xx_t *) hp);
 			break;
 		case RQSTYPE_ATIO:
 			isp_handle_platform_atio7(isp, (at7_entry_t *) hp);
@@ -4176,55 +4098,6 @@ changed:
 		case RQSTYPE_CTIO:
 			isp_handle_platform_ctio(isp, hp);
 			break;
-		case RQSTYPE_ABTS_RCVD:
-		{
-			abts_t *abts = (abts_t *)hp;
-			isp_notify_t notify, *nt = &notify;
-			atio_private_data_t *atp;
-			fcportdb_t *lp;
-			uint16_t chan;
-			uint32_t sid, did;
-
-			did = (abts->abts_did_hi << 16) | abts->abts_did_lo;
-			sid = (abts->abts_sid_hi << 16) | abts->abts_sid_lo;
-			ISP_MEMZERO(nt, sizeof (isp_notify_t));
-
-			nt->nt_hba = isp;
-			nt->nt_did = did;
-			nt->nt_nphdl = abts->abts_nphdl;
-			nt->nt_sid = sid;
-			isp_find_chan_by_did(isp, did, &chan);
-			if (chan == ISP_NOCHAN) {
-				nt->nt_tgt = TGT_ANY;
-			} else {
-				nt->nt_tgt = FCPARAM(isp, chan)->isp_wwpn;
-				if (isp_find_pdb_by_handle(isp, chan, abts->abts_nphdl, &lp)) {
-					nt->nt_wwn = lp->port_wwn;
-				} else {
-					nt->nt_wwn = INI_ANY;
-				}
-			}
-			/*
-			 * Try hard to find the lun for this command.
-			 */
-			atp = isp_find_atpd(isp, chan, abts->abts_rxid_task);
-			nt->nt_lun = atp ? atp->lun : LUN_ANY;
-			nt->nt_need_ack = 1;
-			nt->nt_tagval = abts->abts_rxid_task;
-			nt->nt_tagval |= (((uint64_t) abts->abts_rxid_abts) << 32);
-			if (abts->abts_rxid_task == ISP24XX_NO_TASK) {
-				isp_prt(isp, ISP_LOGTINFO, "[0x%x] ABTS from N-Port handle 0x%x Port 0x%06x has no task id (rx_id 0x%04x ox_id 0x%04x)",
-				    abts->abts_rxid_abts, abts->abts_nphdl, sid, abts->abts_rx_id, abts->abts_ox_id);
-			} else {
-				isp_prt(isp, ISP_LOGTINFO, "[0x%x] ABTS from N-Port handle 0x%x Port 0x%06x for task 0x%x (rx_id 0x%04x ox_id 0x%04x)",
-				    abts->abts_rxid_abts, abts->abts_nphdl, sid, abts->abts_rxid_task, abts->abts_rx_id, abts->abts_ox_id);
-			}
-			nt->nt_channel = chan;
-			nt->nt_ncode = NT_ABORT_TASK;
-			nt->nt_lreserved = hp;
-			isp_handle_platform_target_tmf(isp, nt);
-			break;
-		}
 		}
 		break;
 	}
