@@ -578,11 +578,7 @@ __elfN(load_section)(struct image_params *imgp, vm_ooffset_t offset,
 	/* This had damn well better be true! */
 	if (map_len != 0) {
 		rv = __elfN(map_insert)(imgp, map, NULL, 0, map_addr,
-<<<<<<< HEAD
-		    map_addr + map_len, VM_PROT_ALL, VM_PROT_ALL, 0);
-=======
-		    map_addr + map_len, prot, 0);
->>>>>>> origin/freebsd/current/master
+		    map_addr + map_len, prot, VM_PROT_ALL, 0);
 		if (rv != KERN_SUCCESS)
 			return (EINVAL);
 	}
