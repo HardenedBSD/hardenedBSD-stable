@@ -38,6 +38,17 @@
 #   xargs -n1 | sort | uniq -d;
 # done
 
+# 20170318: remove nls for non supported Big5* locales
+OLD_DIRS+=usr/share/nls/zh_HK.Big5HKSCS
+OLD_DIRS+=usr/share/nls/zh_TW.Big5
+# 20170319: Remove zh_TW.Big5
+OLD_FILES+=usr/share/locale/zh_TW.Big5/LC_COLLATE
+OLD_FILES+=usr/share/locale/zh_TW.Big5/LC_CTYPE
+OLD_FILES+=usr/share/locale/zh_TW.Big5/LC_MESSAGES
+OLD_FILES+=usr/share/locale/zh_TW.Big5/LC_MONETARY
+OLD_FILES+=usr/share/locale/zh_TW.Big5/LC_NUMERIC
+OLD_FILES+=usr/share/locale/zh_TW.Big5/LC_TIME
+OLD_DIRS+=usr/share/locale/zh_TW.Big5
 # 20170313: move .../sys/geom/eli/... to .../sys/geom/class/eli/...
 OLD_FILES+=usr/tests/sys/geom/eli/pbkdf2/pbkdf2
 OLD_FILES+=usr/tests/sys/geom/eli/pbkdf2/Kyuafile
@@ -49,8 +60,6 @@ OLD_FILES+=sbin/ipftest
 OLD_FILES+=sbin/ipresend
 # 20170311: Remove WITHOUT_MANDOCDB option
 OLD_FILES+=usr/share/man/man1/makewhatis.1.gz
-# 20170311: remove GNU diff
-OLD_FILES+=usr/share/man/man7/diff.7.gz
 # 20170308: rename some tests
 OLD_FILES+=usr/tests/bin/pwait/pwait
 OLD_FILES+=usr/tests/usr.bin/timeout/timeout
