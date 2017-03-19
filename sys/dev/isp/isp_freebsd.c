@@ -788,7 +788,6 @@ static void isp_target_start_ctio(ispsoftc_t *, union ccb *, enum Start_Ctio_How
 static void isp_handle_platform_atio2(ispsoftc_t *, at2_entry_t *);
 static void isp_handle_platform_atio7(ispsoftc_t *, at7_entry_t *);
 static void isp_handle_platform_ctio(ispsoftc_t *, void *);
-static void isp_handle_platform_notify_24xx(ispsoftc_t *, in_fcentry_24xx_t *);
 static int isp_handle_platform_target_notify_ack(ispsoftc_t *, isp_notify_t *, uint32_t rsp);
 static void isp_handle_platform_target_tmf(ispsoftc_t *, isp_notify_t *);
 static void isp_target_mark_aborted_early(ispsoftc_t *, int chan, tstate_t *, uint32_t);
@@ -1744,22 +1743,15 @@ isp_handle_platform_atio2(ispsoftc_t *isp, at2_entry_t *aep)
 	if (IS_2100(isp))
 		atiop->init_id = nphdl;
 	else {
-		if ((isp_find_pdb_by_handle(isp, 0, nphdl, &lp) == 0 ||
-		     lp->state == FC_PORTDB_STATE_ZOMBIE)) {
-			uint64_t wwpn =
-				(((uint64_t) aep->at_wwpn[0]) << 48) |
-				(((uint64_t) aep->at_wwpn[1]) << 32) |
-				(((uint64_t) aep->at_wwpn[2]) << 16) |
-				(((uint64_t) aep->at_wwpn[3]) <<  0);
-			isp_add_wwn_entry(isp, 0, wwpn, INI_NONE,
-			    nphdl, PORT_ANY, 0);
-			if (fcp->isp_loopstate > LOOP_LTEST_DONE)
-				fcp->isp_loopstate = LOOP_LTEST_DONE;
-			isp_async(isp, ISPASYNC_CHANGE_NOTIFY, 0,
-			    ISPASYNC_CHANGE_PDB, nphdl, 0x06, 0xff);
-			isp_find_pdb_by_handle(isp, 0, nphdl, &lp);
+		if (isp_find_pdb_by_handle(isp, 0, nphdl, &lp)) {
+			atiop->init_id = FC_PORTDB_TGT(isp, 0, lp);
+		} else {
+			isp_prt(isp, ISP_LOGTINFO, "%s: port %x isn't in PDB",
+			    __func__, nphdl);
+			isp_dump_portdb(isp, 0);
+			isp_endcmd(isp, aep, NIL_HANDLE, 0, ECMD_TERMINATE, 0);
+			return;
 		}
-		atiop->init_id = FC_PORTDB_TGT(isp, 0, lp);
 	}
 	atiop->cdb_len = ATIO2_CDBLEN;
 	ISP_MEMCPY(atiop->cdb_io.cdb_bytes, aep->at_cdb, ATIO2_CDBLEN);
@@ -1825,44 +1817,17 @@ isp_handle_platform_atio7(ispsoftc_t *isp, at7_entry_t *aep)
 	sid = (aep->at_hdr.s_id[0] << 16) | (aep->at_hdr.s_id[1] << 8) | aep->at_hdr.s_id[2];
 	lun = CAM_EXTLUN_BYTE_SWIZZLE(be64dec(aep->at_cmnd.fcp_cmnd_lun));
 
-	/*
-	 * Find the N-port handle, and Virtual Port Index for this command.
-	 *
-	 * If we can't, we're somewhat in trouble because we can't actually respond w/o that information.
-	 * We also, as a matter of course, need to know the WWN of the initiator too.
-	 */
 	if (ISP_CAP_MULTI_ID(isp) && isp->isp_nchan > 1) {
-		/*
-		 * Find the right channel based upon D_ID
-		 */
+		/* Channel has to be derived from D_ID */
 		isp_find_chan_by_did(isp, did, &chan);
-
 		if (chan == ISP_NOCHAN) {
-			NANOTIME_T now;
-
-			/*
-			 * If we don't recognizer our own D_DID, terminate the exchange, unless we're within 2 seconds of startup
-			 * It's a bit tricky here as we need to stash this command *somewhere*.
-			 */
-			GET_NANOTIME(&now);
-			if (NANOTIME_SUB(&now, &isp->isp_init_time) > 2000000000ULL) {
-				isp_prt(isp, ISP_LOGWARN, "%s: [RX_ID 0x%x] D_ID %x not found on any channel- dropping", __func__, aep->at_rxid, did);
-				isp_endcmd(isp, aep, NIL_HANDLE, ISP_NOCHAN, ECMD_TERMINATE, 0);
-				return;
-			}
-			tptr = get_lun_statep(isp, 0, 0);
-			if (tptr == NULL) {
-				tptr = get_lun_statep(isp, 0, CAM_LUN_WILDCARD);
-				if (tptr == NULL) {
-					isp_prt(isp, ISP_LOGWARN, "%s: [RX_ID 0x%x] D_ID %x not found on any channel and no tptr- dropping", __func__, aep->at_rxid, did);
-					isp_endcmd(isp, aep, NIL_HANDLE, ISP_NOCHAN, ECMD_TERMINATE, 0);
-					return;
-				}
-			}
-			isp_prt(isp, ISP_LOGWARN, "%s: [RX_ID 0x%x] D_ID %x not found on any channel- deferring", __func__, aep->at_rxid, did);
-			goto noresrc;
+			isp_prt(isp, ISP_LOGWARN,
+			    "%s: [RX_ID 0x%x] D_ID %x not found on any channel",
+			    __func__, aep->at_rxid, did);
+			isp_endcmd(isp, aep, NIL_HANDLE, ISP_NOCHAN,
+			    ECMD_TERMINATE, 0);
+			return;
 		}
-		isp_prt(isp, ISP_LOGTDEBUG0, "%s: [RX_ID 0x%x] D_ID 0x%06x found on Chan %d for S_ID 0x%06x", __func__, aep->at_rxid, did, chan, sid);
 	} else {
 		chan = 0;
 	}
@@ -2108,28 +2073,24 @@ mdp:
 
 
 static void
-isp_handle_srr_notify(ispsoftc_t *isp, void *inot_raw)
+isp_handle_platform_srr(ispsoftc_t *isp, isp_notify_t *notify)
 {
-	in_fcentry_24xx_t *inot = inot_raw;
+	in_fcentry_24xx_t *inot = notify->nt_lreserved;
 	atio_private_data_t *atp;
-	uint32_t tag = inot->in_rxid;
-	uint32_t bus = inot->in_vpidx;
+	uint32_t tag = notify->nt_tagval & 0xffffffff;
 
-	if (!IS_24XX(isp)) {
-		isp_async(isp, ISPASYNC_TARGET_NOTIFY_ACK, inot_raw);
-		return;
-	}
-
-	atp = isp_find_atpd(isp, bus, tag);
+	atp = isp_find_atpd(isp, notify->nt_channel, tag);
 	if (atp == NULL) {
-		isp_prt(isp, ISP_LOGERR, "%s: cannot find adjunct for %x in SRR Notify", __func__, tag);
+		isp_prt(isp, ISP_LOGERR, "%s: cannot find adjunct for %x in SRR Notify",
+		    __func__, tag);
 		isp_async(isp, ISPASYNC_TARGET_NOTIFY_ACK, inot);
 		return;
 	}
 	atp->srr_notify_rcvd = 1;
 	memcpy(atp->srr, inot, sizeof (atp->srr));
-	isp_prt(isp, ISP_LOGTINFO /* ISP_LOGTDEBUG0 */, "SRR[0x%x] inot->in_rxid flags 0x%x srr_iu=%x reloff 0x%x", inot->in_rxid, inot->in_flags, inot->in_srr_iu,
-	    inot->in_srr_reloff_lo | (inot->in_srr_reloff_hi << 16));
+	isp_prt(isp, ISP_LOGTINFO, "SRR[0x%x] flags 0x%x srr_iu %x reloff 0x%x",
+	    inot->in_rxid, inot->in_flags, inot->in_srr_iu,
+	    ((uint32_t)inot->in_srr_reloff_hi << 16) | inot->in_srr_reloff_lo);
 	if (atp->srr_ccb)
 		isp_handle_srr_start(isp, atp);
 }
@@ -2278,127 +2239,6 @@ isp_handle_platform_ctio(ispsoftc_t *isp, void *arg)
 		isp_complete_ctio(ccb);
 	} else {
 		isp_target_putback_atio(ccb);
-	}
-}
-
-static void
-isp_handle_platform_notify_24xx(ispsoftc_t *isp, in_fcentry_24xx_t *inot)
-{
-	uint16_t nphdl;
-	uint16_t prli_options = 0;
-	uint32_t portid;
-	fcportdb_t *lp;
-	char *msg = NULL;
-	uint8_t *ptr = (uint8_t *)inot;
-	uint64_t wwpn = INI_NONE, wwnn = INI_NONE;
-
-	nphdl = inot->in_nphdl;
-	if (nphdl != NIL_HANDLE) {
-		portid = inot->in_portid_hi << 16 | inot->in_portid_lo;
-	} else {
-		portid = PORT_ANY;
-	}
-
-	switch (inot->in_status) {
-	case IN24XX_ELS_RCVD:
-	{
-		char buf[16];
-		int chan = ISP_GET_VPIDX(isp, inot->in_vpidx);
-
-		/*
-		 * Note that we're just getting notification that an ELS was received
-		 * (possibly with some associated information sent upstream). This is
-		 * *not* the same as being given the ELS frame to accept or reject.
-		 */
-		switch (inot->in_status_subcode) {
-		case LOGO:
-			msg = "LOGO";
-			wwpn = be64dec(&ptr[IN24XX_PLOGI_WWPN_OFF]);
-			isp_del_wwn_entry(isp, chan, wwpn, nphdl, portid);
-			break;
-		case PRLO:
-			msg = "PRLO";
-			break;
-		case PLOGI:
-			msg = "PLOGI";
-			wwnn = be64dec(&ptr[IN24XX_PLOGI_WWNN_OFF]);
-			wwpn = be64dec(&ptr[IN24XX_PLOGI_WWPN_OFF]);
-			isp_add_wwn_entry(isp, chan, wwpn, wwnn,
-			    nphdl, portid, prli_options);
-			break;
-		case PRLI:
-			msg = "PRLI";
-			prli_options = inot->in_prli_options;
-			if (inot->in_flags & IN24XX_FLAG_PN_NN_VALID)
-				wwnn = be64dec(&ptr[IN24XX_PRLI_WWNN_OFF]);
-			wwpn = be64dec(&ptr[IN24XX_PRLI_WWPN_OFF]);
-			isp_add_wwn_entry(isp, chan, wwpn, wwnn,
-			    nphdl, portid, prli_options);
-			break;
-		case PDISC:
-			msg = "PDISC";
-			break;
-		case ADISC:
-			msg = "ADISC";
-			break;
-		default:
-			ISP_SNPRINTF(buf, sizeof (buf), "ELS 0x%x", inot->in_status_subcode);
-			msg = buf;
-			break;
-		}
-		if (inot->in_flags & IN24XX_FLAG_PUREX_IOCB) {
-			isp_prt(isp, ISP_LOGERR, "%s Chan %d ELS N-port handle %x PortID 0x%06x marked as needing a PUREX response", msg, chan, nphdl, portid);
-			break;
-		}
-		isp_prt(isp, ISP_LOGTDEBUG0, "%s Chan %d ELS N-port handle %x PortID 0x%06x RX_ID 0x%x OX_ID 0x%x", msg, chan, nphdl, portid,
-		    inot->in_rxid, inot->in_oxid);
-		isp_async(isp, ISPASYNC_TARGET_NOTIFY_ACK, inot);
-		break;
-	}
-
-	case IN24XX_PORT_LOGOUT:
-		msg = "PORT LOGOUT";
-		if (isp_find_pdb_by_handle(isp, ISP_GET_VPIDX(isp, inot->in_vpidx), nphdl, &lp)) {
-			isp_del_wwn_entry(isp, ISP_GET_VPIDX(isp, inot->in_vpidx), lp->port_wwn, nphdl, lp->portid);
-		}
-		/* FALLTHROUGH */
-	case IN24XX_PORT_CHANGED:
-		if (msg == NULL)
-			msg = "PORT CHANGED";
-		/* FALLTHROUGH */
-	case IN24XX_LIP_RESET:
-		if (msg == NULL)
-			msg = "LIP RESET";
-		isp_prt(isp, ISP_LOGINFO, "Chan %d %s (sub-status 0x%x) for N-port handle 0x%x", ISP_GET_VPIDX(isp, inot->in_vpidx), msg, inot->in_status_subcode, nphdl);
-
-		/*
-		 * All subcodes here are irrelevant. What is relevant
-		 * is that we need to terminate all active commands from
-		 * this initiator (known by N-port handle).
-		 */
-		/* XXX IMPLEMENT XXX */
-		isp_async(isp, ISPASYNC_TARGET_NOTIFY_ACK, inot);
-		break;
-
-	case IN24XX_SRR_RCVD:
-#ifdef	ISP_TARGET_MODE
-		isp_handle_srr_notify(isp, inot);
-		break;
-#else
-		if (msg == NULL)
-			msg = "SRR RCVD";
-		/* FALLTHROUGH */
-#endif
-	case IN24XX_LINK_RESET:
-		if (msg == NULL)
-			msg = "LINK RESET";
-	case IN24XX_LINK_FAILED:
-		if (msg == NULL)
-			msg = "LINK FAILED";
-	default:
-		isp_prt(isp, ISP_LOGWARN, "Chan %d %s", ISP_GET_VPIDX(isp, inot->in_vpidx), msg);
-		isp_async(isp, ISPASYNC_TARGET_NOTIFY_ACK, inot);
-		break;
 	}
 }
 
@@ -4044,6 +3884,9 @@ changed:
 			 */
 			isp_handle_platform_target_notify_ack(isp, notify, 0);
 			break;
+		case NT_SRR:
+			isp_handle_platform_srr(isp, notify);
+			break;
 		default:
 			isp_prt(isp, ISP_LOGALL, "target notify code 0x%x", notify->nt_ncode);
 			isp_handle_platform_target_notify_ack(isp, notify, 0);
@@ -4080,12 +3923,6 @@ changed:
 		hp = va_arg(ap, isphdr_t *);
 		va_end(ap);
 		switch (hp->rqs_entry_type) {
-		default:
-			isp_prt(isp, ISP_LOGWARN, "%s: unhandled target action 0x%x", __func__, hp->rqs_entry_type);
-			break;
-		case RQSTYPE_NOTIFY:
-			isp_handle_platform_notify_24xx(isp, (in_fcentry_24xx_t *) hp);
-			break;
 		case RQSTYPE_ATIO:
 			isp_handle_platform_atio7(isp, (at7_entry_t *) hp);
 			break;
@@ -4097,6 +3934,10 @@ changed:
 		case RQSTYPE_CTIO2:
 		case RQSTYPE_CTIO:
 			isp_handle_platform_ctio(isp, hp);
+			break;
+		default:
+			isp_prt(isp, ISP_LOGWARN, "%s: unhandled target action 0x%x",
+			    __func__, hp->rqs_entry_type);
 			break;
 		}
 		break;
