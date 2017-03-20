@@ -38,7 +38,9 @@
 #   xargs -n1 | sort | uniq -d;
 # done
 
-# 20170318: remove nls for non supported Big5* locales
+# 20170319: io_test requires zh_TW.Big5 locale.
+OLD_FILES+=usr/tests/lib/libc/locale/io_test
+# 20170319: remove nls for non supported Big5* locales
 OLD_DIRS+=usr/share/nls/zh_HK.Big5HKSCS
 OLD_DIRS+=usr/share/nls/zh_TW.Big5
 # 20170319: Remove zh_TW.Big5
