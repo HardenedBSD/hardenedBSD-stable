@@ -503,7 +503,7 @@ __elfN(load_section)(struct image_params *imgp, vm_ooffset_t offset,
 	size_t map_len;
 	vm_map_t map;
 	vm_object_t object;
-	vm_offset_t map_addr;
+	vm_offset_t off, map_addr;
 	int error, rv, cow;
 	size_t copy_len;
 	vm_ooffset_t file_addr;
@@ -517,7 +517,8 @@ __elfN(load_section)(struct image_params *imgp, vm_ooffset_t offset,
 	 * While I'm here, might as well check for something else that
 	 * is invalid: filsz cannot be greater than memsz.
 	 */
-	if ((off_t)filsz + offset > imgp->attr->va_size || filsz > memsz) {
+	if ((filsz != 0 && (off_t)filsz + offset > imgp->attr->va_size) ||
+	    filsz > memsz) {
 		uprintf("elf_load_section: truncated ELF file\n");
 		return (ENOEXEC);
 	}
@@ -533,7 +534,9 @@ __elfN(load_section)(struct image_params *imgp, vm_ooffset_t offset,
 	 * early and copy the initialized data into that first page.  We
 	 * choose the second.
 	 */
-	if (memsz > filsz)
+	if (filsz == 0)
+		map_len = 0;
+	else if (memsz > filsz)
 		map_len = trunc_page_ps(offset + filsz, pagesize) - file_addr;
 	else
 		map_len = round_page_ps(offset + filsz, pagesize) - file_addr;
@@ -555,9 +558,8 @@ __elfN(load_section)(struct image_params *imgp, vm_ooffset_t offset,
 			return (EINVAL);
 
 		/* we can stop now if we've covered it all */
-		if (memsz == filsz) {
+		if (memsz == filsz)
 			return (0);
-		}
 	}
 
 
@@ -567,7 +569,8 @@ __elfN(load_section)(struct image_params *imgp, vm_ooffset_t offset,
 	 * segment in the file is extended to provide bss.  It's a neat idea
 	 * to try and save a page, but it's a pain in the behind to implement.
 	 */
-	copy_len = (offset + filsz) - trunc_page_ps(offset + filsz, pagesize);
+	copy_len = filsz == 0 ? 0 : (offset + filsz) - trunc_page_ps(offset +
+	    filsz, pagesize);
 	map_addr = trunc_page_ps((vm_offset_t)vmaddr + filsz, pagesize);
 	map_len = round_page_ps((vm_offset_t)vmaddr + memsz, pagesize) -
 	    map_addr;
@@ -575,15 +578,17 @@ __elfN(load_section)(struct image_params *imgp, vm_ooffset_t offset,
 	/* This had damn well better be true! */
 	if (map_len != 0) {
 		rv = __elfN(map_insert)(imgp, map, NULL, 0, map_addr,
+<<<<<<< HEAD
 		    map_addr + map_len, VM_PROT_ALL, VM_PROT_ALL, 0);
 		if (rv != KERN_SUCCESS) {
+=======
+		    map_addr + map_len, VM_PROT_ALL, 0);
+		if (rv != KERN_SUCCESS)
+>>>>>>> origin/freebsd/11-stable/master
 			return (EINVAL);
-		}
 	}
 
 	if (copy_len != 0) {
-		vm_offset_t off;
-
 		sf = vm_imgact_map_page(object, offset + filsz);
 		if (sf == NULL)
 			return (EIO);
@@ -594,14 +599,12 @@ __elfN(load_section)(struct image_params *imgp, vm_ooffset_t offset,
 		error = copyout((caddr_t)sf_buf_kva(sf) + off,
 		    (caddr_t)map_addr, copy_len);
 		vm_imgact_unmap_page(sf);
-		if (error) {
+		if (error != 0)
 			return (error);
-		}
 	}
 
 	/*
 	 * set it to the specified protection.
-	 * XXX had better undo the damage from pasting over the cracks here!
 	 */
 	vm_map_protect(map, trunc_page(map_addr), round_page(map_addr +
 	    map_len), prot, FALSE);
