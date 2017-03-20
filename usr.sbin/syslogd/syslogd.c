@@ -2117,6 +2117,7 @@ cfline(const char *line, const char *prog, const char *host)
 				(void)snprintf(ebuf, sizeof ebuf,
 				    "unknown priority name \"%s\"", buf);
 				logerror(ebuf);
+				free(f);
 				return (NULL);
 			}
 		}
@@ -2147,6 +2148,7 @@ cfline(const char *line, const char *prog, const char *host)
 					    "unknown facility name \"%s\"",
 					    buf);
 					logerror(ebuf);
+					free(f);
 					return (NULL);
 				}
 				f->f_pmask[i >> 3] = pri;
@@ -2899,13 +2901,23 @@ socksetup(struct peer *pe)
 		.ai_socktype = SOCK_DGRAM,
 		.ai_flags = AI_PASSIVE
 	};
-	dprintf("Try %s\n", pe->pe_name);
+	if (pe->pe_name != NULL)
+		dprintf("Trying peer: %s\n", pe->pe_name);
 	if (pe->pe_serv == NULL)
 		pe->pe_serv = "syslog";
 	error = getaddrinfo(pe->pe_name, pe->pe_serv, &hints, &res0);
 	if (error) {
-		logerror(gai_strerror(error));
+		char *msgbuf;
+
+		asprintf(&msgbuf, "getaddrinfo failed for %s%s: %s",
+		    pe->pe_name == NULL ? "" : pe->pe_name, pe->pe_serv,
+		    gai_strerror(error));
 		errno = 0;
+		if (msgbuf == NULL)
+			logerror(gai_strerror(error));
+		else
+			logerror(msgbuf);
+		free(msgbuf);
 		die(0);
 	}
 	for (res = res0; res != NULL; res = res->ai_next) {
