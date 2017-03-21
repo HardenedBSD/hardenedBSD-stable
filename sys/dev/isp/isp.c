@@ -4424,8 +4424,6 @@ isp_start(XS_T *xs)
 		}
 	}
 
-	tptr = &reqp->req_time;
-
 	/*
 	 * NB: we do not support long CDBs (yet)
 	 */
@@ -4439,8 +4437,9 @@ isp_start(XS_T *xs)
 		}
 		reqp->req_target = target | (XS_CHANNEL(xs) << 7);
 		reqp->req_lun_trn = XS_LUN(xs);
-		cdbp = reqp->req_cdb;
 		reqp->req_cdblen = cdblen;
+		tptr = &reqp->req_time;
+		cdbp = reqp->req_cdb;
 	} else if (IS_24XX(isp)) {
 		ispreqt7_t *t7 = (ispreqt7_t *)local;
 
@@ -4487,24 +4486,22 @@ isp_start(XS_T *xs)
 			ispreqt2e_t *t2e = (ispreqt2e_t *)local;
 			t2e->req_target = lp->handle;
 			t2e->req_scclun = XS_LUN(xs);
+			tptr = &t2e->req_time;
 			cdbp = t2e->req_cdb;
 		} else if (ISP_CAP_SCCFW(isp)) {
-			ispreqt2_t *t2 = (ispreqt2_t *)local;
 			t2->req_target = lp->handle;
 			t2->req_scclun = XS_LUN(xs);
+			tptr = &t2->req_time;
 			cdbp = t2->req_cdb;
 		} else {
 			t2->req_target = lp->handle;
 			t2->req_lun_trn = XS_LUN(xs);
+			tptr = &t2->req_time;
 			cdbp = t2->req_cdb;
 		}
 	}
+	*tptr = XS_TIME(xs);
 	ISP_MEMCPY(cdbp, XS_CDBP(xs), cdblen);
-
-	*tptr = (XS_TIME(xs) + 999) / 1000;
-	if (IS_24XX(isp) && *tptr > 0x1999) {
-		*tptr = 0x1999;
-	}
 
 	/* Whew. Thankfully the same for type 7 requests */
 	reqp->req_handle = isp_allocate_handle(isp, xs, ISP_HANDLE_INITIATOR);
