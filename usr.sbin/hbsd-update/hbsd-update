@@ -160,7 +160,7 @@ dnssec_check() {
 
 			if ! echo ${val} | grep -qF 'has TXT record'; then
 				debug_print "[-] Could not get DNS record."
-				return 1
+				return 2
 			fi
 
 			if echo ${val} | grep -qF 'failed'; then
