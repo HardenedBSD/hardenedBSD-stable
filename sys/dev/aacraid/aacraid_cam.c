@@ -244,6 +244,7 @@ aac_cam_probe(device_t dev)
 {
 	struct aac_softc *sc;
 	struct aac_cam *camsc;
+	struct aac_softc *sc;
 
 	camsc = (struct aac_cam *)device_get_softc(dev);
 	if (!camsc->inf)
@@ -1039,9 +1040,9 @@ aac_cam_action(struct cam_sim *sim, union ccb *ccb)
 		cpi->transport_version = 0;
 		cpi->protocol_version = SCSI_REV_SPC2;
 #endif
-		strncpy(cpi->sim_vid, "FreeBSD", SIM_IDLEN);
-		strncpy(cpi->hba_vid, "PMC-Sierra", HBA_IDLEN);
-		strncpy(cpi->dev_name, cam_sim_name(sim), DEV_IDLEN);
+		strlcpy(cpi->sim_vid, "FreeBSD", SIM_IDLEN);
+		strlcpy(cpi->hba_vid, "PMC-Sierra", HBA_IDLEN);
+		strlcpy(cpi->dev_name, cam_sim_name(sim), DEV_IDLEN);
 		cpi->unit_number = cam_sim_unit(sim);
 		ccb->ccb_h.status = CAM_REQ_CMP;
 		xpt_done(ccb);
@@ -1137,6 +1138,7 @@ aac_container_complete(struct aac_command *cm)
 {
 	struct	aac_softc *sc;
 	union	ccb *ccb;
+	struct	aac_softc *sc;
 	u_int32_t status;
 
 	sc = cm->cm_sc;
@@ -1146,7 +1148,7 @@ aac_container_complete(struct aac_command *cm)
 
 	if (cm->cm_flags & AAC_CMD_RESET) {
 		ccb->ccb_h.status = CAM_SCSI_BUS_RESET;
-	} else if (status == ST_OK) {	
+	} else if (status == ST_OK) {
 		ccb->ccb_h.status = CAM_REQ_CMP;
 	} else if (status == ST_NOT_READY) {
 		ccb->ccb_h.status = CAM_BUSY;
