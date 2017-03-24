@@ -316,7 +316,6 @@ static int	iwm_mvm_load_ucode_wait_alive(struct iwm_softc *,
                                               enum iwm_ucode_type);
 static int	iwm_run_init_mvm_ucode(struct iwm_softc *, int);
 static int	iwm_rx_addbuf(struct iwm_softc *, int, int);
-static int	iwm_mvm_calc_rssi(struct iwm_softc *, struct iwm_rx_phy_info *);
 static int	iwm_mvm_get_signal_strength(struct iwm_softc *,
 					    struct iwm_rx_phy_info *);
 static void	iwm_mvm_rx_rx_phy_cmd(struct iwm_softc *,
@@ -324,8 +323,7 @@ static void	iwm_mvm_rx_rx_phy_cmd(struct iwm_softc *,
                                       struct iwm_rx_data *);
 static int	iwm_get_noise(struct iwm_softc *sc,
 		    const struct iwm_mvm_statistics_rx_non_phy *);
-static void	iwm_mvm_rx_rx_mpdu(struct iwm_softc *, struct iwm_rx_packet *,
-                                   struct iwm_rx_data *);
+static void	iwm_mvm_rx_rx_mpdu(struct iwm_softc *, struct mbuf *);
 static int	iwm_mvm_rx_tx_cmd_single(struct iwm_softc *,
                                          struct iwm_rx_packet *,
 				         struct iwm_node *);
@@ -346,7 +344,7 @@ static int	iwm_raw_xmit(struct ieee80211_node *, struct mbuf *,
 static int	iwm_mvm_flush_tx_path(struct iwm_softc *sc,
 				      uint32_t tfd_msk, uint32_t flags);
 static int	iwm_mvm_send_add_sta_cmd_status(struct iwm_softc *,
-					        struct iwm_mvm_add_sta_cmd_v7 *,
+					        struct iwm_mvm_add_sta_cmd *,
                                                 int *);
 static int	iwm_mvm_sta_send_to_fw(struct iwm_softc *, struct iwm_node *,
                                        int);
@@ -486,6 +484,56 @@ iwm_set_default_calib(struct iwm_softc *sc, const void *data)
 	return 0;
 }
 
+static int
+iwm_set_ucode_api_flags(struct iwm_softc *sc, const uint8_t *data,
+			struct iwm_ucode_capabilities *capa)
+{
+	const struct iwm_ucode_api *ucode_api = (const void *)data;
+	uint32_t api_index = le32toh(ucode_api->api_index);
+	uint32_t api_flags = le32toh(ucode_api->api_flags);
+	int i;
+
+	if (api_index >= howmany(IWM_NUM_UCODE_TLV_API, 32)) {
+		device_printf(sc->sc_dev,
+		    "api flags index %d larger than supported by driver\n",
+		    api_index);
+		/* don't return an error so we can load FW that has more bits */
+		return 0;
+	}
+
+	for (i = 0; i < 32; i++) {
+		if (api_flags & (1U << i))
+			setbit(capa->enabled_api, i + 32 * api_index);
+	}
+
+	return 0;
+}
+
+static int
+iwm_set_ucode_capabilities(struct iwm_softc *sc, const uint8_t *data,
+			   struct iwm_ucode_capabilities *capa)
+{
+	const struct iwm_ucode_capa *ucode_capa = (const void *)data;
+	uint32_t api_index = le32toh(ucode_capa->api_index);
+	uint32_t api_flags = le32toh(ucode_capa->api_capa);
+	int i;
+
+	if (api_index >= howmany(IWM_NUM_UCODE_TLV_CAPA, 32)) {
+		device_printf(sc->sc_dev,
+		    "capa flags index %d larger than supported by driver\n",
+		    api_index);
+		/* don't return an error so we can load FW that has more bits */
+		return 0;
+	}
+
+	for (i = 0; i < 32; i++) {
+		if (api_flags & (1U << i))
+			setbit(capa->enabled_capa, i + 32 * api_index);
+	}
+
+	return 0;
+}
+
 static void
 iwm_fw_info_free(struct iwm_fw_info *fw)
 {
@@ -501,6 +549,7 @@ iwm_read_firmware(struct iwm_softc *sc, enum iwm_ucode_type ucode_type)
 	struct iwm_fw_info *fw = &sc->sc_fw;
 	const struct iwm_tlv_ucode_header *uhdr;
 	struct iwm_ucode_tlv tlv;
+	struct iwm_ucode_capabilities *capa = &sc->ucode_capa;
 	enum iwm_ucode_tlv_type tlv_type;
 	const struct firmware *fwp;
 	const uint8_t *data;
@@ -537,9 +586,11 @@ iwm_read_firmware(struct iwm_softc *sc, enum iwm_ucode_type ucode_type)
 	fw->fw_fp = fwp;
 
 	/* (Re-)Initialize default values. */
-	sc->sc_capaflags = 0;
-	sc->sc_capa_n_scan_channels = IWM_DEFAULT_SCAN_CHANNELS;
-	memset(sc->sc_enabled_capa, 0, sizeof(sc->sc_enabled_capa));
+	capa->flags = 0;
+	capa->max_probe_length = IWM_DEFAULT_MAX_PROBE_LENGTH;
+	capa->n_scan_channels = IWM_DEFAULT_SCAN_CHANNELS;
+	memset(capa->enabled_capa, 0, sizeof(capa->enabled_capa));
+	memset(capa->enabled_api, 0, sizeof(capa->enabled_api));
 	memset(sc->sc_fw_mcc, 0, sizeof(sc->sc_fw_mcc));
 
 	/*
@@ -592,10 +643,10 @@ iwm_read_firmware(struct iwm_softc *sc, enum iwm_ucode_type ucode_type)
 				error = EINVAL;
 				goto parse_out;
 			}
-			sc->sc_capa_max_probe_len
-			    = le32toh(*(const uint32_t *)tlv_data);
+			capa->max_probe_length =
+			    le32toh(*(const uint32_t *)tlv_data);
 			/* limit it to something sensible */
-			if (sc->sc_capa_max_probe_len >
+			if (capa->max_probe_length >
 			    IWM_SCAN_OFFLOAD_PROBE_REQ_SIZE) {
 				IWM_DPRINTF(sc, IWM_DEBUG_FIRMWARE_TLV,
 				    "%s: IWM_UCODE_TLV_PROBE_MAX_LEN "
@@ -613,7 +664,7 @@ iwm_read_firmware(struct iwm_softc *sc, enum iwm_ucode_type ucode_type)
 				error = EINVAL;
 				goto parse_out;
 			}
-			sc->sc_capaflags |= IWM_UCODE_TLV_FLAGS_PAN;
+			capa->flags |= IWM_UCODE_TLV_FLAGS_PAN;
 			break;
 		case IWM_UCODE_TLV_FLAGS:
 			if (tlv_len < sizeof(uint32_t)) {
@@ -635,7 +686,7 @@ iwm_read_firmware(struct iwm_softc *sc, enum iwm_ucode_type ucode_type)
 			 *  2) TLV_FLAGS contains TLV_FLAGS_PAN
 			 * ==> this resets TLV_PAN to itself... hnnnk
 			 */
-			sc->sc_capaflags = le32toh(*(const uint32_t *)tlv_data);
+			capa->flags = le32toh(*(const uint32_t *)tlv_data);
 			break;
 		case IWM_UCODE_TLV_CSCHEME:
 			if ((error = iwm_store_cscheme(sc,
@@ -740,41 +791,25 @@ iwm_read_firmware(struct iwm_softc *sc, enum iwm_ucode_type ucode_type)
 			break;
 
 		case IWM_UCODE_TLV_API_CHANGES_SET: {
-			const struct iwm_ucode_api *api;
-			if (tlv_len != sizeof(*api)) {
+			if (tlv_len != sizeof(struct iwm_ucode_api)) {
 				error = EINVAL;
 				goto parse_out;
 			}
-			api = (const struct iwm_ucode_api *)tlv_data;
-			/* Flags may exceed 32 bits in future firmware. */
-			if (le32toh(api->api_index) > 0) {
-				device_printf(sc->sc_dev,
-				    "unsupported API index %d\n",
-				    le32toh(api->api_index));
+			if (iwm_set_ucode_api_flags(sc, tlv_data, capa)) {
+				error = EINVAL;
 				goto parse_out;
 			}
-			sc->sc_ucode_api = le32toh(api->api_flags);
 			break;
 		}
 
 		case IWM_UCODE_TLV_ENABLED_CAPABILITIES: {
-			const struct iwm_ucode_capa *capa;
-			int idx, i;
-			if (tlv_len != sizeof(*capa)) {
+			if (tlv_len != sizeof(struct iwm_ucode_capa)) {
 				error = EINVAL;
 				goto parse_out;
 			}
-			capa = (const struct iwm_ucode_capa *)tlv_data;
-			idx = le32toh(capa->api_index);
-			if (idx >= howmany(IWM_NUM_UCODE_TLV_CAPA, 32)) {
-				device_printf(sc->sc_dev,
-				    "unsupported API index %d\n", idx);
+			if (iwm_set_ucode_capabilities(sc, tlv_data, capa)) {
+				error = EINVAL;
 				goto parse_out;
-			}
-			for (i = 0; i < 32; i++) {
-				if ((le32toh(capa->api_capa) & (1U << i)) == 0)
-					continue;
-				setbit(sc->sc_enabled_capa, i + (32 * idx));
 			}
 			break;
 		}
@@ -829,8 +864,8 @@ iwm_read_firmware(struct iwm_softc *sc, enum iwm_ucode_type ucode_type)
 				error = EINVAL;
 				goto parse_out;
 			}
-			sc->sc_capa_n_scan_channels =
-			  le32toh(*(const uint32_t *)tlv_data);
+			capa->n_scan_channels =
+			    le32toh(*(const uint32_t *)tlv_data);
 			break;
 
 		case IWM_UCODE_TLV_FW_VERSION:
@@ -866,12 +901,6 @@ iwm_read_firmware(struct iwm_softc *sc, enum iwm_ucode_type ucode_type)
 	if (error) {
 		device_printf(sc->sc_dev, "firmware parse error %d, "
 		    "section type %d\n", error, tlv_type);
-	}
-
-	if (!(sc->sc_capaflags & IWM_UCODE_TLV_FLAGS_PM_CMD_SUPPORT)) {
-		device_printf(sc->sc_dev,
-		    "device uses unsupported power ops\n");
-		error = ENOTSUP;
 	}
 
  out:
@@ -3044,38 +3073,6 @@ fail:
 }
 
 /* iwlwifi: mvm/rx.c */
-#define IWM_RSSI_OFFSET 50
-static int
-iwm_mvm_calc_rssi(struct iwm_softc *sc, struct iwm_rx_phy_info *phy_info)
-{
-	int rssi_a, rssi_b, rssi_a_dbm, rssi_b_dbm, max_rssi_dbm;
-	uint32_t agc_a, agc_b;
-	uint32_t val;
-
-	val = le32toh(phy_info->non_cfg_phy[IWM_RX_INFO_AGC_IDX]);
-	agc_a = (val & IWM_OFDM_AGC_A_MSK) >> IWM_OFDM_AGC_A_POS;
-	agc_b = (val & IWM_OFDM_AGC_B_MSK) >> IWM_OFDM_AGC_B_POS;
-
-	val = le32toh(phy_info->non_cfg_phy[IWM_RX_INFO_RSSI_AB_IDX]);
-	rssi_a = (val & IWM_OFDM_RSSI_INBAND_A_MSK) >> IWM_OFDM_RSSI_A_POS;
-	rssi_b = (val & IWM_OFDM_RSSI_INBAND_B_MSK) >> IWM_OFDM_RSSI_B_POS;
-
-	/*
-	 * dBm = rssi dB - agc dB - constant.
-	 * Higher AGC (higher radio gain) means lower signal.
-	 */
-	rssi_a_dbm = rssi_a - IWM_RSSI_OFFSET - agc_a;
-	rssi_b_dbm = rssi_b - IWM_RSSI_OFFSET - agc_b;
-	max_rssi_dbm = MAX(rssi_a_dbm, rssi_b_dbm);
-
-	IWM_DPRINTF(sc, IWM_DEBUG_RECV,
-	    "Rssi In A %d B %d Max %d AGCA %d AGCB %d\n",
-	    rssi_a_dbm, rssi_b_dbm, max_rssi_dbm, agc_a, agc_b);
-
-	return max_rssi_dbm;
-}
-
-/* iwlwifi: mvm/rx.c */
 /*
  * iwm_mvm_get_signal_strength - use new rx PHY INFO API
  * values are reported by the fw as positive values - need to negate
@@ -3160,32 +3157,25 @@ iwm_get_noise(struct iwm_softc *sc,
  * Handles the actual data of the Rx packet from the fw
  */
 static void
-iwm_mvm_rx_rx_mpdu(struct iwm_softc *sc,
-	struct iwm_rx_packet *pkt, struct iwm_rx_data *data)
+iwm_mvm_rx_rx_mpdu(struct iwm_softc *sc, struct mbuf *m)
 {
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ieee80211vap *vap = TAILQ_FIRST(&ic->ic_vaps);
 	struct ieee80211_frame *wh;
 	struct ieee80211_node *ni;
 	struct ieee80211_rx_stats rxs;
-	struct mbuf *m;
 	struct iwm_rx_phy_info *phy_info;
 	struct iwm_rx_mpdu_res_start *rx_res;
+	struct iwm_rx_packet *pkt = mtod(m, struct iwm_rx_packet *);
 	uint32_t len;
 	uint32_t rx_pkt_status;
 	int rssi;
-
-	bus_dmamap_sync(sc->rxq.data_dmat, data->map, BUS_DMASYNC_POSTREAD);
 
 	phy_info = &sc->sc_last_phy_info;
 	rx_res = (struct iwm_rx_mpdu_res_start *)pkt->data;
 	wh = (struct ieee80211_frame *)(pkt->data + sizeof(*rx_res));
 	len = le16toh(rx_res->byte_count);
 	rx_pkt_status = le32toh(*(uint32_t *)(pkt->data + sizeof(*rx_res) + len));
-
-	m = data->m;
-	m->m_data = pkt->data + sizeof(*rx_res);
-	m->m_pkthdr.len = m->m_len = len;
 
 	if (__predict_false(phy_info->cfg_phy_cnt > 20)) {
 		device_printf(sc->sc_dev,
@@ -3201,17 +3191,7 @@ iwm_mvm_rx_rx_mpdu(struct iwm_softc *sc,
 		goto fail;
 	}
 
-	if (sc->sc_capaflags & IWM_UCODE_TLV_FLAGS_RX_ENERGY_API) {
-		rssi = iwm_mvm_get_signal_strength(sc, phy_info);
-	} else {
-		rssi = iwm_mvm_calc_rssi(sc, phy_info);
-	}
-
-	/* Note: RSSI is absolute (ie a -ve value) */
-	if (rssi < IWM_MIN_DBM)
-		rssi = IWM_MIN_DBM;
-	else if (rssi > IWM_MAX_DBM)
-		rssi = IWM_MAX_DBM;
+	rssi = iwm_mvm_get_signal_strength(sc, phy_info);
 
 	/* Map it to relative value */
 	rssi = rssi - sc->sc_noise;
@@ -3222,6 +3202,9 @@ iwm_mvm_rx_rx_mpdu(struct iwm_softc *sc,
 		    __func__);
 		goto fail;
 	}
+
+	m->m_data = pkt->data + sizeof(*rx_res);
+	m->m_pkthdr.len = m->m_len = len;
 
 	IWM_DPRINTF(sc, IWM_DEBUG_RECV,
 	    "%s: rssi=%d, noise=%d\n", __func__, rssi, sc->sc_noise);
@@ -3887,7 +3870,7 @@ iwm_mvm_flush_tx_path(struct iwm_softc *sc, uint32_t tfd_msk, uint32_t flags)
 
 static int
 iwm_mvm_send_add_sta_cmd_status(struct iwm_softc *sc,
-	struct iwm_mvm_add_sta_cmd_v7 *cmd, int *status)
+	struct iwm_mvm_add_sta_cmd *cmd, int *status)
 {
 	return iwm_mvm_send_cmd_pdu_status(sc, IWM_ADD_STA, sizeof(*cmd),
 	    cmd, status);
@@ -3897,7 +3880,7 @@ iwm_mvm_send_add_sta_cmd_status(struct iwm_softc *sc,
 static int
 iwm_mvm_sta_send_to_fw(struct iwm_softc *sc, struct iwm_node *in, int update)
 {
-	struct iwm_mvm_add_sta_cmd_v7 add_sta_cmd;
+	struct iwm_mvm_add_sta_cmd add_sta_cmd;
 	int ret;
 	uint32_t status;
 
@@ -3955,7 +3938,7 @@ static int
 iwm_mvm_add_int_sta_common(struct iwm_softc *sc, struct iwm_int_sta *sta,
 	const uint8_t *addr, uint16_t mac_id, uint16_t color)
 {
-	struct iwm_mvm_add_sta_cmd_v7 cmd;
+	struct iwm_mvm_add_sta_cmd cmd;
 	int ret;
 	uint32_t status;
 
@@ -4767,13 +4750,13 @@ iwm_send_update_mcc_cmd(struct iwm_softc *sc, const char *alpha2)
 	int n_channels;
 	uint16_t mcc;
 #endif
-	int resp_v2 = isset(sc->sc_enabled_capa,
+	int resp_v2 = fw_has_capa(&sc->ucode_capa,
 	    IWM_UCODE_TLV_CAPA_LAR_SUPPORT_V2);
 
 	memset(&mcc_cmd, 0, sizeof(mcc_cmd));
 	mcc_cmd.mcc = htole16(alpha2[0] << 8 | alpha2[1]);
-	if ((sc->sc_ucode_api & IWM_UCODE_TLV_API_WIFI_MCC_UPDATE) ||
-	    isset(sc->sc_enabled_capa, IWM_UCODE_TLV_CAPA_LAR_MULTI_MCC))
+	if (fw_has_api(&sc->ucode_capa, IWM_UCODE_TLV_API_WIFI_MCC_UPDATE) ||
+	    fw_has_capa(&sc->ucode_capa, IWM_UCODE_TLV_CAPA_LAR_MULTI_MCC))
 		mcc_cmd.source_id = IWM_MCC_SOURCE_GET_CURRENT;
 	else
 		mcc_cmd.source_id = IWM_MCC_SOURCE_OLD_FW;
@@ -4911,12 +4894,12 @@ iwm_init_hw(struct iwm_softc *sc)
 	if (error)
 		goto error;
 
-	if (isset(sc->sc_enabled_capa, IWM_UCODE_TLV_CAPA_LAR_SUPPORT)) {
+	if (fw_has_capa(&sc->ucode_capa, IWM_UCODE_TLV_CAPA_LAR_SUPPORT)) {
 		if ((error = iwm_send_update_mcc_cmd(sc, "ZZ")) != 0)
 			goto error;
 	}
 
-	if (isset(sc->sc_enabled_capa, IWM_UCODE_TLV_CAPA_UMAC_SCAN)) {
+	if (fw_has_capa(&sc->ucode_capa, IWM_UCODE_TLV_CAPA_UMAC_SCAN)) {
 		if ((error = iwm_mvm_config_umac_scan(sc)) != 0)
 			goto error;
 	}
@@ -5406,7 +5389,7 @@ iwm_notif_intr(struct iwm_softc *sc)
 			break;
 
 		case IWM_REPLY_RX_MPDU_CMD:
-			iwm_mvm_rx_rx_mpdu(sc, pkt, data);
+			iwm_mvm_rx_rx_mpdu(sc, data->m);
 			break;
 
 		case IWM_TX_CMD:
@@ -5449,7 +5432,8 @@ iwm_notif_intr(struct iwm_softc *sc)
 				}
 			}
 
-			break; }
+			break;
+		}
 
 		case IWM_MFUART_LOAD_NOTIFICATION:
 			break;
@@ -5465,7 +5449,8 @@ iwm_notif_intr(struct iwm_softc *sc)
 			stats = (void *)pkt->data;
 			memcpy(&sc->sc_stats, stats, sizeof(sc->sc_stats));
 			sc->sc_noise = iwm_get_noise(sc, &stats->rx.general);
-			break; }
+			break;
+		}
 
 		case IWM_NVM_ACCESS_CMD:
 		case IWM_MCC_UPDATE_CMD:
@@ -5485,7 +5470,8 @@ iwm_notif_intr(struct iwm_softc *sc)
 			IWM_DPRINTF(sc, IWM_DEBUG_RESET,
 			    "fw source %d sent CC '%s'\n",
 			    notif->source_id, sc->sc_fw_mcc);
-			break; }
+			break;
+		}
 
 		case IWM_DTS_MEASUREMENT_NOTIFICATION:
 		case IWM_WIDE_ID(IWM_PHY_OPS_GROUP,
@@ -6314,7 +6300,7 @@ iwm_scan_start(struct ieee80211com *ic)
 		device_printf(sc->sc_dev,
 		    "%s: Previous scan not completed yet\n", __func__);
 	}
-	if (isset(sc->sc_enabled_capa, IWM_UCODE_TLV_CAPA_UMAC_SCAN))
+	if (fw_has_capa(&sc->ucode_capa, IWM_UCODE_TLV_CAPA_UMAC_SCAN))
 		error = iwm_mvm_umac_scan(sc);
 	else
 		error = iwm_mvm_lmac_scan(sc);
