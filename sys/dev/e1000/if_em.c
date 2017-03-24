@@ -1941,10 +1941,11 @@ em_if_msix_intr_assign(if_ctx_t ctx, int msix)
 			tx_que->eims = 1 << (22 + i);
 			adapter->ims |= tx_que->eims;
 			adapter->ivars |= (8 | tx_que->msix) << (8 + (i * 4));
-		} if (adapter->hw.mac.type == e1000_82575)
+		} else if (adapter->hw.mac.type == e1000_82575) {
 			tx_que->eims = E1000_EICR_TX_QUEUE0 << (i %  adapter->tx_num_queues);
-		else
+		} else {
 			tx_que->eims = 1 << (i %  adapter->tx_num_queues);
+		}
 	}
 
 	/* Link interrupt */
@@ -3230,7 +3231,7 @@ em_if_enable_intr(if_ctx_t ctx)
 	if (hw->mac.type == e1000_82574) {
 		E1000_WRITE_REG(hw, EM_EIAC, EM_MSIX_MASK);
 		ims_mask |= adapter->ims;
-	} if (adapter->intr_type == IFLIB_INTR_MSIX && hw->mac.type >= igb_mac_min)  {
+	} else if (adapter->intr_type == IFLIB_INTR_MSIX && hw->mac.type >= igb_mac_min)  {
 		u32 mask = (adapter->que_mask | adapter->link_mask);
 
 		E1000_WRITE_REG(&adapter->hw, E1000_EIAC, mask);
