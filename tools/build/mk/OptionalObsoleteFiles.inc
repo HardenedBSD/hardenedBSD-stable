@@ -7512,12 +7512,14 @@ OLD_FILES+=usr/share/man/man5/nscd.conf.5.gz
 OLD_FILES+=usr/share/man/man8/nscd.8.gz
 .endif
 
-.if ${MK_NTP} == no
+.if ${MK_NTP} == no || ${MK_OPENNTPD} == yes
 OLD_FILES+=etc/ntp.conf
 OLD_FILES+=etc/periodic/daily/480.status-ntpd
 OLD_FILES+=usr/bin/ntpq
 OLD_FILES+=usr/sbin/ntp-keygen
+.if ${MK_OPENNTPD} == no
 OLD_FILES+=usr/sbin/ntpd
+.endif
 OLD_FILES+=usr/sbin/ntpdate
 OLD_FILES+=usr/sbin/ntpdc
 OLD_FILES+=usr/sbin/ntptime
@@ -7606,6 +7608,13 @@ OLD_FILES+=usr/share/man/man8/ntpdate.8.gz
 OLD_FILES+=usr/share/man/man8/ntpdc.8.gz
 OLD_FILES+=usr/share/man/man8/ntpq.8.gz
 OLD_FILES+=usr/share/man/man8/ntptime.8.gz
+.endif
+
+.if ${MK_OPENNTPD} == no
+OLD_FILES+=usr/man/man5/ntpd.conf.5.gz
+OLD_FILES+=usr/man/man8/ntpctl.8.gz
+OLD_FILES+=usr/man/man8/ntpd.8.gz
+OLD_FILES+=usr/sbin/ntpctl
 .endif
 
 .if ${MK_OPENSSH} == no
