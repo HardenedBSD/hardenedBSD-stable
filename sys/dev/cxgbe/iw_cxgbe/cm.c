@@ -695,7 +695,7 @@ process_newconn(struct iw_cm_id *parent_cm_id, struct socket *child_so)
 
 	MPASS(child_so != NULL);
 
-	child_ep = alloc_ep(sizeof(*child_ep), M_WAITOK);
+	child_ep = alloc_ep(sizeof(*child_ep), GFP_KERNEL);
 
 	CTR5(KTR_IW_CXGBE,
 	    "%s: parent so %p, parent ep %p, child so %p, child ep %p",
@@ -2134,15 +2134,7 @@ int c4iw_connect(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
 		err = -EINVAL;
 		goto out;
 	}
-	ep = alloc_ep(sizeof(*ep), M_NOWAIT);
-
-	if (!ep) {
-
-		CTR2(KTR_IW_CXGBE, "%s:cc2 %p", __func__, cm_id);
-		printk(KERN_ERR MOD "%s - cannot alloc ep.\n", __func__);
-		err = -ENOMEM;
-		goto out;
-	}
+	ep = alloc_ep(sizeof(*ep), GFP_KERNEL);
 	init_timer(&ep->timer);
 	ep->plen = conn_param->private_data_len;
 
@@ -2202,7 +2194,7 @@ int c4iw_connect(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
 	ep->tos = 0;
 	ep->com.local_addr = cm_id->local_addr;
 	ep->com.remote_addr = cm_id->remote_addr;
-	err = soconnect(ep->com.so, (struct sockaddr *)&ep->com.remote_addr,
+	err = -soconnect(ep->com.so, (struct sockaddr *)&ep->com.remote_addr,
 		ep->com.thread);
 
 	if (!err) {
@@ -2229,21 +2221,11 @@ out:
 int
 c4iw_create_listen_ep(struct iw_cm_id *cm_id, int backlog)
 {
-	int rc;
 	struct c4iw_dev *dev = to_c4iw_dev(cm_id->device);
 	struct c4iw_listen_ep *ep;
 	struct socket *so = cm_id->so;
 
 	ep = alloc_ep(sizeof(*ep), GFP_KERNEL);
-	CTR5(KTR_IW_CXGBE, "%s: cm_id %p, lso %p, ep %p, inp %p", __func__,
-	    cm_id, so, ep, so->so_pcb);
-	if (ep == NULL) {
-		log(LOG_ERR, "%s: failed to alloc memory for endpoint\n",
-		    __func__);
-		rc = ENOMEM;
-		goto failed;
-	}
-
 	ep->com.cm_id = cm_id;
 	ref_cm_id(&ep->com);
 	ep->com.dev = dev;
@@ -2255,10 +2237,6 @@ c4iw_create_listen_ep(struct iw_cm_id *cm_id, int backlog)
 
 	cm_id->provider_data = ep;
 	return (0);
-
-failed:
-	CTR3(KTR_IW_CXGBE, "%s: cm_id %p, FAILED (%d)", __func__, cm_id, rc);
-	return (-rc);
 }
 
 void
