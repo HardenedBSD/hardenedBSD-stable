@@ -94,12 +94,6 @@ __FBSDID("$FreeBSD$");
 
 #define _PATH_PR "/usr/bin/pr"
 
-#ifdef ST_MTIM_NSEC
-# define TIMESPEC_NS(timespec) ((timespec).ST_MTIM_NSEC)
-#else
-# define TIMESPEC_NS(timespec) 0
-#endif
-
 /*
  * diff - compare two files.
  */
@@ -1614,20 +1608,16 @@ print_header(const char *file1, const char *file2)
 	char buf2[256];
 	char end1[10];
 	char end2[10];
-	struct tm *tm_ptr1, *tm_ptr2;
-	int nsec1 = TIMESPEC_NS (stb1.st_mtime);
-	int nsec2 = TIMESPEC_NS (stb2.st_mtime);
+	struct tm tm1, tm2, *tm_ptr1, *tm_ptr2;
+	int nsec1 = stb1.st_mtim.tv_nsec;
+	int nsec2 = stb2.st_mtim.tv_nsec;
 
-#ifdef ST_MTIM_NSEC
-		time_format = "%Y-%m-%d %H:%M:%S.%N";
-#else
-		time_format = "%Y-%m-%d %H:%M:%S";
-#endif
+	time_format = "%Y-%m-%d %H:%M:%S";
 
 	if (cflag)
 		time_format = "%c";
-	tm_ptr1 = localtime(&stb1.st_mtime);
-	tm_ptr2 = localtime(&stb2.st_mtime);
+	tm_ptr1 = localtime_r(&stb1.st_mtime, &tm1);
+	tm_ptr2 = localtime_r(&stb2.st_mtime, &tm2);
 	strftime(buf1, 256, time_format, tm_ptr1);
 	strftime(buf2, 256, time_format, tm_ptr2);
 	if (!cflag) {
