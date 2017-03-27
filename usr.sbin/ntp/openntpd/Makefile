@@ -25,7 +25,8 @@ CFLAGS+= -DHAVE_SETPROCTITLE=1
 
 LIBADD+=	m md util tls ssl crypto
 LINKS=	${BINDIR}/ntpd ${BINDIR}/ntpctl
-MAN=	ntpd.8 ntpd.conf.5 ntpctl.8
+MAN5=	ntpd.conf.5
+MAN8=	ntpd.8 ntpctl.8
 
 .PATH:	${OPENNTPD_SRC}/../compat ${OPENNTPD_SRC}
 
