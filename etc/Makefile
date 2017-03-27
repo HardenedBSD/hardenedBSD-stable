@@ -118,7 +118,7 @@ BIN1+=	hosts.lpd printcap
 BIN1+=	${SRCTOP}/usr.bin/mail/misc/mail.rc
 .endif
 
-.if ${MK_NTP} != "no"
+.if ${MK_NTP} != "no" && ${MK_OPENNTPD} == "no"
 BIN1+=	ntp.conf
 .endif
 
