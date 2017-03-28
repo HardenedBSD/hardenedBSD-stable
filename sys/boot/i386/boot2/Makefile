@@ -66,7 +66,7 @@ boot1.out: boot1.o
 	${LD} ${LD_FLAGS} -e start -Ttext ${ORG1} -o ${.TARGET} boot1.o
 
 CLEANFILES+=	boot2 boot2.ld boot2.ldr boot2.bin boot2.out boot2.o \
-		boot2.s boot2.s.tmp boot2.h sio.o
+		boot2.h sio.o
 
 boot2: boot2.ld
 	@set -- `ls -l boot2.ld`; x=$$((7680-$$5)); \
@@ -86,15 +86,7 @@ boot2.bin: boot2.out
 boot2.out: ${BTXCRT} boot2.o sio.o
 	${LD} ${LD_FLAGS} -Ttext ${ORG2} -o ${.TARGET} ${.ALLSRC}
 
-boot2.o: boot2.s
-	${CC} ${ACFLAGS} -c boot2.s
-
 SRCS=	boot2.c boot2.h
-
-boot2.s: boot2.c boot2.h ${.CURDIR}/../../common/ufsread.c
-	${CC} ${CFLAGS} -S -o boot2.s.tmp ${.CURDIR}/boot2.c
-	sed -e '/align/d' -e '/nop/d' < boot2.s.tmp > boot2.s
-	rm -f boot2.s.tmp
 
 boot2.h: boot1.out
 	${NM} -t d ${.ALLSRC} | awk '/([0-9])+ T xread/ \

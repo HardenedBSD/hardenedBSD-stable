@@ -250,8 +250,12 @@ FILES+=		othermta
 _nscd=		nscd
 .endif
 
-.if ${MK_NTP} != "no"
+.if ${MK_NTP} != "no" && ${MK_OPENNTPD} == "no"
 FILES+=		ntpd
+.endif
+
+.if ${MK_OPENNTPD} != "no"
+FILES+=		openntpd
 .endif
 
 .if ${MK_OFED} != "no"

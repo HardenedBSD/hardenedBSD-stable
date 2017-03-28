@@ -7515,6 +7515,7 @@ OLD_FILES+=usr/share/man/man8/nscd.8.gz
 .if ${MK_NTP} == no || ${MK_OPENNTPD} == yes
 OLD_FILES+=etc/ntp.conf
 OLD_FILES+=etc/periodic/daily/480.status-ntpd
+OLD_FILES+=etc/rc.d/ntpd
 OLD_FILES+=usr/bin/ntpq
 OLD_FILES+=usr/sbin/ntp-keygen
 .if ${MK_OPENNTPD} == no
@@ -7814,6 +7815,8 @@ OLD_FILES+=usr/share/man/man8/ntptime.8.gz
 .endif
 
 .if ${MK_OPENNTPD} == no
+OLD_FILES+=etc/ntpd.conf
+OLD_FILES+=etc/rc.d/openntpd
 OLD_FILES+=usr/man/man5/ntpd.conf.5.gz
 OLD_FILES+=usr/man/man8/ntpctl.8.gz
 OLD_FILES+=usr/man/man8/ntpd.8.gz
