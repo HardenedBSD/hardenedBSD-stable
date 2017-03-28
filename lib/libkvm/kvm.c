@@ -76,9 +76,14 @@ static char sccsid[] = "@(#)kvm.c	8.2 (Berkeley) 2/13/94";
 /* from src/lib/libc/gen/nlist.c */
 int __fdnlist(int, struct nlist *);
 
+static char _kd_is_null[] = "";
+
 char *
 kvm_geterr(kvm_t *kd)
 {
+
+	if (kd == NULL)
+		return (_kd_is_null);
 	return (kd->errbuf);
 }
 
@@ -262,6 +267,10 @@ kvm_close(kvm_t *kd)
 {
 	int error = 0;
 
+	if (kd == NULL) {
+		errno = EINVAL;
+		return (-1);
+	}
 	if (kd->pmfd >= 0)
 		error |= close(kd->pmfd);
 	if (kd->vmfd >= 0)
@@ -619,5 +628,5 @@ kvm_write(kvm_t *kd, u_long kva, const void *buf, size_t len)
 		len -= cw;
 	}
 
-	return (cp - (char *)buf);
+	return (cp - (const char *)buf);
 }
