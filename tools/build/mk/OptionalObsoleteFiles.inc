@@ -4682,6 +4682,7 @@ OLD_DIRS+=usr/include/c++/v1/ext
 OLD_DIRS+=usr/include/c++/v1
 .endif
 
+<<<<<<< HEAD
 .if ${MK_LIBRESSL} == yes
 OLD_FILES+=usr/share/openssl/man/man3/ASN1_TIME_adj.3
 OLD_FILES+=usr/share/openssl/man/man3/ASN1_TIME_check.3
@@ -5245,6 +5246,14 @@ OLD_LIBS+=usr/lib32/libtls.so.11
 #.if ${MK_LIBTHR} == no
 # to be filled in
 #.endif
+=======
+.if ${MK_LIBTHR} == no
+OLD_LIBS+=lib/libthr.so.3
+OLD_FILES+=usr/lib/libthr.a
+OLD_FILES+=usr/lib/libthr_p.a
+OLD_FILES+=usr/share/man/man3/libthr.3.gz
+.endif
+>>>>>>> origin/freebsd/11-stable/master
 
 .if ${MK_LLD} == no
 OLD_FILES+=usr/bin/ld.lld
