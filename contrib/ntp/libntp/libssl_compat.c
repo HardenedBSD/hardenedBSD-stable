@@ -18,9 +18,6 @@
 #include "ntp_types.h"
 
 /* ----------------------------------------------------------------- */
-<<<<<<< HEAD
-#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
-=======
 #ifdef OPENSSL
 # include <string.h>
 # include <openssl/bn.h>
@@ -29,8 +26,8 @@
 /* ----------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------- */
-#if defined(OPENSSL) && OPENSSL_VERSION_NUMBER < 0x10100000L
->>>>>>> origin/freebsd/11-stable/master
+#if (defined(OPENSSL) && OPENSSL_VERSION_NUMBER < 0x10100000L) \
+    || defined(LIBRESSL_VERSION_NUMBER)
 /* ----------------------------------------------------------------- */
 
 #include "libssl_compat.h"
