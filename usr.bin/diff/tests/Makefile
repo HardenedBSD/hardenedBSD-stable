@@ -2,7 +2,7 @@
 
 PACKAGE=	tests
 
-ATF_TESTS_SH=	diff
+ATF_TESTS_SH=	diff_test
 
 ${PACKAGE}FILES+=	\
 	input1.in \
@@ -19,15 +19,18 @@ ${PACKAGE}FILES+=	\
 	simple_p.out \
 	unified_p.out \
 	unified_c9999.out \
-	unified_9999.out
+	unified_9999.out \
+	header.out \
+	header_ns.out
 
-NETBSD_ATF_TESTS_SH+=	diff_test
+NETBSD_ATF_TESTS_SH+=	netbsd_diff_test
 
 ${PACKAGE}FILES+=	\
 	d_mallocv1.in	\
 	d_mallocv2.in
 
-ATF_TESTS_SH_SED_diff_test+=	-e 's,t_diff,diff_test,g'
+ATF_TESTS_SH_SED_netbsd_diff_test+=	-e 's,t_diff,netbsd_diff_test,g'
+ATF_TESTS_SH_SRC_netbsd_diff_test=	t_diff.sh
 
 .include <netbsd-tests.test.mk>
 

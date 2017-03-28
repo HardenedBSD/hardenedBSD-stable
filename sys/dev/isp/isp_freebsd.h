@@ -173,10 +173,8 @@ typedef struct tstate {
 struct isp_pcmd {
 	struct isp_pcmd *	next;
 	bus_dmamap_t 		dmap;		/* dma map for this command */
-	struct ispsoftc *	isp;		/* containing isp */
 	struct callout		wdog;		/* watchdog timer */
 	uint32_t		datalen;	/* data length for this command (target mode only) */
-	uint8_t 		crn;		/* command reference number */
 };
 #define	ISP_PCMD(ccb)		(ccb)->ccb_h.spriv_ptr1
 #define	PISP_PCMD(ccb)		((struct isp_pcmd *)ISP_PCMD(ccb))
@@ -295,7 +293,6 @@ struct isposinfo {
 	struct isp_pcmd *	pcmd_pool;
 	struct isp_pcmd *	pcmd_free;
 
-	int			sixtyfourbit;	/* sixtyfour bit platform */
 	int			mbox_sleeping;
 	int			mbox_sleep_ok;
 	int			mboxbsy;
@@ -507,6 +504,13 @@ default:							\
         d->ds_base = DMA_LO32(e->ds_addr);	\
         d->ds_count = e->ds_len;		\
 }
+#if (BUS_SPACE_MAXADDR > UINT32_MAX)
+#define XS_NEED_DMA64_SEG(s, n)					\
+	(((bus_dma_segment_t *)s)[n].ds_addr +			\
+	    ((bus_dma_segment_t *)s)[n].ds_len > UINT32_MAX)
+#else
+#define XS_NEED_DMA64_SEG(s, n)	(0)
+#endif
 #define	XS_ISP(ccb)		cam_sim_softc(xpt_path_sim((ccb)->ccb_h.path))
 #define	XS_CHANNEL(ccb)		cam_sim_bus(xpt_path_sim((ccb)->ccb_h.path))
 #define	XS_TGT(ccb)		(ccb)->ccb_h.target_id

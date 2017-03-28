@@ -94,15 +94,6 @@ __FBSDID("$FreeBSD$");
 
 #define _PATH_PR "/usr/bin/pr"
 
-#ifdef ST_MTIM_NSEC
-# define TIMESPEC_NS(timespec) ((timespec).ST_MTIM_NSEC)
-#else
-# define TIMESPEC_NS(timespec) 0
-#endif
-
-#define MINIMUM(a, b)	(((a) < (b)) ? (a) : (b))
-#define MAXIMUM(a, b)	(((a) > (b)) ? (a) : (b))
-
 /*
  * diff - compare two files.
  */
@@ -614,7 +605,7 @@ prepare(int i, FILE *fd, size_t filesize, int flags)
 
 	rewind(fd);
 
-	sz = ((unsigned long)filesize <= SIZE_MAX ? filesize : SIZE_MAX) / 25;
+	sz = MIN(filesize, SIZE_MAX) / 25;
 	if (sz < 100)
 		sz = 100;
 
@@ -709,7 +700,7 @@ stone(int *a, int n, int *b, int *c, int flags)
 		bound = UINT_MAX;
 	else {
 		sq = isqrt(n);
-		bound = MAXIMUM(256, sq);
+		bound = MAX(256, sq);
 	}
 
 	k = 0;
@@ -1446,10 +1437,10 @@ dump_context_vec(FILE *f1, FILE *f2, int flags)
 		return;
 
 	b = d = 0;		/* gcc */
-	lowa = MAXIMUM(1, cvp->a - diff_context);
-	upb = MINIMUM(len[0], context_vec_ptr->b + diff_context);
-	lowc = MAXIMUM(1, cvp->c - diff_context);
-	upd = MINIMUM(len[1], context_vec_ptr->d + diff_context);
+	lowa = MAX(1, cvp->a - diff_context);
+	upb = MIN(len[0], context_vec_ptr->b + diff_context);
+	lowc = MAX(1, cvp->c - diff_context);
+	upd = MIN(len[1], context_vec_ptr->d + diff_context);
 
 	diff_output("***************");
 	if ((flags & D_PROTOTYPE)) {
@@ -1549,10 +1540,10 @@ dump_unified_vec(FILE *f1, FILE *f2, int flags)
 		return;
 
 	b = d = 0;		/* gcc */
-	lowa = MAXIMUM(1, cvp->a - diff_context);
-	upb = MINIMUM(len[0], context_vec_ptr->b + diff_context);
-	lowc = MAXIMUM(1, cvp->c - diff_context);
-	upd = MINIMUM(len[1], context_vec_ptr->d + diff_context);
+	lowa = MAX(1, cvp->a - diff_context);
+	upb = MIN(len[0], context_vec_ptr->b + diff_context);
+	lowc = MAX(1, cvp->c - diff_context);
+	upd = MIN(len[1], context_vec_ptr->d + diff_context);
 
 	diff_output("@@ -");
 	uni_range(lowa, upb);
@@ -1617,20 +1608,16 @@ print_header(const char *file1, const char *file2)
 	char buf2[256];
 	char end1[10];
 	char end2[10];
-	struct tm *tm_ptr1, *tm_ptr2;
-	int nsec1 = TIMESPEC_NS (stb1.st_mtime);
-	int nsec2 = TIMESPEC_NS (stb2.st_mtime);
+	struct tm tm1, tm2, *tm_ptr1, *tm_ptr2;
+	int nsec1 = stb1.st_mtim.tv_nsec;
+	int nsec2 = stb2.st_mtim.tv_nsec;
 
-#ifdef ST_MTIM_NSEC
-		time_format = "%Y-%m-%d %H:%M:%S.%N";
-#else
-		time_format = "%Y-%m-%d %H:%M:%S";
-#endif
+	time_format = "%Y-%m-%d %H:%M:%S";
 
 	if (cflag)
 		time_format = "%c";
-	tm_ptr1 = localtime(&stb1.st_mtime);
-	tm_ptr2 = localtime(&stb2.st_mtime);
+	tm_ptr1 = localtime_r(&stb1.st_mtime, &tm1);
+	tm_ptr2 = localtime_r(&stb2.st_mtime, &tm2);
 	strftime(buf1, 256, time_format, tm_ptr1);
 	strftime(buf2, 256, time_format, tm_ptr2);
 	if (!cflag) {
