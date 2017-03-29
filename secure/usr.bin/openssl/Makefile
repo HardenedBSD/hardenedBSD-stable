@@ -2,6 +2,8 @@
 
 .include <src.opts.mk>
 
+CFI_OVERRIDE= -fno-sanitize=cfi-icall
+
 .if ${MK_LIBRESSL} == "no"
 
 PROG=	openssl
