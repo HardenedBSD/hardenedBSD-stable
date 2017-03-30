@@ -1441,15 +1441,17 @@ _iflib_irq_alloc(if_ctx_t ctx, if_irq_t irq, int rid,
 	driver_filter_t filter, driver_intr_t handler, void *arg,
 				 char *name)
 {
-	int rc;
+	int rc, flags;
 	struct resource *res;
-	void *tag;
+	void *tag = NULL;
 	device_t dev = ctx->ifc_dev;
 
+	flags = RF_ACTIVE;
+	if (ctx->ifc_flags & IFC_LEGACY)
+		flags |= RF_SHAREABLE;
 	MPASS(rid < 512);
 	irq->ii_rid = rid;
-	res = bus_alloc_resource_any(dev, SYS_RES_IRQ, &irq->ii_rid,
-				     RF_SHAREABLE | RF_ACTIVE);
+	res = bus_alloc_resource_any(dev, SYS_RES_IRQ, &irq->ii_rid, flags);
 	if (res == NULL) {
 		device_printf(dev,
 		    "failed to allocate IRQ for rid %d, name %s.\n", rid, name);
@@ -2114,7 +2116,7 @@ iflib_timer(void *arg)
 	return;
 hung:
 	CTX_LOCK(ctx);
-	if_setdrvflagbits(ctx->ifc_ifp, 0, IFF_DRV_RUNNING);
+	if_setdrvflagbits(ctx->ifc_ifp, IFF_DRV_OACTIVE, IFF_DRV_RUNNING);
 	device_printf(ctx->ifc_dev,  "TX(%d) desc avail = %d, pidx = %d\n",
 				  txq->ift_id, TXQ_AVAIL(txq), txq->ift_pidx);
 
@@ -2122,7 +2124,8 @@ hung:
 	ctx->ifc_watchdog_events++;
 	ctx->ifc_pause_frames = 0;
 
-	iflib_init_locked(ctx);
+	ctx->ifc_flags |= IFC_DO_RESET;
+	iflib_admin_intr_deferred(ctx);
 	CTX_UNLOCK(ctx);
 }
 
@@ -2600,7 +2603,7 @@ txq_max_rs_deferred(iflib_txq_t txq)
 		return (notify_count >> 1);
 	if (txq->ift_in_use > minthresh)
 		return (notify_count >> 2);
-	return (notify_count >> 4);
+	return (2);
 }
 
 #define M_CSUM_FLAGS(m) ((m)->m_pkthdr.csum_flags)
@@ -3516,8 +3519,11 @@ _task_fn_admin(void *context)
 	iflib_txq_t txq;
 	int i;
 
-	if (!(if_getdrvflags(ctx->ifc_ifp) & IFF_DRV_RUNNING))
-		return;
+	if (!(if_getdrvflags(ctx->ifc_ifp) & IFF_DRV_RUNNING)) {
+		if (!(if_getdrvflags(ctx->ifc_ifp) & IFF_DRV_OACTIVE)) {
+			return;
+		}
+	}
 
 	CTX_LOCK(ctx);
 	for (txq = ctx->ifc_txqs, i = 0; i < sctx->isc_ntxqsets; i++, txq++) {
