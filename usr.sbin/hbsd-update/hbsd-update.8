@@ -44,6 +44,7 @@
 .Op Fl o
 .Op Fl s
 .Op Fl t Ar tmpdir
+.Op Fl T
 .Op Fl U
 .Op Fl v Ar version
 .Op Fl V
@@ -100,6 +101,8 @@ If src.txz exists in the update archive, extract src.txz into
 .It Fl t Ar tempdir
 Specify a custom temporary directory for downloading and parsing
 the update.
+.It Fl T
+Keep the temporary directory.
 .It Fl U
 Allow unsigned updates. Do not check digital signatures. Usage of this
 option is discouraged.
