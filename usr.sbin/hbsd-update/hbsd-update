@@ -48,6 +48,7 @@ integriforce=1
 no_obsolete=0
 interactive=0
 install_src=0
+keeptmp=0
 
 update_hash=""
 
@@ -777,7 +778,11 @@ destroy_be() {
 }
 
 cleanup() {
-	rm -rf ${tmpdir}
+	if [ ${keeptmp} -eq 0 ]; then
+		rm -rf ${tmpdir}
+	else
+		debug_print "[*] Temp directory kept at: ${tmpdir}"
+	fi
 }
 
 check_sanity() {
@@ -833,7 +838,7 @@ main() {
 	do_report_version=0
 	local_kernel=""
 
-	while getopts 'dhiosCIUVb:c:j:K:k:t:u:v:' opt; do
+	while getopts 'dhiosCITUVb:c:j:K:k:t:u:v:' opt; do
 		case "${opt}" in
 			b)
 				if ! which -s ${BEADM}; then
@@ -875,6 +880,9 @@ main() {
 				;;
 			t)
 				tmpdir="${OPTARG}"
+				;;
+			T)
+				keeptmp=1
 				;;
 			U)
 				unsigned=1
