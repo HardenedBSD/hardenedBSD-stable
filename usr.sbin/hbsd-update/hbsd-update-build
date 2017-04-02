@@ -66,6 +66,7 @@ setup_environment() {
 	TARGET=$(uname -m)
 	TARGET_ARCH=$(uname -p)
 	NEED_CROSS_UTILS=1
+	SCRIPTFILE=""
 }
 
 cleanup_chroot() {
@@ -337,6 +338,14 @@ EOF
 	cp ${CHROOTDIR}/usr/src/UPDATING ${STAGEDIR}/
 	cp ${CHROOTDIR}/usr/src/UPDATING-HardenedBSD ${STAGEDIR}/
 
+	if [ ${#SCRIPTFILE} -gt 0 ]; then
+		cp ${SCRIPTFILE} ${STAGEDIR}/script.sh
+		res=${?}
+		if [ ${res} -gt 0 ]; then
+			return ${res}
+		fi
+	fi
+
 	if [ ${BUILDSRCSET} -gt 0 ]; then
 		build_src_tarball
 		res=${?}
@@ -465,6 +474,9 @@ sign_artifacts() {
 	debug_print "[*] Signing artifacts"
 
 	files="skip.txt ObsoleteFiles.txt ObsoleteDirs.txt"
+	if [ ${#SCRIPTFILE} -gt 0 ]; then
+		files="${files} script.sh"
+	fi
 
 	if [ -z "${PRIVKEY}" ]; then
 		return 0
@@ -633,8 +645,12 @@ main() {
 	done
 
 	if [ ! -z "${BUILDCONF}" ]; then
+		echo "Sourcing ${BUILDCONF}"
 		. ${BUILDCONF}
 	fi
+
+	export TARGET
+	export TARGET_ARCH
 
 	setup_directories || exit 1
 
@@ -647,9 +663,6 @@ main() {
 			fi
 			clone_source || exit 1
 			create_src_conf || exit 1
-
-			export TARGET
-			export TARGET_ARCH
 
 			build_source || exit 1
 
