@@ -377,7 +377,7 @@ check_set_validity() {
 	local computedhash
 
 	checkfiles="base.txz kernel-${kernel}.txz etcupdate.tbz skip.txt"
-	extrafiles="ObsoleteFiles.txt ObsoleteDirs.txt"
+	extrafiles="ObsoleteFiles.txt ObsoleteDirs.txt script.sh"
 
 	if [ ${integriforce} -gt 0 ]; then
 		if [ -f ${tmpdir}/secadm.integriforce.rules ]; then
@@ -421,7 +421,9 @@ check_set_validity() {
 
 	for file in ${extrafiles}; do
 		if [ ! -f ${tmpdir}/${file} ]; then
-			echo "[-] Could not find extra file ${file}. Skipping validity checks."
+			if [ "$file"} != "script.sh" ]; then
+				debug_print "[-] Warning: Could not find extra file ${file}.  Skipping validity checks for that file."
+			fi
 			continue
 		fi
 
@@ -831,6 +833,14 @@ report_version() {
 	exit 0
 }
 
+pre_install_hook() {
+	return 0
+}
+
+post_install_hook() {
+	return 0
+}
+
 main() {
 	local do_report_version
 	local local_kernel
@@ -968,6 +978,17 @@ main() {
 		fi
 	fi
 
+	if [ -f ${tmpdir}/script.sh ]; then
+		. ${tmpdir}/script.sh
+	fi
+
+	pre_install_hook
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		cleanup
+		exit 1
+	fi
+
 	create_be
 	res=${?}
 	if [ ${res} -gt 0 ]; then
@@ -1015,6 +1036,14 @@ main() {
 	fi
 
 	cache_version
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		cleanup
+		destroy_be
+		exit 1
+	fi
+
+	post_install_hook
 	res=${?}
 	if [ ${res} -gt 0 ]; then
 		cleanup
