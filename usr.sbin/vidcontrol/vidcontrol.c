@@ -94,11 +94,8 @@ static int	hex = 0;
 static int	vesa_cols;
 static int	vesa_rows;
 static int	font_height;
-static int	colors_changed;
-static int	video_mode_changed;
-static int	normal_fore_color, normal_back_color;
-static int	revers_fore_color, revers_back_color;
 static int	vt4_mode = 0;
+static int	video_mode_changed;
 static struct	vid_info info;
 static struct	video_info new_mode_info;
 
@@ -121,30 +118,25 @@ static void
 init(void)
 {
 	if (ioctl(0, VT_GETACTIVE, &cur_info.active_vty) == -1)
-		errc(1, errno, "getting active vty");
+		err(1, "getting active vty");
 
 	cur_info.console_info.size = sizeof(cur_info.console_info);
 
 	if (ioctl(0, CONS_GETINFO, &cur_info.console_info) == -1)
-		errc(1, errno, "getting console information");
+		err(1, "getting console information");
 
 	/* vt(4) use unicode, so no screen mapping required. */
 	if (vt4_mode == 0 &&
 	    ioctl(0, GIO_SCRNMAP, &cur_info.screen_map) == -1)
-		errc(1, errno, "getting screen map");
+		err(1, "getting screen map");
 
 	if (ioctl(0, CONS_GET, &cur_info.video_mode_number) == -1)
-		errc(1, errno, "getting video mode number");
+		err(1, "getting video mode number");
 
 	cur_info.video_mode_info.vi_mode = cur_info.video_mode_number;
 
 	if (ioctl(0, CONS_MODEINFO, &cur_info.video_mode_info) == -1)
-		errc(1, errno, "getting video mode parameters");
-
-	normal_fore_color = cur_info.console_info.mv_norm.fore;
-	normal_back_color = cur_info.console_info.mv_norm.back;
-	revers_fore_color = cur_info.console_info.mv_rev.fore;
-	revers_back_color = cur_info.console_info.mv_rev.back;
+		err(1, "getting video mode parameters");
 }
 
 
@@ -158,33 +150,40 @@ init(void)
 static void
 revert(void)
 {
-	int size[3];
+	int save_errno, size[3];
+
+	save_errno = errno;
 
 	ioctl(0, VT_ACTIVATE, cur_info.active_vty);
 
 	fprintf(stderr, "\033[=%dA", cur_info.console_info.mv_ovscan);
-	fprintf(stderr, "\033[=%dF", cur_info.console_info.mv_norm.fore);
-	fprintf(stderr, "\033[=%dG", cur_info.console_info.mv_norm.back);
 	fprintf(stderr, "\033[=%dH", cur_info.console_info.mv_rev.fore);
 	fprintf(stderr, "\033[=%dI", cur_info.console_info.mv_rev.back);
 
 	if (vt4_mode == 0)
 		ioctl(0, PIO_SCRNMAP, &cur_info.screen_map);
 
-	if (cur_info.video_mode_number >= M_VESA_BASE)
-		ioctl(0, _IO('V', cur_info.video_mode_number - M_VESA_BASE),
-		      NULL);
-	else
-		ioctl(0, _IO('S', cur_info.video_mode_number), NULL);
-
-	if (cur_info.video_mode_info.vi_flags & V_INFO_GRAPHICS) {
-		size[0] = cur_info.video_mode_info.vi_width / 8;
-		size[1] = cur_info.video_mode_info.vi_height /
-			  cur_info.console_info.font_size;
-		size[2] = cur_info.console_info.font_size;
-
-		ioctl(0, KDRASTER, size);
+	if (video_mode_changed) {
+		if (cur_info.video_mode_number >= M_VESA_BASE)
+			ioctl(0,
+			    _IO('V', cur_info.video_mode_number - M_VESA_BASE),
+			    NULL);
+		else
+			ioctl(0, _IO('S', cur_info.video_mode_number), NULL);
+		if (cur_info.video_mode_info.vi_flags & V_INFO_GRAPHICS) {
+			size[0] = cur_info.video_mode_info.vi_width / 8;
+			size[1] = cur_info.video_mode_info.vi_height /
+			    cur_info.console_info.font_size;
+			size[2] = cur_info.console_info.font_size;
+			ioctl(0, KDRASTER, size);
+		}
 	}
+
+	/* Restore some colors last since mode setting forgets some. */
+	fprintf(stderr, "\033[=%dF", cur_info.console_info.mv_norm.fore);
+	fprintf(stderr, "\033[=%dG", cur_info.console_info.mv_norm.back);
+
+	errno = save_errno;
 }
 
 
@@ -305,7 +304,6 @@ load_scrnmap(const char *filename)
 		rewind(fd);
 
 		if (fread(&scrnmap, 1, size, fd) != (size_t)size) {
-			warnx("bad screenmap file");
 			fclose(fd);
 			revert();
 			errx(1, "bad screenmap file");
@@ -314,7 +312,7 @@ load_scrnmap(const char *filename)
 
 	if (ioctl(0, PIO_SCRNMAP, &scrnmap) == -1) {
 		revert();
-		errc(1, errno, "loading screenmap");
+		err(1, "loading screenmap");
 	}
 
 	fclose(fd);
@@ -336,7 +334,7 @@ load_default_scrnmap(void)
 
 	if (ioctl(0, PIO_SCRNMAP, &scrnmap) == -1) {
 		revert();
-		errc(1, errno, "loading default screenmap");
+		err(1, "loading default screenmap");
 	}
 }
 
@@ -353,7 +351,7 @@ print_scrnmap(void)
 
 	if (ioctl(0, GIO_SCRNMAP, &map) == -1) {
 		revert();
-		errc(1, errno, "getting screenmap");
+		err(1, "getting screenmap");
 	}
 	for (i=0; i<sizeof(map); i++) {
 		if (i != 0 && i % 16 == 0)
@@ -422,7 +420,7 @@ load_default_vt4font(void)
 {
 	if (ioctl(0, PIO_VFONT_DEFAULT) == -1) {
 		revert();
-		errc(1, errno, "loading default vt font");
+		err(1, "loading default vt font");
 	}
 }
 
@@ -581,7 +579,6 @@ load_font(const char *type, const char *filename)
 		rewind(fd);
 		if (fsize(fd) != size ||
 		    fread(fontmap, 1, size, fd) != (size_t)size) {
-			warnx("%s: bad font file", filename);
 			fclose(fd);
 			free(fontmap);
 			revert();
@@ -591,7 +588,7 @@ load_font(const char *type, const char *filename)
 
 	if (ioctl(0, io, fontmap) == -1) {
 		revert();
-		errc(1, errno, "loading font");
+		err(1, "loading font");
 	}
 
 	fclose(fd);
@@ -621,7 +618,7 @@ set_screensaver_timeout(char *arg)
 
 	if (ioctl(0, CONS_BLANKTIME, &nsec) == -1) {
 		revert();
-		errc(1, errno, "setting screensaver period");
+		err(1, "setting screensaver period");
 	}
 }
 
@@ -648,7 +645,7 @@ set_cursor_type(char *appearance)
 
 	if (ioctl(0, CONS_CURSORTYPE, &type) == -1) {
 		revert();
-		errc(1, errno, "setting cursor type");
+		err(1, "setting cursor type");
 	}
 }
 
@@ -657,7 +654,7 @@ set_cursor_type(char *appearance)
  * Set the video mode.
  */
 
-static int
+static void
 video_mode(int argc, char **argv, int *mode_index)
 {
 	static struct {
@@ -701,7 +698,7 @@ video_mode(int argc, char **argv, int *mode_index)
 	int new_mode_num = 0;
 	unsigned long mode = 0;
 	int cur_mode; 
-	int ioerr;
+	int save_errno;
 	int size[3];
 	int i;
 
@@ -728,11 +725,12 @@ video_mode(int argc, char **argv, int *mode_index)
 			}
 
 			if (modes[i].name == NULL)
-				return EXIT_FAILURE;
+				return;
 			if (ioctl(0, mode, NULL) < 0) {
-				warn("cannot set videomode");
-				return EXIT_FAILURE;
+				revert();
+				err(1, "cannot set videomode");
 			}
+			video_mode_changed = 1;
 		}
 
 		/*
@@ -743,7 +741,7 @@ video_mode(int argc, char **argv, int *mode_index)
 
 		if (ioctl(0, CONS_MODEINFO, &new_mode_info) == -1) {
 			revert();
-			errc(1, errno, "obtaining new video mode parameters");
+			err(1, "obtaining new video mode parameters");
 		}
 
 		if (mode == 0) {
@@ -759,8 +757,9 @@ video_mode(int argc, char **argv, int *mode_index)
 
 		if (ioctl(0, mode, NULL) == -1) {
 			revert();
-			errc(1, errno, "setting video mode");
+			err(1, "setting video mode");
 		}
+		video_mode_changed = 1;
 
 		/*
 		 * For raster modes it's not enough to just set the mode.
@@ -797,7 +796,7 @@ video_mode(int argc, char **argv, int *mode_index)
 			/* set raster mode */
 
 			if (ioctl(0, KDRASTER, size)) {
-				ioerr = errno;
+				save_errno = errno;
 				if (cur_mode >= M_VESA_BASE)
 					ioctl(0,
 					    _IO('V', cur_mode - M_VESA_BASE),
@@ -805,16 +804,19 @@ video_mode(int argc, char **argv, int *mode_index)
 				else
 					ioctl(0, _IO('S', cur_mode), NULL);
 				revert();
-				warnc(ioerr, "cannot activate raster display");
-				return EXIT_FAILURE;
+				errno = save_errno;
+				err(1, "cannot activate raster display");
 			}
 		}
 
-		video_mode_changed = 1;
+		/* Recover from mode setting forgetting colors. */
+		fprintf(stderr, "\033[=%dF",
+		    cur_info.console_info.mv_norm.fore);
+		fprintf(stderr, "\033[=%dG",
+		    cur_info.console_info.mv_norm.back);
 
 		(*mode_index)++;
 	}
-	return EXIT_SUCCESS;
 }
 
 
@@ -836,63 +838,43 @@ get_color_number(char *color)
 
 
 /*
- * Get normal text and background colors.
+ * Set normal text and background colors.
  */
 
 static void
-get_normal_colors(int argc, char **argv, int *_index)
+set_normal_colors(int argc, char **argv, int *_index)
 {
 	int color;
 
 	if (*_index < argc && (color = get_color_number(argv[*_index])) != -1) {
 		(*_index)++;
 		fprintf(stderr, "\033[=%dF", color);
-		normal_fore_color=color;
-		colors_changed = 1;
 		if (*_index < argc
 		    && (color = get_color_number(argv[*_index])) != -1) {
 			(*_index)++;
 			fprintf(stderr, "\033[=%dG", color);
-			normal_back_color=color;
 		}
 	}
 }
 
 
 /*
- * Get reverse text and background colors.
+ * Set reverse text and background colors.
  */
 
 static void
-get_reverse_colors(int argc, char **argv, int *_index)
+set_reverse_colors(int argc, char **argv, int *_index)
 {
 	int color;
 
 	if ((color = get_color_number(argv[*(_index)-1])) != -1) {
 		fprintf(stderr, "\033[=%dH", color);
-		revers_fore_color=color;
-		colors_changed = 1;
 		if (*_index < argc
 		    && (color = get_color_number(argv[*_index])) != -1) {
 			(*_index)++;
 			fprintf(stderr, "\033[=%dI", color);
-			revers_back_color=color;
 		}
 	}
-}
-
-
-/*
- * Set normal and reverse foreground and background colors.
- */
-
-static void
-set_colors(void)
-{
-	fprintf(stderr, "\033[=%dF", normal_fore_color);
-	fprintf(stderr, "\033[=%dG", normal_back_color);
-	fprintf(stderr, "\033[=%dH", revers_fore_color);
-	fprintf(stderr, "\033[=%dI", revers_back_color);
 }
 
 
@@ -917,7 +899,7 @@ set_console(char *arg)
 		errx(1, "console number out of range");
 	} else if (ioctl(0, VT_ACTIVATE, n) == -1) {
 		revert();
-		errc(1, errno, "switching vty");
+		err(1, "switching vty");
 	}
 }
 
@@ -957,7 +939,7 @@ set_mouse_char(char *arg)
 
 	if (ioctl(0, CONS_MOUSECTL, &mouse) == -1) {
 		revert();
-		errc(1, errno, "setting mouse character");
+		err(1, "setting mouse character");
 	}
 }
 
@@ -982,7 +964,7 @@ set_mouse(char *arg)
 
 	if (ioctl(0, CONS_MOUSECTL, &mouse) == -1) {
 		revert();
-		errc(1, errno, "%sing the mouse",
+		err(1, "%sing the mouse",
 		     mouse.operation == MOUSE_SHOW ? "show" : "hid");
 	}
 }
@@ -1004,7 +986,7 @@ set_lockswitch(char *arg)
 
 	if (ioctl(0, VT_LOCKSWITCH, &data) == -1) {
 		revert();
-		errc(1, errno, "turning %s vty switching",
+		err(1, "turning %s vty switching",
 		     data == 0x01 ? "off" : "on");
 	}
 }
@@ -1064,7 +1046,7 @@ show_adapter_info(void)
 
 	if (ioctl(0, CONS_ADPINFO, &ad) == -1) {
 		revert();
-		errc(1, errno, "obtaining adapter information");
+		err(1, "obtaining adapter information");
 	}
 
 	printf("fb%d:\n", ad.va_index);
@@ -1223,7 +1205,7 @@ dump_screen(int mode, int opt)
 
 	if (ioctl(0, CONS_GETINFO, &_info) == -1) {
 		revert();
-		errc(1, errno, "obtaining current video mode parameters");
+		err(1, "obtaining current video mode parameters");
 		return;
 	}
 
@@ -1241,7 +1223,7 @@ dump_screen(int mode, int opt)
 
 	if (ioctl(0, CONS_SCRSHOT, &shot) == -1) {
 		revert();
-		errc(1, errno, "dumping screen");
+		err(1, "dumping screen");
 	}
 
 	if (mode == DUMP_FMT_RAW) {
@@ -1307,7 +1289,7 @@ set_history(char *opt)
 
 	if (ioctl(0, CONS_HISTORY, &size) == -1) {
 		revert();
-		errc(1, errno, "setting history buffer size");
+		err(1, "setting history buffer size");
 	}
 }
 
@@ -1321,7 +1303,7 @@ clear_history(void)
 {
 	if (ioctl(0, CONS_CLRHIST) == -1) {
 		revert();
-		errc(1, errno, "clearing history buffer");
+		err(1, "clearing history buffer");
 	}
 }
 
@@ -1342,7 +1324,6 @@ main(int argc, char **argv)
 	char    *font, *type, *termmode;
 	const char *opts;
 	int	dumpmod, dumpopt, opt;
-	int	reterr;
 
 	vt4_mode = is_vt4();
 
@@ -1435,7 +1416,7 @@ main(int argc, char **argv)
 			dumpmod = DUMP_FMT_TXT;
 			break;
 		case 'r':
-			get_reverse_colors(argc, argv, &optind);
+			set_reverse_colors(argc, argv, &optind);
 			break;
 		case 'S':
 			set_lockswitch(optarg);
@@ -1461,25 +1442,19 @@ main(int argc, char **argv)
 
 	if (dumpmod != 0)
 		dump_screen(dumpmod, dumpopt);
-	reterr = video_mode(argc, argv, &optind);
-	get_normal_colors(argc, argv, &optind);
+	video_mode(argc, argv, &optind);
+	set_normal_colors(argc, argv, &optind);
 
 	if (optind < argc && !strcmp(argv[optind], "show")) {
 		test_frame();
 		optind++;
 	}
 
-	video_mode(argc, argv, &optind);
 	if (termmode != NULL)
 		set_terminal_mode(termmode);
 
-	get_normal_colors(argc, argv, &optind);
-
-	if (colors_changed || video_mode_changed)
-		set_colors();
-
 	if ((optind != argc) || (argc == 1))
 		usage();
-	return reterr;
+	return (0);
 }
 
