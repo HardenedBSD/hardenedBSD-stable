@@ -282,6 +282,9 @@ procline(struct str *l, int nottext)
 	int c = 0, m = 0, r = 0, lastmatches = 0, leflags = eflags;
 	int startm = 0;
 
+	/* Initialize to avoid a false positive warning from GCC. */
+	lastmatch.rm_so = lastmatch.rm_eo = 0;
+
 	/* Loop to process the whole line */
 	while (st <= l->len) {
 		lastmatches = 0;
@@ -509,13 +512,13 @@ printline(struct str *line, int sep, regmatch_t *matches, int m)
 				fwrite(line->dat + a, matches[i].rm_so - a, 1,
 				    stdout);
 			if (color) 
-				fprintf(stdout, "\33[%sm", color);
+				fprintf(stdout, "\33[%sm\33[K", color);
 
 				fwrite(line->dat + matches[i].rm_so, 
 				    matches[i].rm_eo - matches[i].rm_so, 1,
 				    stdout);
 			if (color) 
-				fprintf(stdout, "\33[00m\33[K");
+				fprintf(stdout, "\33[m\33[K");
 			a = matches[i].rm_eo;
 			if (oflag)
 				putchar('\n');
