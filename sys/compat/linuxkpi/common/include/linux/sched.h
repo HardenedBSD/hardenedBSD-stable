@@ -43,6 +43,8 @@
 #include <linux/pid.h>
 #include <linux/slab.h>
 #include <linux/mm_types.h>
+#include <linux/string.h>
+#include <linux/bitmap.h>
 
 #include <asm/atomic.h>
 
@@ -74,8 +76,7 @@ struct task_struct {
 
 #define	current		((struct task_struct *)curthread->td_lkpi_task)
 
-#define	task_pid_group_leader(task) \
-	FIRST_THREAD_IN_PROC((task)->task_thread->td_proc)->td_tid
+#define	task_pid_group_leader(task) (task)->task_thread->td_proc->p_pid
 #define	task_pid(task)		((task)->pid)
 #define	task_pid_nr(task)	((task)->pid)
 #define	get_pid(x)		(x)
@@ -145,5 +146,7 @@ schedule_timeout(signed long timeout)
 
 	return 0;
 }
+
+#define	need_resched() (curthread->td_flags & TDF_NEEDRESCHED)
 
 #endif	/* _LINUX_SCHED_H_ */
