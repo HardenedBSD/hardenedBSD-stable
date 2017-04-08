@@ -170,6 +170,7 @@ SUBDIR=	\
 	ipfw_nat \
 	${_ipfw_nat64} \
 	${_ipfw_nptv6} \
+	${_ipfw_pmod} \
 	${_ipmi} \
 	ip6_mroute_mod \
 	ip_mroute_mod \
@@ -306,6 +307,7 @@ SUBDIR=	\
 	${_qlxge} \
 	${_qlxgb} \
 	${_qlxgbe} \
+	${_qlnx} \
 	ral \
 	${_ralfw} \
 	${_random_fortuna} \
@@ -440,6 +442,7 @@ _toecore=	toecore
 _if_enc=	if_enc
 _if_gif=	if_gif
 _if_gre=	if_gre
+_ipfw_pmod=	ipfw_pmod
 .if ${MK_IPSEC_SUPPORT} != "no"
 _ipsec=		ipsec
 .endif
@@ -691,6 +694,7 @@ _pms=		pms
 _qlxge=		qlxge
 _qlxgb=		qlxgb
 _qlxgbe=	qlxgbe
+_qlnx=		qlnx
 _sfxge=		sfxge
 
 .if ${MK_BHYVE} != "no" || defined(ALL_MODULES)

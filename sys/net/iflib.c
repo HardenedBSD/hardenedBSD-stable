@@ -170,7 +170,6 @@ struct iflib_ctx {
 
 	int ifc_link_state;
 	int ifc_link_irq;
-	int ifc_pause_frames;
 	int ifc_watchdog_events;
 	struct cdev *ifc_led_dev;
 	struct resource *ifc_msix_mem;
@@ -520,8 +519,6 @@ rxd_info_zero(if_rxd_info_t ri)
  */
 #define MAX_SINGLE_PACKET_FRACTION 12
 #define IF_BAD_DMA (bus_addr_t)-1
-
-static int enable_msix = 1;
 
 #define CTX_ACTIVE(ctx) ((if_getdrvflags((ctx)->ifc_ifp) & IFF_DRV_RUNNING))
 
@@ -2089,6 +2086,7 @@ iflib_timer(void *arg)
 {
 	iflib_txq_t txq = arg;
 	if_ctx_t ctx = txq->ift_ctx;
+	if_softc_ctx_t sctx = &ctx->ifc_softc_ctx;
 
 	if (!(if_getdrvflags(ctx->ifc_ifp) & IFF_DRV_RUNNING))
 		return;
@@ -2100,7 +2098,7 @@ iflib_timer(void *arg)
 	IFDI_TIMER(ctx, txq->ift_id);
 	if ((txq->ift_qstatus == IFLIB_QUEUE_HUNG) &&
 	    ((txq->ift_cleaned_prev == txq->ift_cleaned) ||
-	     (ctx->ifc_pause_frames == 0)))
+	     (sctx->isc_pause_frames == 0)))
 		goto hung;
 
 	if (ifmp_ring_is_stalled(txq->ift_br))
@@ -2110,7 +2108,7 @@ iflib_timer(void *arg)
 	if (txq->ift_db_pending)
 		GROUPTASK_ENQUEUE(&txq->ift_task);
 
-	ctx->ifc_pause_frames = 0;
+	sctx->isc_pause_frames = 0;
 	if (if_getdrvflags(ctx->ifc_ifp) & IFF_DRV_RUNNING) 
 		callout_reset_on(&txq->ift_timer, hz/2, iflib_timer, txq, txq->ift_timer.c_cpu);
 	return;
@@ -2122,7 +2120,6 @@ hung:
 
 	IFDI_WATCHDOG_RESET(ctx);
 	ctx->ifc_watchdog_events++;
-	ctx->ifc_pause_frames = 0;
 
 	ctx->ifc_flags |= IFC_DO_RESET;
 	iflib_admin_intr_deferred(ctx);
@@ -5187,7 +5184,7 @@ iflib_msix_init(if_ctx_t ctx)
 	bar = ctx->ifc_softc_ctx.isc_msix_bar;
 	admincnt = sctx->isc_admin_intrcnt;
 	/* Override by tuneable */
-	if (enable_msix == 0)
+	if (scctx->isc_disable_msix)
 		goto msi;
 
 	/*
@@ -5428,6 +5425,9 @@ iflib_add_device_sysctl_pre(if_ctx_t ctx)
 	SYSCTL_ADD_U16(ctx_list, oid_list, OID_AUTO, "override_qs_enable",
 		       CTLFLAG_RWTUN, &ctx->ifc_sysctl_qs_eq_override, 0,
                        "permit #txq != #rxq");
+       SYSCTL_ADD_INT(ctx_list, oid_list, OID_AUTO, "disable_msix",
+                      CTLFLAG_RWTUN, &ctx->ifc_softc_ctx.isc_disable_msix, 0,
+                      "disable MSIX (default 0)");
 
 	/* XXX change for per-queue sizes */
 	SYSCTL_ADD_PROC(ctx_list, oid_list, OID_AUTO, "override_ntxds",

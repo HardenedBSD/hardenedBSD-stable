@@ -345,7 +345,8 @@ static int build_phys_page_list(struct ib_phys_buf *buffer_list,
 	}
 
 	/* Find largest page shift we can use to cover buffers */
-	for (*shift = PAGE_SHIFT; *shift < 27; ++(*shift))
+	for (*shift = PAGE_SHIFT; *shift < PAGE_SHIFT + M_FW_RI_TPTE_PS;
+	    ++(*shift))
 		if ((1ULL << *shift) & mask)
 			break;
 
@@ -442,7 +443,7 @@ int c4iw_reregister_phys_mem(struct ib_mr *mr, int mr_rereg_mask,
 		mhp->attr.zbva = 0;
 		mhp->attr.va_fbo = *iova_start;
 		mhp->attr.page_size = shift - 12;
-		mhp->attr.len = (u32) total_size;
+		mhp->attr.len = total_size;
 		mhp->attr.pbl_size = npages;
 	}
 
@@ -514,7 +515,7 @@ struct ib_mr *c4iw_register_phys_mem(struct ib_pd *pd,
 	mhp->attr.va_fbo = *iova_start;
 	mhp->attr.page_size = shift - 12;
 
-	mhp->attr.len = (u32) total_size;
+	mhp->attr.len = total_size;
 	mhp->attr.pbl_size = npages;
 	ret = register_mem(rhp, php, mhp, shift);
 	if (ret)

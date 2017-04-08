@@ -19,7 +19,7 @@ SRCS=	file.c grep.c queue.c util.c
 
 # Extra files ported backported form some regex improvements
 .PATH: ${.CURDIR}/regex
-SRCS+=	fastmatch.c hashtable.c tre-compile.c tre-fastmatch.c xmalloc.c
+SRCS+=	fastmatch.c hashtable.c tre-compile.c tre-fastmatch.c
 CFLAGS+=-I${.CURDIR}/regex
 
 CFLAGS.gcc+= --param max-inline-insns-single=500
@@ -27,12 +27,14 @@ CFLAGS.gcc+= --param max-inline-insns-single=500
 .if ${MK_BSD_GREP} == "yes"
 LINKS=	${BINDIR}/grep ${BINDIR}/egrep \
 	${BINDIR}/grep ${BINDIR}/fgrep \
+	${BINDIR}/grep ${BINDIR}/rgrep \
 	${BINDIR}/grep ${BINDIR}/zgrep \
 	${BINDIR}/grep ${BINDIR}/zegrep \
 	${BINDIR}/grep ${BINDIR}/zfgrep
 
 MLINKS= grep.1 egrep.1 \
 	grep.1 fgrep.1 \
+	grep.1 rgrep.1 \
 	grep.1 zgrep.1 \
 	grep.1 zegrep.1 \
 	grep.1 zfgrep.1

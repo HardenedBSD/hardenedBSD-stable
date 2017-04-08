@@ -4237,6 +4237,8 @@ netpfil/ipfw/nptv6/ip_fw_nptv6.c	optional inet inet6 ipfirewall \
 	ipfirewall_nptv6
 netpfil/ipfw/nptv6/nptv6.c	optional inet inet6 ipfirewall \
 	ipfirewall_nptv6
+netpfil/ipfw/pmod/ip_fw_pmod.c	optional inet ipfirewall_pmod
+netpfil/ipfw/pmod/tcpmod.c	optional inet ipfirewall_pmod
 netpfil/pf/if_pflog.c		optional pflog pf inet
 netpfil/pf/if_pfsync.c		optional pfsync pf inet
 netpfil/pf/pf.c			optional pf inet
@@ -4600,6 +4602,7 @@ rpc/rpcsec_gss/svc_rpcsec_gss.c	optional krpc kgssapi | nfslockd kgssapi | nfscl
 security/audit/audit.c		optional audit
 security/audit/audit_arg.c	optional audit
 security/audit/audit_bsm.c	optional audit
+security/audit/audit_bsm_db.c	optional audit
 security/audit/audit_bsm_klib.c	optional audit
 security/audit/audit_dtrace.c	optional dtaudit audit | dtraceall audit compile-with "${CDDL_C}"
 security/audit/audit_pipe.c	optional audit

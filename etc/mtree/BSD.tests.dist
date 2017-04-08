@@ -338,6 +338,8 @@
         ..
         librt
         ..
+        libsbuf
+        ..
         libthr
             dlopen
             ..
@@ -641,6 +643,8 @@
         ncal
         ..
         opensm
+        ..
+        pr
         ..
         printf
         ..

@@ -314,8 +314,12 @@ read_patterns(const char *fn)
 	}
 	len = 0;
 	line = NULL;
-	while ((rlen = getline(&line, &len, f)) != -1)
+	while ((rlen = getline(&line, &len, f)) != -1) {
+		if (line[0] == '\0')
+			continue;
 		add_pattern(line, line[0] == '\n' ? 0 : (size_t)rlen);
+	}
+
 	free(line);
 	if (ferror(f))
 		err(2, "%s", fn);
@@ -360,6 +364,9 @@ main(int argc, char *argv[])
 	} else if (pn[0] == 'l' && pn[1] == 'z') {
 		filebehave = FILE_LZMA;
 		pn += 2;
+	} else if (pn[0] == 'r') {
+		dirbehave = DIR_RECURSE;
+		Hflag = true;
 	} else if (pn[0] == 'z') {
 		filebehave = FILE_GZIP;
 		pn += 1;

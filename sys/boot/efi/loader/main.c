@@ -28,6 +28,7 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
+#include <sys/disk.h>
 #include <sys/param.h>
 #include <sys/reboot.h>
 #include <sys/boot.h>
@@ -202,6 +203,7 @@ find_currdev(EFI_LOADED_IMAGE *img)
 		    env_nounset);
 		env_setenv("loaddev", EV_VOLATILE, devname, env_noset,
 		    env_nounset);
+		init_zfs_bootenv(devname);
 		return (0);
 	}
 #endif /* EFI_ZFS_BOOT */
@@ -836,5 +838,15 @@ efi_zfs_probe(void)
 				guidp = NULL;
 		}
 	}
+}
+
+uint64_t
+ldi_get_size(void *priv)
+{
+	int fd = (uintptr_t) priv;
+	uint64_t size;
+
+	ioctl(fd, DIOCGMEDIASIZE, &size);
+	return (size);
 }
 #endif

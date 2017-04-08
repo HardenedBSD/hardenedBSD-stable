@@ -38,6 +38,8 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
+#include <util.h>
+
 static int cd9660_write_volume_descriptors(iso9660_disk *, FILE *);
 static int cd9660_write_path_table(iso9660_disk *, FILE *, off_t, int);
 static int cd9660_write_path_tables(iso9660_disk *, FILE *);
@@ -141,10 +143,8 @@ static int
 cd9660_write_volume_descriptors(iso9660_disk *diskStructure, FILE *fd)
 {
 	volume_descriptor *vd_temp = diskStructure->firstVolumeDescriptor;
-	int pos;
 
 	while (vd_temp != NULL) {
-		pos = vd_temp->sector * diskStructure->sectorSize;
 		cd9660_write_filedata(diskStructure, fd, vd_temp->sector,
 		    vd_temp->volumeDescriptorData, 1);
 		vd_temp = vd_temp->next;
@@ -172,14 +172,8 @@ cd9660_write_path_table(iso9660_disk *diskStructure, FILE *fd, off_t sector,
 	path_table_entry temp_entry;
 	cd9660node *ptcur;
 
-	buffer = malloc(diskStructure->sectorSize * path_table_sectors);
-	if (buffer == NULL) {
-		warnx("%s: Memory allocation error allocating buffer",
-		    __func__);
-		return 0;
-	}
+	buffer = ecalloc(path_table_sectors, diskStructure->sectorSize);
 	buffer_head = buffer;
-	memset(buffer, 0, diskStructure->sectorSize * path_table_sectors);
 
 	ptcur = diskStructure->rootNode;
 
@@ -271,23 +265,14 @@ cd9660_write_file(iso9660_disk *diskStructure, FILE *fd, cd9660node *writenode)
 	int ret;
 	off_t working_sector;
 	int cur_sector_offset;
-	int written;
 	iso_directory_record_cd9660 temp_record;
 	cd9660node *temp;
 	int rv = 0;
 
 	/* Todo : clean up variables */
 
-	temp_file_name = malloc(CD9660MAXPATH + 1);
-	if (temp_file_name == NULL)
-		err(EXIT_FAILURE, "%s: malloc", __func__);
-
-	memset(temp_file_name, 0, CD9660MAXPATH + 1);
-
-	buf = malloc(diskStructure->sectorSize);
-	if (buf == NULL)
-		err(EXIT_FAILURE, "%s: malloc", __func__);
-
+	temp_file_name = ecalloc(CD9660MAXPATH + 1, 1);
+	buf = emalloc(diskStructure->sectorSize);
 	if ((writenode->level != 0) &&
 	    !(writenode->node->type & S_IFDIR)) {
 		fsinode *inode = writenode->node->inode;
@@ -352,7 +337,7 @@ cd9660_write_file(iso9660_disk *diskStructure, FILE *fd, cd9660node *writenode)
 					err(1, "fseeko");
 			}
 			/* Write out the basic ISO directory record */
-			written = fwrite(&temp_record, 1,
+			(void)fwrite(&temp_record, 1,
 			    temp->isoDirRecord->length[0], fd);
 			if (diskStructure->rock_ridge_enabled) {
 				cd9660_write_rr(diskStructure, fd, temp,
@@ -446,10 +431,7 @@ cd9660_copy_file(iso9660_disk *diskStructure, FILE *fd, off_t start_sector,
 	int buf_size = diskStructure->sectorSize;
 	char *buf;
 
-	buf = malloc(buf_size);
-	if (buf == NULL)
-		err(EXIT_FAILURE, "%s: malloc", __func__);
-
+	buf = emalloc(buf_size);
 	if ((rf = fopen(filename, "rb")) == NULL) {
 		warn("%s: cannot open %s", __func__, filename);
 		free(buf);
