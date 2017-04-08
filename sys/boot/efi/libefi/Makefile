@@ -30,12 +30,8 @@ CWARNFLAGS.efipart.c+=	-Wno-format
 CWARNFLAGS.env.c+=	-Wno-format
 
 .if ${MACHINE_CPUARCH} == "aarch64"
-<<<<<<< HEAD
-CFLAGS+=	-msoft-float -mgeneral-regs-only
 NOPIE=		1
-=======
 CFLAGS+=	-mgeneral-regs-only
->>>>>>> origin/freebsd/current/master
 .endif
 .if ${MACHINE_ARCH} == "amd64"
 CFLAGS+= -fPIC -mno-red-zone
