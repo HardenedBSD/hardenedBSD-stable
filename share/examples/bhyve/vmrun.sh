@@ -52,7 +52,6 @@ usage() {
 	echo "                [-I <location of installation iso>] [-l <loader>]"
 	echo "                [-m <memsize>] [-P <port>] [-t <tapdev>] <vmname>"
 	echo ""
-	echo "       -h: display this help message"
 	echo "       -a: force memory mapped local APIC access"
 	echo "       -c: number of virtual cpus (default is ${DEFAULT_CPUS})"
 	echo "       -C: console device (default is ${DEFAULT_CONSOLE})"
