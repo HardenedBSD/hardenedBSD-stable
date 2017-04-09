@@ -46,7 +46,7 @@ errmsg() {
 usage() {
 	local msg=$1
 
-	echo "Usage: vmrun.sh [-aEhiTv] [-c <CPUs>] [-C <console>] [-d <disk file>]"
+	echo "Usage: vmrun.sh [-aEiTv] [-c <CPUs>] [-C <console>] [-d <disk file>]"
 	echo "                [-e <name=value>] [-f <path of firmware>] [-F <size>]"
 	echo "                [-g <gdbport> ] [-h <IP/hostname>] [-H <directory>]"
 	echo "                [-I <location of installation iso>] [-l <loader>]"
