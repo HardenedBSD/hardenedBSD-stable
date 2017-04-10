@@ -112,7 +112,7 @@ fbsize="w=1024,h=768"
 tablet=""
 efiarg=""
 
-while getopts ac:C:d:e:Ef:F:g:hH:iI:l:m:p:Pt:Tuvw c ; do
+while getopts ac:C:d:e:Ef:F:g:hH:iI:l:m:p:P:t:Tuvw c ; do
 	case $c in
 	a)
 		bhyverun_opt="${bhyverun_opt} -a"
