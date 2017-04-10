@@ -1668,6 +1668,8 @@ _vm_map_clip_start(vm_map_t map, vm_map_entry_t entry, vm_offset_t start)
 	vm_map_entry_t new_entry;
 
 	VM_MAP_ASSERT_LOCKED(map);
+	KASSERT(entry->end > start && entry->start < start,
+	    ("_vm_map_clip_start: invalid clip of entry %p", entry));
 
 	/*
 	 * Split off the front portion -- note that we must insert the new
@@ -1752,6 +1754,8 @@ _vm_map_clip_end(vm_map_t map, vm_map_entry_t entry, vm_offset_t end)
 	vm_map_entry_t new_entry;
 
 	VM_MAP_ASSERT_LOCKED(map);
+	KASSERT(entry->start < end && entry->end > end,
+	    ("_vm_map_clip_end: invalid clip of entry %p", entry));
 
 	/*
 	 * If there is no object backing this entry, we might as well create
@@ -1977,6 +1981,14 @@ vm_map_protect(vm_map_t map, vm_offset_t start, vm_offset_t end,
 
 	vm_map_lock(map);
 
+	/*
+	 * Ensure that we are not concurrently wiring pages.  vm_map_wire() may
+	 * need to fault pages into the map and will drop the map lock while
+	 * doing so, and the VM object may end up in an inconsistent state if we
+	 * update the protection on the map entry in between faults.
+	 */
+	vm_map_wait_busy(map);
+
 	VM_MAP_RANGE_CHECK(map, start, end);
 
 	if (vm_map_lookup_entry(map, start, &entry)) {
@@ -1988,8 +2000,8 @@ vm_map_protect(vm_map_t map, vm_offset_t start, vm_offset_t end,
 	/*
 	 * Make a first pass to check for protection violations.
 	 */
-	current = entry;
-	while ((current != &map->header) && (current->start < end)) {
+	for (current = entry; current != &map->header && current->start < end;
+	    current = current->next) {
 		if (current->eflags & MAP_ENTRY_IS_SUB_MAP) {
 			vm_map_unlock(map);
 			return (KERN_INVALID_ARGUMENT);
@@ -1998,17 +2010,15 @@ vm_map_protect(vm_map_t map, vm_offset_t start, vm_offset_t end,
 			vm_map_unlock(map);
 			return (KERN_PROTECTION_FAILURE);
 		}
-		current = current->next;
 	}
-
 
 	/*
 	 * Do an accounting pass for private read-only mappings that
 	 * now will do cow due to allowed write (e.g. debugger sets
 	 * breakpoint on text segment)
 	 */
-	for (current = entry; (current != &map->header) &&
-	     (current->start < end); current = current->next) {
+	for (current = entry; current != &map->header && current->start < end;
+	    current = current->next) {
 
 		vm_map_clip_end(map, current, end);
 
@@ -2061,8 +2071,8 @@ vm_map_protect(vm_map_t map, vm_offset_t start, vm_offset_t end,
 	 * Go back and fix up protections. [Note that clipping is not
 	 * necessary the second time.]
 	 */
-	current = entry;
-	while ((current != &map->header) && (current->start < end)) {
+	for (current = entry; current != &map->header && current->start < end;
+	    current = current->next) {
 		old_prot = current->protection;
 #ifdef PAX_NOEXEC
 		ret = pax_mprotect_enforce(curthread->td_proc, map, old_prot, new_prot);
@@ -2101,7 +2111,6 @@ vm_map_protect(vm_map_t map, vm_offset_t start, vm_offset_t end,
 #undef	MASK
 		}
 		vm_map_simplify_entry(map, current);
-		current = current->next;
 	}
 	vm_map_unlock(map);
 	return (KERN_SUCCESS);
