@@ -48,10 +48,12 @@ usage() {
 
 	echo "Usage: vmrun.sh [-aEiTv] [-c <CPUs>] [-C <console>] [-d <disk file>]"
 	echo "                [-e <name=value>] [-f <path of firmware>] [-F <size>]"
-	echo "                [-g <gdbport> ] [-h <IP/hostname>] [-H <directory>]"
+	echo "                [-g <gdbport> ] [-H <directory>]"
 	echo "                [-I <location of installation iso>] [-l <loader>]"
+	echo "                [-L <VNC IP for UEFI framebuffer>]"
 	echo "                [-m <memsize>] [-P <port>] [-t <tapdev>] <vmname>"
 	echo ""
+	echo "       -h: display this help message"
 	echo "       -a: force memory mapped local APIC access"
 	echo "       -c: number of virtual cpus (default is ${DEFAULT_CPUS})"
 	echo "       -C: console device (default is ${DEFAULT_CONSOLE})"
@@ -61,11 +63,11 @@ usage() {
 	echo "       -f: Use a specific UEFI firmware"
 	echo "       -F: Use a custom UEFI GOP framebuffer size (default: w=1024,h=768)"
 	echo "       -g: listen for connection from kgdb at <gdbport>"
-	echo "       -h: IP address for UEFI GOP VNC server (default: 127.0.0.1)"
 	echo "       -H: host filesystem to export to the loader"
 	echo "       -i: force boot of the Installation CDROM image"
 	echo "       -I: Installation CDROM image location (default is ${DEFAULT_ISOFILE})"
 	echo "       -l: the OS loader to use (default is /boot/userboot.so)"
+	echo "       -L: IP address for UEFI GOP VNC server (default: 127.0.0.1)"
 	echo "       -m: memory size (default is ${DEFAULT_MEMSIZE})"
 	echo "       -p: pass-through a host PCI device at bus/slot/func (e.g. 10/0/0)"
 	echo "       -P: UEFI GOP VNC port (default: 5900)"
@@ -144,9 +146,6 @@ while getopts ac:C:d:e:Ef:F:g:hH:iI:l:m:p:P:t:Tuvw c ; do
 	g)	
 		gdbport=${OPTARG}
 		;;
-	h)
-		vnchost="${OPTARG}"
-		;;
 	H)
 		host_base=`realpath ${OPTARG}`
 		;;
@@ -158,6 +157,9 @@ while getopts ac:C:d:e:Ef:F:g:hH:iI:l:m:p:P:t:Tuvw c ; do
 		;;
 	l)
 		loader_opt="${loader_opt} -l ${OPTARG}"
+		;;
+	L)
+		vnchost="${OPTARG}"
 		;;
 	m)
 		memsize=${OPTARG}
