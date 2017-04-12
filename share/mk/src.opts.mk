@@ -444,7 +444,7 @@ MK_CLANG_FULL:= no
 MK_SAFESTACK:=	no
 .endif
 
-.if ${MK_LLD_IS_LD} == "no"
+.if ${MK_LLD_IS_LD} == "no" || ${MK_LLD_BOOTSTRAP} == "no"
 MK_CFI:=	no
 .endif
 
