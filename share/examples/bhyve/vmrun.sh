@@ -219,6 +219,13 @@ if [ ${pass_total} -gt 0 ]; then
 	bhyverun_opt="${bhyverun_opt} -S"
 fi
 
+if [ ${efi_mode} -gt 0 ]; then
+	if [ ! -f ${efi_firmware} ]; then
+		echo "Error: EFI Firmware ${efi_firmware} doesn't exist."
+		exit 1
+	fi
+fi
+
 make_and_check_diskdev()
 {
     local virtio_diskdev="$1"
