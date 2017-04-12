@@ -110,7 +110,6 @@ vnchost="127.0.0.1"
 vncport=5900
 fbsize="w=1024,h=768"
 tablet=""
-efiarg=""
 
 while getopts ac:C:d:e:Ef:F:g:hH:iI:l:m:p:P:t:Tuvw c ; do
 	case $c in
@@ -330,7 +329,7 @@ while [ 1 ]; do
 
 	efiargs=""
 	if [ ${efi_mode} -gt 0 ]; then
-		efiargs="${efiarg} -s 29,fbuf,tcp=${vnchost}:${vncport},${fbsize}${vncwait}"
+		efiargs="-s 29,fbuf,tcp=${vnchost}:${vncport},${fbsize}${vncwait}"
 		efiargs="${efiargs} -l bootrom,${efi_firmware}"
 		efiargs="${efiargs} ${tablet}"
 	fi
