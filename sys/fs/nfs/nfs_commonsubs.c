@@ -148,7 +148,7 @@ struct nfsv4_opflag nfsv4_opflag[NFSV41_NOPS] = {
 	{ 0, 0, 0, 0, LK_EXCLUSIVE, 1, 1 },		/* Test StateID */
 	{ 0, 0, 0, 0, LK_EXCLUSIVE, 1, 1 },		/* Want Delegation */
 	{ 0, 0, 0, 0, LK_EXCLUSIVE, 0, 0 },		/* Destroy ClientID */
-	{ 0, 0, 0, 0, LK_EXCLUSIVE, 1, 1 },		/* Reclaim Complete */
+	{ 0, 0, 0, 0, LK_EXCLUSIVE, 1, 0 },		/* Reclaim Complete */
 };
 #endif	/* !APPLEKEXT */
 
@@ -887,6 +887,14 @@ nfsv4_loadattr(struct nfsrv_descript *nd, vnode_t vp,
 			pc->pc_chownrestricted = 0;
 			pc->pc_caseinsensitive = 0;
 			pc->pc_casepreserving = 1;
+		}
+		if (sfp != NULL) {
+			sfp->sf_ffiles = UINT64_MAX;
+			sfp->sf_tfiles = UINT64_MAX;
+			sfp->sf_afiles = UINT64_MAX;
+			sfp->sf_fbytes = UINT64_MAX;
+			sfp->sf_tbytes = UINT64_MAX;
+			sfp->sf_abytes = UINT64_MAX;
 		}
 	}
 
