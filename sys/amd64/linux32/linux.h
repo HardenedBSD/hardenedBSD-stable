@@ -474,16 +474,6 @@ union l_semun {
 	l_uintptr_t	__pad;
 } __packed;
 
-struct l_ipc_perm {
-	l_key_t		key;
-	l_uid16_t	uid;
-	l_gid16_t	gid;
-	l_uid16_t	cuid;
-	l_gid16_t	cgid;
-	l_ushort	mode;
-	l_ushort	seq;
-};
-
 /*
  * Socket defines
  */
@@ -544,7 +534,7 @@ struct l_ifreq {
 		struct l_sockaddr	ifru_netmask;
 		struct l_sockaddr	ifru_hwaddr;
 		l_short		ifru_flags[1];
-		l_int		ifru_metric;
+		l_int		ifru_ivalue;
 		l_int		ifru_mtu;
 		struct l_ifmap	ifru_map;
 		char		ifru_slave[LINUX_IFNAMSIZ];
@@ -554,6 +544,7 @@ struct l_ifreq {
 
 #define	ifr_name	ifr_ifrn.ifrn_name	/* Interface name */
 #define	ifr_hwaddr	ifr_ifru.ifru_hwaddr	/* MAC address */
+#define	ifr_ifindex	ifr_ifru.ifru_ivalue	/* Interface index */
 
 struct l_ifconf {
 	int	ifc_len;
