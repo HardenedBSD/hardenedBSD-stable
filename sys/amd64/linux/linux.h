@@ -69,7 +69,9 @@ typedef l_long		l_clock_t;
 typedef l_int		l_daddr_t;
 typedef l_ulong		l_dev_t;
 typedef l_uint		l_gid_t;
+typedef l_ushort	l_gid16_t;
 typedef l_uint		l_uid_t;
+typedef	l_ushort	l_uid16_t;
 typedef l_ulong		l_ino_t;
 typedef l_int		l_key_t;
 typedef l_long		l_loff_t;
@@ -381,16 +383,6 @@ union l_semun {
 	l_uintptr_t	__pad;
 };
 
-struct l_ipc_perm {
-	l_key_t		key;
-	l_uid_t		uid;
-	l_gid_t		gid;
-	l_uid_t		cuid;
-	l_gid_t		cgid;
-	l_ushort	mode;
-	l_ushort	seq;
-};
-
 /*
  * Socket defines
  */
@@ -464,7 +456,7 @@ struct l_ifreq {
 		struct l_sockaddr	ifru_netmask;
 		struct l_sockaddr	ifru_hwaddr;
 		l_short		ifru_flags[1];
-		l_int		ifru_metric;
+		l_int		ifru_ivalue;
 		l_int		ifru_mtu;
 		struct l_ifmap	ifru_map;
 		char		ifru_slave[LINUX_IFNAMSIZ];
@@ -474,6 +466,7 @@ struct l_ifreq {
 
 #define	ifr_name	ifr_ifrn.ifrn_name	/* Interface name */
 #define	ifr_hwaddr	ifr_ifru.ifru_hwaddr	/* MAC address */
+#define	ifr_ifindex	ifr_ifru.ifru_ivalue	/* Interface index */
 
 struct l_ifconf {
 	int	ifc_len;
