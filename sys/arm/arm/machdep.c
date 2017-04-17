@@ -65,15 +65,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/kernel.h>
 #include <sys/linker.h>
 #include <sys/msgbuf.h>
-<<<<<<< HEAD
-#include <sys/mutex.h>
 #include <sys/pax.h>
-#include <sys/pcpu.h>
-#include <sys/ptrace.h>
-#include <sys/reboot.h>
-#include <sys/boot.h>
-=======
->>>>>>> origin/freebsd/11-stable/master
 #include <sys/rwlock.h>
 #include <sys/sched.h>
 #include <sys/syscallsubr.h>
@@ -156,137 +148,6 @@ static delay_func *delay_impl;
 static void *delay_arg;
 #endif
 
-<<<<<<< HEAD
-static uint32_t board_revision;
-/* hex representation of uint64_t */
-static char board_serial[32];
-
-SYSCTL_NODE(_hw, OID_AUTO, board, CTLFLAG_RD, 0, "Board attributes");
-SYSCTL_UINT(_hw_board, OID_AUTO, revision, CTLFLAG_RD,
-    &board_revision, 0, "Board revision");
-SYSCTL_STRING(_hw_board, OID_AUTO, serial, CTLFLAG_RD,
-    board_serial, 0, "Board serial");
-
-int vfp_exists;
-SYSCTL_INT(_hw, HW_FLOATINGPT, floatingpoint, CTLFLAG_RD,
-    &vfp_exists, 0, "Floating point support enabled");
-
-void
-board_set_serial(uint64_t serial)
-{
-
-	snprintf(board_serial, sizeof(board_serial)-1,
-		    "%016jx", serial);
-}
-
-void
-board_set_revision(uint32_t revision)
-{
-
-	board_revision = revision;
-}
-
-void
-sendsig(catcher, ksi, mask)
-	sig_t catcher;
-	ksiginfo_t *ksi;
-	sigset_t *mask;
-{
-	struct thread *td;
-	struct proc *p;
-	struct trapframe *tf;
-	struct sigframe *fp, frame;
-	struct sigacts *psp;
-	struct sysentvec *sysent;
-	int onstack;
-	int sig;
-	int code;
-
-	td = curthread;
-	p = td->td_proc;
-	PROC_LOCK_ASSERT(p, MA_OWNED);
-	sig = ksi->ksi_signo;
-	code = ksi->ksi_code;
-	psp = p->p_sigacts;
-	mtx_assert(&psp->ps_mtx, MA_OWNED);
-	tf = td->td_frame;
-	onstack = sigonstack(tf->tf_usr_sp);
-
-	CTR4(KTR_SIG, "sendsig: td=%p (%s) catcher=%p sig=%d", td, p->p_comm,
-	    catcher, sig);
-
-	/* Allocate and validate space for the signal handler context. */
-	if ((td->td_pflags & TDP_ALTSTACK) != 0 && !(onstack) &&
-	    SIGISMEMBER(psp->ps_sigonstack, sig)) {
-		fp = (struct sigframe *)((uintptr_t)td->td_sigstk.ss_sp +
-		    td->td_sigstk.ss_size);
-#if defined(COMPAT_43)
-		td->td_sigstk.ss_flags |= SS_ONSTACK;
-#endif
-	} else
-		fp = (struct sigframe *)td->td_frame->tf_usr_sp;
-
-	/* make room on the stack */
-	fp--;
-
-	/* make the stack aligned */
-	fp = (struct sigframe *)STACKALIGN(fp);
-	/* Populate the siginfo frame. */
-	get_mcontext(td, &frame.sf_uc.uc_mcontext, 0);
-	frame.sf_si = ksi->ksi_info;
-	frame.sf_uc.uc_sigmask = *mask;
-	frame.sf_uc.uc_stack.ss_flags = (td->td_pflags & TDP_ALTSTACK )
-	    ? ((onstack) ? SS_ONSTACK : 0) : SS_DISABLE;
-	frame.sf_uc.uc_stack = td->td_sigstk;
-	mtx_unlock(&psp->ps_mtx);
-	PROC_UNLOCK(td->td_proc);
-
-	/* Copy the sigframe out to the user's stack. */
-	if (copyout(&frame, fp, sizeof(*fp)) != 0) {
-		/* Process has trashed its stack. Kill it. */
-		CTR2(KTR_SIG, "sendsig: sigexit td=%p fp=%p", td, fp);
-		PROC_LOCK(p);
-		sigexit(td, SIGILL);
-	}
-
-	/*
-	 * Build context to run handler in.  We invoke the handler
-	 * directly, only returning via the trampoline.  Note the
-	 * trampoline version numbers are coordinated with machine-
-	 * dependent code in libc.
-	 */
-
-	tf->tf_r0 = sig;
-	tf->tf_r1 = (register_t)&fp->sf_si;
-	tf->tf_r2 = (register_t)&fp->sf_uc;
-
-	/* the trampoline uses r5 as the uc address */
-	tf->tf_r5 = (register_t)&fp->sf_uc;
-	tf->tf_pc = (register_t)catcher;
-	tf->tf_usr_sp = (register_t)fp;
-	sysent = p->p_sysent;
-	if (sysent->sv_sigcode_base != 0)
-		tf->tf_usr_lr = (register_t)p->p_sigcode_base;
-	else
-		tf->tf_usr_lr = (register_t)(p->p_psstrings -
-		    *(sysent->sv_szsigcode));
-	/* Set the mode to enter in the signal handler */
-#if __ARM_ARCH >= 7
-	if ((register_t)catcher & 1)
-		tf->tf_spsr |= PSR_T;
-	else
-		tf->tf_spsr &= ~PSR_T;
-#endif
-
-	CTR3(KTR_SIG, "sendsig: return td=%p pc=%#x sp=%#x", td, tf->tf_usr_lr,
-	    tf->tf_usr_sp);
-
-	PROC_LOCK(p);
-	mtx_lock(&psp->ps_mtx);
-}
-
-=======
->>>>>>> origin/freebsd/11-stable/master
 struct kva_md_info kmi;
 
 /*
@@ -754,9 +615,9 @@ sendsig(catcher, ksi, mask)
 	tf->tf_usr_sp = (register_t)fp;
 	sysent = p->p_sysent;
 	if (sysent->sv_sigcode_base != 0)
-		tf->tf_usr_lr = (register_t)sysent->sv_sigcode_base;
+		tf->tf_usr_lr = (register_t)p->p_sigcode_base;
 	else
-		tf->tf_usr_lr = (register_t)(sysent->sv_psstrings -
+		tf->tf_usr_lr = (register_t)(p->p_psstrings -
 		    *(sysent->sv_szsigcode));
 	/* Set the mode to enter in the signal handler */
 #if __ARM_ARCH >= 7
