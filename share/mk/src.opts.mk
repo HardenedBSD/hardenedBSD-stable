@@ -96,7 +96,6 @@ __DEFAULT_YES_OPTIONS = \
     FTP \
     GAMES \
     GCOV \
-    GNU \
     GNU_DIFF \
     GNU_GREP \
     GNU_GREP_COMPAT \
@@ -193,6 +192,7 @@ __DEFAULT_NO_OPTIONS = \
     OPENLDAP \
     PORTSNAP \
     REPRODUCIBLE_BUILD \
+    RPCBIND_WARMSTART_SUPPORT \
     SHARED_TOOLCHAIN \
     SORT_THREADS \
     SVN \
@@ -481,7 +481,6 @@ MK_${vv:H}:=	${MK_${vv:T}}
 .for var in \
     BLACKLIST \
     BZIP2 \
-    GNU \
     INET \
     INET6 \
     KERBEROS \
