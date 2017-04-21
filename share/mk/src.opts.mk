@@ -63,6 +63,7 @@ __DEFAULT_YES_OPTIONS = \
     BOOTPARAMD \
     BOOTPD \
     BSD_CPIO \
+    BSD_GREP_FASTMATCH \
     BSDINSTALL \
     BSNMP \
     BZIP2 \
@@ -98,7 +99,6 @@ __DEFAULT_YES_OPTIONS = \
     GCOV \
     GNU_DIFF \
     GNU_GREP \
-    GNU_GREP_COMPAT \
     GPIO \
     GPL_DTC \
     GROFF \
@@ -183,7 +183,11 @@ __DEFAULT_NO_OPTIONS = \
     CLANG_EXTRAS \
     DEVD_PIE \
     DTRACE_TESTS \
+<<<<<<< HEAD
     FREEBSD_UPDATE \
+=======
+    GNU_GREP_COMPAT \
+>>>>>>> origin/freebsd/current/master
     HESIOD \
     LIB32 \
     LIBSOFT \
