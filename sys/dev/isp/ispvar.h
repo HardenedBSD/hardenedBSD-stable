@@ -914,11 +914,6 @@ void isp_async(ispsoftc_t *, ispasync_t, ...);
 #define	ISPASYNC_CHANGE_OTHER	2
 
 /*
- * Platform Independent Error Prinout
- */
-void isp_prt_endcmd(ispsoftc_t *, XS_T *);
-
-/*
  * Platform Dependent Error and Debug Printout
  *
  * Two required functions for each platform must be provided:
@@ -1004,6 +999,7 @@ void isp_prt_endcmd(ispsoftc_t *, XS_T *);
  *	XS_DMA_ADDR_T		Platform PCI DMA Address Type
  *	XS_GET_DMA_SEG(..)	Get 32 bit dma segment list value
  *	XS_GET_DMA64_SEG(..)	Get 64 bit dma segment list value
+ *	XS_NEED_DMA64_SEG(..)	dma segment needs 64 bit storage
  *	XS_ISP(xs)		gets an instance out of an XS_T
  *	XS_CHANNEL(xs)		gets the channel (bus # for DUALBUS cards) ""
  *	XS_TGT(xs)		gets the target ""
@@ -1039,8 +1035,7 @@ void isp_prt_endcmd(ispsoftc_t *, XS_T *);
  *	XS_NOERR(xs)	there is no error currently set
  *	XS_INITERR(xs)	initialize error state
  *
- *	XS_SAVE_SENSE(xs, sp, total_len, this_len)	save sense data (total and current amount)
- *
+ *	XS_SAVE_SENSE(xs, sp, len)	save sense data
  *	XS_APPEND_SENSE(xs, sp, len)	append more sense data
  *
  *	XS_SENSE_VALID(xs)		indicates whether sense is valid
