@@ -4769,8 +4769,8 @@ vfs_bio_getpages(struct vnode *vp, vm_page_t *ma, int count,
 	pgsin += pgsin_a;
 	if (rahead != NULL)
 		*rahead = pgsin_a;
-	PCPU_INC(cnt.v_vnodein);
-	PCPU_ADD(cnt.v_vnodepgsin, pgsin);
+	VM_CNT_INC(v_vnodein);
+	VM_CNT_ADD(v_vnodepgsin, pgsin);
 
 	br_flags = (mp != NULL && (mp->mnt_kern_flag & MNTK_UNMAPPED_BUFS)
 	    != 0) ? GB_UNMAPPED : 0;
@@ -4927,9 +4927,12 @@ DB_SHOW_COMMAND(buffer, db_show_buffer)
 	db_printf("b_io_tracking: b_io_tcnt = %u\n", bp->b_io_tcnt);
 
 	i = bp->b_io_tcnt % BUF_TRACKING_SIZE;
-	for (j = 1; j <= BUF_TRACKING_SIZE; j++)
+	for (j = 1; j <= BUF_TRACKING_SIZE; j++) {
+		if (bp->b_io_tracking[BUF_TRACKING_ENTRY(i - j)] == NULL)
+			continue;
 		db_printf(" %2u: %s\n", j,
 		    bp->b_io_tracking[BUF_TRACKING_ENTRY(i - j)]);
+	}
 #elif defined(BUF_TRACKING)
 	db_printf("b_io_tracking: %s\n", bp->b_io_tracking);
 #endif
@@ -4947,6 +4950,8 @@ DB_SHOW_COMMAND(lockedbufs, lockedbufs)
 		if (BUF_ISLOCKED(bp)) {
 			db_show_buffer((uintptr_t)bp, 1, 0, NULL);
 			db_printf("\n");
+			if (db_pager_quit)
+				break;
 		}
 	}
 }

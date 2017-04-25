@@ -36,7 +36,9 @@
 #include <stdio.h>
 #include <zlib.h>
 
+#ifndef WITHOUT_FASTMATCH
 #include "fastmatch.h"
+#endif
 
 #ifdef WITHOUT_NLS
 #define	getstr(n)	 errstr[n]
@@ -116,6 +118,7 @@ extern bool	 dexclude, dinclude, fexclude, finclude, lbflag, nullflag;
 extern unsigned long long Aflag, Bflag;
 extern long long mcount;
 extern long long mlimit;
+extern char	 fileeol;
 extern char	*label;
 extern const char *color;
 extern int	 binbehave, devbehave, dirbehave, filebehave, grepbehave, linkbehave;
@@ -126,7 +129,9 @@ extern unsigned int dpatterns, fpatterns, patterns;
 extern struct pat *pattern;
 extern struct epat *dpattern, *fpattern;
 extern regex_t	*er_pattern, *r_pattern;
+#ifndef WITHOUT_FASTMATCH
 extern fastmatch_t *fg_pattern;
+#endif
 
 /* For regex errors  */
 #define	RE_ERROR_BUF	512
