@@ -180,11 +180,7 @@ MAN=	aac.4 \
 	gpioled.4 \
 	gre.4 \
 	h_ertt.4 \
-<<<<<<< HEAD
 	hardening.4 \
-	hatm.4 \
-=======
->>>>>>> origin/freebsd/current/master
 	hifn.4 \
 	hme.4 \
 	hpet.4 \
