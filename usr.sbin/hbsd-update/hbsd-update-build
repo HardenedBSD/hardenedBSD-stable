@@ -645,7 +645,6 @@ main() {
 	done
 
 	if [ ! -z "${BUILDCONF}" ]; then
-		echo "Sourcing ${BUILDCONF}"
 		. ${BUILDCONF}
 	fi
 
