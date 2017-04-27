@@ -1934,10 +1934,9 @@ nfscl_recover(struct nfsclclient *clp, struct ucred *cred, NFSPROC_T *p)
 	     error == NFSERR_BADSESSION ||
 	     error == NFSERR_STALEDONTRECOVER) && --trycnt > 0);
 	if (error) {
-		nfscl_cleanclient(clp);
 		NFSLOCKCLSTATE();
-		clp->nfsc_flags &= ~(NFSCLFLAGS_HASCLIENTID |
-		    NFSCLFLAGS_RECOVER | NFSCLFLAGS_RECVRINPROG);
+		clp->nfsc_flags &= ~(NFSCLFLAGS_RECOVER |
+		    NFSCLFLAGS_RECVRINPROG);
 		wakeup(&clp->nfsc_flags);
 		nfsv4_unlock(&clp->nfsc_lock, 0);
 		NFSUNLOCKCLSTATE();
@@ -1981,7 +1980,7 @@ nfscl_recover(struct nfsclclient *clp, struct ucred *cred, NFSPROC_T *p)
 	    op = LIST_FIRST(&owp->nfsow_open);
 	    while (op != NULL) {
 		nop = LIST_NEXT(op, nfso_list);
-		if (error != NFSERR_NOGRACE) {
+		if (error != NFSERR_NOGRACE && error != NFSERR_BADSESSION) {
 		    /* Search for a delegation to reclaim with the open */
 		    TAILQ_FOREACH(dp, &clp->nfsc_deleg, nfsdl_list) {
 			if (!(dp->nfsdl_flags & NFSCLDL_NEEDRECLAIM))
@@ -2050,11 +2049,10 @@ nfscl_recover(struct nfsclclient *clp, struct ucred *cred, NFSPROC_T *p)
 				    len = NFS64BITSSET;
 				else
 				    len = lop->nfslo_end - lop->nfslo_first;
-				if (error != NFSERR_NOGRACE)
-				    error = nfscl_trylock(nmp, NULL,
-					op->nfso_fh, op->nfso_fhlen, lp,
-					firstlock, 1, lop->nfslo_first, len,
-					lop->nfslo_type, tcred, p);
+				error = nfscl_trylock(nmp, NULL,
+				    op->nfso_fh, op->nfso_fhlen, lp,
+				    firstlock, 1, lop->nfslo_first, len,
+				    lop->nfslo_type, tcred, p);
 				if (error != 0)
 				    nfscl_freelock(lop, 0);
 				else
@@ -2066,10 +2064,10 @@ nfscl_recover(struct nfsclclient *clp, struct ucred *cred, NFSPROC_T *p)
 				nfscl_freelockowner(lp, 0);
 			    lp = nlp;
 			}
-		    } else {
-			nfscl_freeopen(op, 0);
 		    }
 		}
+		if (error != 0 && error != NFSERR_BADSESSION)
+		    nfscl_freeopen(op, 0);
 		op = nop;
 	    }
 	    owp = nowp;
@@ -2100,7 +2098,7 @@ nfscl_recover(struct nfsclclient *clp, struct ucred *cred, NFSPROC_T *p)
 		    nfscl_lockinit(&nowp->nfsow_rwlock);
 		}
 		nop = NULL;
-		if (error != NFSERR_NOGRACE) {
+		if (error != NFSERR_NOGRACE && error != NFSERR_BADSESSION) {
 		    MALLOC(nop, struct nfsclopen *, sizeof (struct nfsclopen) +
 			dp->nfsdl_fhlen - 1, M_NFSCLOPEN, M_WAITOK);
 		    nop->nfso_own = nowp;
@@ -2255,13 +2253,8 @@ nfscl_hasexpired(struct nfsclclient *clp, u_int32_t clidrev, NFSPROC_T *p)
 	     error == NFSERR_BADSESSION ||
 	     error == NFSERR_STALEDONTRECOVER) && --trycnt > 0);
 	if (error) {
-		/*
-		 * Clear out any state.
-		 */
-		nfscl_cleanclient(clp);
 		NFSLOCKCLSTATE();
-		clp->nfsc_flags &= ~(NFSCLFLAGS_HASCLIENTID |
-		    NFSCLFLAGS_RECOVER);
+		clp->nfsc_flags &= ~NFSCLFLAGS_RECOVER;
 	} else {
 		/*
 		 * Expire the state for the client.
