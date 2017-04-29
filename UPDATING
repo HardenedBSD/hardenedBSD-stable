@@ -76,6 +76,11 @@ NOTE TO PEOPLE WHO THINK THAT FreeBSD 12.x IS SLOW:
 	installed. To continue using aarch64-binutils, set
 	CROSS_BINUTILS_PREFIX=/usr/local/aarch64-freebsd/bin .
 
+20170405:
+	The UDP optimization in entry 20160818 that added the sysctl
+	net.inet.udp.require_l2_bcast has been reverted.  L2 broadcast
+	packets will no longer be treated as L3 broadcast packets.
+
 20170331:
 	Binds and sends to the loopback addresses, IPv6 and IPv4, will now
 	use any explicitly assigned loopback address available in the jail

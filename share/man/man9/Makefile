@@ -299,7 +299,6 @@ MAN=	accept_filter.9 \
 	uidinfo.9 \
 	uio.9 \
 	unr.9 \
-	utopia.9 \
 	vaccess.9 \
 	vaccess_acl_nfs4.9 \
 	vaccess_acl_posix1e.9 \
@@ -1994,7 +1993,6 @@ MLINKS+=vrele.9 vput.9 \
 	vrele.9 vunref.9
 MLINKS+=vslock.9 vsunlock.9
 MLINKS+=zone.9 uma.9 \
-	zone.9 uma_find_refcnt.9 \
 	zone.9 uma_zalloc.9 \
 	zone.9 uma_zalloc_arg.9 \
 	zone.9 uma_zcreate.9 \

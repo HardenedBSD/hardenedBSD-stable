@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2001 Brian Somers <brian@Awfulhak.org>
+ * Copyright (c) 2017 Michael Tuexen
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -23,20 +23,56 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD$
  */
 
-#define	PCI_VENDOR_DIGI		0x114F
-#define	PCI_DEVICE_EPC		0x0002
-#define	PCI_DEVICE_RIGHTSWITCH	0x0003	/* For testing */
-#define	PCI_DEVICE_XEM		0x0004
-#define	PCI_DEVICE_XR		0x0005
-#define	PCI_DEVICE_CX		0x0006
-#define	PCI_DEVICE_XRJ		0x0009	/* Jupiter boards with */
-#define	PCI_DEVICE_EPCJ		0x000a	/* PLX 9060 chip for PCI  */
-#define	PCI_DEVICE_XR_422	0x0012	/* Xr-422 */
-#define	PCI_DEVICE_920_4	0x0026	/* XR-Plus 920 K, 4 port */
-#define	PCI_DEVICE_920_8	0x0027	/* XR-Plus 920 K, 8 port */
-#define	PCI_DEVICE_920_2	0x0034	/* XR-Plus 920 K, 2 port */
+#include <machine/asm.h>
+__FBSDID("$FreeBSD$");
 
-#define	PCIPORT			sc->vmem[0x200000]
+/*
+ * uint32_t
+ * armv8_crc32c(uint32_t crc, const unsigned char *buf, unsigned int len)
+ */
+
+ENTRY(armv8_crc32c)
+	cbz	w2, end
+	tbz	x1, #0x0, half_word_aligned
+	sub	w2, w2, 0x1
+	ldr	w10, [x1], #0x1
+	crc32cb	w0, w0, w10
+half_word_aligned:
+	cmp	w2, #0x2
+	b.lo	last_byte
+	tbz	x1, #0x1, word_aligned
+	sub	w2, w2, 0x2
+	ldr	w10, [x1], #0x2
+	crc32ch	w0, w0, w10
+word_aligned:
+	cmp	w2, #0x4
+	b.lo	last_half_word
+	tbz	x1, #0x2, double_word_aligned
+	sub	w2, w2, 0x4
+	ldr	w10, [x1], #0x4
+	crc32cw	w0, w0, w10
+double_word_aligned:
+	lsr	w9, w2, #0x3
+	cbz	w9, last_word
+loop:
+	ldr	x10, [x1], #0x8
+	crc32cx	w0, w0, x10
+	subs	w9, w9, #1
+	b.ne	loop
+last_word:
+	tbz	w2, #0x2, last_half_word
+	ldr	w10, [x1], #0x4
+	crc32cw	w0, w0, w10
+last_half_word:
+	tbz	w2, #0x1, last_byte
+	ldr	w10, [x1], #0x2
+	crc32ch	w0, w0, w10
+last_byte:
+	tbz	w2, #0x0, end 
+	ldr	w10, [x1], #0x1
+	crc32cb	w0, w0, w10
+end:
+	ret
+END(armv8_crc32c)

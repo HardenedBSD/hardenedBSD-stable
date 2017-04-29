@@ -645,12 +645,8 @@ main() {
 	done
 
 	if [ ! -z "${BUILDCONF}" ]; then
-		echo "Sourcing ${BUILDCONF}"
 		. ${BUILDCONF}
 	fi
-
-	export TARGET
-	export TARGET_ARCH
 
 	setup_directories || exit 1
 
@@ -663,6 +659,9 @@ main() {
 			fi
 			clone_source || exit 1
 			create_src_conf || exit 1
+
+			export TARGET
+			export TARGET_ARCH
 
 			build_source || exit 1
 
