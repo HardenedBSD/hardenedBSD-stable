@@ -1789,8 +1789,7 @@ device_tree::parse_dts(const string &fn, FILE *depfile)
 
 bool device_tree::parse_define(const char *def)
 {
-	const char *val;
-	val = strchr(def, '=');
+	const char *val = strchr(def, '=');
 	if (!val)
 	{
 		if (strlen(def) != 0)
