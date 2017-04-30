@@ -41,6 +41,7 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -103,12 +104,8 @@ sem_child_postfork(void)
 static void
 sem_module_init(void)
 {
-	pthread_mutexattr_t ma;
 
-	_pthread_mutexattr_init(&ma);
-	_pthread_mutexattr_settype(&ma,  PTHREAD_MUTEX_RECURSIVE);
-	_pthread_mutex_init(&sem_llock, &ma);
-	_pthread_mutexattr_destroy(&ma);
+	_pthread_mutex_init(&sem_llock, NULL);
 	_pthread_atfork(sem_prefork, sem_postfork, sem_child_postfork);
 }
 
@@ -260,6 +257,7 @@ int
 _sem_close(sem_t *sem)
 {
 	struct sem_nameinfo *ni;
+	bool last;
 
 	if (sem_check_validity(sem) != 0)
 		return (-1);
@@ -274,20 +272,16 @@ _sem_close(sem_t *sem)
 	_pthread_mutex_lock(&sem_llock);
 	LIST_FOREACH(ni, &sem_list, next) {
 		if (sem == ni->sem) {
-			if (--ni->open_count > 0) {
-				_pthread_mutex_unlock(&sem_llock);
-				return (0);
+			last = --ni->open_count == 0;
+			if (last)
+				LIST_REMOVE(ni, next);
+			_pthread_mutex_unlock(&sem_llock);
+			if (last) {
+				munmap(sem, sizeof(*sem));
+				free(ni);
 			}
-			break;
+			return (0);
 		}
-	}
-
-	if (ni != NULL) {
-		LIST_REMOVE(ni, next);
-		_pthread_mutex_unlock(&sem_llock);
-		munmap(sem, sizeof(*sem));
-		free(ni);
-		return (0);
 	}
 	_pthread_mutex_unlock(&sem_llock);
 	errno = EINVAL;
