@@ -1012,7 +1012,7 @@ isp_reset(ispsoftc_t *isp, int do_load_defaults)
 
 	fwt = isp->isp_fwattr;
 	if (IS_24XX(isp)) {
-		buf = FCPARAM(isp, 0)->isp_scratch;
+		buf = FCPARAM(isp, 0)->isp_scanscratch;
 		ISP_SNPRINTF(buf, ISP_FC_SCRLEN, "Attributes:");
 		if (fwt & ISP2400_FW_ATTR_CLASS2) {
 			fwt ^=ISP2400_FW_ATTR_CLASS2;
@@ -1101,7 +1101,7 @@ isp_reset(ispsoftc_t *isp, int do_load_defaults)
 		}
 		isp_prt(isp, ISP_LOGCONFIG, "%s", buf);
 	} else if (IS_FC(isp)) {
-		buf = FCPARAM(isp, 0)->isp_scratch;
+		buf = FCPARAM(isp, 0)->isp_scanscratch;
 		ISP_SNPRINTF(buf, ISP_FC_SCRLEN, "Attributes:");
 		if (fwt & ISP_FW_ATTR_TMODE) {
 			fwt ^=ISP_FW_ATTR_TMODE;
@@ -2662,7 +2662,8 @@ isp_plogx(ispsoftc_t *isp, int chan, uint16_t handle, uint32_t portid, int flags
 		break;
 	}
 	if (msg) {
-		isp_prt(isp, ISP_LOGERR, "Chan %d PLOGX PortID 0x%06x to N-Port handle 0x%x: %s", chan, portid, handle, msg);
+		isp_prt(isp, lev, "Chan %d PLOGX PortID 0x%06x to N-Port handle 0x%x: %s",
+		    chan, portid, handle, msg);
 	}
 	return (rval);
 }
@@ -2770,10 +2771,11 @@ isp_getpdb(ispsoftc_t *isp, int chan, uint16_t id, isp_pdb_t *pdb)
 		pdb->portid = BITS2WORD_24XX(un.bill.pdb_portid_bits);
 		ISP_MEMCPY(pdb->portname, un.bill.pdb_portname, 8);
 		ISP_MEMCPY(pdb->nodename, un.bill.pdb_nodename, 8);
-		isp_prt(isp, ISP_LOGDEBUG1,
-		    "Chan %d handle 0x%x Port 0x%06x flags 0x%x curstate %x",
+		isp_prt(isp, ISP_LOGDEBUG0,
+		    "Chan %d handle 0x%x Port 0x%06x flags 0x%x curstate %x laststate %x",
 		    chan, id, pdb->portid, un.bill.pdb_flags,
-		    un.bill.pdb_curstate);
+		    un.bill.pdb_curstate, un.bill.pdb_laststate);
+
 		if (un.bill.pdb_curstate < PDB2400_STATE_PLOGI_DONE || un.bill.pdb_curstate > PDB2400_STATE_LOGGED_IN) {
 			mbs.param[0] = MBOX_NOT_LOGGED_IN;
 			return (mbs.param[0]);

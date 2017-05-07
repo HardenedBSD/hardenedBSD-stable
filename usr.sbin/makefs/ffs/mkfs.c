@@ -50,6 +50,7 @@ __FBSDID("$FreeBSD$");
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <util.h>
 
 #include "makefs.h"
 #include "ffs.h"
@@ -66,7 +67,7 @@ __FBSDID("$FreeBSD$");
 #define	BBSIZE	8192			/* size of boot area, with label */
 #endif
 
-static void initcg(int, time_t, const fsinfo_t *);
+static void initcg(uint32_t, time_t, const fsinfo_t *);
 static int ilog2(int);
 
 static int count_digits(int);
@@ -77,23 +78,22 @@ static int count_digits(int);
 #define	UMASK		0755
 #define	POWEROF2(num)	(((num) & ((num) - 1)) == 0)
 
-union {
+static union {
 	struct fs fs;
 	char pad[SBLOCKSIZE];
 } fsun;
 #define	sblock	fsun.fs
-struct	csum *fscs;
 
-union {
+static union {
 	struct cg cg;
 	char pad[FFS_MAXBSIZE];
 } cgun;
 #define	acg	cgun.cg
 
-char *iobuf;
-int iobufsize;
+static char *iobuf;
+static int iobufsize;
 
-char writebuf[FFS_MAXBSIZE];
+static char writebuf[FFS_MAXBSIZE];
 
 static int     Oflag;	   /* format as an 4.3BSD file system */
 static int64_t fssize;	   /* file system size */
@@ -116,7 +116,8 @@ struct fs *
 ffs_mkfs(const char *fsys, const fsinfo_t *fsopts, time_t tstamp)
 {
 	int fragsperinode, optimalfpg, origdensity, minfpg, lastminfpg;
-	int32_t cylno, i, csfrags;
+	int32_t csfrags;
+	uint32_t i, cylno;
 	long long sizepb;
 	void *space;
 	int size;
@@ -402,8 +403,7 @@ ffs_mkfs(const char *fsys, const fsinfo_t *fsopts, time_t tstamp)
 	size = sblock.fs_cssize;
 	if (sblock.fs_contigsumsize > 0)
 		size += sblock.fs_ncg * sizeof(int32_t);
-	if ((space = (char *)calloc(1, size)) == NULL)
-		err(1, "memory allocation error for cg summaries");
+	space = ecalloc(1, size);
 	sblock.fs_csp = space;
 	space = (char *)space + sblock.fs_cssize;
 	if (sblock.fs_contigsumsize > 0) {
@@ -492,11 +492,7 @@ ffs_mkfs(const char *fsys, const fsinfo_t *fsopts, time_t tstamp)
 		iobufsize = SBLOCKSIZE + 3 * sblock.fs_bsize;
 	else
 		iobufsize = 4 * sblock.fs_bsize;
-	if ((iobuf = malloc(iobufsize)) == NULL) {
-		printf("Cannot allocate I/O buffer\n");
-		exit(38);
-	}
-	memset(iobuf, 0, iobufsize);
+	iobuf = ecalloc(1, iobufsize);
 	/*
 	 * Make a copy of the superblock into the buffer that we will be
 	 * writing out in each cylinder group.
@@ -541,7 +537,8 @@ ffs_mkfs(const char *fsys, const fsinfo_t *fsopts, time_t tstamp)
 void
 ffs_write_superblock(struct fs *fs, const fsinfo_t *fsopts)
 {
-	int cylno, size, blks, i, saveflag;
+	int size, blks, i, saveflag;
+	uint32_t cylno;
 	void *space;
 	char *wrbuf;
 
@@ -562,8 +559,7 @@ ffs_write_superblock(struct fs *fs, const fsinfo_t *fsopts)
 	size = fs->fs_cssize;
 	blks = howmany(size, fs->fs_fsize);
 	space = (void *)fs->fs_csp;
-	if ((wrbuf = malloc(size)) == NULL)
-		err(1, "ffs_write_superblock: malloc %d", size);
+	wrbuf = emalloc(size);
 	for (i = 0; i < blks; i+= fs->fs_frag) {
 		size = fs->fs_bsize;
 		if (i + fs->fs_frag > blks)
@@ -584,10 +580,11 @@ ffs_write_superblock(struct fs *fs, const fsinfo_t *fsopts)
  * Initialize a cylinder group.
  */
 static void
-initcg(int cylno, time_t utime, const fsinfo_t *fsopts)
+initcg(uint32_t cylno, time_t utime, const fsinfo_t *fsopts)
 {
 	daddr_t cbase, dmax;
-	int32_t i, j, d, dlower, dupper, blkno;
+	int32_t blkno;
+	uint32_t i, j, d, dlower, dupper;
 	struct ufs1_dinode *dp1;
 	struct ufs2_dinode *dp2;
 	int start;
@@ -648,7 +645,7 @@ initcg(int cylno, time_t utime, const fsinfo_t *fsopts)
 		acg.cg_nextfreeoff = acg.cg_clusteroff +
 		    howmany(fragstoblks(&sblock, sblock.fs_fpg), CHAR_BIT);
 	}
-	if (acg.cg_nextfreeoff > sblock.fs_cgsize) {
+	if (acg.cg_nextfreeoff > (uint32_t)sblock.fs_cgsize) {
 		printf("Panic: cylinder group too big\n");
 		exit(37);
 	}

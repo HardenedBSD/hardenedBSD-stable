@@ -209,14 +209,14 @@ add_deterministic_cache(int type, int level, int share_count)
 
 	if (caches[level - 1].id_shift > pkg_id_shift) {
 		printf("WARNING: L%u data cache covers more "
-		    "APIC IDs than a package\n", level);
-		printf("%u > %u\n", caches[level - 1].id_shift, pkg_id_shift);
+		    "APIC IDs than a package (%u > %u)\n", level,
+		    caches[level - 1].id_shift, pkg_id_shift);
 		caches[level - 1].id_shift = pkg_id_shift;
 	}
 	if (caches[level - 1].id_shift < core_id_shift) {
-		printf("WARNING: L%u data cache covers less "
-		    "APIC IDs than a core\n", level);
-		printf("%u < %u\n", caches[level - 1].id_shift, core_id_shift);
+		printf("WARNING: L%u data cache covers fewer "
+		    "APIC IDs than a core (%u < %u)\n", level,
+		    caches[level - 1].id_shift, core_id_shift);
 		caches[level - 1].id_shift = core_id_shift;
 	}
 
@@ -227,17 +227,18 @@ add_deterministic_cache(int type, int level, int share_count)
  * Determine topology of processing units and caches for AMD CPUs.
  * See:
  *  - AMD CPUID Specification (Publication # 25481)
- *  - BKDG For AMD Family 10h Processors (Publication # 31116), section 2.15
  *  - BKDG for AMD NPT Family 0Fh Processors (Publication # 32559)
- * XXX At the moment the code does not recognize grouping of AMD CMT threads,
- * if supported, into cores, so each thread is treated as being in its own
- * core.  In other words, each logical CPU is considered to be a core.
+ *  - BKDG For AMD Family 10h Processors (Publication # 31116)
+ *  - BKDG For AMD Family 15h Models 00h-0Fh Processors (Publication # 42301)
+ *  - BKDG For AMD Family 16h Models 00h-0Fh Processors (Publication # 48751)
  */
 static void
 topo_probe_amd(void)
 {
 	u_int p[4];
+	uint64_t v;
 	int level;
+	int nodes_per_socket;
 	int share_count;
 	int type;
 	int i;
@@ -254,6 +255,22 @@ topo_probe_amd(void)
 	if (pkg_id_shift == 0)
 		pkg_id_shift =
 		    mask_width((cpu_procinfo2 & AMDID_CMP_CORES) + 1);
+
+	/*
+	 * Families prior to 16h define the following value as
+	 * cores per compute unit and we don't really care about the AMD
+	 * compute units at the moment.  Perhaps we should treat them as
+	 * cores and cores within the compute units as hardware threads,
+	 * but that's up for debate.
+	 * Later families define the value as threads per compute unit,
+	 * so we are following AMD's nomenclature here.
+	 */
+	if ((amd_feature2 & AMDID2_TOPOLOGY) != 0 &&
+	    CPUID_TO_FAMILY(cpu_id) >= 0x16) {
+		cpuid_count(0x8000001e, 0, p);
+		share_count = ((p[1] >> 8) & 0xff) + 1;
+		core_id_shift = mask_width(share_count);
+	}
 
 	if ((amd_feature2 & AMDID2_TOPOLOGY) != 0) {
 		for (i = 0; ; i++) {
@@ -280,13 +297,18 @@ topo_probe_amd(void)
 				caches[1].present = 1;
 			}
 			if (((p[3] >> 18) & 0x3fff) != 0) {
-
-				/*
-				 * TODO: Account for dual-node processors
-				 * where each node within a package has its own
-				 * L3 cache.
-				 */
-				caches[2].id_shift = pkg_id_shift;
+				nodes_per_socket = 1;
+				if ((amd_feature2 & AMDID2_NODE_ID) != 0) {
+					/*
+					 * Handle multi-node processors that
+					 * have multiple chips, each with its
+					 * own L3 cache, on the same die.
+					 */
+					v = rdmsr(0xc001100c);
+					nodes_per_socket = 1 + ((v >> 3) & 0x7);
+				}
+				caches[2].id_shift =
+				    pkg_id_shift - mask_width(nodes_per_socket);
 				caches[2].present = 1;
 			}
 		}

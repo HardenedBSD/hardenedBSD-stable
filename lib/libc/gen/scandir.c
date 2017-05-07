@@ -82,19 +82,18 @@ scandir(const char *dirname, struct dirent ***namelist,
 #endif
 {
 	struct dirent *d, *p, **names = NULL;
-	size_t numitems;
-	long arraysz;
+	size_t arraysz, numitems;
 	DIR *dirp;
 
 	if ((dirp = opendir(dirname)) == NULL)
 		return(-1);
 
+	numitems = 0;
 	arraysz = 32;	/* initial estimate of the array size */
 	names = (struct dirent **)malloc(arraysz * sizeof(struct dirent *));
 	if (names == NULL)
 		goto fail;
 
-	numitems = 0;
 	while ((d = readdir(dirp)) != NULL) {
 		if (select != NULL && !SELECT(d))
 			continue;	/* just selected names */

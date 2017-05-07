@@ -117,7 +117,8 @@ extern int arc4rand_iniseed_state;
 /* Prototypes for non-quad routines. */
 struct malloc_type;
 uint32_t arc4random(void);
-void	 arc4rand(void *ptr, u_int len, int reseed);
+void	 arc4random_buf(void *, size_t);
+void	 arc4rand(void *, u_int, int);
 int	 bcmp(const void *, const void *, size_t);
 int	 timingsafe_bcmp(const void *, const void *, size_t);
 void	*bsearch(const void *, const void *, size_t,
@@ -208,6 +209,9 @@ calculate_crc32c(uint32_t crc32c, const unsigned char *buffer,
 #ifdef _KERNEL
 #if defined(__amd64__) || defined(__i386__)
 uint32_t sse42_crc32c(uint32_t, const unsigned char *, unsigned);
+#endif
+#if defined(__aarch64__)
+uint32_t armv8_crc32c(uint32_t, const unsigned char *, unsigned int);
 #endif
 #endif
 

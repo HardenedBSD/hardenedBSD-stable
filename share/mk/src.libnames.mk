@@ -24,7 +24,8 @@ _PRIVATELIBS=	\
 		sqlite3 \
 		ssh \
 		ucl \
-		unbound
+		unbound \
+		zstd
 
 _INTERNALLIBS=	\
 		amu \
@@ -209,6 +210,7 @@ _LIBRARIES+= \
 # 2nd+ order consumers.  Auto-generating this would be better.
 _DP_80211=	sbuf bsdxml
 _DP_archive=	z bz2 lzma bsdxml
+_DP_zstd=	pthread
 .if ${MK_BLACKLIST} != "no"
 _DP_blacklist+=	pthread
 .endif

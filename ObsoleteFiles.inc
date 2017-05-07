@@ -38,19 +38,76 @@
 #   xargs -n1 | sort | uniq -d;
 # done
 
+# 20170427: NATM configuration support removed
+OLD_FILES+=etc/rc.d/atm1
+OLD_FILES+=etc/rc.d/atm2
+OLD_FILES+=etc/rc.d/atm3
+# 20170424: NATM support removed
+OLD_FILES+=rescue/atmconfig
+OLD_FILES+=sbin/atmconfig
+OLD_FILES+=usr/include/bsnmp/snmp_atm.h
+OLD_FILES+=usr/include/dev/utopia/idtphy.h
+OLD_FILES+=usr/include/dev/utopia/suni.h
+OLD_FILES+=usr/include/dev/utopia/utopia.h
+OLD_FILES+=usr/include/dev/utopia/utopia_priv.h
+OLD_DIRS+=usr/include/dev/utopia
+OLD_FILES+=usr/include/net/if_atm.h
+OLD_FILES+=usr/include/netgraph/atm/ng_atm.h
+OLD_FILES+=usr/include/netinet/if_atm.h
+OLD_FILES+=usr/include/netnatm/natm.h
+OLD_FILES+=usr/lib/debug/sbin/atmconfig.debug
+OLD_FILES+=usr/lib/debug/usr/lib/snmp_atm.so.6.debug
+OLD_FILES+=usr/lib/snmp_atm.so
+OLD_FILES+=usr/lib/snmp_atm.so.6
+OLD_FILES+=usr/share/doc/atm/atmconfig.help
+OLD_FILES+=usr/share/doc/atm/atmconfig_device.help
+OLD_DIRS+=usr/share/doc/atm
+OLD_FILES+=usr/share/man/man3/snmp_atm.3.gz
+OLD_FILES+=usr/share/man/man4/en.4.gz
+OLD_FILES+=usr/share/man/man4/fatm.4.gz
+OLD_FILES+=usr/share/man/man4/hatm.4.gz
+OLD_FILES+=usr/share/man/man4/if_en.4.gz
+OLD_FILES+=usr/share/man/man4/if_fatm.4.gz
+OLD_FILES+=usr/share/man/man4/if_hatm.4.gz
+OLD_FILES+=usr/share/man/man4/if_patm.4.gz
+OLD_FILES+=usr/share/man/man4/natm.4.gz
+OLD_FILES+=usr/share/man/man4/natmip.4.gz
+OLD_FILES+=usr/share/man/man4/ng_atm.4.gz
+OLD_FILES+=usr/share/man/man4/patm.4.gz
+OLD_FILES+=usr/share/man/man4/utopia.4.gz
+OLD_FILES+=usr/share/man/man8/atmconfig.8.gz
+OLD_FILES+=usr/share/man/man9/utopia.9.gz
+OLD_FILES+=usr/share/snmp/defs/atm_freebsd.def
+OLD_FILES+=usr/share/snmp/defs/atm_tree.def
+OLD_FILES+=usr/share/snmp/mibs/BEGEMOT-ATM-FREEBSD-MIB.txt
+OLD_FILES+=usr/share/snmp/mibs/BEGEMOT-ATM.txt
+# 20170420: remove GNU diff
+OLD_FILES+=usr/share/man/man7/diff.7.gz
+# 20170322: rename <x> to <x>_test to match the FreeBSD test suite name scheme
+OLD_FILES+=usr/tests/usr.bin/col/col
+OLD_FILES+=usr/tests/usr.bin/diff/diff
+OLD_FILES+=usr/tests/usr.bin/ident/ident
+OLD_FILES+=usr/tests/usr.bin/mkimg/mkimg
+OLD_FILES+=usr/tests/usr.bin/sdiff/sdiff
+OLD_FILES+=usr/tests/usr.bin/soelim/soelim
+OLD_FILES+=usr/tests/usr.sbin/pw/pw_config
+OLD_FILES+=usr/tests/usr.sbin/pw/pw_etcdir
+OLD_FILES+=usr/tests/usr.sbin/pw/pw_groupadd
+OLD_FILES+=usr/tests/usr.sbin/pw/pw_groupdel
+OLD_FILES+=usr/tests/usr.sbin/pw/pw_groupmod
+OLD_FILES+=usr/tests/usr.sbin/pw/pw_lock
+OLD_FILES+=usr/tests/usr.sbin/pw/pw_useradd
+OLD_FILES+=usr/tests/usr.sbin/pw/pw_userdel
+OLD_FILES+=usr/tests/usr.sbin/pw/pw_usermod
+OLD_FILES+=usr/tests/usr.sbin/pw/pw_usernext
+# 20170322: garbage collect old references to igb(4)
+OLD_FILES+=usr/share/man/man4/if_igb.4.gz
+OLD_FILES+=usr/share/man/man4/igb.4.gz
 # 20170319: io_test requires zh_TW.Big5 locale.
 OLD_FILES+=usr/tests/lib/libc/locale/io_test
 # 20170319: remove nls for non supported Big5* locales
 OLD_DIRS+=usr/share/nls/zh_HK.Big5HKSCS
 OLD_DIRS+=usr/share/nls/zh_TW.Big5
-# 20170319: Remove zh_TW.Big5
-OLD_FILES+=usr/share/locale/zh_TW.Big5/LC_COLLATE
-OLD_FILES+=usr/share/locale/zh_TW.Big5/LC_CTYPE
-OLD_FILES+=usr/share/locale/zh_TW.Big5/LC_MESSAGES
-OLD_FILES+=usr/share/locale/zh_TW.Big5/LC_MONETARY
-OLD_FILES+=usr/share/locale/zh_TW.Big5/LC_NUMERIC
-OLD_FILES+=usr/share/locale/zh_TW.Big5/LC_TIME
-OLD_DIRS+=usr/share/locale/zh_TW.Big5
 # 20170313: move .../sys/geom/eli/... to .../sys/geom/class/eli/...
 OLD_FILES+=usr/tests/sys/geom/eli/pbkdf2/pbkdf2
 OLD_FILES+=usr/tests/sys/geom/eli/pbkdf2/Kyuafile
@@ -2055,8 +2112,12 @@ OLD_FILES+=usr/share/info/am-utils.info.gz
 OLD_FILES+=usr/share/info/as.info.gz
 OLD_FILES+=usr/share/info/binutils.info.gz
 OLD_FILES+=usr/share/info/com_err.info.gz
+OLD_FILES+=usr/share/info/cpp.info.gz
+OLD_FILES+=usr/share/info/cppinternals.info.gz
 OLD_FILES+=usr/share/info/diff.info.gz
 OLD_FILES+=usr/share/info/dir
+OLD_FILES+=usr/share/info/gcc.info.gz
+OLD_FILES+=usr/share/info/gccint.info.gz
 OLD_FILES+=usr/share/info/gdb.info.gz
 OLD_FILES+=usr/share/info/gdbint.info.gz
 OLD_FILES+=usr/share/info/gperf.info.gz

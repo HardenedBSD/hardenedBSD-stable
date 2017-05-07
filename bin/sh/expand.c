@@ -96,9 +96,10 @@ static const char *exptilde(const char *, int);
 static const char *expari(const char *, struct nodelist **restrict, int,
     struct worddest *);
 static void expbackq(union node *, int, int, struct worddest *);
-static void subevalvar_trim(const char *, struct nodelist *, int, int, int);
-static void subevalvar_misc(const char *, struct nodelist *, const char *, int,
-    int, int);
+static const char *subevalvar_trim(const char *, struct nodelist **restrict,
+    int, int, int);
+static const char *subevalvar_misc(const char *, struct nodelist **restrict,
+    const char *, int, int, int);
 static const char *evalvar(const char *, struct nodelist **restrict, int,
     struct worddest *);
 static int varisset(const char *, int);
@@ -144,10 +145,12 @@ appendarglist(struct arglist *list, char *str)
 static int
 collate_range_cmp(wchar_t c1, wchar_t c2)
 {
-	static wchar_t s1[2], s2[2];
+	wchar_t s1[2], s2[2];
 
 	s1[0] = c1;
+	s1[1] = L'\0';
 	s2[0] = c2;
+	s2[1] = L'\0';
 	return (wcscoll(s1, s2));
 }
 
@@ -219,9 +222,9 @@ stputs_split(const char *data, const char *syntax, int flag, char *p,
  * The result is left in the stack string.
  * When arglist is NULL, perform here document expansion.
  *
- * Caution: this function uses global state and is not reentrant.
- * However, a new invocation after an interrupted invocation is safe
- * and will reset the global state for the new call.
+ * When doing something that may cause this to be re-entered, make sure
+ * the stack string is empty via grabstackstr() and do not assume expdest
+ * remains valid.
  */
 void
 expandarg(union node *arg, struct arglist *arglist, int flag)
@@ -459,6 +462,7 @@ expbackq(union node *cmd, int quoted, int flag, struct worddest *dst)
 	int quotes = flag & (EXP_GLOB | EXP_CASE);
 	size_t nnl;
 	const char *ifs;
+	int startloc;
 
 	INTOFF;
 	p = grabstackstr(dest);
@@ -466,12 +470,13 @@ expbackq(union node *cmd, int quoted, int flag, struct worddest *dst)
 	ungrabstackstr(p, dest);
 
 	p = in.buf;
+	startloc = dest - stackblock();
 	nnl = 0;
 	if (!quoted && flag & EXP_SPLIT)
 		ifs = ifsset() ? ifsval() : " \t\n";
 	else
 		ifs = "";
-	/* Don't copy trailing newlines */
+	/* Remove trailing newlines */
 	for (;;) {
 		if (--in.nleft < 0) {
 			if (in.fd < 0)
@@ -487,31 +492,24 @@ expbackq(union node *cmd, int quoted, int flag, struct worddest *dst)
 		lastc = *p++;
 		if (lastc == '\0')
 			continue;
-		if (lastc == '\n') {
-			nnl++;
-		} else {
-			if (nnl > 0) {
-				if (strchr(ifs, '\n') != NULL) {
-					NEXTWORD('\n', flag, dest, dst);
-					nnl = 0;
-				} else {
-					CHECKSTRSPACE(nnl + 2, dest);
-					while (nnl > 0) {
-						nnl--;
-						USTPUTC('\n', dest);
-					}
-				}
-			}
-			if (strchr(ifs, lastc) != NULL)
+		if (nnl > 0 && lastc != '\n') {
+			NEXTWORD('\n', flag, dest, dst);
+			nnl = 0;
+		}
+		if (strchr(ifs, lastc) != NULL) {
+			if (lastc == '\n')
+				nnl++;
+			else
 				NEXTWORD(lastc, flag, dest, dst);
-			else {
-				CHECKSTRSPACE(2, dest);
-				if (quotes && syntax[(int)lastc] == CCTL)
-					USTPUTC(CTLESC, dest);
-				USTPUTC(lastc, dest);
-			}
+		} else {
+			CHECKSTRSPACE(2, dest);
+			if (quotes && syntax[(int)lastc] == CCTL)
+				USTPUTC(CTLESC, dest);
+			USTPUTC(lastc, dest);
 		}
 	}
+	while (dest > stackblock() + startloc && STTOPC(dest) == '\n')
+		STUNPUTC(dest);
 
 	if (in.fd >= 0)
 		close(in.fd);
@@ -540,18 +538,17 @@ recordleft(const char *str, const char *loc, char *startp)
 		*startp++ = *loc++;
 }
 
-static void
-subevalvar_trim(const char *p, struct nodelist *argbackq, int strloc,
+static const char *
+subevalvar_trim(const char *p, struct nodelist **restrict argbackq, int strloc,
     int subtype, int startloc)
 {
 	char *startp;
 	char *loc = NULL;
 	char *str;
 	int c = 0;
-	struct nodelist *argbackqcopy = argbackq;
 	int amount;
 
-	argstr(p, &argbackqcopy, EXP_CASE | EXP_TILDE, NULL);
+	p = argstr(p, argbackq, EXP_CASE | EXP_TILDE, NULL);
 	STACKSTRNUL(expdest);
 	startp = stackblock() + startloc;
 	str = stackblock() + strloc;
@@ -564,7 +561,7 @@ subevalvar_trim(const char *p, struct nodelist *argbackq, int strloc,
 			if (patmatch(str, startp)) {
 				*loc = c;
 				recordleft(str, loc, startp);
-				return;
+				return p;
 			}
 			*loc = c;
 		}
@@ -577,7 +574,7 @@ subevalvar_trim(const char *p, struct nodelist *argbackq, int strloc,
 			if (patmatch(str, startp)) {
 				*loc = c;
 				recordleft(str, loc, startp);
-				return;
+				return p;
 			}
 			*loc = c;
 			loc--;
@@ -589,7 +586,7 @@ subevalvar_trim(const char *p, struct nodelist *argbackq, int strloc,
 			if (patmatch(str, loc)) {
 				amount = loc - expdest;
 				STADJUST(amount, expdest);
-				return;
+				return p;
 			}
 			loc--;
 		}
@@ -600,7 +597,7 @@ subevalvar_trim(const char *p, struct nodelist *argbackq, int strloc,
 			if (patmatch(str, loc)) {
 				amount = loc - expdest;
 				STADJUST(amount, expdest);
-				return;
+				return p;
 			}
 		}
 		break;
@@ -611,18 +608,18 @@ subevalvar_trim(const char *p, struct nodelist *argbackq, int strloc,
 	}
 	amount = (expdest - stackblock() - strloc) + 1;
 	STADJUST(-amount, expdest);
+	return p;
 }
 
 
-static void
-subevalvar_misc(const char *p, struct nodelist *argbackq, const char *var, int subtype, int startloc,
-  int varflags)
+static const char *
+subevalvar_misc(const char *p, struct nodelist **restrict argbackq,
+    const char *var, int subtype, int startloc, int varflags)
 {
 	char *startp;
-	struct nodelist *argbackqcopy = argbackq;
 	int amount;
 
-	argstr(p, &argbackqcopy, EXP_TILDE, NULL);
+	p = argstr(p, argbackq, EXP_TILDE, NULL);
 	STACKSTRNUL(expdest);
 	startp = stackblock() + startloc;
 
@@ -631,7 +628,7 @@ subevalvar_misc(const char *p, struct nodelist *argbackq, const char *var, int s
 		setvar(var, startp, 0);
 		amount = startp - expdest;
 		STADJUST(amount, expdest);
-		return;
+		return p;
 
 	case VSQUESTION:
 		if (*p != CTLENDVAR) {
@@ -676,7 +673,6 @@ evalvar(const char *p, struct nodelist **restrict argbackq, int flag,
 	if (! is_name(*p))
 		special = 1;
 	p = strchr(p, '=') + 1;
-again: /* jump here after setting a variable with ${var=text} */
 	if (varflags & VSLINENO) {
 		set = 1;
 		special = 1;
@@ -753,15 +749,14 @@ again: /* jump here after setting a variable with ${var=text} */
 		break;
 
 	case VSNORMAL:
-		break;
+		return p;
 
 	case VSPLUS:
 	case VSMINUS:
 		if (!set) {
-			argstr(p, argbackq,
+			return argstr(p, argbackq,
 			    flag | (flag & EXP_SPLIT ? EXP_SPLIT_LIT : 0) |
 			    (varflags & VSQUOTE ? EXP_LIT_QUOTED : 0), dst);
-			break;
 		}
 		break;
 
@@ -769,30 +764,29 @@ again: /* jump here after setting a variable with ${var=text} */
 	case VSTRIMLEFTMAX:
 	case VSTRIMRIGHT:
 	case VSTRIMRIGHTMAX:
-		if (!set) {
-			set = 1;
+		if (!set)
 			break;
-		}
 		/*
 		 * Terminate the string and start recording the pattern
 		 * right after it
 		 */
 		STPUTC('\0', expdest);
 		patloc = expdest - stackblock();
-		subevalvar_trim(p, *argbackq, patloc, subtype, startloc);
+		p = subevalvar_trim(p, argbackq, patloc, subtype, startloc);
 		reprocess(startloc, flag, VSNORMAL, varflags & VSQUOTE, dst);
 		if (flag & EXP_SPLIT && *var == '@' && varflags & VSQUOTE)
 			dst->state = WORD_QUOTEMARK;
-		break;
+		return p;
 
 	case VSASSIGN:
 	case VSQUESTION:
 		if (!set) {
-			subevalvar_misc(p, *argbackq, var, subtype,
+			p = subevalvar_misc(p, argbackq, var, subtype,
 			    startloc, varflags);
 			/* assert(subtype == VSASSIGN); */
-			varflags &= ~VSNUL;
-			goto again;
+			val = lookupvar(var);
+			strtodest(val, flag, subtype, varflags & VSQUOTE, dst);
+			return p;
 		}
 		break;
 
@@ -805,15 +799,14 @@ again: /* jump here after setting a variable with ${var=text} */
 		abort();
 	}
 
-	if (subtype != VSNORMAL) {	/* skip to end of alternative */
+	{	/* skip to end of alternative */
 		int nesting = 1;
 		for (;;) {
 			if ((c = *p++) == CTLESC)
 				p++;
-			else if (c == CTLBACKQ || c == (CTLBACKQ|CTLQUOTE)) {
-				if (set)
-					*argbackq = (*argbackq)->next;
-			} else if (c == CTLVAR) {
+			else if (c == CTLBACKQ || c == (CTLBACKQ|CTLQUOTE))
+				*argbackq = (*argbackq)->next;
+			else if (c == CTLVAR) {
 				if ((*p++ & VSTYPE) != VSNORMAL)
 					nesting++;
 			} else if (c == CTLENDVAR) {
@@ -828,7 +821,7 @@ again: /* jump here after setting a variable with ${var=text} */
 
 
 /*
- * Test whether a specialized variable is set.
+ * Test whether a special or positional parameter is set.
  */
 
 static int
@@ -925,7 +918,7 @@ reprocess(int startloc, int flag, int subtype, int quoted,
 }
 
 /*
- * Add the value of a specialized variable to the stack string.
+ * Add the value of a special or positional parameter to the stack string.
  */
 
 static void

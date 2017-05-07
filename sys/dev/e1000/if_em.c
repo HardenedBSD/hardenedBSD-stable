@@ -290,8 +290,6 @@ static void	em_handle_link(void *context);
 
 static void	em_enable_vectors_82574(if_ctx_t);
 
-static void	em_set_sysctl_value(struct adapter *, const char *,
-		    const char *, int *, int);
 static int	em_set_flowcntl(SYSCTL_HANDLER_ARGS);
 static int	em_sysctl_eee(SYSCTL_HANDLER_ARGS);
 static void	em_if_led_func(if_ctx_t ctx, int onoff);
@@ -895,11 +893,6 @@ em_if_attach_pre(if_ctx_t ctx)
 	    &adapter->tx_itr,
 	    E1000_REGISTER(hw, E1000_ITR),
 	    DEFAULT_ITR);
-
-	/* Sysctl for limiting the amount of work done in the taskqueue */
-	em_set_sysctl_value(adapter, "rx_processing_limit",
-	    "max number of rx packets to process", &adapter->rx_process_limit,
-	    em_rx_process_limit);
 
 	hw->mac.autoneg = DO_AUTO_NEG;
 	hw->phy.autoneg_wait_to_complete = FALSE;
@@ -1941,10 +1934,11 @@ em_if_msix_intr_assign(if_ctx_t ctx, int msix)
 			tx_que->eims = 1 << (22 + i);
 			adapter->ims |= tx_que->eims;
 			adapter->ivars |= (8 | tx_que->msix) << (8 + (i * 4));
-		} if (adapter->hw.mac.type == e1000_82575)
+		} else if (adapter->hw.mac.type == e1000_82575) {
 			tx_que->eims = E1000_EICR_TX_QUEUE0 << (i %  adapter->tx_num_queues);
-		else
+		} else {
 			tx_que->eims = 1 << (i %  adapter->tx_num_queues);
+		}
 	}
 
 	/* Link interrupt */
@@ -3230,7 +3224,7 @@ em_if_enable_intr(if_ctx_t ctx)
 	if (hw->mac.type == e1000_82574) {
 		E1000_WRITE_REG(hw, EM_EIAC, EM_MSIX_MASK);
 		ims_mask |= adapter->ims;
-	} if (adapter->intr_type == IFLIB_INTR_MSIX && hw->mac.type >= igb_mac_min)  {
+	} else if (adapter->intr_type == IFLIB_INTR_MSIX && hw->mac.type >= igb_mac_min)  {
 		u32 mask = (adapter->que_mask | adapter->link_mask);
 
 		E1000_WRITE_REG(&adapter->hw, E1000_EIAC, mask);
@@ -3711,6 +3705,11 @@ em_update_stats_counters(struct adapter *adapter)
 	adapter->stats.xonrxc += E1000_READ_REG(&adapter->hw, E1000_XONRXC);
 	adapter->stats.xontxc += E1000_READ_REG(&adapter->hw, E1000_XONTXC);
 	adapter->stats.xoffrxc += E1000_READ_REG(&adapter->hw, E1000_XOFFRXC);
+	/*
+	 ** For watchdog management we need to know if we have been
+	 ** paused during the last interval, so capture that here.
+	*/
+	adapter->shared->isc_pause_frames = adapter->stats.xoffrxc;
 	adapter->stats.xofftxc += E1000_READ_REG(&adapter->hw, E1000_XOFFTXC);
 	adapter->stats.fcruc += E1000_READ_REG(&adapter->hw, E1000_FCRUC);
 	adapter->stats.prc64 += E1000_READ_REG(&adapter->hw, E1000_PRC64);
@@ -3889,9 +3888,6 @@ em_add_hw_stats(struct adapter *adapter)
 		SYSCTL_ADD_ULONG(ctx, queue_list, OID_AUTO, "tx_irq",
 				CTLFLAG_RD, &txr->tx_irq,
 				"Queue MSI-X Transmit Interrupts");
-		SYSCTL_ADD_ULONG(ctx, queue_list, OID_AUTO, "no_desc_avail",
-				CTLFLAG_RD, &txr->no_desc_avail,
-				"Queue No Descriptor Available");
 	}
 
 	for (int j = 0; j < adapter->rx_num_queues; j++, rx_que++) {
@@ -4216,17 +4212,6 @@ em_add_int_delay_sysctl(struct adapter *adapter, const char *name,
 	    info, 0, em_sysctl_int_delay, "I", description);
 }
 
-static void
-em_set_sysctl_value(struct adapter *adapter, const char *name,
-	const char *description, int *limit, int value)
-{
-	*limit = value;
-	SYSCTL_ADD_INT(device_get_sysctl_ctx(adapter->dev),
-	    SYSCTL_CHILDREN(device_get_sysctl_tree(adapter->dev)),
-	    OID_AUTO, name, CTLFLAG_RW, limit, value, description);
-}
-
-
 /*
  * Set flow control using sysctl:
  * Flow control values:
@@ -4340,16 +4325,17 @@ em_if_debug(if_ctx_t ctx)
 static void
 em_print_debug_info(struct adapter *adapter)
 {
-	device_t dev = adapter->dev;
+	device_t dev = iflib_get_dev(adapter->ctx);
+	struct ifnet *ifp = iflib_get_ifp(adapter->ctx);
 	struct tx_ring *txr = &adapter->tx_queues->txr;
 	struct rx_ring *rxr = &adapter->rx_queues->rxr;
 
-	if (if_getdrvflags(adapter->ifp) & IFF_DRV_RUNNING)
+	if (if_getdrvflags(ifp) & IFF_DRV_RUNNING)
 		printf("Interface is RUNNING ");
 	else
 		printf("Interface is NOT RUNNING\n");
 
-	if (if_getdrvflags(adapter->ifp) & IFF_DRV_OACTIVE)
+	if (if_getdrvflags(ifp) & IFF_DRV_OACTIVE)
 		printf("and INACTIVE\n");
 	else
 		printf("and ACTIVE\n");
@@ -4394,40 +4380,3 @@ em_enable_vectors_82574(if_ctx_t ctx)
 		device_printf(dev, "Writing to eeprom: done\n");
 	}
 }
-
-
-#ifdef DDB
-DB_COMMAND(em_reset_dev, em_ddb_reset_dev)
-{
-	devclass_t dc;
-	int max_em;
-
-	dc = devclass_find("em");
-	max_em = devclass_get_maxunit(dc);
-
-	for (int index = 0; index < (max_em - 1); index++) {
-		device_t dev;
-		dev = devclass_get_device(dc, index);
-		if (device_get_driver(dev) == &em_driver) {
-			struct adapter *adapter = device_get_softc(dev);
-			em_if_init(adapter->ctx);
-		}
-	}
-}
-DB_COMMAND(em_dump_queue, em_ddb_dump_queue)
-{
-	devclass_t dc;
-	int max_em;
-
-	dc = devclass_find("em");
-	max_em = devclass_get_maxunit(dc);
-
-	for (int index = 0; index < (max_em - 1); index++) {
-		device_t dev;
-		dev = devclass_get_device(dc, index);
-		if (device_get_driver(dev) == &em_driver)
-			em_print_debug_info(device_get_softc(dev));
-	}
-
-}
-#endif

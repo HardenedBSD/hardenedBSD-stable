@@ -183,6 +183,7 @@ command_load(int argc, char *argv[])
     return (error == 0 ? CMD_OK : CMD_CRIT);
 }
 
+#ifdef LOADER_GELI_SUPPORT
 COMMAND_SET(load_geli, "load_geli", "load a geli key", command_load_geli);
 
 static int
@@ -221,6 +222,7 @@ command_load_geli(int argc, char *argv[])
     sprintf(typestr, "%s:geli_keyfile%d", argv[1], num);
     return (file_loadraw(argv[2], typestr, 1) ? CMD_OK : CMD_ERROR);
 }
+#endif
 
 void
 unload(void)
@@ -659,6 +661,22 @@ file_findmetadata(struct preloaded_file *fp, int type)
 	if (md->md_type == type)
 	    break;
     return(md);
+}
+
+/*
+ * Remove all metadata from the file.
+ */
+void
+file_removemetadata(struct preloaded_file *fp)
+{
+    struct file_metadata *md, *next;
+
+    for (md = fp->f_metadata; md != NULL; md = next)
+    {
+	next = md->md_next;
+	free(md);
+    }
+    fp->f_metadata = NULL;
 }
 
 struct file_metadata *

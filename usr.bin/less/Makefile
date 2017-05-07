@@ -12,11 +12,10 @@ LIBADD=	ncursesw
 LINKS=	${BINDIR}/less ${BINDIR}/more \
 	${BINDIR}/zless ${BINDIR}/bzless \
 	${BINDIR}/zless ${BINDIR}/xzless \
-	${BINDIR}/zless ${BINDIR}/lzless
+	${BINDIR}/zless ${BINDIR}/lzless \
+	${BINDIR}/zless ${BINDIR}/zstdless
 MLINKS=	less.1 more.1
 CLEANFILES= less.1
-
-CFI_OVERRIDE=-fno-sanitize=cfi-icall
 
 .include "Makefile.common"
 .include <bsd.prog.mk>

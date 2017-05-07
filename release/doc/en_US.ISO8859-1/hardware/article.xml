@@ -30,6 +30,9 @@
       <year>2012</year>
       <year>2013</year>
       <year>2014</year>
+      <year>2015</year>
+      <year>2016</year>
+      <year>2017</year>
       <holder role="mailto:doc@FreeBSD.org">The &os; Documentation Project</holder>
     </copyright>
 
@@ -774,6 +777,8 @@
 
       &hwlist.cxgb;
 
+      &hwlist.cxgbe;
+
       &hwlist.dc;
 
       &hwlist.de;
@@ -797,19 +802,23 @@
 
       &hwlist.hme;
 
-      &hwlist.igb;
-
       &hwlist.ipheth;
 
       &hwlist.ixgb;
 
       &hwlist.ixgbe;
 
+      &hwlist.ixl;
+
       &hwlist.jme;
 
       &hwlist.kue;
 
       &hwlist.lge;
+
+      &hwlist.mlx4en;
+
+      &hwlist.mlx5en;
 
       &hwlist.msk;
 
@@ -894,27 +903,6 @@
       <para>[&arch.i386;] DEC DEFPA PCI (&man.fpa.4; driver)</para>
 
       <para>[&arch.i386;] DEC DEFEA EISA (&man.fpa.4; driver)</para>
-    </sect2>
-
-    <sect2 xml:id="atm">
-      <title>ATM Interfaces</title>
-
-      <para>[&arch.i386;] Midway-based ATM interfaces
-	(&man.en.4; driver)</para>
-
-      <para>[&arch.i386;, &arch.sparc64;] FORE Systems,
-	Inc. PCA-200E ATM PCI Adapters (hfa and &man.fatm.4;
-	drivers)</para>
-
-      <para>[&arch.i386;] IDT NICStAR 77201/211-based ATM
-	Adapters (&man.idt.4; driver)</para>
-
-      <para>[&arch.i386;, &arch.sparc64;] FORE Systems,
-	Inc. HE155 and HE622 ATM interfaces (&man.hatm.4;
-	driver)</para>
-
-      <para>[&arch.i386;] IDT77252-based ATM cards
-	(&man.patm.4; driver)</para>
     </sect2>
 
     <sect2 xml:id="wlan">

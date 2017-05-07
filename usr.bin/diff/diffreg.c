@@ -80,6 +80,7 @@ __FBSDID("$FreeBSD$");
 #include <errno.h>
 #include <fcntl.h>
 #include <paths.h>
+#include <regex.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -93,15 +94,6 @@ __FBSDID("$FreeBSD$");
 #include "xmalloc.h"
 
 #define _PATH_PR "/usr/bin/pr"
-
-#ifdef ST_MTIM_NSEC
-# define TIMESPEC_NS(timespec) ((timespec).ST_MTIM_NSEC)
-#else
-# define TIMESPEC_NS(timespec) 0
-#endif
-
-#define MINIMUM(a, b)	(((a) < (b)) ? (a) : (b))
-#define MAXIMUM(a, b)	(((a) > (b)) ? (a) : (b))
 
 /*
  * diff - compare two files.
@@ -614,7 +606,7 @@ prepare(int i, FILE *fd, size_t filesize, int flags)
 
 	rewind(fd);
 
-	sz = ((unsigned long)filesize <= SIZE_MAX ? filesize : SIZE_MAX) / 25;
+	sz = MIN(filesize, SIZE_MAX) / 25;
 	if (sz < 100)
 		sz = 100;
 
@@ -709,7 +701,7 @@ stone(int *a, int n, int *b, int *c, int flags)
 		bound = UINT_MAX;
 	else {
 		sq = isqrt(n);
-		bound = MAXIMUM(256, sq);
+		bound = MAX(256, sq);
 	}
 
 	k = 0;
@@ -1016,7 +1008,7 @@ output(char *file1, FILE *f1, char *file2, FILE *f2, int flags)
 	}
 	if (m == 0)
 		change(file1, f1, file2, f2, 1, 0, 1, len[1], &flags);
-	if (diff_format == D_IFDEF) {
+	if (diff_format == D_IFDEF || diff_format == D_GFORMAT) {
 		for (;;) {
 #define	c i0
 			if ((c = getc(f1)) == EOF)
@@ -1089,10 +1081,13 @@ change(char *file1, FILE *f1, char *file2, FILE *f2, int a, int b, int c, int d,
     int *pflags)
 {
 	static size_t max_context = 64;
-	int i;
+	long curpos;
+	int i, nc, f;
+	const char *walk;
 
 restart:
-	if (diff_format != D_IFDEF && a > b && c > d)
+	if ((diff_format != D_IFDEF || diff_format == D_GFORMAT) &&
+	    a > b && c > d)
 		return;
 	if (ignore_pats != NULL) {
 		char *line;
@@ -1189,13 +1184,40 @@ proceed:
 		}
 		break;
 	}
+	if (diff_format == D_GFORMAT) {
+		curpos = ftell(f1);
+		/* print through if append (a>b), else to (nb: 0 vs 1 orig) */
+		nc = ixold[a > b ? b : a - 1] - curpos;
+		for (i = 0; i < nc; i++)
+			diff_output("%c", getc(f1));
+		for (walk = group_format; *walk != '\0'; walk++) {
+			if (*walk == '%') {
+				walk++;
+				switch (*walk) {
+				case '<':
+					fetch(ixold, a, b, f1, '<', 1, *pflags);
+					break;
+				case '>':
+					fetch(ixnew, c, d, f2, '>', 0, *pflags);
+					break;
+				default:
+					diff_output("%%%c", *walk);
+					break;
+				}
+				continue;
+			}
+			diff_output("%c", *walk);
+		}
+	}
 	if (diff_format == D_NORMAL || diff_format == D_IFDEF) {
 		fetch(ixold, a, b, f1, '<', 1, *pflags);
 		if (a <= b && c <= d && diff_format == D_NORMAL)
 			diff_output("---\n");
 	}
-	i = fetch(ixnew, c, d, f2, diff_format == D_NORMAL ? '>' : '\0', 0, *pflags);
-	if (i != 0 && diff_format == D_EDIT) {
+	f = 0;
+	if (diff_format != D_GFORMAT)
+		f = fetch(ixnew, c, d, f2, diff_format == D_NORMAL ? '>' : '\0', 0, *pflags);
+	if (f != 0 && diff_format == D_EDIT) {
 		/*
 		 * A non-zero return value for D_EDIT indicates that the
 		 * last line printed was a bare dot (".") that has been
@@ -1204,10 +1226,10 @@ proceed:
 		 * back and restart where we left off.
 		 */
 		diff_output(".\n");
-		diff_output("%ds/.//\n", a + i - 1);
-		b = a + i - 1;
+		diff_output("%ds/.//\n", a + f - 1);
+		b = a + f - 1;
 		a = b + 1;
-		c += i;
+		c += f;
 		goto restart;
 	}
 	if ((diff_format == D_EDIT || diff_format == D_REVERSE) && c <= d)
@@ -1228,7 +1250,7 @@ fetch(long *f, int a, int b, FILE *lb, int ch, int oldfile, int flags)
 	 * When doing #ifdef's, copy down to current line
 	 * if this is the first file, so that stuff makes it to output.
 	 */
-	if (diff_format == D_IFDEF && oldfile) {
+	if ((diff_format == D_IFDEF) && oldfile) {
 		long curpos = ftell(lb);
 		/* print through if append (a>b), else to (nb: 0 vs 1 orig) */
 		nc = f[a > b ? b : a - 1] - curpos;
@@ -1252,7 +1274,8 @@ fetch(long *f, int a, int b, FILE *lb, int ch, int oldfile, int flags)
 	for (i = a; i <= b; i++) {
 		fseek(lb, f[i - 1], SEEK_SET);
 		nc = f[i] - f[i - 1];
-		if (diff_format != D_IFDEF && ch != '\0') {
+		if ((diff_format != D_IFDEF && diff_format != D_GFORMAT) &&
+		    ch != '\0') {
 			diff_output("%c", ch);
 			if (Tflag && (diff_format == D_NORMAL || diff_format == D_CONTEXT
 			    || diff_format == D_UNIFIED))
@@ -1446,10 +1469,10 @@ dump_context_vec(FILE *f1, FILE *f2, int flags)
 		return;
 
 	b = d = 0;		/* gcc */
-	lowa = MAXIMUM(1, cvp->a - diff_context);
-	upb = MINIMUM(len[0], context_vec_ptr->b + diff_context);
-	lowc = MAXIMUM(1, cvp->c - diff_context);
-	upd = MINIMUM(len[1], context_vec_ptr->d + diff_context);
+	lowa = MAX(1, cvp->a - diff_context);
+	upb = MIN(len[0], context_vec_ptr->b + diff_context);
+	lowc = MAX(1, cvp->c - diff_context);
+	upd = MIN(len[1], context_vec_ptr->d + diff_context);
 
 	diff_output("***************");
 	if ((flags & D_PROTOTYPE)) {
@@ -1549,10 +1572,10 @@ dump_unified_vec(FILE *f1, FILE *f2, int flags)
 		return;
 
 	b = d = 0;		/* gcc */
-	lowa = MAXIMUM(1, cvp->a - diff_context);
-	upb = MINIMUM(len[0], context_vec_ptr->b + diff_context);
-	lowc = MAXIMUM(1, cvp->c - diff_context);
-	upd = MINIMUM(len[1], context_vec_ptr->d + diff_context);
+	lowa = MAX(1, cvp->a - diff_context);
+	upb = MIN(len[0], context_vec_ptr->b + diff_context);
+	lowc = MAX(1, cvp->c - diff_context);
+	upd = MIN(len[1], context_vec_ptr->d + diff_context);
 
 	diff_output("@@ -");
 	uni_range(lowa, upb);
@@ -1617,20 +1640,16 @@ print_header(const char *file1, const char *file2)
 	char buf2[256];
 	char end1[10];
 	char end2[10];
-	struct tm *tm_ptr1, *tm_ptr2;
-	int nsec1 = TIMESPEC_NS (stb1.st_mtime);
-	int nsec2 = TIMESPEC_NS (stb2.st_mtime);
+	struct tm tm1, tm2, *tm_ptr1, *tm_ptr2;
+	int nsec1 = stb1.st_mtim.tv_nsec;
+	int nsec2 = stb2.st_mtim.tv_nsec;
 
-#ifdef ST_MTIM_NSEC
-		time_format = "%Y-%m-%d %H:%M:%S.%N";
-#else
-		time_format = "%Y-%m-%d %H:%M:%S";
-#endif
+	time_format = "%Y-%m-%d %H:%M:%S";
 
 	if (cflag)
 		time_format = "%c";
-	tm_ptr1 = localtime(&stb1.st_mtime);
-	tm_ptr2 = localtime(&stb2.st_mtime);
+	tm_ptr1 = localtime_r(&stb1.st_mtime, &tm1);
+	tm_ptr2 = localtime_r(&stb2.st_mtime, &tm2);
 	strftime(buf1, 256, time_format, tm_ptr1);
 	strftime(buf2, 256, time_format, tm_ptr2);
 	if (!cflag) {

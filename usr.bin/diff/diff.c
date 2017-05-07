@@ -27,11 +27,9 @@ __FBSDID("$FreeBSD$");
 
 #include <ctype.h>
 #include <err.h>
-#include <errno.h>
 #include <getopt.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <stdarg.h>
 #include <string.h>
 #include <unistd.h>
 #include <limits.h>
@@ -43,6 +41,7 @@ int	 lflag, Nflag, Pflag, rflag, sflag, Tflag, cflag;
 int	 diff_format, diff_context, status, ignore_file_case;
 int	 tabsize = 8;
 char	*start, *ifdefname, *diffargs, *label[2], *ignore_pats;
+char	*group_format = NULL;
 struct stat stb1, stb2;
 struct excludes *excludes_list;
 regex_t	 ignore_re;
@@ -55,6 +54,8 @@ enum {
 	OPT_NO_IGN_FN_CASE,
 	OPT_NORMAL,
 	OPT_HORIZON_LINES,
+	OPT_SPEED_LARGE_FILES,
+	OPT_CHANGED_GROUP_FORMAT,
 };
 
 static struct option longopts[] = {
@@ -87,8 +88,10 @@ static struct option longopts[] = {
 	{ "horizon-lines",		required_argument,	NULL,	OPT_HORIZON_LINES },
 	{ "no-ignore-file-name-case",	no_argument,		NULL,	OPT_NO_IGN_FN_CASE },
 	{ "normal",			no_argument,		NULL,	OPT_NORMAL },
+	{ "speed-large-files",		no_argument,		NULL,	OPT_SPEED_LARGE_FILES},
 	{ "strip-trailing-cr",		no_argument,		NULL,	OPT_STRIPCR },
 	{ "tabsize",			optional_argument,	NULL,	OPT_TSIZE },
+	{ "changed-group-format",	required_argument,	NULL,	OPT_CHANGED_GROUP_FORMAT},
 	{ NULL,				0,			0,	'\0'}
 };
 
@@ -227,6 +230,10 @@ main(int argc, char **argv)
 		case 'x':
 			push_excludes(optarg);
 			break;
+		case OPT_CHANGED_GROUP_FORMAT:
+			diff_format = D_GFORMAT;
+			group_format = optarg;
+			break;
 		case OPT_HORIZON_LINES:
 			break; /* XXX TODO for compatibility with GNU diff3 */
 		case OPT_IGN_FN_CASE:
@@ -245,6 +252,8 @@ main(int argc, char **argv)
 				usage();
 			}
 			break;
+		case OPT_SPEED_LARGE_FILES:
+			break; /* ignore but needed for compatibility with GNU diff */
 		case OPT_STRIPCR:
 			dflags |= D_STRIPCR;
 			break;
@@ -351,9 +360,8 @@ read_excludes_file(char *file)
 	while ((buf = fgetln(fp, &len)) != NULL) {
 		if (buf[len - 1] == '\n')
 			len--;
-		pattern = xmalloc(len + 1);
-		memcpy(pattern, buf, len);
-		pattern[len] = '\0';
+		if ((pattern = strndup(buf, len)) == NULL)
+			err(2, "xstrndup");
 		push_excludes(pattern);
 	}
 	if (strcmp(file, "-") != 0)

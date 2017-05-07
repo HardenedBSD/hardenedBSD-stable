@@ -1,5 +1,7 @@
 # $FreeBSD$
 
+.include <src.opts.mk>
+
 CFLAGS+=-I${SRCTOP}/contrib/libucl/include
 .PATH:  ${SRCTOP}/contrib/libucl/include
 
@@ -19,7 +21,11 @@ LIBADD=		bsdxml l md sbuf util ucl m
 YFLAGS+=	-v
 CLEANFILES=	y.tab.c y.tab.h y.output
 
-WARNS=		6
+WARNS?=		6
 NO_WMISSING_VARIABLE_DECLARATIONS=
+
+.if ${MK_ISCSI} != "no"
+CFLAGS+=	-DWANT_ISCSI
+.endif
 
 .include <bsd.prog.mk>

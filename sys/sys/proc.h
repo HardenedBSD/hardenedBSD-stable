@@ -274,7 +274,7 @@ struct thread {
 	char		td_name[MAXCOMLEN + 1];	/* (*) Thread name. */
 	struct file	*td_fpop;	/* (k) file referencing cdev under op */
 	int		td_dbgflags;	/* (c) Userland debugger flags */
-	struct ksiginfo td_dbgksi;	/* (c) ksi reflected to debugger. */
+	siginfo_t	td_si;		/* (c) For debugger or core file */
 	int		td_ng_outbound;	/* (k) Thread entered ng from above. */
 	struct osd	td_osd;		/* (k) Object specific data. */
 	struct vm_map_entry *td_map_def_user; /* (k) Deferred entries. */
@@ -489,6 +489,12 @@ do {									\
 #define	TD_ON_UPILOCK(td)	((td)->td_flags & TDF_UPIBLOCKED)
 #define TD_IS_IDLETHREAD(td)	((td)->td_flags & TDF_IDLETD)
 
+#define	KTDSTATE(td)							\
+	(((td)->td_inhibitors & TDI_SLEEPING) != 0 ? "sleep"  :		\
+	((td)->td_inhibitors & TDI_SUSPENDED) != 0 ? "suspended" :	\
+	((td)->td_inhibitors & TDI_SWAPPED) != 0 ? "swapped" :		\
+	((td)->td_inhibitors & TDI_LOCK) != 0 ? "blocked" :		\
+	((td)->td_inhibitors & TDI_IWAIT) != 0 ? "iwait" : "yielding")
 
 #define	TD_SET_INHIB(td, inhib) do {			\
 	(td)->td_state = TDS_INHIBITED;			\

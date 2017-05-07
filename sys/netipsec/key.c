@@ -863,7 +863,8 @@ key_allocsa_tcpmd5(struct secasindex *saidx)
 		    kdebug_secash(sah, "  "));
 		if (sah->saidx.proto != IPPROTO_TCP)
 			continue;
-		if (!key_sockaddrcmp(&saidx->dst.sa, &sah->saidx.dst.sa, 0))
+		if (!key_sockaddrcmp(&saidx->dst.sa, &sah->saidx.dst.sa, 0) &&
+		    !key_sockaddrcmp(&saidx->src.sa, &sah->saidx.src.sa, 0))
 			break;
 	}
 	if (sah != NULL) {
@@ -1041,9 +1042,9 @@ key_allocsa_tunnel(union sockaddr_union *src, union sockaddr_union *dst,
 			continue;
 		if (proto != sah->saidx.proto)
 			continue;
-		if (key_sockaddrcmp(&src->sa, &sav->sah->saidx.src.sa, 0) != 0)
+		if (key_sockaddrcmp(&src->sa, &sah->saidx.src.sa, 0) != 0)
 			continue;
-		if (key_sockaddrcmp(&dst->sa, &sav->sah->saidx.dst.sa, 0) != 0)
+		if (key_sockaddrcmp(&dst->sa, &sah->saidx.dst.sa, 0) != 0)
 			continue;
 		/* XXXAE: is key_preferred_oldsa reasonably?*/
 		if (V_key_preferred_oldsa)
@@ -4962,7 +4963,8 @@ key_getsav_tcpmd5(struct secasindex *saidx, uint32_t *spi)
 	LIST_FOREACH(sah, SAHADDRHASH_HASH(saidx), addrhash) {
 		if (sah->saidx.proto != IPPROTO_TCP)
 			continue;
-		if (!key_sockaddrcmp(&saidx->dst.sa, &sah->saidx.dst.sa, 0))
+		if (!key_sockaddrcmp(&saidx->dst.sa, &sah->saidx.dst.sa, 0) &&
+		    !key_sockaddrcmp(&saidx->src.sa, &sah->saidx.src.sa, 0))
 			break;
 	}
 	if (sah != NULL) {

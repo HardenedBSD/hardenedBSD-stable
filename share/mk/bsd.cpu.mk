@@ -306,15 +306,26 @@ MACHINE_CPU = v9 ultrasparc ultrasparc3
 .if ${MACHINE_CPUARCH} == "mips"
 CFLAGS += -G0
 . if ${MACHINE_ARCH:Mmips*el*} != ""
-ACFLAGS += -EL
 AFLAGS += -EL
 CFLAGS += -EL
 LDFLAGS += -EL
 . else
-ACFLAGS += -EB
 AFLAGS += -EB
 CFLAGS += -EB
 LDFLAGS += -EB
+. endif
+. if ${MACHINE_ARCH:Mmips64*} != ""
+AFLAGS+= -mabi=64
+CFLAGS+= -mabi=64
+LDFLAGS+= -mabi=64
+. elif ${MACHINE_ARCH:Mmipsn32*} != ""
+AFLAGS+= -mabi=n32
+CFLAGS+= -mabi=n32
+LDFLAGS+= -mabi=n32
+. else
+AFLAGS+= -mabi=32
+CFLAGS+= -mabi=32
+LDFLAGS+= -mabi=32
 . endif
 . if ${MACHINE_ARCH:Mmips*hf}
 CFLAGS += -mhard-float

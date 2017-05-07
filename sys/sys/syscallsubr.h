@@ -60,7 +60,7 @@ struct sched_param;
 struct __wrusage;
 
 int	kern___getcwd(struct thread *td, char *buf, enum uio_seg bufseg,
-	    u_int buflen, u_int path_max);
+	    size_t buflen, size_t path_max);
 int	kern_accept(struct thread *td, int s, struct sockaddr **name,
 	    socklen_t *namelen, struct file **fp);
 int	kern_accept4(struct thread *td, int s, struct sockaddr **name,
@@ -152,6 +152,7 @@ int	kern_lseek(struct thread *td, int fd, off_t offset, int whence);
 int	kern_lutimes(struct thread *td, char *path, enum uio_seg pathseg,
 	    struct timeval *tptr, enum uio_seg tptrseg);
 int	kern_madvise(struct thread *td, uintptr_t addr, size_t len, int behav);
+int	kern_mincore(struct thread *td, uintptr_t addr, size_t len, char *vec);
 int	kern_mkdirat(struct thread *td, int fd, char *path,
 	    enum uio_seg segflg, int mode);
 int	kern_mkfifoat(struct thread *td, int fd, char *path,
@@ -248,6 +249,8 @@ int	kern_sigprocmask(struct thread *td, int how,
 int	kern_sigsuspend(struct thread *td, sigset_t mask);
 int	kern_sigtimedwait(struct thread *td, sigset_t waitset,
 	    struct ksiginfo *ksi, struct timespec *timeout);
+int	kern_sigqueue(struct thread *td, pid_t pid, int signum,
+	    union sigval *value);
 int	kern_socket(struct thread *td, int domain, int type, int protocol);
 int	kern_statat(struct thread *td, int flag, int fd, char *path,
 	    enum uio_seg pathseg, struct stat *sbp,

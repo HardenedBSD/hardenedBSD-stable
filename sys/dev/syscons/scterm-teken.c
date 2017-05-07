@@ -62,7 +62,7 @@ static sc_term_default_attr_t	scteken_default_attr;
 static sc_term_clear_t		scteken_clear;
 static sc_term_input_t		scteken_input;
 static sc_term_fkeystr_t	scteken_fkeystr;
-static sc_term_set_cursor_t	scteken_set_cursor;
+static sc_term_sync_t		scteken_sync;
 static void			scteken_nop(void);
 
 typedef struct {
@@ -71,6 +71,8 @@ typedef struct {
 } teken_stat;
 
 static teken_stat	reserved_teken_stat;
+
+static void scteken_sync_internal(scr_stat *, teken_stat *);
 
 static sc_term_sw_t sc_term_scteken = {
 	{ NULL, NULL },
@@ -89,7 +91,7 @@ static sc_term_sw_t sc_term_scteken = {
 	(sc_term_notify_t *)scteken_nop,
 	scteken_input,
 	scteken_fkeystr,
-	scteken_set_cursor,
+	scteken_sync,
 };
 
 SCTERM_MODULE(scteken, sc_term_scteken);
@@ -116,7 +118,7 @@ static int
 scteken_init(scr_stat *scp, void **softc, int code)
 {
 	teken_stat *ts;
-	teken_pos_t tp;
+	teken_attr_t ta;
 
 	if (*softc == NULL) {
 		if (reserved_teken_stat.ts_busy)
@@ -131,17 +133,16 @@ scteken_init(scr_stat *scp, void **softc, int code)
 		ts->ts_busy = 1;
 		/* FALLTHROUGH */
 	case SC_TE_WARM_INIT:
+		ta = *teken_get_defattr(&ts->ts_teken);
 		teken_init(&ts->ts_teken, &scteken_funcs, scp);
+		teken_set_defattr(&ts->ts_teken, &ta);
 #ifndef TEKEN_UTF8
 		teken_set_8bit(&ts->ts_teken);
 #endif /* !TEKEN_UTF8 */
 #ifdef TEKEN_CONS25
 		teken_set_cons25(&ts->ts_teken);
 #endif /* TEKEN_CONS25 */
-
-		tp.tp_row = scp->ysize;
-		tp.tp_col = scp->xsize;
-		teken_set_winsize(&ts->ts_teken, &tp);
+		scteken_sync_internal(scp, ts);
 		break;
 	}
 
@@ -162,23 +163,12 @@ scteken_term(scr_stat *scp, void **softc)
 }
 
 static void
-scteken_puts(scr_stat *scp, u_char *buf, int len, int kernel)
+scteken_puts(scr_stat *scp, u_char *buf, int len)
 {
 	teken_stat *ts = scp->ts;
-	teken_attr_t backup, kattr;
 
 	scp->sc->write_in_progress++;
-	if (kernel) {
-		/* Use special colors for kernel messages. */
-		backup = *teken_get_curattr(&ts->ts_teken);
-		scteken_sc_to_te_attr(sc_kattr(), &kattr);
-		teken_set_curattr(&ts->ts_teken, &kattr);
-		teken_input(&ts->ts_teken, buf, len);
-		teken_set_curattr(&ts->ts_teken, &backup);
-	} else {
-		/* Print user messages with regular colors. */
-		teken_input(&ts->ts_teken, buf, len);
-	}
+	teken_input(&ts->ts_teken, buf, len);
 	scp->sc->write_in_progress--;
 }
 
@@ -230,7 +220,7 @@ scteken_clear(scr_stat *scp)
 	teken_stat *ts = scp->ts;
 
 	sc_move_cursor(scp, 0, 0);
-	scteken_set_cursor(scp, 0, 0);
+	scteken_sync_internal(scp, ts);
 	sc_vtb_clear(&scp->vtb, scp->sc->scr_map[0x20],
 		     scteken_te_to_sc_attr(teken_get_curattr(&ts->ts_teken))
 		     << 8);
@@ -295,14 +285,22 @@ scteken_fkeystr(scr_stat *scp, int c)
 }
 
 static void
-scteken_set_cursor(scr_stat *scp, int col, int row)
+scteken_sync_internal(scr_stat *scp, teken_stat *ts)
 {
-	teken_stat *ts = scp->ts;
 	teken_pos_t tp;
 
-	tp.tp_col = col;
-	tp.tp_row = row;
+	tp.tp_col = scp->xsize;
+	tp.tp_row = scp->ysize;
+	teken_set_winsize_noreset(&ts->ts_teken, &tp);
+	tp.tp_col = scp->xpos;
+	tp.tp_row = scp->ypos;
 	teken_set_cursor(&ts->ts_teken, &tp);
+}
+
+static void
+scteken_sync(scr_stat *scp)
+{
+	scteken_sync_internal(scp, scp->ts);
 }
 
 static void

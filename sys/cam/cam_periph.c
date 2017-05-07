@@ -641,8 +641,15 @@ cam_periph_invalidate(struct cam_periph *periph)
 		return;
 
 	CAM_DEBUG(periph->path, CAM_DEBUG_INFO, ("Periph invalidated\n"));
-	if ((periph->flags & CAM_PERIPH_ANNOUNCED) && !rebooting)
-		xpt_denounce_periph(periph);
+	if ((periph->flags & CAM_PERIPH_ANNOUNCED) && !rebooting) {
+		struct sbuf sb;
+		char buffer[160];
+
+		sbuf_new(&sb, buffer, 160, SBUF_FIXEDLEN);
+		xpt_denounce_periph_sbuf(periph, &sb);
+		sbuf_finish(&sb);
+		sbuf_putbuf(&sb);
+	}
 	periph->flags |= CAM_PERIPH_INVALID;
 	periph->flags &= ~CAM_PERIPH_NEW_DEV_FOUND;
 	if (periph->periph_oninval != NULL)

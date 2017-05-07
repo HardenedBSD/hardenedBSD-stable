@@ -102,7 +102,7 @@ cam/ctl/ctl_cmd_table.c		optional ctl
 cam/ctl/ctl_frontend.c		optional ctl
 cam/ctl/ctl_frontend_cam_sim.c	optional ctl
 cam/ctl/ctl_frontend_ioctl.c	optional ctl
-cam/ctl/ctl_frontend_iscsi.c	optional ctl
+cam/ctl/ctl_frontend_iscsi.c	optional ctl cfiscsi
 cam/ctl/ctl_ha.c		optional ctl
 cam/ctl/ctl_scsi_all.c		optional ctl
 cam/ctl/ctl_tpc.c		optional ctl
@@ -591,6 +591,7 @@ crypto/blowfish/bf_ecb.c	optional ipsec | ipsec_support
 crypto/blowfish/bf_skey.c	optional crypto | ipsec | ipsec_support
 crypto/camellia/camellia.c	optional crypto | ipsec | ipsec_support
 crypto/camellia/camellia-api.c	optional crypto | ipsec | ipsec_support
+crypto/chacha20/chacha20.c	optional chacha20
 crypto/des/des_ecb.c		optional crypto | ipsec | ipsec_support | netsmb
 crypto/des/des_setkey.c		optional crypto | ipsec | ipsec_support | netsmb
 crypto/rc4/rc4.c		optional netgraph_mppc_encryption | kgssapi
@@ -1330,6 +1331,8 @@ dev/cxgbe/t4_main.c		optional cxgbe pci \
 	compile-with "${NORMAL_C} -I$S/dev/cxgbe"
 dev/cxgbe/t4_netmap.c		optional cxgbe pci \
 	compile-with "${NORMAL_C} -I$S/dev/cxgbe"
+dev/cxgbe/t4_sched.c		optional cxgbe pci \
+	compile-with "${NORMAL_C} -I$S/dev/cxgbe"
 dev/cxgbe/t4_sge.c		optional cxgbe pci \
 	compile-with "${NORMAL_C} -I$S/dev/cxgbe"
 dev/cxgbe/t4_l2t.c		optional cxgbe pci \
@@ -1578,8 +1581,6 @@ dev/e1000/e1000_mbx.c		optional em \
 dev/e1000/e1000_osdep.c		optional em \
 	compile-with "${NORMAL_C} -I$S/dev/e1000"
 dev/et/if_et.c			optional et
-dev/en/if_en_pci.c		optional en pci
-dev/en/midway.c			optional en
 dev/ep/if_ep.c			optional ep
 dev/ep/if_ep_isa.c		optional ep isa
 dev/ep/if_ep_pccard.c		optional ep pccard
@@ -1605,6 +1606,9 @@ dev/etherswitch/ip17x/ip17x_vlans.c	optional ip17x
 dev/etherswitch/miiproxy.c		optional miiproxy
 dev/etherswitch/rtl8366/rtl8366rb.c	optional rtl8366rb
 dev/etherswitch/e6000sw/e6000sw.c	optional e6000sw
+dev/etherswitch/e6000sw/e6060sw.c	optional e6060sw
+dev/etherswitch/infineon/adm6996fc.c	optional adm6996fc
+dev/etherswitch/micrel/ksz8995ma.c	optional ksz8995ma
 dev/etherswitch/ukswitch/ukswitch.c	optional ukswitch
 dev/evdev/cdev.c			optional evdev
 dev/evdev/evdev.c			optional evdev
@@ -1632,7 +1636,6 @@ dev/extres/regulator/regnode_if.m	optional ext_resources regulator fdt
 dev/extres/regulator/regulator.c	optional ext_resources regulator fdt
 dev/extres/regulator/regulator_bus.c	optional ext_resources regulator fdt
 dev/extres/regulator/regulator_fixed.c	optional ext_resources regulator fdt
-dev/fatm/if_fatm.c		optional fatm pci
 dev/fb/fbd.c			optional fbd | vt
 dev/fb/fb_if.m			standard
 dev/fb/splash.c			optional sc splash
@@ -1684,11 +1687,6 @@ dev/gpio/gpio_if.m		optional gpio
 dev/gpio/gpiobus_if.m		optional gpio
 dev/gpio/gpiopps.c		optional gpiopps
 dev/gpio/ofw_gpiobus.c		optional fdt gpio
-dev/hatm/if_hatm.c		optional hatm pci
-dev/hatm/if_hatm_intr.c		optional hatm pci
-dev/hatm/if_hatm_ioctl.c	optional hatm pci
-dev/hatm/if_hatm_rx.c		optional hatm pci
-dev/hatm/if_hatm_tx.c		optional hatm pci
 dev/hifn/hifn7751.c		optional hifn
 dev/hme/if_hme.c		optional hme
 dev/hme/if_hme_pci.c		optional hme pci
@@ -1780,10 +1778,10 @@ ipw_monitor.fw			optional ipwmonitorfw | ipwfw		\
 	compile-with	"${NORMAL_FW}"					\
 	no-obj no-implicit-rule						\
 	clean		"ipw_monitor.fw"
-dev/iscsi/icl.c			optional iscsi | ctl
-dev/iscsi/icl_conn_if.m		optional iscsi | ctl
-dev/iscsi/icl_soft.c		optional iscsi | ctl
-dev/iscsi/icl_soft_proxy.c	optional iscsi | ctl
+dev/iscsi/icl.c			optional iscsi
+dev/iscsi/icl_conn_if.m		optional cfiscsi | iscsi
+dev/iscsi/icl_soft.c		optional iscsi
+dev/iscsi/icl_soft_proxy.c	optional iscsi
 dev/iscsi/iscsi.c		optional iscsi scbus
 dev/iscsi_initiator/iscsi.c	optional iscsi_initiator scbus
 dev/iscsi_initiator/iscsi_subr.c	optional iscsi_initiator scbus
@@ -2370,13 +2368,6 @@ dev/ow/owll_if.m		optional ow
 dev/ow/own_if.m			optional ow
 dev/ow/ow_temp.c		optional ow_temp
 dev/ow/owc_gpiobus.c		optional owc gpio
-dev/patm/if_patm.c		optional patm pci
-dev/patm/if_patm_attach.c	optional patm pci
-dev/patm/if_patm_intr.c		optional patm pci
-dev/patm/if_patm_ioctl.c	optional patm pci
-dev/patm/if_patm_rtables.c	optional patm pci
-dev/patm/if_patm_rx.c		optional patm pci
-dev/patm/if_patm_tx.c		optional patm pci
 dev/pbio/pbio.c			optional pbio isa
 dev/pccard/card_if.m		standard
 dev/pccard/pccard.c		optional pccard
@@ -3198,9 +3189,6 @@ dev/videomode/videomode.c		optional videomode
 dev/videomode/edid.c			optional videomode
 dev/videomode/pickmode.c		optional videomode
 dev/videomode/vesagtf.c			optional videomode
-dev/utopia/idtphy.c		optional utopia
-dev/utopia/suni.c		optional utopia
-dev/utopia/utopia.c		optional utopia
 dev/vge/if_vge.c		optional vge
 dev/viapm/viapm.c		optional viapm pci
 dev/virtio/virtio.c			optional	virtio
@@ -3530,6 +3518,7 @@ geom/zero/g_zero.c		optional geom_zero
 fs/ext2fs/ext2_alloc.c		optional ext2fs
 fs/ext2fs/ext2_balloc.c		optional ext2fs
 fs/ext2fs/ext2_bmap.c		optional ext2fs
+fs/ext2fs/ext2_extattr.c	optional ext2fs
 fs/ext2fs/ext2_extents.c	optional ext2fs
 fs/ext2fs/ext2_inode.c		optional ext2fs
 fs/ext2fs/ext2_inode_cnv.c	optional ext2fs
@@ -3812,6 +3801,7 @@ kgssapi/gsstest.c		optional kgssapi_debug
 # the file should be moved to conf/files.<arch> from here.
 #
 libkern/arc4random.c		standard
+crypto/chacha20/chacha.c	standard
 libkern/asprintf.c		standard
 libkern/bcd.c			standard
 libkern/bsearch.c		standard
@@ -3885,7 +3875,6 @@ net/flowtable.c			optional flowtable inet | flowtable inet6
 net/ieee8023ad_lacp.c		optional lagg
 net/if.c			standard
 net/if_arcsubr.c		optional arcnet
-net/if_atmsubr.c		optional atm
 net/if_bridge.c			optional bridge inet | if_bridge inet
 net/if_clone.c			standard
 net/if_dead.c			standard
@@ -3982,7 +3971,6 @@ net80211/ieee80211_xauth.c	optional wlan wlan_xauth
 net80211/ieee80211_alq.c	optional wlan ieee80211_alq
 netgraph/atm/ccatm/ng_ccatm.c	optional ngatm_ccatm \
 	compile-with "${NORMAL_C} -I$S/contrib/ngatm"
-netgraph/atm/ng_atm.c		optional ngatm_atm
 netgraph/atm/ngatmbase.c	optional ngatm_atmbase \
 	compile-with "${NORMAL_C} -I$S/contrib/ngatm"
 netgraph/atm/sscfu/ng_sscfu.c	optional ngatm_sscfu \
@@ -4064,7 +4052,6 @@ netgraph/ng_vlan.c		optional netgraph_vlan
 netinet/accf_data.c		optional accept_filter_data inet
 netinet/accf_dns.c		optional accept_filter_dns inet
 netinet/accf_http.c		optional accept_filter_http inet
-netinet/if_atm.c		optional atm
 netinet/if_ether.c		optional inet ether
 netinet/igmp.c			optional inet
 netinet/in.c			optional inet
@@ -4189,9 +4176,6 @@ netipsec/xform_ipcomp.c		optional ipsec inet | ipsec inet6
 netipsec/xform_tcp.c		optional ipsec inet tcp_signature | \
 	 ipsec inet6 tcp_signature | ipsec_support inet tcp_signature | \
 	 ipsec_support inet6 tcp_signature
-netnatm/natm.c			optional natm
-netnatm/natm_pcb.c		optional natm
-netnatm/natm_proto.c		optional natm
 netpfil/ipfw/dn_aqm_codel.c	optional inet dummynet
 netpfil/ipfw/dn_aqm_pie.c	optional inet dummynet
 netpfil/ipfw/dn_heap.c		optional inet dummynet
@@ -4233,6 +4217,8 @@ netpfil/ipfw/nptv6/ip_fw_nptv6.c	optional inet inet6 ipfirewall \
 	ipfirewall_nptv6
 netpfil/ipfw/nptv6/nptv6.c	optional inet inet6 ipfirewall \
 	ipfirewall_nptv6
+netpfil/ipfw/pmod/ip_fw_pmod.c	optional inet ipfirewall_pmod
+netpfil/ipfw/pmod/tcpmod.c	optional inet ipfirewall_pmod
 netpfil/pf/if_pflog.c		optional pflog pf inet
 netpfil/pf/if_pfsync.c		optional pfsync pf inet
 netpfil/pf/pf.c			optional pf inet
@@ -4596,7 +4582,9 @@ rpc/rpcsec_gss/svc_rpcsec_gss.c	optional krpc kgssapi | nfslockd kgssapi | nfscl
 security/audit/audit.c		optional audit
 security/audit/audit_arg.c	optional audit
 security/audit/audit_bsm.c	optional audit
+security/audit/audit_bsm_db.c	optional audit
 security/audit/audit_bsm_klib.c	optional audit
+security/audit/audit_dtrace.c	optional dtaudit audit | dtraceall audit compile-with "${CDDL_C}"
 security/audit/audit_pipe.c	optional audit
 security/audit/audit_syscalls.c	standard
 security/audit/audit_trigger.c	optional audit

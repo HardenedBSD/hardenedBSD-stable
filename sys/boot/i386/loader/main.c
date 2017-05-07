@@ -38,7 +38,9 @@ __FBSDID("$FreeBSD$");
 #include <machine/bootinfo.h>
 #include <machine/cpufunc.h>
 #include <machine/psl.h>
+#include <sys/disk.h>
 #include <sys/reboot.h>
+#include <common/drv.h>
 
 #include "bootstrap.h"
 #include "common/bootargs.h"
@@ -69,6 +71,7 @@ static int		isa_inb(int port);
 static void		isa_outb(int port, int value);
 void			exit(int code);
 #ifdef LOADER_GELI_SUPPORT
+#include "geliboot.h"
 struct geli_boot_args	*gargs;
 #endif
 #ifdef LOADER_ZFS_SUPPORT
@@ -173,9 +176,13 @@ main(void)
     if ((kargs->bootflags & KARGS_FLAGS_EXTARG) != 0) {
 	zargs = (struct zfs_boot_args *)(kargs + 1);
 	if (zargs != NULL && zargs->size >= offsetof(struct zfs_boot_args, gelipw)) {
+	    if (zargs->size >= offsetof(struct zfs_boot_args, keybuf_sentinel) &&
+	      zargs->keybuf_sentinel == KEYBUF_SENTINEL) {
+		geli_save_keybuf(zargs->keybuf);
+	    }
 	    if (zargs->gelipw[0] != '\0') {
 		setenv("kern.geom.eli.passphrase", zargs->gelipw, 1);
-		bzero(zargs->gelipw, sizeof(zargs->gelipw));
+		explicit_bzero(zargs->gelipw, sizeof(zargs->gelipw));
 	    }
 	}
     }
@@ -185,9 +192,12 @@ main(void)
     if ((kargs->bootflags & KARGS_FLAGS_EXTARG) != 0) {
 	gargs = (struct geli_boot_args *)(kargs + 1);
 	if (gargs != NULL && gargs->size >= offsetof(struct geli_boot_args, gelipw)) {
+	    if (gargs->keybuf_sentinel == KEYBUF_SENTINEL) {
+		geli_save_keybuf(gargs->keybuf);
+	    }
 	    if (gargs->gelipw[0] != '\0') {
 		setenv("kern.geom.eli.passphrase", gargs->gelipw, 1);
-		bzero(gargs->gelipw, sizeof(gargs->gelipw));
+		explicit_bzero(gargs->gelipw, sizeof(gargs->gelipw));
 	    }
 	}
     }
@@ -409,7 +419,7 @@ command_reloadbe(int argc, char *argv[])
 	    /* There does not appear to be a ZFS pool here, exit without error */
 	    return (CMD_OK);
 	}
-	err = zfs_bootenv(getenv("zfs_be_root"));
+	err = zfs_bootenv(root);
     }
 
     if (err != 0) {
@@ -453,5 +463,15 @@ i386_zfs_probe(void)
 	sprintf(devname, "disk%d:", unit);
 	zfs_probe_dev(devname, NULL);
     }
+}
+
+uint64_t
+ldi_get_size(void *priv)
+{
+	int fd = (uintptr_t) priv;
+	uint64_t size;
+
+	ioctl(fd, DIOCGMEDIASIZE, &size);
+	return (size);
 }
 #endif

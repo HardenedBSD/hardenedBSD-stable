@@ -150,6 +150,25 @@ TUNABLE_INT("hw.cxgbe.largest_rx_cluster", &largest_rx_cluster);
 static int safest_rx_cluster = PAGE_SIZE;
 TUNABLE_INT("hw.cxgbe.safest_rx_cluster", &safest_rx_cluster);
 
+/*
+ * The interrupt holdoff timers are multiplied by this value on T6+.
+ * 1 and 3-17 (both inclusive) are legal values.
+ */
+static int tscale = 1;
+TUNABLE_INT("hw.cxgbe.tscale", &tscale);
+
+/*
+ * Number of LRO entries in the lro_ctrl structure per rx queue.
+ */
+static int lro_entries = TCP_LRO_ENTRIES;
+TUNABLE_INT("hw.cxgbe.lro_entries", &lro_entries);
+
+/*
+ * This enables presorting of frames before they're fed into tcp_lro_rx.
+ */
+static int lro_mbufs = 0;
+TUNABLE_INT("hw.cxgbe.lro_mbufs", &lro_mbufs);
+
 struct txpkts {
 	u_int wr_type;		/* type 0 or type 1 */
 	u_int npkt;		/* # of packets in this work request */
@@ -391,6 +410,12 @@ t4_sge_modload(void)
 		cong_drop = 0;
 	}
 
+	if (tscale != 1 && (tscale < 3 || tscale > 17)) {
+		printf("Invalid hw.cxgbe.tscale value (%d),"
+		    " using 1 instead.\n", tscale);
+		tscale = 1;
+	}
+
 	extfree_refs = counter_u64_alloc(M_WAITOK);
 	extfree_rels = counter_u64_alloc(M_WAITOK);
 	counter_u64_zero(extfree_refs);
@@ -582,6 +607,15 @@ t4_tweak_chip_settings(struct adapter *sc)
 	v = V_TIMERVALUE4(us_to_core_ticks(sc, intr_timer[4])) |
 	    V_TIMERVALUE5(us_to_core_ticks(sc, intr_timer[5]));
 	t4_write_reg(sc, A_SGE_TIMER_VALUE_4_AND_5, v);
+
+	if (chip_id(sc) >= CHELSIO_T6) {
+		m = V_TSCALE(M_TSCALE);
+		if (tscale == 1)
+			v = 0;
+		else
+			v = V_TSCALE(tscale - 2);
+		t4_set_reg_field(sc, A_SGE_ITP_CONTROL, m, v);
+	}
 
 	/* 4K, 16K, 64K, 256K DDP "page sizes" for TDDP */
 	v = V_HPZ0(0) | V_HPZ1(2) | V_HPZ2(4) | V_HPZ3(6);
@@ -1358,6 +1392,13 @@ t4_vi_intr(void *arg)
 		t4_intr(irq->rxq);
 }
 
+static inline int
+sort_before_lro(struct lro_ctrl *lro)
+{
+
+	return (lro->lro_mbuf_max != 0);
+}
+
 /*
  * Deals with anything and everything on the given ingress queue.
  */
@@ -1377,6 +1418,7 @@ service_iq(struct sge_iq *iq, int budget)
 	STAILQ_HEAD(, sge_iq) iql = STAILQ_HEAD_INITIALIZER(iql);
 #if defined(INET) || defined(INET6)
 	const struct timeval lro_timeout = {0, sc->lro_timeout};
+	struct lro_ctrl *lro = &rxq->lro;
 #endif
 
 	KASSERT(iq->state == IQS_BUSY, ("%s: iq %p not BUSY", __func__, iq));
@@ -1390,6 +1432,23 @@ service_iq(struct sge_iq *iq, int budget)
 		fl = NULL;
 		fl_hw_cidx = 0;			/* to silence gcc warning */
 	}
+
+#if defined(INET) || defined(INET6)
+	if (iq->flags & IQ_ADJ_CREDIT) {
+		MPASS(sort_before_lro(lro));
+		iq->flags &= ~IQ_ADJ_CREDIT;
+		if ((d->rsp.u.type_gen & F_RSPD_GEN) != iq->gen) {
+			tcp_lro_flush_all(lro);
+			t4_write_reg(sc, sc->sge_gts_reg, V_CIDXINC(1) |
+			    V_INGRESSQID((u32)iq->cntxt_id) |
+			    V_SEINTARM(iq->intr_params));
+			return (0);
+		}
+		ndescs = 1;
+	}
+#else
+	MPASS((iq->flags & IQ_ADJ_CREDIT) == 0);
+#endif
 
 	/*
 	 * We always come back and check the descriptor ring for new indirect
@@ -1502,8 +1561,9 @@ service_iq(struct sge_iq *iq, int budget)
 
 #if defined(INET) || defined(INET6)
 				if (iq->flags & IQ_LRO_ENABLED &&
+				    !sort_before_lro(lro) &&
 				    sc->lro_timeout != 0) {
-					tcp_lro_flush_inactive(&rxq->lro,
+					tcp_lro_flush_inactive(lro,
 					    &lro_timeout);
 				}
 #endif
@@ -1543,9 +1603,14 @@ process_iql:
 
 #if defined(INET) || defined(INET6)
 	if (iq->flags & IQ_LRO_ENABLED) {
-		struct lro_ctrl *lro = &rxq->lro;
-
-		tcp_lro_flush_all(lro);
+		if (ndescs > 0 && lro->lro_mbuf_count > 8) {
+			MPASS(sort_before_lro(lro));
+			/* hold back one credit and don't flush LRO state */
+			iq->flags |= IQ_ADJ_CREDIT;
+			ndescs--;
+		} else {
+			tcp_lro_flush_all(lro);
+		}
 	}
 #endif
 
@@ -1834,10 +1899,14 @@ t4_eth_rx(struct sge_iq *iq, const struct rss_header *rss, struct mbuf *m0)
 	}
 
 #if defined(INET) || defined(INET6)
-	if (iq->flags & IQ_LRO_ENABLED &&
-	    tcp_lro_rx(lro, m0, 0) == 0) {
-		/* queued for LRO */
-	} else
+	if (iq->flags & IQ_LRO_ENABLED) {
+		if (sort_before_lro(lro)) {
+			tcp_lro_queue_mbuf(lro, m0);
+			return (0); /* queued for sort, then LRO */
+		}
+		if (tcp_lro_rx(lro, m0, 0) == 0)
+			return (0); /* queued for LRO */
+	}
 #endif
 	ifp->if_input(ifp, m0);
 
@@ -3028,10 +3097,10 @@ alloc_rxq(struct vi_info *vi, struct sge_rxq *rxq, int intr_idx, int idx,
 	FL_UNLOCK(&rxq->fl);
 
 #if defined(INET) || defined(INET6)
-	rc = tcp_lro_init(&rxq->lro);
+	rc = tcp_lro_init_args(&rxq->lro, vi->ifp, lro_entries, lro_mbufs);
 	if (rc != 0)
 		return (rc);
-	rxq->lro.ifp = vi->ifp; /* also indicates LRO init'ed */
+	MPASS(rxq->lro.ifp == vi->ifp);	/* also indicates LRO init'ed */
 
 	if (vi->ifp->if_capenable & IFCAP_LRO)
 		rxq->iq.flags |= IQ_LRO_ENABLED;
@@ -5174,7 +5243,7 @@ sysctl_tc(SYSCTL_HANDLER_ARGS)
 	struct port_info *pi;
 	struct adapter *sc;
 	struct sge_txq *txq;
-	struct tx_sched_class *tc;
+	struct tx_cl_rl_params *tc;
 	int qidx = arg2, rc, tc_idx;
 	uint32_t fw_queue, fw_class;
 
@@ -5188,14 +5257,14 @@ sysctl_tc(SYSCTL_HANDLER_ARGS)
 	if (rc != 0 || req->newptr == NULL)
 		return (rc);
 
+	if (sc->flags & IS_VF)
+		return (EPERM);
+
 	/* Note that -1 is legitimate input (it means unbind). */
 	if (tc_idx < -1 || tc_idx >= sc->chip_params->nsched_cls)
 		return (EINVAL);
 
-	rc = begin_synchronized_op(sc, vi, SLEEP_OK | INTR_OK, "t4stc");
-	if (rc)
-		return (rc);
-
+	mtx_lock(&sc->tc_lock);
 	if (tc_idx == txq->tc_idx) {
 		rc = 0;		/* No change, nothing to do. */
 		goto done;
@@ -5209,35 +5278,45 @@ sysctl_tc(SYSCTL_HANDLER_ARGS)
 		fw_class = 0xffffffff;	/* Unbind. */
 	else {
 		/*
-		 * Bind to a different class.  Ethernet txq's are only allowed
-		 * to bind to cl-rl mode-class for now.  XXX: too restrictive.
+		 * Bind to a different class.
 		 */
-		tc = &pi->tc[tc_idx];
-		if (tc->flags & TX_SC_OK &&
-		    tc->params.level == SCHED_CLASS_LEVEL_CL_RL &&
-		    tc->params.mode == SCHED_CLASS_MODE_CLASS) {
-			/* Ok to proceed. */
-			fw_class = tc_idx;
-		} else {
-			rc = tc->flags & TX_SC_OK ? EBUSY : ENXIO;
+		tc = &pi->sched_params->cl_rl[tc_idx];
+		if (tc->flags & TX_CLRL_ERROR) {
+			/* Previous attempt to set the cl-rl params failed. */
+			rc = EIO;
 			goto done;
+		} else {
+			/*
+			 * Ok to proceed.  Place a reference on the new class
+			 * while still holding on to the reference on the
+			 * previous class, if any.
+			 */
+			fw_class = tc_idx;
+			tc->refcount++;
 		}
 	}
+	mtx_unlock(&sc->tc_lock);
 
+	rc = begin_synchronized_op(sc, vi, SLEEP_OK | INTR_OK, "t4stc");
+	if (rc)
+		return (rc);
 	rc = -t4_set_params(sc, sc->mbox, sc->pf, 0, 1, &fw_queue, &fw_class);
+	end_synchronized_op(sc, 0);
+
+	mtx_lock(&sc->tc_lock);
 	if (rc == 0) {
 		if (txq->tc_idx != -1) {
-			tc = &pi->tc[txq->tc_idx];
+			tc = &pi->sched_params->cl_rl[txq->tc_idx];
 			MPASS(tc->refcount > 0);
 			tc->refcount--;
 		}
-		if (tc_idx != -1) {
-			tc = &pi->tc[tc_idx];
-			tc->refcount++;
-		}
 		txq->tc_idx = tc_idx;
+	} else {
+		tc = &pi->sched_params->cl_rl[tc_idx];
+		MPASS(tc->refcount > 0);
+		tc->refcount--;
 	}
 done:
-	end_synchronized_op(sc, 0);
+	mtx_unlock(&sc->tc_lock);
 	return (rc);
 }

@@ -116,6 +116,7 @@ MAN=	accept_filter.9 \
 	disk.9 \
 	dnv.9 \
 	domain.9 \
+	dpcpu.9 \
 	drbr.9 \
 	driver.9 \
 	DRIVER_MODULE.9 \
@@ -298,7 +299,6 @@ MAN=	accept_filter.9 \
 	uidinfo.9 \
 	uio.9 \
 	unr.9 \
-	utopia.9 \
 	vaccess.9 \
 	vaccess_acl_nfs4.9 \
 	vaccess_acl_posix1e.9 \
@@ -796,6 +796,7 @@ MLINKS+=DRIVER_MODULE.9 DRIVER_MODULE_ORDERED.9 \
 	DRIVER_MODULE.9 EARLY_DRIVER_MODULE.9 \
 	DRIVER_MODULE.9 EARLY_DRIVER_MODULE_ORDERED.9
 MLINKS+=EVENTHANDLER.9 EVENTHANDLER_DECLARE.9 \
+	EVENTHANDLER.9 EVENTHANDLER_DEFINE.9 \
 	EVENTHANDLER.9 EVENTHANDLER_DEREGISTER.9 \
 	EVENTHANDLER.9 eventhandler_deregister.9 \
 	EVENTHANDLER.9 eventhandler_find_list.9 \
@@ -1513,6 +1514,7 @@ MLINKS+=sbuf.9 sbuf_bcat.9 \
 	sbuf.9 sbuf_bcpy.9 \
 	sbuf.9 sbuf_cat.9 \
 	sbuf.9 sbuf_clear.9 \
+	sbuf.9 sbuf_clear_flags.9 \
 	sbuf.9 sbuf_copyin.9 \
 	sbuf.9 sbuf_cpy.9 \
 	sbuf.9 sbuf_data.9 \
@@ -1520,6 +1522,7 @@ MLINKS+=sbuf.9 sbuf_bcat.9 \
 	sbuf.9 sbuf_done.9 \
 	sbuf.9 sbuf_error.9 \
 	sbuf.9 sbuf_finish.9 \
+	sbuf.9 sbuf_get_flags.9 \
 	sbuf.9 sbuf_hexdump.9 \
 	sbuf.9 sbuf_len.9 \
 	sbuf.9 sbuf_new.9 \
@@ -1528,6 +1531,7 @@ MLINKS+=sbuf.9 sbuf_bcat.9 \
 	sbuf.9 sbuf_printf.9 \
 	sbuf.9 sbuf_putc.9 \
 	sbuf.9 sbuf_set_drain.9 \
+	sbuf.9 sbuf_set_flags.9 \
 	sbuf.9 sbuf_setpos.9 \
 	sbuf.9 sbuf_start_section.9 \
 	sbuf.9 sbuf_end_section.9  \
@@ -1989,7 +1993,6 @@ MLINKS+=vrele.9 vput.9 \
 	vrele.9 vunref.9
 MLINKS+=vslock.9 vsunlock.9
 MLINKS+=zone.9 uma.9 \
-	zone.9 uma_find_refcnt.9 \
 	zone.9 uma_zalloc.9 \
 	zone.9 uma_zalloc_arg.9 \
 	zone.9 uma_zcreate.9 \

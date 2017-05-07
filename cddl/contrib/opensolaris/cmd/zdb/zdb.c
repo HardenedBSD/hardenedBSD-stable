@@ -1718,23 +1718,19 @@ dump_znode(objset_t *os, uint64_t object, void *data, size_t size)
 		return;
 	}
 
-	error = zfs_obj_to_path(os, object, path, sizeof (path));
-	if (error != 0) {
-		(void) snprintf(path, sizeof (path), "\?\?\?<object#%llu>",
-		    (u_longlong_t)object);
-	}
-	if (dump_opt['d'] < 3) {
-		(void) printf("\t%s\n", path);
-		(void) sa_handle_destroy(hdl);
-		return;
-	}
-
 	z_crtime = (time_t)crtm[0];
 	z_atime = (time_t)acctm[0];
 	z_mtime = (time_t)modtm[0];
 	z_ctime = (time_t)chgtm[0];
 
-	(void) printf("\tpath	%s\n", path);
+	if (dump_opt['d'] > 4) {
+		error = zfs_obj_to_path(os, object, path, sizeof (path));
+		if (error != 0) {
+			(void) snprintf(path, sizeof (path),
+			    "\?\?\?<object#%llu>", (u_longlong_t)object);
+		}
+		(void) printf("\tpath	%s\n", path);
+	}
 	dump_uidgid(os, uid, gid);
 	(void) printf("\tatime	%s", ctime(&z_atime));
 	(void) printf("\tmtime	%s", ctime(&z_mtime));
@@ -2589,10 +2585,21 @@ zdb_leak_init(spa_t *spa, zdb_cb_t *zcb)
 
 	if (!dump_opt['L']) {
 		vdev_t *rvd = spa->spa_root_vdev;
+
+		/*
+		 * We are going to be changing the meaning of the metaslab's
+		 * ms_tree.  Ensure that the allocator doesn't try to
+		 * use the tree.
+		 */
+		spa->spa_normal_class->mc_ops = &zdb_metaslab_ops;
+		spa->spa_log_class->mc_ops = &zdb_metaslab_ops;
+
 		for (uint64_t c = 0; c < rvd->vdev_children; c++) {
 			vdev_t *vd = rvd->vdev_child[c];
+			metaslab_group_t *mg = vd->vdev_mg;
 			for (uint64_t m = 0; m < vd->vdev_ms_count; m++) {
 				metaslab_t *msp = vd->vdev_ms[m];
+				ASSERT3P(msp->ms_group, ==, mg);
 				mutex_enter(&msp->ms_lock);
 				metaslab_unload(msp);
 
@@ -2613,8 +2620,6 @@ zdb_leak_init(spa_t *spa, zdb_cb_t *zcb)
 					    (longlong_t)m,
 					    (longlong_t)vd->vdev_ms_count);
 
-					msp->ms_ops = &zdb_metaslab_ops;
-
 					/*
 					 * We don't want to spend the CPU
 					 * manipulating the size-ordered
@@ -2624,7 +2629,10 @@ zdb_leak_init(spa_t *spa, zdb_cb_t *zcb)
 					msp->ms_tree->rt_ops = NULL;
 					VERIFY0(space_map_load(msp->ms_sm,
 					    msp->ms_tree, SM_ALLOC));
-					msp->ms_loaded = B_TRUE;
+
+					if (!msp->ms_loaded) {
+						msp->ms_loaded = B_TRUE;
+					}
 				}
 				mutex_exit(&msp->ms_lock);
 			}
@@ -2646,8 +2654,10 @@ zdb_leak_fini(spa_t *spa)
 		vdev_t *rvd = spa->spa_root_vdev;
 		for (int c = 0; c < rvd->vdev_children; c++) {
 			vdev_t *vd = rvd->vdev_child[c];
+			metaslab_group_t *mg = vd->vdev_mg;
 			for (int m = 0; m < vd->vdev_ms_count; m++) {
 				metaslab_t *msp = vd->vdev_ms[m];
+				ASSERT3P(mg, ==, msp->ms_group);
 				mutex_enter(&msp->ms_lock);
 
 				/*
@@ -2661,7 +2671,10 @@ zdb_leak_fini(spa_t *spa)
 				 * from the ms_tree.
 				 */
 				range_tree_vacate(msp->ms_tree, zdb_leak, vd);
-				msp->ms_loaded = B_FALSE;
+
+				if (msp->ms_loaded) {
+					msp->ms_loaded = B_FALSE;
+				}
 
 				mutex_exit(&msp->ms_lock);
 			}

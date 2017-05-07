@@ -51,6 +51,54 @@ NOTE TO PEOPLE WHO THINK THAT FreeBSD 12.x IS SLOW:
 
 ****************************** SPECIAL WARNING: ******************************
 
+20170424:
+	The NATM framework including the en(4), fatm(4), hatm(4), and
+	patm(4) devices has been removed.  Consumers should plan a
+	migration before the end-of-life date for FreeBSD 11.
+
+20170420:
+	GNU diff has been replaced by a BSD licensed diff. Some features of GNU
+	diff has not been implemented, if those are needed a newer version of
+	GNU diff is available via the diffutils package under the gdiff name.
+
+20170413:
+	As of r316810 for ipfilter, keep frags is no longer assumed when
+	keep state is specified in a rule. r316810 aligns ipfilter with
+	documentation in man pages separating keep frags from keep state.
+	This allows keep state to be specified without forcing keep frags
+	and allows keep frags to be specified independently of keep state.
+	To maintain previous behaviour, also specify keep frags with
+	keep state (as documented in ipf.conf.5).
+
+20170407:
+	arm64 builds now use the base system LLD 4.0.0 linker by default,
+	instead of requiring that the aarch64-binutils port or package be
+	installed. To continue using aarch64-binutils, set
+	CROSS_BINUTILS_PREFIX=/usr/local/aarch64-freebsd/bin .
+
+20170405:
+	The UDP optimization in entry 20160818 that added the sysctl
+	net.inet.udp.require_l2_bcast has been reverted.  L2 broadcast
+	packets will no longer be treated as L3 broadcast packets.
+
+20170331:
+	Binds and sends to the loopback addresses, IPv6 and IPv4, will now
+	use any explicitly assigned loopback address available in the jail
+	instead of using the first assigned address of the jail.
+
+20170329:
+	The ctl.ko module no longer implements the iSCSI target frontend:
+	cfiscsi.ko does instead.
+
+	If building cfiscsi.ko as a kernel module, the module can be loaded
+	via one of the following methods:
+	- `cfiscsi_load="YES"` in loader.conf(5).
+	- Add `cfiscsi` to `$kld_list` in rc.conf(5).
+	- ctladm(8)/ctld(8), when compiled with iSCSI support
+	  (`WITH_ISCSI=yes` in src.conf(5))
+
+	Please see cfiscsi(4) for more details.
+
 20170316:
 	The mmcsd.ko module now additionally depends on geom_flashmap.ko.
 	Also, mmc.ko and mmcsd.ko need to be a matching pair built from the
@@ -67,7 +115,7 @@ NOTE TO PEOPLE WHO THINK THAT FreeBSD 12.x IS SLOW:
 20170311:
 	The old drm (sys/dev/drm/) drivers for i915 and radeon have been
 	removed as the userland we provide cannot use them. The KMS version
-	(sys/dev/drm2) support the same hardware.
+	(sys/dev/drm2) supports the same hardware.
 
 20170302:
 	Clang, llvm, lldb, compiler-rt and libc++ have been upgraded to 4.0.0.
@@ -181,7 +229,7 @@ NOTE TO PEOPLE WHO THINK THAT FreeBSD 12.x IS SLOW:
 
 20160818:
 	Remove the openbsd_poll system call.
-        __FreeBSD_version has been bumped because of this.
+	__FreeBSD_version has been bumped because of this.
 
 20160622:
 	The libc stub for the pipe(2) system call has been replaced with
@@ -223,7 +271,7 @@ NOTE TO PEOPLE WHO THINK THAT FreeBSD 12.x IS SLOW:
 	packages will be needed.
 
 	To update an existing self-hosted armv6hf system, you must add
-	TARGET_ARCH=armv6 on the make command line for both the build 
+	TARGET_ARCH=armv6 on the make command line for both the build
 	and the install steps.
 
 20160510:
@@ -474,7 +522,7 @@ NOTE TO PEOPLE WHO THINK THAT FreeBSD 12.x IS SLOW:
 	# pw groupmod video -m $USER
 
 20150806:
-	The menu.rc and loader.rc files will now be replaced during 
+	The menu.rc and loader.rc files will now be replaced during
 	upgrades. Please migrate local changes to menu.rc.local and
 	loader.rc.local instead.
 
@@ -1209,7 +1257,7 @@ NOTE TO PEOPLE WHO THINK THAT FreeBSD 12.x IS SLOW:
 	behavior in parallel build.
 
 20130429:
-        Fix a bug that allows NFS clients to issue READDIR on files.
+	Fix a bug that allows NFS clients to issue READDIR on files.
 
 20130426:
 	The WITHOUT_IDEA option has been removed because

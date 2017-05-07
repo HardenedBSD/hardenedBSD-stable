@@ -41,6 +41,7 @@
 #include <sys/lock.h>
 #include <sys/mutex.h>
 #include <geom/geom.h>
+#include <crypto/intake.h>
 #else
 #include <assert.h>
 #include <stdio.h>
@@ -139,6 +140,10 @@
 #define	G_ELI_CRYPTO_SW		2
 
 #ifdef _KERNEL
+#if (MAX_KEY_BYTES < G_ELI_DATAIVKEYLEN)
+#error "MAX_KEY_BYTES is less than G_ELI_DATAKEYLEN"
+#endif
+
 extern int g_eli_debug;
 extern u_int g_eli_overwrites;
 extern u_int g_eli_batch;
@@ -505,7 +510,7 @@ eli_metadata_dump(const struct g_eli_metadata *md)
 	printf("  provsize: %ju\n", (uintmax_t)md->md_provsize);
 	printf("sectorsize: %u\n", (u_int)md->md_sectorsize);
 	printf("      keys: 0x%02x\n", (u_int)md->md_keys);
-	printf("iterations: %u\n", (u_int)md->md_iterations);
+	printf("iterations: %d\n", (int)md->md_iterations);
 	bzero(str, sizeof(str));
 	for (i = 0; i < sizeof(md->md_salt); i++) {
 		str[i * 2] = hex[md->md_salt[i] >> 4];

@@ -39,7 +39,7 @@
 
 #include "elfcopy.h"
 
-ELFTC_VCSID("$Id: main.c 3446 2016-05-03 01:31:17Z emaste $");
+ELFTC_VCSID("$Id: main.c 3520 2017-04-17 01:47:52Z kaiwang27 $");
 
 enum options
 {
@@ -285,6 +285,7 @@ create_elf(struct elfcopy *ecp)
 	size_t		 ishnum;
 
 	ecp->flags |= SYMTAB_INTACT;
+	ecp->flags &= ~SYMTAB_EXIST;
 
 	/* Create EHDR. */
 	if (gelf_getehdr(ecp->ein, &ieh) == NULL)
@@ -499,6 +500,10 @@ free_elf(struct elfcopy *ecp)
 		}
 	}
 
+	ecp->symtab = NULL;
+	ecp->strtab = NULL;
+	ecp->shstrtab = NULL;
+
 	if (ecp->secndx != NULL) {
 		free(ecp->secndx);
 		ecp->secndx = NULL;
@@ -674,6 +679,8 @@ create_file(struct elfcopy *ecp, const char *src, const char *dst)
 		if ((ifd = open(elftemp, O_RDONLY)) == -1)
 			err(EXIT_FAILURE, "open %s failed", src);
 		close(efd);
+		if (unlink(elftemp) < 0)
+			err(EXIT_FAILURE, "unlink %s failed", elftemp);
 		free(elftemp);
 	}
 
@@ -1278,8 +1285,9 @@ parse_symlist_file(struct elfcopy *ecp, const char *fn, unsigned int op)
 		err(EXIT_FAILURE, "can not open %s", fn);
 	if ((data = malloc(sb.st_size + 1)) == NULL)
 		err(EXIT_FAILURE, "malloc failed");
-	if (fread(data, 1, sb.st_size, fp) == 0 || ferror(fp))
-		err(EXIT_FAILURE, "fread failed");
+	if (sb.st_size > 0)
+		if (fread(data, sb.st_size, 1, fp) != 1)
+			err(EXIT_FAILURE, "fread failed");
 	fclose(fp);
 	data[sb.st_size] = '\0';
 

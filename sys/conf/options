@@ -425,6 +425,7 @@ IPFIREWALL_NAT64_DIRECT_OUTPUT	opt_ipfw.h
 IPFIREWALL_NPTV6	opt_ipfw.h
 IPFIREWALL_VERBOSE	opt_ipfw.h
 IPFIREWALL_VERBOSE_LIMIT	opt_ipfw.h
+IPFIREWALL_PMOD		opt_ipfw.h
 IPSEC			opt_ipsec.h
 IPSEC_DEBUG		opt_ipsec.h
 IPSEC_SUPPORT		opt_ipsec.h
@@ -550,10 +551,6 @@ DRM_DEBUG		opt_drm.h
 
 TI_SF_BUF_JUMBO		opt_ti.h
 TI_JUMBO_HDRSPLIT	opt_ti.h
-
-# XXX Conflict: # of devices vs network protocol (Native ATM).
-# This makes "atm.h" unusable.
-NATM
 
 # DPT driver debug flags
 DPT_MEASURE_PERFORMANCE	opt_dpt.h
@@ -689,7 +686,7 @@ INIT_PATH
 
 ROOTDEVNAME
 
-FDC_DEBUG		opt_fdc.h
+FDC_DEBUG 		opt_fdc.h
 PCFCLOCK_VERBOSE	opt_pcfclock.h
 PCFCLOCK_MAX_RETRIES	opt_pcfclock.h
 

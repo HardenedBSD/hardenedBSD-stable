@@ -169,6 +169,7 @@ flz [label="Florent Thoumie\nflz@FreeBSD.org\n2006/03/30"]
 gabor [label="Gabor Kovesdan\ngabor@FreeBSD.org\n2010/02/02"]
 gad [label="Garance A. Drosehn\ngad@FreeBSD.org\n2000/10/27"]
 gallatin [label="Andrew Gallatin\ngallatin@FreeBSD.org\n1999/01/15"]
+ganbold [label="Ganbold Tsagaankhuu\nganbold@FreeBSD.org\n2013/12/18"]
 gavin [label="Gavin Atkinson\ngavin@FreeBSD.org\n2009/12/07"]
 gibbs [label="Justin T. Gibbs\ngibbs@FreeBSD.org\n????/??/??"]
 gjb [label="Glen Barber\ngjb@FreeBSD.org\n2013/06/04"]
@@ -333,6 +334,7 @@ wkoszek [label="Wojciech A. Koszek\nwkoszek@FreeBSD.org\n2006/02/21"]
 wma [label="Wojciech Macek\nwma@FreeBSD.org\n2016/01/18"]
 wollman [label="Garrett Wollman\nwollman@FreeBSD.org\n????/??/??"]
 wsalamon [label="Wayne Salamon\nwsalamon@FreeBSD.org\n2005/06/25"]
+wulf [label="Vladimir Kondratyev\nwulf@FreeBSD.org\n2017/04/27"]
 yongari [label="Pyun YongHyeon\nyongari@FreeBSD.org\n2004/08/01"]
 zbb [label="Zbigniew Bodek\nzbb@FreeBSD.org\n2013/09/02"]
 zec [label="Marko Zec\nzec@FreeBSD.org\n2008/06/22"]
@@ -384,6 +386,7 @@ avg -> smh
 bapt -> allanjude
 bapt -> araujo
 bapt -> bdrewery
+bapt -> wulf
 
 benno -> grehan
 
@@ -495,6 +498,7 @@ gnn -> jtl
 gnn -> karels
 
 gonzo -> jmcneill
+gonzo -> wulf
 
 grehan -> bryanv
 grehan -> rgrimes
@@ -771,6 +775,8 @@ sjg -> phil
 sjg -> stevek
 
 sos -> marcel
+
+stas -> ganbold
 
 theraven -> phil
 

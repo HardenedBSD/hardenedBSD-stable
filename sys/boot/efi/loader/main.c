@@ -28,6 +28,7 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
+#include <sys/disk.h>
 #include <sys/param.h>
 #include <sys/reboot.h>
 #include <sys/boot.h>
@@ -202,6 +203,7 @@ find_currdev(EFI_LOADED_IMAGE *img)
 		    env_nounset);
 		env_setenv("loaddev", EV_VOLATILE, devname, env_noset,
 		    env_nounset);
+		init_zfs_bootenv(devname);
 		return (0);
 	}
 #endif /* EFI_ZFS_BOOT */
@@ -505,8 +507,7 @@ command_reboot(int argc, char *argv[])
 		if (devsw[i]->dv_cleanup != NULL)
 			(devsw[i]->dv_cleanup)();
 
-	RS->ResetSystem(EfiResetCold, EFI_SUCCESS, 23,
-	    (CHAR16 *)"Reboot from the loader");
+	RS->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
 
 	/* NOTREACHED */
 	return (CMD_ERROR);
@@ -796,66 +797,43 @@ COMMAND_SET(fdt, "fdt", "flattened device tree handling", command_fdt);
 
 #ifdef EFI_ZFS_BOOT
 static void
-efipart_probe_img(pdinfo_list_t *hdi)
-{
-	EFI_GUID imgid = LOADED_IMAGE_PROTOCOL;
-	EFI_LOADED_IMAGE *img;
-	pdinfo_t *hd, *pd = NULL;
-	char devname[SPECNAMELEN + 1];
-
-	BS->HandleProtocol(IH, &imgid, (VOID**)&img);
-
-	/*
-	 * Search for the booted image device handle from hard disk list.
-	 * Note, this does also include usb sticks, and we assume there is no
-	 * ZFS on floppies nor cd.
-	 * However, we might have booted from floppy (unlikely) or CD,
-	 * so we should not surprised if we can not find the handle.
-	 */
-	STAILQ_FOREACH(hd, hdi, pd_link) {
-		if (hd->pd_handle == img->DeviceHandle)
-			break;
-		STAILQ_FOREACH(pd, &hd->pd_part, pd_link) {
-			if (pd->pd_handle == img->DeviceHandle)
-				break;
-		}
-		if (pd != NULL)
-			break;
-	}
-	if (hd != NULL) {
-		if (pd != NULL) {
-			snprintf(devname, sizeof(devname), "%s%dp%d:",
-			    efipart_hddev.dv_name, hd->pd_unit, pd->pd_unit);
-		} else {
-			snprintf(devname, sizeof(devname), "%s%d:",
-			    efipart_hddev.dv_name, hd->pd_unit);
-		}
-		(void) zfs_probe_dev(devname, &pool_guid);
-	}
-}
-
-static void
 efi_zfs_probe(void)
 {
 	pdinfo_list_t *hdi;
-	pdinfo_t *hd;
+	pdinfo_t *hd, *pd = NULL;
+	EFI_GUID imgid = LOADED_IMAGE_PROTOCOL;
+	EFI_LOADED_IMAGE *img;
 	char devname[SPECNAMELEN + 1];
 
+	BS->HandleProtocol(IH, &imgid, (VOID**)&img);
 	hdi = efiblk_get_pdinfo_list(&efipart_hddev);
+
 	/*
-	 * First probe the boot device (from where loader.efi was read),
-	 * and set pool_guid global variable if we are booting from zfs.
-	 * Since loader is running, we do have an access to the device,
-	 * however, it might not be zfs.
+	 * Find the handle for the boot device. The boot1 did find the
+	 * device with loader binary, now we need to search for the
+	 * same device and if it is part of the zfs pool, we record the
+	 * pool GUID for currdev setup.
 	 */
-
-	if (pool_guid == 0)
-		efipart_probe_img(hdi);
-
 	STAILQ_FOREACH(hd, hdi, pd_link) {
-		snprintf(devname, sizeof(devname), "%s%d:",
-		    efipart_hddev.dv_name, hd->pd_unit);
-		(void) zfs_probe_dev(devname, NULL);
+		STAILQ_FOREACH(pd, &hd->pd_part, pd_link) {
+
+			snprintf(devname, sizeof(devname), "%s%dp%d:",
+			    efipart_hddev.dv_name, hd->pd_unit, pd->pd_unit);
+			if (pd->pd_handle == img->DeviceHandle)
+				(void) zfs_probe_dev(devname, &pool_guid);
+			else
+				(void) zfs_probe_dev(devname, NULL);
+		}
 	}
+}
+
+uint64_t
+ldi_get_size(void *priv)
+{
+	int fd = (uintptr_t) priv;
+	uint64_t size;
+
+	ioctl(fd, DIOCGMEDIASIZE, &size);
+	return (size);
 }
 #endif

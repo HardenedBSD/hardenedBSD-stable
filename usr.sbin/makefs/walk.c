@@ -40,6 +40,7 @@
 __FBSDID("$FreeBSD$");
 
 #include <sys/param.h>
+#include <sys/stat.h>
 #include <sys/time.h>
 
 #include <assert.h>
@@ -50,7 +51,6 @@ __FBSDID("$FreeBSD$");
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/stat.h>
 
 #include "makefs.h"
 #include "mtree.h"
@@ -202,8 +202,7 @@ walk_dir(const char *root, const char *dir, fsnode *parent, fsnode *join)
 			if (llen == -1)
 				err(1, "Readlink `%s'", path);
 			slink[llen] = '\0';
-			if ((cur->symlink = strdup(slink)) == NULL)
-				err(1, "Memory allocation error");
+			cur->symlink = estrdup(slink);
 		}
 	}
 	assert(first != NULL);
@@ -221,11 +220,10 @@ create_fsnode(const char *root, const char *path, const char *name,
 {
 	fsnode *cur;
 
-	if ((cur = calloc(1, sizeof(fsnode))) == NULL ||
-	    (cur->path = strdup(path)) == NULL ||
-	    (cur->name = strdup(name)) == NULL ||
-	    (cur->inode = calloc(1, sizeof(fsinode))) == NULL)
-		err(1, "Memory allocation error");
+	cur = ecalloc(1, sizeof(*cur));
+	cur->path = estrdup(path);
+	cur->name = estrdup(name);
+	cur->inode = ecalloc(1, sizeof(*cur->inode));
 	cur->root = root;
 	cur->type = stbuf->st_mode & S_IFMT;
 	cur->inode->nlink = 1;
@@ -333,6 +331,7 @@ apply_specfile(const char *specfile, const char *dir, fsnode *parent, int specon
 				/* merge in the changes */
 	apply_specdir(dir, root, parent, speconly);
 
+	free_nodes(root);
 }
 
 static void
@@ -456,9 +455,7 @@ apply_specdir(const char *dir, NODE *specnode, fsnode *dirnode, int speconly)
 			if (curfsnode->type == S_IFLNK) {
 				assert(curnode->slink != NULL);
 					/* for symlinks, copy the target */
-				if ((curfsnode->symlink =
-				    strdup(curnode->slink)) == NULL)
-					err(1, "Memory allocation error");
+				curfsnode->symlink = estrdup(curnode->slink);
 			}
 		}
 		apply_specentry(dir, curnode, curfsnode);
@@ -514,8 +511,7 @@ apply_specentry(const char *dir, NODE *specnode, fsnode *dirnode)
 		assert(specnode->slink != NULL);
 		ASEPRINT("symlink", "%s", dirnode->symlink, specnode->slink);
 		free(dirnode->symlink);
-		if ((dirnode->symlink = strdup(specnode->slink)) == NULL)
-			err(1, "Memory allocation error");
+		dirnode->symlink = estrdup(specnode->slink);
 	}
 	if (specnode->flags & F_TIME) {
 		ASEPRINT("time", "%ld",
@@ -664,10 +660,7 @@ link_check(fsinode *entry)
 		htused = 0;
 
 		ohtable = htable;
-		htable = calloc(htmask+1, sizeof(*htable));
-		if (!htable)
-			err(1, "Memory allocation error");
-
+		htable = ecalloc(htmask+1, sizeof(*htable));
 		/* populate newly allocated hashtable */
 		if (ohtable) {
 			int i;

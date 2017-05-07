@@ -992,7 +992,6 @@ ipfw_chk(struct ip_fw_args *args)
 	int is_ipv4 = 0;
 
 	int done = 0;		/* flag to exit the outer loop */
-	IPFW_RLOCK_TRACKER;
 
 	if (m->m_flags & M_SKIP_FIREWALL || (! V_ipfw_vnet_ready))
 		return (IP_FW_PASS);	/* accept */
@@ -2616,8 +2615,17 @@ do {								\
 				 * consider this as rule matching and
 				 * update counters.
 				 */
-				if (retval == 0 && done == 0)
+				if (retval == 0 && done == 0) {
 					IPFW_INC_RULE_COUNTER(f, pktlen);
+					/*
+					 * Reset the result of the last
+					 * dynamic state lookup.
+					 * External action can change
+					 * @args content, and it may be
+					 * used for new state lookup later.
+					 */
+					dyn_dir = MATCH_UNKNOWN;
+				}
 				break;
 
 			default:

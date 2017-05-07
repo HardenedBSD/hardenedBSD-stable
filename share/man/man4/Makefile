@@ -22,6 +22,7 @@ MAN=	aac.4 \
 	acpi_video.4 \
 	${_acpi_wmi.4} \
 	ada.4 \
+	adm6996fc.4 \
 	adv.4 \
 	adw.4 \
 	ae.4 \
@@ -145,7 +146,6 @@ MAN=	aac.4 \
 	edsc.4 \
 	ehci.4 \
 	em.4 \
-	en.4 \
 	enc.4 \
 	epair.4 \
 	esp.4 \
@@ -154,7 +154,7 @@ MAN=	aac.4 \
 	etherswitch.4 \
 	eventtimers.4 \
 	exca.4 \
-	fatm.4 \
+	e6060sw.4 \
 	fd.4 \
 	fdc.4 \
 	fdt.4 \
@@ -183,7 +183,6 @@ MAN=	aac.4 \
 	gre.4 \
 	h_ertt.4 \
 	hardening.4 \
-	hatm.4 \
 	hifn.4 \
 	hme.4 \
 	hpet.4 \
@@ -207,7 +206,6 @@ MAN=	aac.4 \
 	if_ipsec.4 \
 	ifmib.4 \
 	ig4.4 \
-	igb.4 \
 	igmp.4 \
 	iic.4 \
 	iicbb.4 \
@@ -251,6 +249,7 @@ MAN=	aac.4 \
 	keyboard.4 \
 	kld.4 \
 	ksyms.4 \
+	ksz8995ma.4 \
 	ktr.4 \
 	kue.4 \
 	lagg.4 \
@@ -310,8 +309,6 @@ MAN=	aac.4 \
 	my.4 \
 	nand.4 \
 	nandsim.4 \
-	natm.4 \
-	natmip.4 \
 	ncr.4 \
 	ncv.4 \
 	${_ndis.4} \
@@ -323,7 +320,6 @@ MAN=	aac.4 \
 	${_nfe.4} \
 	${_nfsmb.4} \
 	ng_async.4 \
-	ng_atm.4 \
 	ngatmbase.4 \
 	ng_atmllc.4 \
 	ng_bpf.4 \
@@ -400,7 +396,6 @@ MAN=	aac.4 \
 	owc.4 \
 	${_padlock.4} \
 	pass.4 \
-	patm.4 \
 	pccard.4 \
 	pccbb.4 \
 	pcf.4 \
@@ -429,6 +424,7 @@ MAN=	aac.4 \
 	${_qlxge.4} \
 	${_qlxgb.4} \
 	${_qlxgbe.4} \
+	${_qlnxe.4} \
 	ral.4 \
 	random.4 \
 	rc.4 \
@@ -629,11 +625,9 @@ MLINKS+=disc.4 if_disc.4
 MLINKS+=ed.4 if_ed.4
 MLINKS+=edsc.4 if_edsc.4
 MLINKS+=em.4 if_em.4
-MLINKS+=en.4 if_en.4
 MLINKS+=enc.4 if_enc.4
 MLINKS+=epair.4 if_epair.4
 MLINKS+=et.4 if_et.4
-MLINKS+=fatm.4 if_fatm.4
 MLINKS+=fd.4 stderr.4 \
 	fd.4 stdin.4 \
 	fd.4 stdout.4
@@ -647,12 +641,10 @@ MLINKS+=geom.4 GEOM.4
 MLINKS+=gif.4 if_gif.4
 MLINKS+=gpio.4 gpiobus.4
 MLINKS+=gre.4 if_gre.4
-MLINKS+=hatm.4 if_hatm.4
 MLINKS+=hme.4 if_hme.4
 MLINKS+=hpet.4 acpi_hpet.4
 MLINKS+=${_hptrr.4} ${_rr232x.4}
 MLINKS+=${_attimer.4} ${_i8254.4}
-MLINKS+=igb.4 if_igb.4
 MLINKS+=ip.4 rawip.4
 MLINKS+=ipfirewall.4 ipaccounting.4 \
 	ipfirewall.4 ipacct.4 \
@@ -698,7 +690,6 @@ MLINKS+=nge.4 if_nge.4
 MLINKS+=${_ntb_hw.4} ${_ntb.4}
 MLINKS+=${_nxge.4} ${_if_nxge.4}
 MLINKS+=ow.4 onewire.4
-MLINKS+=patm.4 if_patm.4
 MLINKS+=pccbb.4 cbb.4
 MLINKS+=pcm.4 snd.4 \
 	pcm.4 sound.4
@@ -850,11 +841,13 @@ _ntb_transport.4=ntb_transport.4
 _qlxge.4=	qlxge.4
 _qlxgb.4=	qlxgb.4
 _qlxgbe.4=	qlxgbe.4
+_qlnxe.4=	qlnxe.4
 _sfxge.4=	sfxge.4
 
 MLINKS+=qlxge.4 if_qlxge.4
 MLINKS+=qlxgb.4 if_qlxgb.4
 MLINKS+=qlxgbe.4 if_qlxgbe.4
+MLINKS+=qlnxe.4 if_qlnxe.4
 MLINKS+=sfxge.4 if_sfxge.4
 
 .if ${MK_BHYVE} != "no"
@@ -888,6 +881,7 @@ _dtrace_udp.4=	dtrace_udp.4
 .endif
 
 .if ${MK_ISCSI} != "no"
+MAN+=		cfiscsi.4
 MAN+=		iscsi.4
 MAN+=		iscsi_initiator.4
 MAN+=		iser.4
@@ -966,7 +960,6 @@ MAN+=	\
 	usb_template.4 \
 	usfs.4 \
 	uslcom.4 \
-	utopia.4 \
 	uvisor.4 \
 	uvscom.4 \
 	zyd.4

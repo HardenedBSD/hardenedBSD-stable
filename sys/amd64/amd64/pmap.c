@@ -933,14 +933,14 @@ create_pagetables(vm_paddr_t *firstaddr)
 		pd_p[j] = (vm_paddr_t)i << PDRSHIFT;
 		/* Preset PG_M and PG_A because demotion expects it. */
 		pd_p[j] |= X86_PG_RW | X86_PG_V | PG_PS | X86_PG_G |
-		    X86_PG_M | X86_PG_A;
+		    X86_PG_M | X86_PG_A | pg_nx;
 	}
 	pdp_p = (pdp_entry_t *)DMPDPphys;
 	for (i = 0; i < ndm1g; i++) {
 		pdp_p[i] = (vm_paddr_t)i << PDPSHIFT;
 		/* Preset PG_M and PG_A because demotion expects it. */
 		pdp_p[i] |= X86_PG_RW | X86_PG_V | PG_PS | X86_PG_G |
-		    X86_PG_M | X86_PG_A;
+		    X86_PG_M | X86_PG_A | pg_nx;
 	}
 	for (j = 0; i < ndmpdp; i++, j++) {
 		pdp_p[i] = DMPDphys + ptoa(j);
@@ -1733,7 +1733,7 @@ pmap_update_pde(pmap_t pmap, vm_offset_t va, pd_entry_t *pde, pd_entry_t newpde)
 		act.newpde = newpde;
 		CPU_SET(cpuid, &active);
 		smp_rendezvous_cpus(active,
-		    smp_no_rendevous_barrier, pmap_update_pde_action,
+		    smp_no_rendezvous_barrier, pmap_update_pde_action,
 		    pmap_update_pde_teardown, &act);
 	} else {
 		pmap_update_pde_store(pmap, pde, newpde);
