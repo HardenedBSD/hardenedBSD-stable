@@ -159,19 +159,141 @@
     <sect2 xml:id="userland-config">
       <title>Userland Configuration Changes</title>
 
-      <para>&nbsp;</para>
+      <para revision="313203">The &man.inetd.8; utility can now be
+	built without <literal>libwrap</literal> support when
+	<literal>WITHOUT_TCP_WRAPPERS</literal> is set in
+	&man.src.conf.5;.</para>
+
+      <para revision="316045">The &man.libthr.3; library and related
+	files are now evaluated and removed by the
+	<literal>delete-old-libs</literal> target when upgrading the
+	system if <literal>WITHOUT_LIBTHR</literal> is
+	set in &man.src.conf.5;.</para>
+
+      <para revision="316423" contrib="sponsor" sponsor="&ff;">The
+	<literal>WITH_LLD_AS_LD</literal> build knob has been added,
+	which installs <application>LLD</application> as
+	<filename>/usr/bin/ld</filename> if set.</para>
     </sect2>
 
     <sect2 xml:id="userland-programs">
       <title>Userland Application Changes</title>
 
-      <para>&nbsp;</para>
+      <para revision="308720" contrib="sponsor" sponsor="&gandi;">The
+	&man.cron.8; utility has been updated to add support for
+	including files within <filename
+	  class="directory">/etc/cron.d</filename> and <filename
+	  class="directory">/usr/local/etc/cron.d</filename> by
+	default.</para>
+
+      <para revision="308721" contrib="sponsor" sponsor="&gandi;">The
+	&man.syslogd.8; utility has been updated to add the
+	<literal>include</literal> keyword which allows specifying
+	a directory containing configuration files to be included in
+	addition to &man.syslogd.8;.  The default &man.syslogd.8; has
+	been updated to include <filename
+	  class="directory">/etc/syslog.d</filename> and <filename
+	  class="directory">/usr/local/etc/syslog.d</filename> by
+	default.</para>
+
+      <para revision="315514" contrib="sponsor" sponsor="&yandex;">The
+	&man.setkey.8; utility has been modified to show the runtime
+	<acronym>NAT-T</acronym> configuration.  The
+	<literal>-g</literal> and <literal>-t</literal> flags have
+	been added, which list only global and virtual policies,
+	respectively when used with the <literal>-D</literal> and
+	<literal>-P</literal> flags.</para>
+
+      <para revision="316098" contrib="sponsor"
+	sponsor="&dellemc;">The &man.getaddrinfo.1; utility has been
+	added, ported from NetBSD.</para>
+
+      <para revision="316944" contrib="sponsor"
+	sponsor="&multiplay;">The &man.jail.8; utility has been
+	updated to allow explicitly-assigned <acronym>IPv4</acronym>
+	and <acronym>IPv6</acronym> addresses to be used within
+	a jail.</para>
+
+      <para revision="317855">The &man.daemon.8; utility has been
+	updated to allow redirecting &man.stdout.4; and &man.stderr.4;
+	output to &man.syslog.3; and to a file.</para>
     </sect2>
 
     <sect2 xml:id="userland-contrib">
       <title>Contributed Software</title>
 
-      <para>&nbsp;</para>
+      <para revision="307729">&man.unbound.8; has been updated to
+	version 1.5.10.</para>
+
+      <para revision="309511"><application>Subversion</application>
+	has been updated to version 1.9.5.</para>
+
+      <para revision="309847">&man.file.1; has been updated to version
+	5.29.</para>
+
+      <para revision="310490">The &man.amd.8; utility has been updated
+	to version 6.2.</para>
+
+      <para revision="312336">The <acronym>CLDR</acronym> locales have
+	been updated to version 30.0.3.  The unicode locales have been
+	updated to version 9.0.0.</para>
+
+      <para revision="312517">&man.xz.1; has been updated to version
+	5.2.3.</para>
+
+      <para revision="313537">&man.tcpdump.1; has been updated to
+	version 4.9.0.</para>
+
+      <para revision="313795">&man.zlib.3; has been updated to version
+	1.2.11.</para>
+
+      <para revision="313980"><application>openresolv</application>
+	has been updated to version 3.9.0.</para>
+
+      <para revision="313680">The NetBSD test suite has been updated
+	to the 01.11.2017_23.20 snapshot.</para>
+
+      <para revision="314278"><literal>libucl</literal> has been
+	updated to version 20170219.</para>
+
+      <para revision="315432">&man.libarchive.3; has been updated to
+	version 3.3.1.</para>
+
+      <para revision="315995">&man.dma.8; has been updated to the
+	2017-02-10 snapshot.</para>
+
+      <para revision="316068">&man.ntpd.8; has been updated to version
+	4.2.8p10.</para>
+
+      <para revision="316303"><application>ACPICA</application> has
+	been updated to version 20170303.</para>
+
+      <para revision="316349">Timezone data files have been updated to
+	version 2017b.</para>
+
+      <para revision="316420">&man.mandoc.1; has been updated to
+	version 1.14.</para>
+
+      <para revision="316423"><application>Clang</application> has
+	been updated to version 4.0.0.</para>
+
+      <para revision="316423"><application>LLVM</application> has
+	been updated to version 4.0.0.</para>
+
+      <para revision="316423"><application>LLD</application> has
+	been updated to version 4.0.0.</para>
+
+      <para revision="316423"><application>LLDB</application> has
+	been updated to version 4.0.0.</para>
+
+      <para revision="316423"><application>compiler-rt</application>
+	has been updated to version 4.0.0.</para>
+
+      <para revision="316423"><application>libc++</application> has
+	been updated to version 4.0.0.</para>
+
+      <para revision="316957">&man.tcsh.1; has been updated to version
+	6.20.00.</para>
     </sect2>
 
     <sect2 xml:id="userland-installer">
@@ -184,26 +306,43 @@
       <title><filename class="directory">/etc/rc.d</filename>
 	Scripts</title>
 
-      <para>&nbsp;</para>
+      <para revision="310009" contrib="sponsor"
+	sponsor="&fisglobal;">The <literal>jail_confwarn</literal>
+	&man.rc.conf.5; entry has been added, which suppresses warning
+	about obsolete per-&man.jail.8; configurations.</para>
     </sect2>
 
     <sect2 xml:id="userland-periodic">
       <title><filename class="directory">/etc/periodic</filename>
 	Scripts</title>
 
-      <para>&nbsp;</para>
+      <para revision="317857">The <filename>410.status-mfi</filename>
+	&man.periodic.8; script has been added to monitor the status
+	of &man.mfi.4; volumes.</para>
     </sect2>
 
     <sect2 xml:id="userland-libraries">
       <title>Runtime Libraries and API</title>
 
-      <para>&nbsp;</para>
+      <para revision="317618" contrib="sponsor"
+	sponsor="&dellemc;">The <function>clock_nanosleep()</function>
+	system call has been added.  The
+	<function>nanosleep()</function> system call is now a wrapper
+	around <function>clock_nanosleep()</function>.</para>
     </sect2>
 
     <sect2 xml:id="userland-abi">
       <title>ABI Compatibility</title>
 
-      <para>&nbsp;</para>
+      <para revision="315274" contrib="sponsor"
+	sponsor="&dellemc;">The
+	<function>sem_clockwait_np()</function> library function has
+	been added, which allows the caller to specify the reference
+	clock and choose between absolute and relative mode.</para>
+
+      <para revision="315282">The <application>clang</application>
+	<literal>nullability</literal> attribute has been added to the
+	<literal>C</literal> library headers.</para>
     </sect2>
   </sect1>
 
@@ -217,19 +356,81 @@
     <sect2 xml:id="kernel-bugfix">
       <title>Kernel Bug Fixes</title>
 
-      <para>&nbsp;</para>
+      <para revision="316039">The &man.kvm.close.3; function has been
+	updated to return the accumulated error from previous
+	&man.close.2; calls.</para>
+
+      <para revision="317434">The &man.ipf.4; packet filter has been
+	updated to prevent &quot;keep state&quot; from incorrectly
+	implying &quot;keep frags&quot;, matching the behavior
+	documented in &man.ipf.5;.</para>
     </sect2>
 
     <sect2 xml:id="kernel-config">
       <title>Kernel Configuration</title>
 
-      <para>&nbsp;</para>
+      <para revision="315514" contrib="sponsor" sponsor="&yandex;">The
+	<literal>IPSEC_NAT_T</literal> kernel configuration option has
+	been removed.  Support for <acronym>NAT-T</acronym> is now
+	enabled by default.</para>
+
+      <para revision="315514" contrib="sponsor" sponsor="&yandex;">The
+	<literal>IPSEC_FILTERTUNNEL</literal> kernel option has been
+	removed, which was deprecated by the
+	<literal>net.inet.ipsec.filtertunnel</literal> sysctl.</para>
+    </sect2>
+
+    <sect2 xml:id="kernel-modules">
+      <title>Kernel Modules</title>
+
+      <para revision="315514" contrib="sponsor" sponsor="&yandex;">The
+	<literal>ipsec</literal> and <literal>tcpmd5</literal> kernel
+	modules have been added.</para>
+
+      <para revision="316274" contrib="sponsor" sponsor="&yandex;">The
+	&man.ipfw.4; packet filter has been updated to add support for
+	named dynamic states.</para>
+
+      <para revision="316444" contrib="sponsor" sponsor="&yandex;">The
+	<literal>ipfw_nptv6</literal> kernel module has been added,
+	implementing Network Prefix Translation for
+	<acronym>IPv6</acronym> as defined in <acronym>RFC</acronym>
+	6296.</para>
+
+      <para revision="316446" contrib="sponsor" sponsor="&yandex;">The
+	<literal>ipfw_nat64</literal> kernel module has been added,
+	implementing stateless and stateful
+	<acronym>NAT64</acronym>.</para>
+
+      <para revision="316660" contrib="sponsor" sponsor="&ff;">The
+	&man.cfumass.4; device has been added, providing a storage
+	frontend to <acronym>USB</acronym>
+	<acronym>OTG</acronym>-capable hardware.</para>
+
+      <para revision="317045" contrib="sponsor" sponsor="&yandex;">The
+	<literal>ipfw_pmod</literal> kernel module has been added,
+	designed for modifying packets of any protocol.</para>
+
+      <note>
+	<para>At present, only <acronym>TCP</acronym>
+	  <acronym>MSS</acronym> modification is implemented.</para>
+      </note>
     </sect2>
 
     <sect2 xml:id="kernel-sysctl">
       <title>System Tuning and Controls</title>
 
-      <para>&nbsp;</para>
+      <para revision="315539">The
+	<literal>vfs.root_mount_always_wait</literal> tunable has been
+	added, which forces the kernel to wait for root mount holds
+	even if the root device is already present.</para>
+
+      <para revision="316120" contrib="sponsor"
+	sponsor="&dellemc;">When the system real time clock
+	(<acronym>RTC</acronym>) is adjusted, such as by
+	<function>clock_settime()</function>, sleeping threads are now
+	awakened and absolute sleep times are reevaluated based on the
+	new value of the RTC.</para>
     </sect2>
   </sect1>
 
@@ -242,7 +443,19 @@
     <sect2 xml:id="drivers-device">
       <title>Device Drivers</title>
 
-      <para>&nbsp;</para>
+      <para revision="308942">The &man.bytgpio.4; driver has been
+	added, providing support for Intel&reg; Bay&nbsp;Trail&trade;
+	SoC GPIO controllers.</para>
+
+      <para revision="307768">The &man.jedec.ts.4; driver has been
+	added, providing support for thermal sensors on memory
+	modules.  The driver currently supports chips that are fully
+	compliant with the <acronym>JEDEC</acronym>
+	<acronym>JC</acronym> 42.4 specification.</para>
+
+      <para revision="308104">The &man.chromebook.platform.4; driver
+	has been added, providing support for various Chromebook
+	models.</para>
     </sect2>
 
     <sect2 xml:id="drivers-storage">
@@ -254,7 +467,17 @@
     <sect2 xml:id="drivers-network">
       <title>Network Drivers</title>
 
-      <para>&nbsp;</para>
+      <para revision="309377" contrib="sponsor"
+	sponsor="&broadcom;">The &man.bnxt.4; driver has been added,
+	providing support for Broadcom&reg; NetXtreme-C&trade; and
+	NetXtreme-E&trade; devices.</para>
+
+      <para revision="317116">The &man.qlnxe.4; driver has been added,
+	providing support for Cavium&reg; Qlogic&trade; 45000 Series
+	adapters.</para>
+
+      <para revision="317182">The &man.qlxgbe.4; firmware has been
+	updated to version 5.4.64.</para>
     </sect2>
   </sect1>
 
@@ -281,7 +504,8 @@
     <sect2 xml:id="hardware-arm">
       <title>ARM Support</title>
 
-      <para>&nbsp;</para>
+      <para revision="305436">Support for the Allwinner A13 board has
+	been added.</para>
     </sect2>
   </sect1>
 
@@ -325,7 +549,10 @@
     <sect2 xml:id="boot-loader">
       <title>Boot Loader Changes</title>
 
-      <para>&nbsp;</para>
+      <para revision="307632" contrib="sponsor" sponsor="&gandi;">The
+	<acronym>EFI</acronym> loader has been updated to support
+	<acronym>TFTPFS</acronym>, providing netboot support without
+	requiring an <acronym>NFS</acronym> server.</para>
     </sect2>
 
     <sect2 xml:id="boot-menu">
@@ -341,10 +568,40 @@
     <para>This section describes changes that affect networking in
       &os;.</para>
 
+    <sect2 xml:id="network-general">
+      <title>General Network Changes</title>
+
+      <para revision="311681" contrib="sponsor" sponsor="&yandex;">The
+	network stack has been updated to include
+	<function>ip6_tryforward()</function>, providing performance
+	benefits as result of a reduced number of checks.</para>
+
+      <para revision="313523" contrib="sponsor"
+	sponsor="&dellemc;">The network stack has been modified to fix
+	incorrect or invalid <acronym>IP</acronym> addresses if
+	multiple threads emit a <acronym>UDP</acronym>
+	<literal>log_in_vein</literal> message concurrently.</para>
+
+      <para revision="317386" contrib="sponsor"
+	sponsor="&multiplay;">The <acronym>TCP</acronym> stack has
+	been changed to use the estimated <acronym>RTT</acronym>
+	instead of timestamps for receive buffer auto resizing.</para>
+    </sect2>
+
     <sect2 xml:id="network-protocols">
       <title>Network Protocols</title>
 
-      <para>&nbsp;</para>
+      <para revision="309337" contrib="sponsor"
+	sponsor="&dellemc;">Support for <acronym>GARP</acronym>
+	retransmit has been added.  A new &man.sysctl.8;,
+	<literal>net.link.ether.inet.garp_rexmit_count</literal>, has
+	been added, which sets the maximum number of retransmissions
+	when set to a non-zero value.</para>
+
+      <para revision="315514" contrib="sponsor"
+	sponsor="&yandex;">Support for the
+	<literal>UDP_ENCAP_ESPINUDP_NON_IKE</literal> encapsulation
+	type has been removed.</para>
     </sect2>
   </sect1>
 
