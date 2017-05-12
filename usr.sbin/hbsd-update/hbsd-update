@@ -45,6 +45,7 @@ ignorever=0
 unsigned=0
 verbose=0
 integriforce=1
+no_kernel=0
 no_obsolete=0
 interactive=0
 install_src=0
@@ -376,8 +377,12 @@ check_set_validity() {
 	local signedhash
 	local computedhash
 
-	checkfiles="base.txz kernel-${kernel}.txz etcupdate.tbz skip.txt"
+	checkfiles="base.txz etcupdate.tbz skip.txt"
 	extrafiles="ObsoleteFiles.txt ObsoleteDirs.txt script.sh"
+
+	if [ ${no_kernel} -eq 0 ]; then
+		checkfiles="${checkfiles} kernel-${kernel}.txz"
+	fi
 
 	if [ ${integriforce} -gt 0 ]; then
 		if [ -f ${tmpdir}/secadm.integriforce.rules ]; then
@@ -847,8 +852,9 @@ main() {
 
 	do_report_version=0
 	local_kernel=""
+	no_kernel=0
 
-	while getopts 'dhiosCITUVb:c:j:K:k:t:u:v:' opt; do
+	while getopts 'dhinosCITUVb:c:j:K:k:t:u:v:' opt; do
 		case "${opt}" in
 			b)
 				if ! which -s ${BEADM}; then
@@ -881,6 +887,9 @@ main() {
 				;;
 			k)
 				local_kernel="${OPTARG}"
+				;;
+			n)
+				no_kernel=1
 				;;
 			o)
 				no_obsolete=1
@@ -1007,12 +1016,14 @@ main() {
 		exit 1
 	fi
 
-	apply_kernel
-	res=${?}
-	if [ ${res} -gt 0 ]; then
-		cleanup
-		destroy_be
-		exit 1
+	if [ ${no_kernel} -eq 0 ]; then
+		apply_kernel
+		res=${?}
+		if [ ${res} -gt 0 ]; then
+			cleanup
+			destroy_be
+			exit 1
+		fi
 	fi
 
 	if [ ${no_obsolete} -eq 0 ]; then
