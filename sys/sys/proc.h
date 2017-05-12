@@ -581,15 +581,12 @@ struct proc {
 	rlim_t		p_cpulimit;	/* (c) Current CPU limit in seconds. */
 	signed char	p_nice;		/* (c) Process "nice" value. */
 	int		p_fibnum;	/* in this routing domain XXX MRT */
-<<<<<<< HEAD
 	uint32_t        p_pax;          /* (b) PaX is enabled to this process */
 	vm_offset_t	p_usrstack;	/* (b) Process stack top. */
 	vm_offset_t	p_psstrings;	/* (b) Process psstrings address. */
 	vm_offset_t	p_shared_page_base;	/* (c) Address of shared page. */
 	vm_offset_t	p_sigcode_base;	/* (c) Address of sigcode. */
-=======
 
->>>>>>> origin/freebsd/10-stable/master
 /* End area that is copied on creation. */
 #define	p_endcopy	p_xstat
 
