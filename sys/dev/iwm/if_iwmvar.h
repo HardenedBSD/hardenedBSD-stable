@@ -304,7 +304,6 @@ struct iwm_tx_ring {
 };
 
 #define IWM_RX_RING_COUNT	256
-#define IWM_RBUF_COUNT		(IWM_RX_RING_COUNT + 32)
 /* Linux driver optionally uses 8k buffer */
 #define IWM_RBUF_SIZE		4096
 
@@ -375,6 +374,25 @@ struct iwm_vap {
 				    enum ieee80211_state, int);
 
 	struct iwm_mvm_phy_ctxt	*phy_ctxt;
+
+	uint16_t		id;
+	uint16_t		color;
+
+	boolean_t		have_wme;
+	/*
+	 * QoS data from net80211, need to store this here
+	 * as net80211 has a separate callback but we need
+	 * to have the data for the MAC context
+	 */
+        struct {
+		uint16_t cw_min;
+		uint16_t cw_max;
+		uint16_t edca_txop;
+		uint8_t aifsn;
+	} queue_params[WME_NUM_AC];
+
+	/* indicates that this interface requires PS to be disabled */
+	boolean_t		ps_disabled;
 };
 #define IWM_VAP(_vap)		((struct iwm_vap *)(_vap))
 

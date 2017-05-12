@@ -669,12 +669,12 @@ P2P_PS_SCM\31UAPSD_SUPPORT\32EBS\33P2P_PS_UAPSD\36BCAST_FILTERING\37GO_UAPSD\40L
  * @IWM_NUM_UCODE_TLV_API: number of bits used
  */
 enum iwm_ucode_tlv_api {
-	IWM_UCODE_TLV_API_FRAGMENTED_SCAN	= (1 << 8),
-	IWM_UCODE_TLV_API_WIFI_MCC_UPDATE	= (1 << 9),
-	IWM_UCODE_TLV_API_WIDE_CMD_HDR		= (1 << 14),
-	IWM_UCODE_TLV_API_LQ_SS_PARAMS		= (1 << 18),
-	IWM_UCODE_TLV_API_EXT_SCAN_PRIORITY	= (1 << 24),
-	IWM_UCODE_TLV_API_TX_POWER_CHAIN	= (1 << 27),
+	IWM_UCODE_TLV_API_FRAGMENTED_SCAN	= 8,
+	IWM_UCODE_TLV_API_WIFI_MCC_UPDATE	= 9,
+	IWM_UCODE_TLV_API_WIDE_CMD_HDR		= 14,
+	IWM_UCODE_TLV_API_LQ_SS_PARAMS		= 18,
+	IWM_UCODE_TLV_API_EXT_SCAN_PRIORITY	= 24,
+	IWM_UCODE_TLV_API_TX_POWER_CHAIN	= 27,
 
 	IWM_NUM_UCODE_TLV_API = 32
 };
@@ -5979,16 +5979,9 @@ struct iwm_dts_measurement_notif_v2 {
 #define IWM_FRAME_LIMIT	64
 
 /*
- * From Linux commit ab02165ccec4c78162501acedeef1a768acdb811:
- *   As the firmware is slowly running out of command IDs and grouping of
- *   commands is desirable anyway, the firmware is extending the command
- *   header from 4 bytes to 8 bytes to introduce a group (in place of the
- *   former flags field, since that's always 0 on commands and thus can
- *   be easily used to distinguish between the two).
- *
  * These functions retrieve specific information from the id field in
  * the iwm_host_cmd struct which contains the command id, the group id,
- * and the version of the command.
+ * and the version of the command and vice versa.
 */
 static inline uint8_t
 iwm_cmd_opcode(uint32_t cmdid)
@@ -5999,7 +5992,7 @@ iwm_cmd_opcode(uint32_t cmdid)
 static inline uint8_t
 iwm_cmd_groupid(uint32_t cmdid)
 {
-	return ((cmdid & 0Xff00) >> 8);
+	return ((cmdid & 0xff00) >> 8);
 }
 
 static inline uint8_t
@@ -6092,6 +6085,8 @@ struct iwm_rx_packet {
 } __packed;
 
 #define	IWM_FH_RSCSR_FRAME_SIZE_MSK	0x00003fff
+#define IWM_FH_RSCSR_FRAME_INVALID	0x55550000
+#define IWM_FH_RSCSR_FRAME_ALIGN	0x40
 
 static inline uint32_t
 iwm_rx_packet_len(const struct iwm_rx_packet *pkt)
