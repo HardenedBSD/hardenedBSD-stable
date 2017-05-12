@@ -308,6 +308,7 @@ SUBDIR=	\
 	scd \
 	${_scsi_low} \
 	sdhci \
+	${_sdhci_acpi} \
 	sdhci_pci \
 	sem \
 	send \
@@ -649,6 +650,7 @@ _wpifw=		wpifw
 _padlock=	padlock
 .endif
 _s3=		s3
+_sdhci_acpi=	sdhci_acpi
 _twa=		twa
 _vesa=		vesa
 _virtio=	virtio
