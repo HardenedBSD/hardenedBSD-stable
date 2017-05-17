@@ -931,7 +931,7 @@ osigreturn(struct thread *td, struct osigreturn_args *uap)
 void
 siginit(struct proc *p)
 {
-	register int i;
+	int i;
 	struct sigacts *ps;
 
 	PROC_LOCK(p);
@@ -2394,7 +2394,7 @@ static void
 tdsigwakeup(struct thread *td, int sig, sig_t action, int intrval)
 {
 	struct proc *p = td->td_proc;
-	register int prop;
+	int prop;
 	int wakeup_swapper;
 
 	wakeup_swapper = 0;
@@ -2981,7 +2981,7 @@ thread_stopped(struct proc *p)
  */
 int
 postsig(sig)
-	register int sig;
+	int sig;
 {
 	struct thread *td = curthread;
 	struct proc *p = td->td_proc;
