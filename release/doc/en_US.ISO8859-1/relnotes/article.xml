@@ -314,7 +314,9 @@
     <sect2 xml:id="userland-installer">
       <title>Installation and Configuration Tools</title>
 
-      <para>&nbsp;</para>
+      <para revision="311686">The &man.bsdinstall.8; installer has
+	been updated to include support for hidden wireless networks
+	when configuring the &man.wlan.4; interface.</para>
     </sect2>
 
     <sect2 xml:id="userland-rc">
@@ -487,12 +489,38 @@
 	providing support for Broadcom&reg; NetXtreme-C&trade; and
 	NetXtreme-E&trade; devices.</para>
 
+      <para revision="310852" contrib="sponsor"
+	sponsor="&netgate;">The &man.miibus.4; driver has been updated
+	to support Microchip/Micrel KSZ9031 Gigabit ethernet
+	cards.</para>
+
+      <para revision="311506" contrib="sponsor"
+	sponsor="&chelsio;">The &man.cxgbe.4; driver has been updated
+	to firmware version 1.16.26.0 for T4, T5, and T6 cards.</para>
+
+      <para revision="312358">The &man.alc.4; driver has been updated
+	to provide support for Atheros&reg; Killer&nbsp;E2400&trade;
+	Gigabit ethernet cards.</para>
+
+      <para revision="314005" contrib="sponsor" sponsor="&ms;">The
+	&man.alc.4; driver has been updated to provide support for
+	Atheros&reg; Killer&nbsp;E2500&trade; Gigabit ethernet
+	cards.</para>
+
+      <para revision="315330" contrib="sponsor"
+	sponsor="&netgate;">The &man.etherswitch.4; driver has been
+	updated to support RTL8366RB and RTL8366SR cards.</para>
+
       <para revision="317116">The &man.qlnxe.4; driver has been added,
 	providing support for Cavium&reg; Qlogic&trade; 45000 Series
 	adapters.</para>
 
       <para revision="317182">The &man.qlxgbe.4; firmware has been
 	updated to version 5.4.64.</para>
+
+      <para revision="318357" contrib="sponsor"
+	sponsor="&intelcorp;">The &man.ixl.4; driver has been updated
+	to version 1.7.12-k.</para>
     </sect2>
   </sect1>
 
@@ -507,7 +535,17 @@
     <sect2 xml:id="hardware-support">
       <title>Hardware Support</title>
 
-      <para>&nbsp;</para>
+      <para revision="307144">The &man.cloudabi.4; driver has been
+	updated to allow running 32-bit binaries within 64-bit
+	userland environments when the kernel configuration file has
+	the <literal>COMPAT_CLOUDABI32</literal> option
+	present.</para>
+
+      <para revision="307576">The &man.atkbdc.4; driver has been
+	updated to provide support for Elantech&reg; trackpads.  To
+	enable hardware support, add
+	<literal>hw.psm.elantech_support=1</literal> to
+	&man.loader.conf.5;.</para>
     </sect2>
 
     <sect2 xml:id="hardware-virtualization">
