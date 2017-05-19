@@ -159,8 +159,8 @@
     <sect2 xml:id="userland-config">
       <title>Userland Configuration Changes</title>
 
-      <para revision="313203">The &man.inetd.8; utility can now be
-	built without <literal>libwrap</literal> support when
+      <para revision="313203">The &man.inetd.8; utility is now built
+	without <literal>libwrap</literal> support when
 	<literal>WITHOUT_TCP_WRAPPERS</literal> is set in
 	&man.src.conf.5;.</para>
 
@@ -178,6 +178,10 @@
 
     <sect2 xml:id="userland-programs">
       <title>Userland Application Changes</title>
+
+      <para revision="305476" contrib="sponsor"
+	sponsor="&ff;">Support for &man.blacklistd.8; has been added
+	to <application>OpenSSH</application>.</para>
 
       <para revision="308720" contrib="sponsor" sponsor="&gandi;">The
 	&man.cron.8; utility has been updated to add support for
@@ -197,15 +201,15 @@
 	default.</para>
 
       <para revision="308914">The &man.zfsbootcfg.8; utility has been
-	added, providing one-time &man.nextboot.8; options for
-	&man.zfsboot.8;.</para>
+	added, providing one-time &man.boot.config.5;-style options
+	for &man.zfsboot.8;.</para>
 
       <para revision="315514" contrib="sponsor" sponsor="&yandex;">The
 	&man.setkey.8; utility has been modified to show the runtime
 	<acronym>NAT-T</acronym> configuration.  The
 	<literal>-g</literal> and <literal>-t</literal> flags have
 	been added, which list only global and virtual policies,
-	respectively when used with the <literal>-D</literal> and
+	respectively, when used with the <literal>-D</literal> and
 	<literal>-P</literal> flags.</para>
 
       <para revision="316098" contrib="sponsor"
@@ -220,7 +224,7 @@
 
       <para revision="317855">The &man.daemon.8; utility has been
 	updated to allow redirecting &man.stdout.4; and &man.stderr.4;
-	output to &man.syslog.3; and to a file.</para>
+	output to &man.syslog.3; or to a file.</para>
     </sect2>
 
     <sect2 xml:id="userland-contrib">
@@ -307,14 +311,16 @@
 	sponsor="&ff;">&man.blacklistd.8; support for
 	<application>OpenSSH</application> has been refined to adjust
 	notification points to catch all authentication failures
-	rather than authentication failures caused by invalid
-	login usernames.</para>
+	rather than only those caused by invalid login
+	usernames.</para>
     </sect2>
 
     <sect2 xml:id="userland-installer">
       <title>Installation and Configuration Tools</title>
 
-      <para>&nbsp;</para>
+      <para revision="311686">The &man.bsdinstall.8; installer has
+	been updated to include support for hidden wireless networks
+	when configuring the &man.wlan.4; interface.</para>
     </sect2>
 
     <sect2 xml:id="userland-rc">
@@ -331,6 +337,13 @@
       <title><filename class="directory">/etc/periodic</filename>
 	Scripts</title>
 
+      <para revision="317373">The default &man.periodic.conf.5; has
+	been updated to include the
+	<literal>anticongestion_sleeptime</literal> option,
+	consolidating random sleeps in &man.periodic.8; scripts and
+	replacing the <literal>daily_ntpd_avoid_congestion</literal>
+	option.  The default value is 3600 seconds.</para>
+
       <para revision="317857">The <filename>410.status-mfi</filename>
 	&man.periodic.8; script has been added to monitor the status
 	of &man.mfi.4; volumes.</para>
@@ -338,6 +351,10 @@
 
     <sect2 xml:id="userland-libraries">
       <title>Runtime Libraries and API</title>
+
+      <para revision="316039">The &man.kvm.close.3; function has been
+	updated to return the accumulated error from previous
+	&man.close.2; calls.</para>
 
       <para revision="317618" contrib="sponsor"
 	sponsor="&dellemc;">The <function>clock_nanosleep()</function>
@@ -349,6 +366,9 @@
     <sect2 xml:id="userland-abi">
       <title>ABI Compatibility</title>
 
+      <para revision="309258">The type <literal>max_align_t</literal>
+	is now defined for C11 compliance.</para>
+
       <para revision="315274" contrib="sponsor"
 	sponsor="&dellemc;">The
 	<function>sem_clockwait_np()</function> library function has
@@ -358,6 +378,18 @@
       <para revision="315282">The <application>clang</application>
 	<literal>nullability</literal> attribute has been added to the
 	<literal>C</literal> library headers.</para>
+    </sect2>
+
+    <sect2 xml:id="userland-debug">
+      <title>Userland Debugging</title>
+
+      <para revision="304499">&man.ptrace.2; now supports events for
+	&man.vfork.2;, permitting reliable debugging across
+	&man.vfork.2; invocations.</para>
+
+      <para revision="306786">Process core dumps now include the
+	process ID (<acronym>PID</acronym>) and command line
+	arguments.</para>
     </sect2>
   </sect1>
 
@@ -371,14 +403,10 @@
     <sect2 xml:id="kernel-bugfix">
       <title>Kernel Bug Fixes</title>
 
-      <para revision="316039">The &man.kvm.close.3; function has been
-	updated to return the accumulated error from previous
-	&man.close.2; calls.</para>
-
       <para revision="317434">The &man.ipf.4; packet filter has been
-	updated to prevent &quot;keep state&quot; from incorrectly
-	implying &quot;keep frags&quot;, matching the behavior
-	documented in &man.ipf.5;.</para>
+	updated to prevent <literal>keep state</literal> from
+	incorrectly implying <literal>keep frags</literal>, matching
+	the behavior documented in &man.ipf.5;.</para>
     </sect2>
 
     <sect2 xml:id="kernel-config">
@@ -397,6 +425,11 @@
 
     <sect2 xml:id="kernel-modules">
       <title>Kernel Modules</title>
+
+      <para revision="307144">&man.cloudabi.4; has been updated to
+	allow running 32-bit binaries within 64-bit userland
+	environments when the kernel configuration file has the
+	<literal>COMPAT_CLOUDABI32</literal> option present.</para>
 
       <para revision="315514" contrib="sponsor" sponsor="&yandex;">The
 	<literal>ipsec</literal> and <literal>tcpmd5</literal> kernel
@@ -471,6 +504,17 @@
       <para revision="308942">The &man.bytgpio.4; driver has been
 	added, providing support for Intel&reg; Bay&nbsp;Trail&trade;
 	SoC GPIO controllers.</para>
+
+      <para revision="312394"><filename>/dev/kmem</filename> no longer
+	supports access via <function>mmap()</function>.  Consumers
+	wishing to use <filename>/dev/kmem</filename> must use
+	<function>read()</function> and
+	<function>write()</function>.</para>
+
+      <para revision="306533" contrib="sponsor"
+	sponsor="&chelsio;">&man.devctl.8; now supports a &quot;clear
+	driver&quot; command as a complement to &quot;set
+	driver&quot;.</para>
     </sect2>
 
     <sect2 xml:id="drivers-storage">
@@ -482,10 +526,63 @@
     <sect2 xml:id="drivers-network">
       <title>Network Drivers</title>
 
+      <para revision="306660" contrib="sponsor"
+	sponsor="&chelsio;">The &man.cxgbe.4; driver has been updated
+	to provide support for Virtual Function devices
+	(<acronym>VFs</acronym>) on Chelsio T4 and T5 adapters.</para>
+
+      <para revision="306661" contrib="sponsor"
+	sponsor="&chelsio;">TCP connections using the TCP Offload
+	Engine (<acronym>TOE</acronym>) on Chelsio T4+ adapters can
+	now perform zero-copy sends via
+	<function>aio_write()</function>.</para>
+
+      <para revision="306664" contrib="sponsor"
+	sponsor="&chelsio;">The &man.cxgbev.4; driver has been added,
+	providing support for Virtual Function devices
+	(<acronym>VFs</acronym>) on Chelsio T4 and T5 adapters.</para>
+
       <para revision="309377" contrib="sponsor"
 	sponsor="&broadcom;">The &man.bnxt.4; driver has been added,
 	providing support for Broadcom&reg; NetXtreme-C&trade; and
 	NetXtreme-E&trade; devices.</para>
+
+      <para revision="309560" contrib="sponsor"
+	sponsor="&chelsio;">The &man.cxgbe.4; driver now supports
+	devices using T6-based adapters which support 10, 25, 40, and
+	100 Gbps.</para>
+
+      <para revision="309560" contrib="sponsor"
+	sponsor="&chelsio;">The &man.cxgbe.4; driver has been updated
+	to provide support for Virtual Function devices
+	(<acronym>VFs</acronym>) on Chelsio T6 adapters.</para>
+
+      <para revision="309560" contrib="sponsor"
+	sponsor="&chelsio;">The &man.cxgbev.4; driver has been updated
+	to provide support for Virtual Function devices
+	(<acronym>VFs</acronym>) on Chelsio T6 adapters.</para>
+
+      <para revision="310852" contrib="sponsor"
+	sponsor="&netgate;">The &man.miibus.4; driver has been updated
+	to support Microchip/Micrel KSZ9031 Gigabit ethernet
+	cards.</para>
+
+      <para revision="311506" contrib="sponsor"
+	sponsor="&chelsio;">The &man.cxgbe.4; driver has been updated
+	to firmware version 1.16.26.0 for T4, T5, and T6 cards.</para>
+
+      <para revision="312358">The &man.alc.4; driver has been updated
+	to provide support for Atheros&reg; Killer&nbsp;E2400&trade;
+	Gigabit ethernet cards.</para>
+
+      <para revision="314005" contrib="sponsor" sponsor="&ms;">The
+	&man.alc.4; driver has been updated to provide support for
+	Atheros&reg; Killer&nbsp;E2500&trade; Gigabit ethernet
+	cards.</para>
+
+      <para revision="315330" contrib="sponsor"
+	sponsor="&netgate;">The &man.etherswitch.4; driver has been
+	updated to support RTL8366RB and RTL8366SR cards.</para>
 
       <para revision="317116">The &man.qlnxe.4; driver has been added,
 	providing support for Cavium&reg; Qlogic&trade; 45000 Series
@@ -493,6 +590,10 @@
 
       <para revision="317182">The &man.qlxgbe.4; firmware has been
 	updated to version 5.4.64.</para>
+
+      <para revision="318357" contrib="sponsor"
+	sponsor="&intelcorp;">The &man.ixl.4; driver has been updated
+	to version 1.7.12-k.</para>
     </sect2>
   </sect1>
 
@@ -507,13 +608,26 @@
     <sect2 xml:id="hardware-support">
       <title>Hardware Support</title>
 
-      <para>&nbsp;</para>
+      <para revision="307576">The &man.atkbdc.4; driver has been
+	updated to provide support for Elantech&reg; trackpads.  To
+	enable hardware support, add
+	<literal>hw.psm.elantech_support=1</literal> to
+	&man.loader.conf.5;.</para>
     </sect2>
 
     <sect2 xml:id="hardware-virtualization">
       <title>Virtualization Support</title>
 
-      <para>&nbsp;</para>
+      <para revision="306471" contrib="sponsor"
+	sponsor="&chelsio;"><acronym>PCI</acronym> passthrough with
+	&man.bhyve.4; supports more dynamic configurations permitting
+	devices to be marked for passthrough or host use at
+	runtime.</para>
+
+      <para revision="306520" contrib="sponsor"
+	sponsor="&chelsio;"><acronym>PCI</acronym> passthrough with
+	&man.bhyve.4; resets functions via <acronym>FLR</acronym> when
+	a virtual machine is started and stopped.</para>
     </sect2>
 
     <sect2 xml:id="hardware-arm">
@@ -549,7 +663,7 @@
     </sect2>
 
     <sect2 xml:id="storage-geom">
-      <title>&man.geom.4;</title>
+      <title><literal>geom(4)</literal></title>
 
       <para>&nbsp;</para>
     </sect2>
@@ -595,7 +709,7 @@
 	sponsor="&dellemc;">The network stack has been modified to fix
 	incorrect or invalid <acronym>IP</acronym> addresses if
 	multiple threads emit a <acronym>UDP</acronym>
-	<literal>log_in_vein</literal> message concurrently.</para>
+	<literal>log_in_vain</literal> message concurrently.</para>
 
       <para revision="317386" contrib="sponsor"
 	sponsor="&multiplay;">The <acronym>TCP</acronym> stack has
@@ -608,7 +722,8 @@
 
       <para revision="309337" contrib="sponsor"
 	sponsor="&dellemc;">Support for <acronym>GARP</acronym>
-	retransmit has been added.  A new &man.sysctl.8;,
+	(gratuitous <acronym>ARP</acronym>) retransmit has been added.
+	A new &man.sysctl.8;,
 	<literal>net.link.ether.inet.garp_rexmit_count</literal>, has
 	been added, which sets the maximum number of retransmissions
 	when set to a non-zero value.</para>
