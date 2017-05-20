@@ -631,12 +631,12 @@ struct proc {
 	vm_offset_t	p_timekeep_base;	/* (c) Address of timekeep structure. */
 	vm_offset_t	p_shared_page_base;	/* (c) Address of shared page. */
 	vm_offset_t	p_sigcode_base;	/* (c) Address of sigcode. */
-	u_int		p_xexit;	/* (c) Exit code. */
-	u_int		p_xsig;		/* (c) Stop/kill sig. */
 
 /* End area that is copied on creation. */
-#define	p_endcopy	p_pgrp
+#define	p_endcopy	p_xexit
 
+	u_int		p_xexit;	/* (c) Exit code. */
+	u_int		p_xsig;		/* (c) Stop/kill sig. */
 	struct pgrp	*p_pgrp;	/* (c + e) Pointer to process group. */
 	struct knlist	*p_klist;	/* (c) Knotes attached to this proc. */
 	int		p_numthreads;	/* (c) Number of threads. */

@@ -83,6 +83,7 @@ __DEFAULT_YES_OPTIONS = \
     ED_CRYPTO \
     EE \
     ELFCOPY_AS_OBJCOPY \
+    EFI \
     ELFTOOLCHAIN_BOOTSTRAP \
     EXAMPLES \
     FDT \
@@ -269,6 +270,9 @@ BROKEN_OPTIONS+=LLDB
 # Only doing soft float API stuff on armv6
 .if ${__T} != "armv6"
 BROKEN_OPTIONS+=LIBSOFT
+.endif
+.if ${__T:Mmips*} || ${__T:Mpowerpc*} || ${__T:Msparc64} || ${__T:Mriscv*}
+BROKEN_OPTIONS+=EFI
 .endif
 
 .if ${__T} == "amd64" || ${__T} == "i386" || ${__T} == "aarch64"

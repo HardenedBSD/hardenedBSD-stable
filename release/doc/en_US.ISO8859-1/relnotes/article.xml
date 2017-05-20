@@ -356,11 +356,19 @@
 	updated to return the accumulated error from previous
 	&man.close.2; calls.</para>
 
+      <para revision="316613">The C standard library has been updated
+	to make use of &man.reallocarray.3; for bounds
+	checking.</para>
+
       <para revision="317618" contrib="sponsor"
 	sponsor="&dellemc;">The <function>clock_nanosleep()</function>
 	system call has been added.  The
 	<function>nanosleep()</function> system call is now a wrapper
 	around <function>clock_nanosleep()</function>.</para>
+
+      <para revision="318121">The system libraries have been updated
+	to make use of &man.reallocarray.3; for bounds
+	checking.</para>
     </sect2>
 
     <sect2 xml:id="userland-abi">
@@ -376,8 +384,13 @@
 	clock and choose between absolute and relative mode.</para>
 
       <para revision="315282">The <application>clang</application>
-	<literal>nullability</literal> attribute has been added to the
+	<literal>nullability</literal> qualifier has been added to the
 	<literal>C</literal> library headers.</para>
+
+      <para revision="315282">Uses of the <acronym>GNU</acronym>
+	<literal>__nonnull__</literal> attribute have been replaced
+	with the more benign <application>Clang</application>
+	nullability attributes.</para>
     </sect2>
 
     <sect2 xml:id="userland-debug">
