@@ -626,6 +626,7 @@ struct proc {
 	pid_t		p_reapsubtree;	/* (e) Pid of the direct child of the
 					       reaper which spawned
 					       our subtree. */
+<<<<<<< HEAD
 	vm_offset_t	p_usrstack;	/* (b) Process stack top. */
 	vm_offset_t	p_psstrings;	/* (b) Process psstrings address. */
 	vm_offset_t	p_timekeep_base;	/* (c) Address of timekeep structure. */
@@ -634,9 +635,13 @@ struct proc {
 	u_int		p_xexit;	/* (c) Exit code. */
 	u_int		p_xsig;		/* (c) Stop/kill sig. */
 
+=======
+>>>>>>> origin/freebsd/11-stable/master
 /* End area that is copied on creation. */
-#define	p_endcopy	p_pgrp
+#define	p_endcopy	p_xexit
 
+	u_int		p_xexit;	/* (c) Exit code. */
+	u_int		p_xsig;		/* (c) Stop/kill sig. */
 	struct pgrp	*p_pgrp;	/* (c + e) Pointer to process group. */
 	struct knlist	*p_klist;	/* (c) Knotes attached to this proc. */
 	int		p_numthreads;	/* (c) Number of threads. */
