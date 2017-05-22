@@ -174,6 +174,11 @@
 	<literal>WITH_LLD_AS_LD</literal> build knob has been added,
 	which installs <application>LLD</application> as
 	<filename>/usr/bin/ld</filename> if set.</para>
+
+      <para revision="318472" contrib="sponsor" sponsor="&ff;">
+	<application>LLD</application> has been enabled by default and
+	installed as <filename>/usr/bin/ld</filename> on
+	&os;/&arch.arm64;.</para>
     </sect2>
 
     <sect2 xml:id="userland-programs">
@@ -225,6 +230,10 @@
       <para revision="317855">The &man.daemon.8; utility has been
 	updated to allow redirecting &man.stdout.4; and &man.stderr.4;
 	output to &man.syslog.3; or to a file.</para>
+
+      <para revision="318576" contrib="sponsor" sponsor="&ff;">The
+	&man.efivar.8; utility has been added, providing an interface
+	to manage <acronym>UEFI</acronym> variables.</para>
     </sect2>
 
     <sect2 xml:id="userland-contrib">
@@ -384,8 +393,8 @@
 	clock and choose between absolute and relative mode.</para>
 
       <para revision="315282">The <application>clang</application>
-	<literal>nullability</literal> qualifier has been added to the
-	<literal>C</literal> library headers.</para>
+	<literal>nullability</literal> qualifiers have been added to
+	the <literal>C</literal> library headers.</para>
 
       <para revision="315282">Uses of the <acronym>GNU</acronym>
 	<literal>__nonnull__</literal> attribute have been replaced
@@ -597,6 +606,12 @@
 	sponsor="&netgate;">The &man.etherswitch.4; driver has been
 	updated to support RTL8366RB and RTL8366SR cards.</para>
 
+      <para revision="315514" contrib="sponsor" sponsor="&yandex;">The
+	&man.if.ipsec.4; virtual tunneling interface has been added,
+	implementing route-based <acronym>VPN</acronym>s protected
+	with Encapsulating Security Payload
+	(<acronym>ESP</acronym>).</para>
+
       <para revision="317116">The &man.qlnxe.4; driver has been added,
 	providing support for Cavium&reg; Qlogic&trade; 45000 Series
 	adapters.</para>
@@ -641,6 +656,25 @@
 	sponsor="&chelsio;"><acronym>PCI</acronym> passthrough with
 	&man.bhyve.4; resets functions via <acronym>FLR</acronym> when
 	a virtual machine is started and stopped.</para>
+
+      <para revision="309312" contrib="sponsor"
+	sponsor="&ms;"><acronym>PCI</acronym> passthrough support has
+	been enabled on &os; virtual machines running on
+	Microsoft&reg; Hyper-V&trade;.</para>
+
+      <para revision="314091" contrib="sponsor" sponsor="&ms;">The
+	&man.hv.netvsc.4; driver <acronym>SR-IOV</acronym>
+	implementation has been updated to support Virtual Function
+	(<acronym>VF</acronym>) devices, such as the Mellanox&reg;
+	Connect-X3&trade; network card.</para>
+
+      <para revision="316272" contrib="sponsor" sponsor="&ms;">Support
+	for Microsoft&reg; Hyper-V&trade; Generation 2 virtual
+	machines has been added.</para>
+
+      <para revision="317119" contrib="sponsor" sponsor="&ms;">Support
+	for synthetic keyboards has been added for virtual machines
+	running on Microsoft&reg; Hyper-V&trade;.</para>
     </sect2>
 
     <sect2 xml:id="hardware-arm">
