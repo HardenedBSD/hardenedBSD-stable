@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2009, Oleksandr Tymoshenko <gonzo@FreeBSD.org>
+ * Copyright (c) 2017, Adrian Chadd <adrian@FreeBSD.org>.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,7 +40,6 @@ __FBSDID("$FreeBSD$");
 #include <sys/module.h>
 #include <sys/rman.h>
 #include <sys/lock.h>
-#include <sys/mutex.h>
 
 #include <vm/vm.h>
 #include <vm/pmap.h>
@@ -50,30 +49,33 @@ __FBSDID("$FreeBSD$");
 #include <machine/cpu.h>
 #include <machine/intr_machdep.h>
 
-#include <dev/pci/pcivar.h>
-#include <dev/pci/pcireg.h>
-
-#include <dev/pci/pcib_private.h>
-#include "pcib_if.h"
-
-#include <mips/atheros/ar71xxreg.h>
-#include <mips/atheros/ar71xx_pci_bus_space.h>
-
-#include <mips/atheros/ar71xx_cpudef.h>
-
 #include <sys/linker.h>
 #include <sys/firmware.h>
 
-#include <mips/atheros/ar71xx_fixup.h>
+struct ar71xx_caldata_softc {
+	device_t		sc_dev;
+};
+
+static int
+ar71xx_caldata_probe(device_t dev)
+{
+
+	return (BUS_PROBE_NOWILDCARD);
+}
+
+/* XXX TODO: unify with what's in ar71xx_fixup.c */
 
 /*
- * Take a copy of the EEPROM contents and squirrel it away in a firmware.
- * The SPI flash will eventually cease to be memory-mapped, so we need
- * to take a copy of this before the SPI driver initialises.
+ * Create a calibration block from memory mapped SPI data for use by
+ * various drivers.  Right now it's just ath(4) but later board support
+ * will include 802.11ac NICs with calibration data in NOR flash.
+ *
+ * (Yes, there are a handful of QCA MIPS boards with QCA9880v2 802.11ac chips
+ * with calibration data in flash..)
  */
-void
-ar71xx_pci_slot_create_eeprom_firmware(device_t dev, u_int bus, u_int slot,
-    u_int func, long int flash_addr, int size)
+static void
+ar71xx_platform_create_cal_data(device_t dev, int id, long int flash_addr,
+    int size)
 {
 	char buf[64];
 	uint16_t *cal_data = (uint16_t *) MIPS_PHYS_TO_KSEG1(flash_addr);
@@ -85,10 +87,9 @@ ar71xx_pci_slot_create_eeprom_firmware(device_t dev, u_int bus, u_int slot,
 
 	eeprom = malloc(size, M_DEVBUF, M_WAITOK | M_ZERO);
 	if (! eeprom) {
-		device_printf(dev,
-			    "%s: malloc failed for '%s', aborting EEPROM\n",
-			    __func__, buf);
-			return;
+		device_printf(dev, "%s: malloc failed for '%s', aborting EEPROM\n",
+		__func__, buf);
+		return;
 	}
 
 	memcpy(eeprom, cal_data, size);
@@ -99,8 +100,12 @@ ar71xx_pci_slot_create_eeprom_firmware(device_t dev, u_int bus, u_int slot,
 	 * go into port-IO mode instead of memory-mapped IO
 	 * mode, a copy of the EEPROM contents is required.
 	 */
-	snprintf(buf, sizeof(buf), "%s.%d.bus.%d.%d.%d.eeprom_firmware",
-	    device_get_name(dev), device_get_unit(dev), bus, slot, func);
+
+	snprintf(buf, sizeof(buf), "%s.%d.map.%d.eeprom_firmware",
+	    device_get_name(dev),
+	    device_get_unit(dev),
+	    id);
+
 	fw = firmware_register(buf, eeprom, size, 1, NULL);
 	if (fw == NULL) {
 		device_printf(dev, "%s: firmware_register (%s) failed\n",
@@ -110,3 +115,62 @@ ar71xx_pci_slot_create_eeprom_firmware(device_t dev, u_int bus, u_int slot,
 	}
 	device_printf(dev, "device EEPROM '%s' registered\n", buf);
 }
+
+/*
+ * Iterate through a list of early-boot hints creating calibration
+ * data firmware chunks for AHB (ie, non-PCI) devices with calibration
+ * data.
+ */
+static int
+ar71xx_platform_check_eeprom_hints(device_t dev)
+{
+	char buf[64];
+	long int addr;
+	int size;
+	int i;
+
+	for (i = 0; i < 8; i++) {
+		snprintf(buf, sizeof(buf), "map.%d.ath_fixup_addr", i);
+		if (resource_long_value(device_get_name(dev),
+		    device_get_unit(dev), buf, &addr) != 0)
+			break;
+		snprintf(buf, sizeof(buf), "map.%d.ath_fixup_size", i);
+		if (resource_int_value(device_get_name(dev),
+		    device_get_unit(dev), buf, &size) != 0)
+			break;
+		device_printf(dev, "map.%d.ath_fixup_addr=0x%08x; size=%d\n",
+		    i, (int) addr, size);
+		(void) ar71xx_platform_create_cal_data(dev, i, addr, size);
+        }
+
+        return (0);
+}
+
+static int
+ar71xx_caldata_attach(device_t dev)
+{
+
+	device_add_child(dev, "nexus", -1);
+	ar71xx_platform_check_eeprom_hints(dev);
+	return (bus_generic_attach(dev));
+}
+
+static device_method_t ar71xx_caldata_methods[] = {
+	/* Device interface */
+	DEVMETHOD(device_probe,		ar71xx_caldata_probe),
+	DEVMETHOD(device_attach,	ar71xx_caldata_attach),
+	DEVMETHOD(device_shutdown,	bus_generic_shutdown),
+	DEVMETHOD(device_suspend,	bus_generic_suspend),
+	DEVMETHOD(device_resume,	bus_generic_resume),
+	DEVMETHOD_END
+};
+
+static driver_t ar71xx_caldata_driver = {
+	"ar71xx_caldata",
+	ar71xx_caldata_methods,
+	sizeof(struct ar71xx_caldata_softc),
+};
+
+static devclass_t ar71xx_caldata_devclass;
+
+DRIVER_MODULE(ar71xx_caldata, nexus, ar71xx_caldata_driver, ar71xx_caldata_devclass, 0, 0);
