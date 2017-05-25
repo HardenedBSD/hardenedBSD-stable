@@ -688,6 +688,10 @@
       <para revision="317119" contrib="sponsor" sponsor="&ms;">Support
 	for synthetic keyboards has been added for virtual machines
 	running on Microsoft&reg; Hyper-V&trade;.</para>
+
+      <para revision="312790">The &os; virtual machines provided on
+	Amazon&reg; EC2&trade; now enable <acronym>IPv6</acronym> by
+	default.</para>
     </sect2>
 
     <sect2 xml:id="hardware-arm">
@@ -713,13 +717,29 @@
     <sect2 xml:id="storage-net">
       <title>Networked Storage</title>
 
-      <para>&nbsp;</para>
+      <para revision="318660">The <acronym>NFS</acronym> client now
+	properly handles <literal>NFS4ERR_BAD_SESSION</literal> errors
+	received from an <acronym>NFS</acronym> server.  Additionally,
+	the kernel <acronym>RPC</acronym> client has been updated to
+	prevent creating new <acronym>TCP</acronym> connections when
+	<literal>ERESTART</literal> is received from
+	&man.sosend.9;.</para>
+
+      <para revision="318660">The <acronym>NFS</acronym> client now
+	supports the Amazon&reg; Elastic File System&trade;
+	(<acronym>EFS</acronym>).</para>
     </sect2>
 
     <sect2 xml:id="storage-zfs">
       <title>ZFS</title>
 
-      <para>&nbsp;</para>
+      <para revision="318785">The
+	<literal>vfs.zfs.debug_flags</literal> &man.sysctl.8; has been
+	deprecated in favor of
+	<literal>vfs.zfs.debugflags</literal>.  Additionally,
+	<literal>vfs.zfs.debugflags</literal> can now be configured in
+	&man.loader.conf.5;, whereas
+	<literal>vfs.zfs.debug_flags</literal> could not.</para>
     </sect2>
 
     <sect2 xml:id="storage-geom">
