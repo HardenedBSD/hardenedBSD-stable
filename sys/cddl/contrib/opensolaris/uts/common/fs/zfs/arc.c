@@ -6315,6 +6315,20 @@ arc_init(void)
 {
 	int i, prefetch_tunable_set = 0;
 
+	/*
+	 * allmem is "all memory that we could possibly use".
+	 */
+#ifdef illumos
+#ifdef _KERNEL
+	uint64_t allmem = ptob(physmem - swapfs_minfree);
+#else
+	uint64_t allmem = (physmem * PAGESIZE) / 2;
+#endif
+#else
+	uint64_t allmem = kmem_size();
+#endif
+
+
 	mutex_init(&arc_reclaim_lock, NULL, MUTEX_DEFAULT, NULL);
 	cv_init(&arc_reclaim_thread_cv, NULL, CV_DEFAULT, NULL);
 	cv_init(&arc_reclaim_waiters_cv, NULL, CV_DEFAULT, NULL);
@@ -6325,27 +6339,14 @@ arc_init(void)
 	/* Convert seconds to clock ticks */
 	arc_min_prefetch_lifespan = 1 * hz;
 
-	/* Start out with 1/8 of all memory */
-	arc_c = kmem_size() / 8;
-
-#ifdef illumos
-#ifdef _KERNEL
-	/*
-	 * On architectures where the physical memory can be larger
-	 * than the addressable space (intel in 32-bit mode), we may
-	 * need to limit the cache to 1/8 of VM size.
-	 */
-	arc_c = MIN(arc_c, vmem_size(heap_arena, VMEM_ALLOC | VMEM_FREE) / 8);
-#endif
-#endif	/* illumos */
 	/* set min cache to 1/32 of all memory, or arc_abs_min, whichever is more */
-	arc_c_min = MAX(arc_c / 4, arc_abs_min);
-	/* set max to 1/2 of all memory, or all but 1GB, whichever is more */
-	if (arc_c * 8 >= 1 << 30)
-		arc_c_max = (arc_c * 8) - (1 << 30);
+	arc_c_min = MAX(allmem / 32, arc_abs_min);
+	/* set max to 5/8 of all memory, or all but 1GB, whichever is more */
+	if (allmem >= 1 << 30)
+		arc_c_max = allmem - (1 << 30);
 	else
 		arc_c_max = arc_c_min;
-	arc_c_max = MAX(arc_c * 5, arc_c_max);
+	arc_c_max = MAX(allmem * 5 / 8, arc_c_max);
 
 	/*
 	 * In userland, there's only the memory pressure that we artificially
@@ -6362,7 +6363,7 @@ arc_init(void)
 	 * Allow the tunables to override our calculations if they are
 	 * reasonable.
 	 */
-	if (zfs_arc_max > arc_abs_min && zfs_arc_max < kmem_size()) {
+	if (zfs_arc_max > arc_abs_min && zfs_arc_max < allmem) {
 		arc_c_max = zfs_arc_max;
 		arc_c_min = MIN(arc_c_min, arc_c_max);
 	}
@@ -6376,6 +6377,15 @@ arc_init(void)
 
 	/* limit meta-data to 1/4 of the arc capacity */
 	arc_meta_limit = arc_c_max / 4;
+
+#ifdef _KERNEL
+	/*
+	 * Metadata is stored in the kernel's heap.  Don't let us
+	 * use more than half the heap for the ARC.
+	 */
+	arc_meta_limit = MIN(arc_meta_limit,
+	    vmem_size(heap_arena, VMEM_ALLOC | VMEM_FREE) / 2);
+#endif
 
 	/* Allow the tunable to override if it is reasonable */
 	if (zfs_arc_meta_limit > 0 && zfs_arc_meta_limit <= arc_c_max)
@@ -6485,7 +6495,7 @@ arc_init(void)
 		printf("ZFS WARNING: Recommended minimum RAM size is 512MB; "
 		    "expect unstable behavior.\n");
 	}
-	if (kmem_size() < 512 * (1 << 20)) {
+	if (allmem < 512 * (1 << 20)) {
 		printf("ZFS WARNING: Recommended minimum kmem_size is 512MB; "
 		    "expect unstable behavior.\n");
 		printf("             Consider tuning vm.kmem_size and "
