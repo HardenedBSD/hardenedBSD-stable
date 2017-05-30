@@ -77,6 +77,7 @@ __DEFAULT_YES_OPTIONS = \
     CTM \
     CUSE \
     CXX \
+    DIALOG \
     DICT \
     DMAGENT \
     DYNAMICROOT \
@@ -348,6 +349,10 @@ MK_KERBEROS:=	no
 MK_CLANG:=	no
 MK_GROFF:=	no
 MK_GNUCXX:=	no
+.endif
+
+.if ${MK_DIALOG} == "no"
+MK_BSDINSTALL:=	no
 .endif
 
 .if ${MK_MAIL} == "no"
