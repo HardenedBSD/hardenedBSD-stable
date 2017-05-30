@@ -1213,7 +1213,7 @@ When set, it enforces these options:
 .It Va WITHOUT_PIE
 Disable building of Position-Independent Executables (PIEs).
 .Pp
-It is a default setting on
+This is a default setting on
 arm/arm, arm/armeb, arm/armv6, mips/mipsel, mips/mips, mips/mips64el, mips/mips64, mips/mipsn32, powerpc/powerpc, powerpc/powerpc64 and sparc64/sparc64.
 .It Va WITHOUT_PKGBOOTSTRAP
 Set to not build
@@ -1269,18 +1269,15 @@ Set to not build
 Set to not build
 .Xr routed 8
 utility.
-<<<<<<< HEAD
-.It Va WITH_SAFESTACK
-Set to compile with SafeStack.
-.Pp
-It is a default setting on
-amd64/amd64.
-=======
 .It Va WITH_RPCBIND_WARMSTART_SUPPORT
 Set to build
 .Xr rpcbind 8
 with warmstart support.
->>>>>>> origin/freebsd/11-stable/master
+.It Va WITH_SAFESTACK
+Set to compile with SafeStack.
+.Pp
+This is a default setting on
+amd64/amd64.
 .It Va WITHOUT_SENDMAIL
 Set to not build
 .Xr sendmail 8
