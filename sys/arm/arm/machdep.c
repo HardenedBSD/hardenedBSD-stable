@@ -303,6 +303,7 @@ cpu_idle_wakeup(int cpu)
 	return (0);
 }
 
+#ifdef NO_EVENTTIMERS
 /*
  * Most ARM platforms don't need to do anything special to init their clocks
  * (they get intialized during normal device attachment), and by not defining a
@@ -313,8 +314,14 @@ cpu_idle_wakeup(int cpu)
 void
 arm_generic_initclocks(void)
 {
+}
+__weak_reference(arm_generic_initclocks, cpu_initclocks);
 
-#ifndef NO_EVENTTIMERS
+#else
+void
+cpu_initclocks(void)
+{
+
 #ifdef SMP
 	if (PCPU_GET(cpuid) == 0)
 		cpu_initclocks_bsp();
@@ -323,9 +330,8 @@ arm_generic_initclocks(void)
 #else
 	cpu_initclocks_bsp();
 #endif
-#endif
 }
-__weak_reference(arm_generic_initclocks, cpu_initclocks);
+#endif
 
 #ifdef MULTIDELAY
 void

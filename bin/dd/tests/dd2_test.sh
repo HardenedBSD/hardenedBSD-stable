@@ -26,17 +26,35 @@
 # $FreeBSD$
 
 
-atf_test_case seek_overflow
-seek_overflow_head() {
-	atf_set "descr" "dd(1) should reject too-large seek values"
+atf_test_case max_seek
+max_seek_head()
+{
+	atf_set "descr" "dd(1) can seek by the maximum amount"
 }
-seek_overflow_body() {
+max_seek_body()
+{
+	case `df -T . | tail -n 1 | cut -wf 2` in
+		"ufs")
+			atf_skip "UFS's maximum file size is too small";;
+		"zfs") ;; # ZFS is fine
+		"tmpfs")
+			atf_skip "tmpfs can't create arbitrarily large spare files";;
+		*) atf_skip "Unknown file system";;
+	esac
+
 	touch f.in
-	# Positive tests
 	seek=`echo "2^63 / 4096 - 1" | bc`
 	atf_check -s exit:0 -e ignore dd if=f.in of=f.out bs=4096 seek=$seek
+}
 
-	# Negative tests
+atf_test_case seek_overflow
+seek_overflow_head()
+{
+	atf_set "descr" "dd(1) should reject too-large seek values"
+}
+seek_overflow_body()
+{
+	touch f.in
 	seek=`echo "2^63 / 4096" | bc`
 	atf_check -s not-exit:0 -e match:"seek offsets cannot be larger than" \
 		dd if=f.in of=f.out bs=4096 seek=$seek
@@ -46,5 +64,6 @@ seek_overflow_body() {
 
 atf_init_test_cases()
 {
-        atf_add_test_case seek_overflow
+	atf_add_test_case max_seek
+	atf_add_test_case seek_overflow
 }
