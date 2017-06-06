@@ -276,7 +276,6 @@ BROKEN_OPTIONS+=LIBSOFT
 BROKEN_OPTIONS+=EFI
 .endif
 
-<<<<<<< HEAD
 .if ${__T} == "amd64" || ${__T} == "i386" || ${__T} == "aarch64"
 __DEFAULT_YES_OPTIONS+=PIE
 .else
@@ -287,13 +286,13 @@ __DEFAULT_NO_OPTIONS+=PIE
 __DEFAULT_YES_OPTIONS+=SAFESTACK
 .else
 __DEFAULT_NO_OPTIONS+=SAFESTACK
-=======
+.endif
+
 .if ${__T} == "aarch64" || ${__T} == "amd64" || ${__T} == "i386" || \
     ${__T} == "powerpc64" || ${__T} == "sparc64"
 __DEFAULT_YES_OPTIONS+=CXGBETOOL
 .else
 __DEFAULT_NO_OPTIONS+=CXGBETOOL
->>>>>>> origin/freebsd/11-stable/master
 .endif
 
 .include <bsd.mkopt.mk>
