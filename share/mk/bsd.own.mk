@@ -412,12 +412,8 @@ __DEFAULT_NO_OPTIONS = \
     NAND \
     OFED \
     PKGTOOLS \
-<<<<<<< HEAD
     PORTSNAP \
-=======
     RPCBIND_WARMSTART_SUPPORT \
-    SHARED_TOOLCHAIN \
->>>>>>> origin/freebsd/10-stable/master
     SVN \
     USB_GADGET_EXAMPLES
 
