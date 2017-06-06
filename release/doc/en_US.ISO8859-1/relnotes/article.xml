@@ -194,6 +194,9 @@
 	sponsor="&ff;">Support for &man.blacklistd.8; has been added
 	to <application>OpenSSH</application>.</para>
 
+      <para revision="306213">The &man.bspatch.1; utility has been
+	updated with &man.capsicum.4; support.</para>
+
       <para revision="308720" contrib="sponsor" sponsor="&gandi;">The
 	&man.cron.8; utility has been updated to add support for
 	including files within <filename
@@ -240,13 +243,41 @@
       <para revision="318576" contrib="sponsor" sponsor="&ff;">The
 	&man.efivar.8; utility has been added, providing an interface
 	to manage <acronym>UEFI</acronym> variables.</para>
+
+      <para revision="319388">The &man.cxgbetool.8; utility has been
+	added, providing command-line access to features and debugging
+	facilities of &man.cxgbe.4; devices.</para>
     </sect2>
 
     <sect2 xml:id="userland-contrib">
       <title>Contributed Software</title>
 
+      <para revision="305837">&man.readelf.1; has been updated to
+	report &arch.arm; program and section header types.</para>
+
+      <para revision="305844" contrib="sponsor" sponsor="&ff;">The
+	<acronym>ELF</acronym> Tool Chain has been updated to upstream
+	revision r3490.</para>
+
+      <para revision="307631">&man.groff.1; has been updated to use
+	the changelog date rather than file modification date in
+	manual pages for build reproducibility.</para>
+
+      <note>
+	<para>&man.groff.1; is planned to be deprecated effective &os;
+	  12.0-RELEASE.</para>
+      </note>
+
       <para revision="307729">&man.unbound.8; has been updated to
 	version 1.5.10.</para>
+
+      <para revision="309125">&man.strings.1; has been updated to fix
+	the exit status when multiple files are provided as arguments,
+	and an error is encountered before the last file.</para>
+
+      <para revision="309183" contrib="sponsor"
+	sponsor="&ff;">&man.makewhatis.1; has been updated to produce
+	build-reproducible output.</para>
 
       <para revision="309511"><application>Subversion</application>
 	has been updated to version 1.9.5.</para>
@@ -336,7 +367,7 @@
     <sect2 xml:id="userland-installer">
       <title>Installation and Configuration Tools</title>
 
-      <para revision="311686">The &man.bsdinstall.8; installer has
+      <para revision="311686">The installer, &man.bsdinstall.8;, has
 	been updated to include support for hidden wireless networks
 	when configuring the &man.wlan.4; interface.</para>
     </sect2>
@@ -347,8 +378,9 @@
 
       <para revision="310009" contrib="sponsor"
 	sponsor="&fisglobal;">The <literal>jail_confwarn</literal>
-	&man.rc.conf.5; entry has been added, which suppresses warning
-	about obsolete per-&man.jail.8; configurations.</para>
+	&man.rc.conf.5; entry has been added, which suppresses
+	warnings about obsolete per-&man.jail.8;
+	configurations.</para>
     </sect2>
 
     <sect2 xml:id="userland-periodic">
@@ -369,6 +401,10 @@
 
     <sect2 xml:id="userland-libraries">
       <title>Runtime Libraries and API</title>
+
+      <para revision="310372">The <literal>libmd</literal> library has
+	been updated to introduce functions that operate on &man.fd.4;
+	instead of <literal>filename</literal>.</para>
 
       <para revision="316039">The &man.kvm.close.3; function has been
 	updated to return the accumulated error from previous
@@ -431,6 +467,21 @@
       tuning, and system control parameters that are not otherwise
       categorized.</para>
 
+    <sect2 xml:id="kernel-general">
+      <title>General Kernel Changes</title>
+
+      <para revision="305514">The &man.getdtablesize.2; system call is
+	now permitted in capability mode.</para>
+
+      <para revision="305516">The <literal>kern.proc.nfds</literal>
+	&man.sysctl.8; is now permitted in capability mode.</para>
+
+      <para revision="312249">The
+	<filename>sys/conf/newvers.sh</filename> script has been
+	updated with an option to exclude build-specific metadata from
+	the kernel for build reproducibility.</para>
+    </sect2>
+
     <sect2 xml:id="kernel-bugfix">
       <title>Kernel Bug Fixes</title>
 
@@ -443,10 +494,15 @@
     <sect2 xml:id="kernel-config">
       <title>Kernel Configuration</title>
 
-      <para revision="315514" contrib="sponsor" sponsor="&yandex;">The
-	<literal>IPSEC_NAT_T</literal> kernel configuration option has
-	been removed.  Support for <acronym>NAT-T</acronym> is now
-	enabled by default.</para>
+      <para revision="312730">The
+	<literal>WITH_REPRODUCIBLE_BUILD</literal> &man.src.conf.5;
+	knob has been added, which when set, excludes build-specific
+	metadata from the kernel, for build reproducibility.</para>
+
+      <para revision="315514" contrib="sponsor"
+	sponsor="&yandex;">Support for <acronym>NAT-T</acronym> is now
+	enabled by default.  The <literal>IPSEC_NAT_T</literal> kernel
+	configuration option has been removed.</para>
 
       <para revision="315514" contrib="sponsor" sponsor="&yandex;">The
 	<literal>IPSEC_FILTERTUNNEL</literal> kernel option has been
@@ -564,7 +620,10 @@
     <sect2 xml:id="drivers-storage">
       <title>Storage Drivers</title>
 
-      <para>&nbsp;</para>
+      <para revision="319435">The &man.mpr.4; driver has been updated
+	to support tri-mode
+	(<acronym>SAS</acronym>/<acronym>SATA</acronym>/<acronym>PCIe</acronym>)
+	Broadcom&reg; storage adapters.</para>
     </sect2>
 
     <sect2 xml:id="drivers-network">
@@ -766,6 +825,10 @@
 
     <sect2 xml:id="boot-loader">
       <title>Boot Loader Changes</title>
+
+      <para revision="305845" contrib="sponsor" sponsor="&ff;">The
+	<acronym>UEFI</acronym> boot loader has been updated for build
+	reproducibility.</para>
 
       <para revision="307632" contrib="sponsor" sponsor="&gandi;">The
 	<acronym>EFI</acronym> loader has been updated to support
