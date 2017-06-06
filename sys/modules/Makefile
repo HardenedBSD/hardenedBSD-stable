@@ -360,9 +360,8 @@ SUBDIR=	\
 	${_sym} \
 	${_syscons} \
 	sysvipc \
+	tcp \
 	${_ti} \
-	${_tcp_fastpath} \
-	${_tcpmd5} \
 	tl \
 	tmpfs \
 	${_toecore} \
@@ -444,10 +443,6 @@ _random_other=	random_other
 SUBDIR+=	cuse
 .endif
 
-.if ${MK_EXTRA_TCP_STACKS} != "no" || defined(ALL_MODULES)
-_tcp_fastpath=	tcp/fastpath
-.endif
-
 .if (${MK_INET_SUPPORT} != "no" || ${MK_INET6_SUPPORT} != "no") || \
 	defined(ALL_MODULES)
 _carp=		carp
@@ -458,7 +453,6 @@ _if_gre=	if_gre
 _ipfw_pmod=	ipfw_pmod
 .if ${MK_IPSEC_SUPPORT} != "no"
 _ipsec=		ipsec
-_tcpmd5=	tcp/tcpmd5
 .endif
 .endif
 
