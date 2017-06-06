@@ -14,18 +14,22 @@ CFLAGS+= -DPORTMAP
 CFLAGS+= -DINET6
 .endif
 
+.if ${MK_RPCBIND_WARMSTART_SUPPORT} != "no"
+CFLAGS+= -DWARMSTART
+.endif
+
 .if ${MK_TCP_WRAPPERS} != "no"
-CFLAGS+=	-DLIBWRAP
-DPADD+=		${LIBWRAP}
-LDADD+=		-lwrap
+CFLAGS+= -DLIBWRAP
+DPADD+=	${LIBWRAP}
+LDADD+=	-lwrap
 .endif
 
 .if ${MK_TESTS} != "no"
-SUBDIR+=	tests
+SUBDIR+= tests
 .endif
 
-DPADD+=		${LIBUTIL}
-LDADD+=		-lutil
+DPADD+=	${LIBUTIL}
+LDADD+=	-lutil
 
 WARNS?=	1
 

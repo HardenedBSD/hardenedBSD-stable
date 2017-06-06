@@ -412,7 +412,12 @@ __DEFAULT_NO_OPTIONS = \
     NAND \
     OFED \
     PKGTOOLS \
+<<<<<<< HEAD
     PORTSNAP \
+=======
+    RPCBIND_WARMSTART_SUPPORT \
+    SHARED_TOOLCHAIN \
+>>>>>>> origin/freebsd/10-stable/master
     SVN \
     USB_GADGET_EXAMPLES
 
@@ -466,6 +471,12 @@ __DEFAULT_NO_OPTIONS+=GNUCXX
 .else
 __DEFAULT_YES_OPTIONS+=GNUCXX
 .endif
+.endif
+.if ${__T} == "amd64" || ${__T} == "i386" || \
+    ${__T} == "powerpc64" || ${__T} == "sparc64"
+__DEFAULT_YES_OPTIONS+=CXGBETOOL
+.else
+__DEFAULT_NO_OPTIONS+=CXGBETOOL
 .endif
 # FDT is needed only for arm, mips and powerpc
 .if ${__T:Marm*} || ${__T:Mpowerpc*} || ${__T:Mmips*}

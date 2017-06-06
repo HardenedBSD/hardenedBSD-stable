@@ -17,6 +17,7 @@
 
 <!ENTITY darpa		"DARPA">
 <!ENTITY darpa_afrl	"DARPA, AFRL">
+<!ENTITY dellemc	"Dell EMC">
 
 <!ENTITY ff		"The&nbsp;&os;&nbsp;Foundation">
 <!ENTITY ff.url		"https://www.FreeBSDFoundation.org/">
@@ -30,6 +31,7 @@
 <!ENTITY limelight	"Limelight Networks">
 <!ENTITY lsi		"LSI">
 
+<!ENTITY ms		"Microsoft">
 <!ENTITY msostc		"Microsoft Open Source Technology Center">
 <!ENTITY multiplay	"Multiplay">
 

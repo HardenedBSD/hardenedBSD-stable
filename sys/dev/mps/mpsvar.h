@@ -33,7 +33,7 @@
 #ifndef _MPSVAR_H
 #define _MPSVAR_H
 
-#define MPS_DRIVER_VERSION	"21.01.00.00-fbsd"
+#define MPS_DRIVER_VERSION	"21.02.00.00-fbsd"
 
 #define MPS_DB_MAX_WAIT		2500
 
@@ -53,6 +53,7 @@
 
 #define MPS_PERIODIC_DELAY	1	/* 1 second heartbeat/watchdog check */
 #define MPS_ATA_ID_TIMEOUT	5	/* 5 second timeout for SATA ID cmd */
+#define MPS_MISSING_CHECK_DELAY	10	/* 10 seconds between missing check */
 
 #define MPS_SCSI_RI_INVALID_FRAME	(0x00000002)
 #define MPS_STRING_LENGTH               64
@@ -70,7 +71,6 @@
 #define MPS_MAX_MISSING_COUNT	0x0F
 #define MPS_DEV_RESERVED	0x20000000
 #define MPS_MAP_IN_USE		0x10000000
-#define MPS_RAID_CHANNEL	1
 #define MPS_MAP_BAD_ID		0xFFFFFFFF
 
 /*
@@ -107,7 +107,6 @@ typedef uint64_t u64;
  * @phy_bits: bitfields indicating controller phys
  * @dpm_entry_num: index of this device in device persistent map table
  * @dev_handle: device handle for the device pointed by this entry
- * @channel: target channel
  * @id: target id
  * @missing_count: number of times the device not detected by driver
  * @hide_flag: Hide this physical disk/not (foreign configuration)
@@ -119,8 +118,7 @@ struct dev_mapping_table {
 	u32	phy_bits;
 	u16	dpm_entry_num;
 	u16	dev_handle;
-	u8	reserved1;
-	u8	channel;
+	u16	reserved1;
 	u16	id;
 	u8	missing_count;
 	u8	init_complete;
@@ -285,15 +283,15 @@ struct mps_softc {
 	int				chain_free_lowwater;
 	u_int				enable_ssu;
 	int				spinup_wait_time;
-#if __FreeBSD_version >= 900030
+	int				use_phynum;
 	uint64_t			chain_alloc_fail;
-#endif
 	struct sysctl_ctx_list		sysctl_ctx;
 	struct sysctl_oid		*sysctl_tree;
 	char                            fw_version[16];
 	struct mps_command		*commands;
 	struct mps_chain		*chains;
 	struct callout			periodic;
+	struct callout			device_check_callout;
 
 	struct mpssas_softc		*sassc;
 	char            tmp_string[MPS_STRING_LENGTH];
@@ -378,13 +376,10 @@ struct mps_softc {
 	uint8_t				max_volumes;
 	uint8_t				num_enc_table_entries;
 	uint8_t				num_rsvd_entries;
-	uint8_t				num_channels;
 	uint16_t			max_dpm_entries;
 	uint8_t				is_dpm_enable;
 	uint8_t				track_mapping_events;
 	uint32_t			pending_map_events;
-	uint8_t				mt_full_retry;
-	uint8_t				mt_add_device_failed;
 
 	/* FW diag Buffer List */
 	mps_fw_diagnostic_buffer_t
@@ -485,20 +480,14 @@ mps_alloc_chain(struct mps_softc *sc)
 		sc->chain_free--;
 		if (sc->chain_free < sc->chain_free_lowwater)
 			sc->chain_free_lowwater = sc->chain_free;
-	}
-#if __FreeBSD_version >= 900030
-	else
+	} else
 		sc->chain_alloc_fail++;
-#endif
 	return (chain);
 }
 
 static __inline void
 mps_free_chain(struct mps_softc *sc, struct mps_chain *chain)
 {
-#if 0
-	bzero(chain->chain, 128);
-#endif
 	sc->chain_free++;
 	TAILQ_INSERT_TAIL(&sc->chain_list, chain, chain_link);
 }
@@ -616,6 +605,9 @@ mps_unlock(struct mps_softc *sc)
 #define mps_printf(sc, args...)				\
 	device_printf((sc)->mps_dev, ##args)
 
+#define mps_print_field(sc, msg, args...)		\
+	printf("\t" msg, ##args)
+
 #define mps_vprintf(sc, args...)			\
 do {							\
 	if (bootverbose)				\
@@ -628,25 +620,13 @@ do {							\
 		device_printf((sc)->mps_dev, msg, ##args);	\
 } while (0)
 
-#define mps_dprint_field(sc, level, msg, args...)		\
-do {								\
-	if ((sc)->mps_debug & (level))				\
-		printf("\t" msg, ##args);			\
-} while (0)
-
 #define MPS_PRINTFIELD_START(sc, tag...)	\
-	mps_dprint((sc), MPS_XINFO, ##tag);	\
-	mps_dprint_field((sc), MPS_XINFO, ":\n")
+	mps_printf((sc), ##tag);			\
+	mps_print_field((sc), ":\n")
 #define MPS_PRINTFIELD_END(sc, tag)		\
-	mps_dprint((sc), MPS_XINFO, tag "\n")
+	mps_printf((sc), tag "\n")
 #define MPS_PRINTFIELD(sc, facts, attr, fmt)	\
-	mps_dprint_field((sc), MPS_XINFO, #attr ": " #fmt "\n", (facts)->attr)
-
-#define MPS_EVENTFIELD_START(sc, tag...)	\
-	mps_dprint((sc), MPS_EVENT, ##tag);	\
-	mps_dprint_field((sc), MPS_EVENT, ":\n")
-#define MPS_EVENTFIELD(sc, facts, attr, fmt)	\
-	mps_dprint_field((sc), MPS_EVENT, #attr ": " #fmt "\n", (facts)->attr)
+	mps_print_field((sc), #attr ": " #fmt "\n", (facts)->attr)
 
 #define MPS_FUNCTRACE(sc)			\
 	mps_dprint((sc), MPS_TRACE, "%s\n", __func__)
@@ -717,7 +697,6 @@ void mpssas_record_event(struct mps_softc *sc,
 int mps_map_command(struct mps_softc *sc, struct mps_command *cm);
 int mps_wait_command(struct mps_softc *sc, struct mps_command *cm, int timeout,
     int sleep_flag);
-int mps_request_polled(struct mps_softc *sc, struct mps_command *cm);
 
 int mps_config_get_bios_pg3(struct mps_softc *sc, Mpi2ConfigReply_t
     *mpi_reply, Mpi2BiosPage3_t *config_page);
@@ -749,24 +728,25 @@ void mps_wd_config_pages(struct mps_softc *sc);
 int mps_mapping_initialize(struct mps_softc *);
 void mps_mapping_topology_change_event(struct mps_softc *,
     Mpi2EventDataSasTopologyChangeList_t *);
-int mps_mapping_is_reinit_required(struct mps_softc *);
 void mps_mapping_free_memory(struct mps_softc *sc);
 int mps_config_set_dpm_pg0(struct mps_softc *, Mpi2ConfigReply_t *,
     Mpi2DriverMappingPage0_t *, u16 );
 void mps_mapping_exit(struct mps_softc *);
-void mps_mapping_check_devices(struct mps_softc *, int);
+void mps_mapping_check_devices(void *);
 int mps_mapping_allocate_memory(struct mps_softc *sc);
-unsigned int mps_mapping_get_sas_id(struct mps_softc *, uint64_t , u16);
-unsigned int mps_mapping_get_sas_id_from_handle(struct mps_softc *sc,
+unsigned int mps_mapping_get_tid(struct mps_softc *, uint64_t , u16);
+unsigned int mps_mapping_get_tid_from_handle(struct mps_softc *sc,
     u16 handle);
-unsigned int mps_mapping_get_raid_id(struct mps_softc *sc, u64 wwid,
-    u16 handle);
-unsigned int mps_mapping_get_raid_id_from_handle(struct mps_softc *sc,
+unsigned int mps_mapping_get_raid_tid(struct mps_softc *sc, u64 wwid,
+     u16 volHandle);
+unsigned int mps_mapping_get_raid_tid_from_handle(struct mps_softc *sc,
     u16 volHandle);
 void mps_mapping_enclosure_dev_status_change_event(struct mps_softc *,
     Mpi2EventDataSasEnclDevStatusChange_t *event_data);
 void mps_mapping_ir_config_change_event(struct mps_softc *sc,
     Mpi2EventDataIrConfigChangeList_t *event_data);
+int mps_mapping_dump(SYSCTL_HANDLER_ARGS);
+int mps_mapping_encl_dump(SYSCTL_HANDLER_ARGS);
 
 void mpssas_evt_handler(struct mps_softc *sc, uintptr_t data,
     MPI2_EVENT_NOTIFICATION_REPLY *event);

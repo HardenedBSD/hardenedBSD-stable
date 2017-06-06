@@ -27,11 +27,8 @@
 
     <pubdate>$FreeBSD$</pubdate>
 
-    <!-- First rev: 285831 -->
-    <!-- Last rev: 284813 -->
-
     <copyright>
-      <year>2016</year>
+      <year>2017</year>
       <holder role="mailto:doc@FreeBSD.org">The &os; Documentation
 	Project</holder>
     </copyright>
@@ -165,19 +162,69 @@
     <sect2 xml:id="userland-config">
       <title>Userland Configuration Changes</title>
 
-      <para>&nbsp;</para>
+      <para revision="313206">The &man.inetd.8; utility is now built
+	without <literal>libwrap</literal> support when
+	<literal>WITHOUT_TCP_WRAPPERS</literal> is set in
+	&man.src.conf.5;.</para>
+
+      <para revision="316046">The &man.libthr.3; library and related
+	files are now evaluated and removed by the
+	<literal>delete-old-libs</literal> target when upgrading the
+	system if <literal>WITHOUT_LIBTHR</literal> is
+	set in &man.src.conf.5;.</para>
+
+      <para revision="319243">The
+	<literal>WITH_RPCBIND_WARMSTART_SUPPORT</literal>
+	&man.src.conf.5; knob has been added, which when enabled
+	allows building &man.rpcbind.8; with
+	<literal>warmstart</literal> support.</para>
     </sect2>
 
     <sect2 xml:id="userland-programs">
       <title>Userland Application Changes</title>
 
-      <para>&nbsp;</para>
+      <para revision="298427">The &man.truss.1; utility has been
+	updated to include the <literal>-H</literal> flag, which logs
+	the thread ID of a thread invoking a system call.</para>
+
+      <para revision="308915">The &man.zfsbootcfg.8; utility has been
+	added, providing one-time &man.boot.config.5;-style options
+	for &man.zfsboot.8;.</para>
+
+      <para revision="319390">The &man.cxgbetool.8; utility has been
+	added, providing command-line access to features and debugging
+	facilities of &man.cxgbe.4; devices.</para>
     </sect2>
 
     <sect2 xml:id="userland-contrib">
       <title>Contributed Software</title>
 
-      <para>&nbsp;</para>
+      <para revision="309512"><application>Subversion</application>
+	has been updated to version 1.9.5.</para>
+
+      <para revision="309848">&man.file.1; has been updated to version
+	5.29.</para>
+
+      <para revision="310490">The &man.amd.8; utility has been updated
+	to version 6.2.</para>
+
+      <para revision="312516">&man.xz.1; has been updated to version
+	5.2.3.</para>
+
+      <para revision="313796">&man.zlib.3; has been updated to version
+	1.2.11.</para>
+
+      <para revision="315433">&man.libarchive.3; has been updated to
+	version 3.3.1.</para>
+
+      <para revision="316069">&man.ntpd.8; has been updated to version
+	4.2.8p10.</para>
+
+      <para revision="316350">Timezone data files have been updated to
+	version 2017b.</para>
+
+      <para revision="316958">&man.tcsh.1; has been updated to version
+	6.20.00.</para>
     </sect2>
 
     <sect2 xml:id="userland-installer">
@@ -203,13 +250,32 @@
     <sect2 xml:id="userland-libraries">
       <title>Runtime Libraries and API</title>
 
-      <para>&nbsp;</para>
+      <para revision="316040">The &man.kvm.close.3; function has been
+	updated to return the accumulated error from previous
+	&man.close.2; calls.</para>
     </sect2>
 
     <sect2 xml:id="userland-abi">
       <title>ABI Compatibility</title>
 
-      <para>&nbsp;</para>
+      <para revision="309258">The type <literal>max_align_t</literal>
+	is now defined for C11 compliance.</para>
+    </sect2>
+
+    <sect2 xml:id="userland-debug">
+      <title>Userland Debugging</title>
+
+      <para revision="304017">&man.ptrace.2; now supports events for
+	thread creation and destruction, permitting more reliable
+	debugging of threaded processes.</para>
+
+      <para revision="304499">&man.ptrace.2; now supports events for
+	&man.vfork.2;, permitting reliable debugging across
+	&man.vfork.2; invocations.</para>
+
+      <para revision="306786">Process core dumps now include the
+	process ID (<acronym>PID</acronym>) and command line
+	arguments.</para>
     </sect2>
   </sect1>
 
@@ -223,7 +289,10 @@
     <sect2 xml:id="kernel-bugfix">
       <title>Kernel Bug Fixes</title>
 
-      <para></para>
+      <para revision="317434">The &man.ipf.4; packet filter has been
+	updated to prevent <literal>keep state</literal> from
+	incorrectly implying <literal>keep frags</literal>, matching
+	the behavior documented in &man.ipf.5;.</para>
     </sect2>
 
     <sect2 xml:id="kernel-config">
@@ -248,19 +317,55 @@
     <sect2 xml:id="drivers-device">
       <title>Device Drivers</title>
 
-      <para>&nbsp;</para>
+      <para revision="306533" contrib="sponsor"
+	sponsor="&chelsio;">&man.devctl.8; now supports a &quot;clear
+	driver&quot; command as a complement to &quot;set
+	driver&quot;.</para>
     </sect2>
 
     <sect2 xml:id="drivers-storage">
       <title>Storage Drivers</title>
 
-      <para></para>
+      <para revision="319436">The &man.mpr.4; driver has been updated
+	to support tri-mode
+	(<acronym>SAS</acronym>/<acronym>SATA</acronym>/<acronym>PCIe</acronym>)
+	Broadcom&reg; storage adapters.</para>
     </sect2>
 
     <sect2 xml:id="drivers-network">
       <title>Network Drivers</title>
 
-      <para>&nbsp;</para>
+      <para revision="309447" contrib="sponsor"
+	sponsor="&chelsio;">The &man.cxgbev.4; driver has been added,
+	providing support for Virtual Function devices
+	(<acronym>VFs</acronym>) on Chelsio T4 and T5 adapters.</para>
+
+      <para revision="309560" contrib="sponsor"
+	sponsor="&chelsio;">The &man.cxgbe.4; driver has been updated
+	to provide support for Virtual Function devices
+	(<acronym>VFs</acronym>) on Chelsio T6 adapters.</para>
+
+      <para revision="309560" contrib="sponsor"
+	sponsor="&chelsio;">The &man.cxgbe.4; driver now supports
+	devices using T6-based adapters which support 10, 25, 40, and
+	100 Gbps.</para>
+
+      <para revision="312359">The &man.alc.4; driver has been updated
+	to provide support for Atheros&reg; Killer&nbsp;E2400&trade;
+	Gigabit ethernet cards.</para>
+
+      <para revision="314019" contrib="sponsor" sponsor="&ms;">The
+	&man.alc.4; driver has been updated to provide support for
+	Atheros&reg; Killer&nbsp;E2500&trade; Gigabit ethernet
+	cards.</para>
+
+      <para revision="316485">The &man.qlnxe.4; driver has been added,
+	providing support for Cavium&reg; Qlogic&trade; 45000 Series
+	adapters.</para>
+
+      <para revision="319270" contrib="sponsor"
+	sponsor="&chelsio;">The &man.cxgbe.4; driver has been updated
+	to firmware version 1.16.45.0 for T4, T5, and T6 cards.</para>
     </sect2>
   </sect1>
 
@@ -281,7 +386,16 @@
     <sect2 xml:id="hardware-virtualization">
       <title>Virtualization Support</title>
 
-      <para></para>
+      <para revision="306520" contrib="sponsor"
+	sponsor="&chelsio;"><acronym>PCI</acronym> passthrough with
+	&man.bhyve.4; resets functions via <acronym>FLR</acronym> when
+	a virtual machine is started and stopped.</para>
+
+      <para revision="306472" contrib="sponsor"
+	sponsor="&chelsio;"><acronym>PCI</acronym> passthrough with
+	&man.bhyve.4; supports more dynamic configurations permitting
+	devices to be marked for passthrough or host use at
+	runtime.</para>
     </sect2>
 
     <sect2 xml:id="hardware-arm">
@@ -306,7 +420,13 @@
     <sect2 xml:id="storage-net">
       <title>Networked Storage</title>
 
-      <para>&nbsp;</para>
+      <para revision="318675">The <acronym>NFS</acronym> client now
+	properly handles <literal>NFS4ERR_BAD_SESSION</literal> errors
+	received from an <acronym>NFS</acronym> server.  Additionally,
+	the kernel <acronym>RPC</acronym> client has been updated to
+	prevent creating new <acronym>TCP</acronym> connections when
+	<literal>ERESTART</literal> is received from
+	&man.sosend.9;.</para>
     </sect2>
 
     <sect2 xml:id="storage-zfs">
@@ -347,10 +467,31 @@
     <para>This section describes changes that affect networking in
       &os;.</para>
 
+    <sect2 xml:id="network-general">
+      <title>General Networking Changes</title>
+
+      <para revision="313558" contrib="sponsor"
+	sponsor="&dellemc;">The network stack has been modified to fix
+	incorrect or invalid <acronym>IP</acronym> addresses if
+	multiple threads emit a <acronym>UDP</acronym>
+	<literal>log_in_vain</literal> message concurrently.</para>
+
+      <para revision="317375" contrib="sponsor"
+	sponsor="&multiplay;">The <acronym>TCP</acronym> stack has
+	been changed to use the estimated <acronym>RTT</acronym>
+	instead of timestamps for receive buffer auto resizing.</para>
+    </sect2>
+
     <sect2 xml:id="network-protocols">
       <title>Network Protocols</title>
 
-      <para>&nbsp;</para>
+      <para revision="309340" contrib="sponsor"
+	sponsor="&dellemc;">Support for <acronym>GARP</acronym>
+	(gratuitous <acronym>ARP</acronym>) retransmit has been added.
+	A new &man.sysctl.8;,
+	<literal>net.link.ether.inet.garp_rexmit_count</literal>, has
+	been added, which sets the maximum number of retransmissions
+	when set to a non-zero value.</para>
     </sect2>
   </sect1>
 

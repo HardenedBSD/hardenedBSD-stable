@@ -37,6 +37,9 @@
       <year>2012</year>
       <year>2013</year>
       <year>2014</year>
+      <year>2015</year>
+      <year>2016</year>
+      <year>2017</year>
       <holder role="mailto:doc@FreeBSD.org">The &os; Documentation
 	Project</holder>
     </copyright>
@@ -236,7 +239,7 @@
 
       <para>All of the mailing lists can be freely joined by anyone
 	wishing to do so.  Visit the <link
-	  xlink:href="&url.base;/mailman/listinfo"> &os; Mailman Info
+	  xlink:href="&url.base;/mailman/listinfo">&os; Mailman Info
 	  Page</link>.  This will give you more information on joining
 	the various lists, accessing archives, etc.  There are
 	a number of mailing lists targeted at special interest groups
