@@ -198,7 +198,7 @@ SYSCTL_INT(_kern, OID_AUTO, lastpid, CTLFLAG_RD, &lastpid, 0,
  */
 int randompid = 0;
 
-#ifndef PAX_HARDENING
+#ifndef HARDEN_RANDOMPID
 static int
 sysctl_kern_randompid(SYSCTL_HANDLER_ARGS)
 {
