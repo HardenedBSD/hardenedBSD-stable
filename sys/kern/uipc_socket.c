@@ -3559,8 +3559,7 @@ sodupsockaddr(const struct sockaddr *sa, int mflags)
  * Register per-socket buffer upcalls.
  */
 void
-soupcall_set(struct socket *so, int which,
-    int (*func)(struct socket *, void *, int), void *arg)
+soupcall_set(struct socket *so, int which, so_upcall_t func, void *arg)
 {
 	struct sockbuf *sb;
 
@@ -3575,10 +3574,6 @@ soupcall_set(struct socket *so, int which,
 		panic("soupcall_set: bad which");
 	}
 	SOCKBUF_LOCK_ASSERT(sb);
-#if 0
-	/* XXX: accf_http actually wants to do this on purpose. */
-	KASSERT(sb->sb_upcall == NULL, ("soupcall_set: overwriting upcall"));
-#endif
 	sb->sb_upcall = func;
 	sb->sb_upcallarg = arg;
 	sb->sb_flags |= SB_UPCALL;
