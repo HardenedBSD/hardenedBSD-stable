@@ -77,6 +77,30 @@ __FBSDID("$FreeBSD$");
  */
 static struct syscall decoded_syscalls[] = {
 	/* Native ABI */
+	{ .name = "__acl_aclcheck_fd", .ret_type = 1, .nargs = 3,
+	  .args = { { Int, 0 }, { Acltype, 1 }, { Ptr, 2 } } },
+	{ .name = "__acl_aclcheck_file", .ret_type = 1, .nargs = 3,
+	  .args = { { Name, 0 }, { Acltype, 1 }, { Ptr, 2 } } },
+	{ .name = "__acl_aclcheck_link", .ret_type = 1, .nargs = 3,
+	  .args = { { Name, 0 }, { Acltype, 1 }, { Ptr, 2 } } },
+	{ .name = "__acl_delete_fd", .ret_type = 1, .nargs = 2,
+	  .args = { { Int, 0 }, { Acltype, 1 } } },
+	{ .name = "__acl_delete_file", .ret_type = 1, .nargs = 2,
+	  .args = { { Name, 0 }, { Acltype, 1 } } },
+	{ .name = "__acl_delete_link", .ret_type = 1, .nargs = 2,
+	  .args = { { Name, 0 }, { Acltype, 1 } } },
+	{ .name = "__acl_get_fd", .ret_type = 1, .nargs = 3,
+	  .args = { { Int, 0 }, { Acltype, 1 }, { Ptr, 2 } } },
+	{ .name = "__acl_get_file", .ret_type = 1, .nargs = 3,
+	  .args = { { Name, 0 }, { Acltype, 1 }, { Ptr, 2 } } },
+	{ .name = "__acl_get_link", .ret_type = 1, .nargs = 3,
+	  .args = { { Name, 0 }, { Acltype, 1 }, { Ptr, 2 } } },
+	{ .name = "__acl_set_fd", .ret_type = 1, .nargs = 3,
+	  .args = { { Int, 0 }, { Acltype, 1 }, { Ptr, 2 } } },
+	{ .name = "__acl_set_file", .ret_type = 1, .nargs = 3,
+	  .args = { { Name, 0 }, { Acltype, 1 }, { Ptr, 2 } } },
+	{ .name = "__acl_set_link", .ret_type = 1, .nargs = 3,
+	  .args = { { Name, 0 }, { Acltype, 1 }, { Ptr, 2 } } },
 	{ .name = "__cap_rights_get", .ret_type = 1, .nargs = 3,
 	  .args = { { Int, 0 }, { Int, 1 }, { CapRights | OUT, 2 } } },
 	{ .name = "__getcwd", .ret_type = 1, .nargs = 2,
@@ -136,6 +160,42 @@ static struct syscall decoded_syscalls[] = {
 		    { ExecEnv | IN, 2 } } },
 	{ .name = "exit", .ret_type = 0, .nargs = 1,
 	  .args = { { Hex, 0 } } },
+	{ .name = "extattr_delete_fd", .ret_type = 1, .nargs = 3,
+	  .args = { { Int, 0 }, { Extattrnamespace, 1 }, { Name, 2 } } },
+	{ .name = "extattr_delete_file", .ret_type = 1, .nargs = 3,
+	  .args = { { Name, 0 }, { Extattrnamespace, 1 }, { Name, 2 } } },
+	{ .name = "extattr_delete_link", .ret_type = 1, .nargs = 3,
+	  .args = { { Name, 0 }, { Extattrnamespace, 1 }, { Name, 2 } } },
+	{ .name = "extattr_get_fd", .ret_type = 1, .nargs = 5,
+	  .args = { { Int, 0 }, { Extattrnamespace, 1 }, { Name, 2 },
+		    { BinString | OUT, 3 }, { Sizet, 4 } } },
+	{ .name = "extattr_get_file", .ret_type = 1, .nargs = 5,
+	  .args = { { Name, 0 }, { Extattrnamespace, 1 }, { Name, 2 },
+		    { BinString | OUT, 3 }, { Sizet, 4 } } },
+	{ .name = "extattr_get_link", .ret_type = 1, .nargs = 5,
+	  .args = { { Name, 0 }, { Extattrnamespace, 1 }, { Name, 2 },
+		    { BinString | OUT, 3 }, { Sizet, 4 } } },
+	{ .name = "extattr_list_fd", .ret_type = 1, .nargs = 4,
+	  .args = { { Int, 0 }, { Extattrnamespace, 1 }, { BinString | OUT, 2 },
+		    { Sizet, 3 } } },
+	{ .name = "extattr_list_file", .ret_type = 1, .nargs = 4,
+	  .args = { { Name, 0 }, { Extattrnamespace, 1 }, { BinString | OUT, 2 },
+		    { Sizet, 3 } } },
+	{ .name = "extattr_list_link", .ret_type = 1, .nargs = 4,
+	  .args = { { Name, 0 }, { Extattrnamespace, 1 }, { BinString | OUT, 2 },
+		    { Sizet, 3 } } },
+	{ .name = "extattr_set_fd", .ret_type = 1, .nargs = 5,
+	  .args = { { Int, 0 }, { Extattrnamespace, 1 }, { Name, 2 },
+		    { BinString | IN, 3 }, { Sizet, 4 } } },
+	{ .name = "extattr_set_file", .ret_type = 1, .nargs = 5,
+	  .args = { { Name, 0 }, { Extattrnamespace, 1 }, { Name, 2 },
+		    { BinString | IN, 3 }, { Sizet, 4 } } },
+	{ .name = "extattr_set_link", .ret_type = 1, .nargs = 5,
+	  .args = { { Name, 0 }, { Extattrnamespace, 1 }, { Name, 2 },
+		    { BinString | IN, 3 }, { Sizet, 4 } } },
+	{ .name = "extattrctl", .ret_type = 1, .nargs = 5,
+	  .args = { { Name, 0 }, { Hex, 1 }, { Name, 2 },
+		    { Extattrnamespace, 3 }, { Name, 4 } } },
 	{ .name = "faccessat", .ret_type = 1, .nargs = 4,
 	  .args = { { Atfd, 0 }, { Name | IN, 1 }, { Accessmode, 2 },
 		    { Atflags, 3 } } },
@@ -239,6 +299,8 @@ static struct syscall decoded_syscalls[] = {
 	  .args = { { Name | IN, 0 }, { Timeval2 | IN, 1 } } },
 	{ .name = "madvise", .ret_type = 1, .nargs = 3,
 	  .args = { { Ptr, 0 }, { Sizet, 1 }, { Madvice, 2 } } },
+	{ .name = "minherit", .ret_type = 1, .nargs = 3,
+	  .args = { { Ptr, 0 }, { Sizet, 1 }, { Minherit, 2 } } },
 	{ .name = "mkdir", .ret_type = 1, .nargs = 2,
 	  .args = { { Name, 0 }, { Octal, 1 } } },
 	{ .name = "mkdirat", .ret_type = 1, .nargs = 3,
@@ -251,19 +313,29 @@ static struct syscall decoded_syscalls[] = {
 	  .args = { { Name, 0 }, { Octal, 1 }, { Int, 2 } } },
 	{ .name = "mknodat", .ret_type = 1, .nargs = 4,
 	  .args = { { Atfd, 0 }, { Name, 1 }, { Octal, 2 }, { Int, 3 } } },
+	{ .name = "mlock", .ret_type = 1, .nargs = 2,
+	  .args = { { Ptr, 0 }, { Sizet, 1 } } },
+	{ .name = "mlockall", .ret_type = 1, .nargs = 1,
+	  .args = { { Mlockall, 0 } } },
 	{ .name = "mmap", .ret_type = 1, .nargs = 6,
 	  .args = { { Ptr, 0 }, { Sizet, 1 }, { Mprot, 2 }, { Mmapflags, 3 },
 		    { Int, 4 }, { QuadHex, 5 } } },
 	{ .name = "modfind", .ret_type = 1, .nargs = 1,
 	  .args = { { Name | IN, 0 } } },
 	{ .name = "mount", .ret_type = 1, .nargs = 4,
-	  .args = { { Name, 0 }, { Name, 1 }, { Int, 2 }, { Ptr, 3 } } },
+	  .args = { { Name, 0 }, { Name, 1 }, { Mountflags, 2 }, { Ptr, 3 } } },
 	{ .name = "mprotect", .ret_type = 1, .nargs = 3,
 	  .args = { { Ptr, 0 }, { Sizet, 1 }, { Mprot, 2 } } },
+	{ .name = "msync", .ret_type = 1, .nargs = 3,
+	  .args = { { Ptr, 0 }, { Sizet, 1 }, { Msync, 2 } } },
+	{ .name = "munlock", .ret_type = 1, .nargs = 2,
+	  .args = { { Ptr, 0 }, { Sizet, 1 } } },
 	{ .name = "munmap", .ret_type = 1, .nargs = 2,
 	  .args = { { Ptr, 0 }, { Sizet, 1 } } },
 	{ .name = "nanosleep", .ret_type = 1, .nargs = 1,
 	  .args = { { Timespec, 0 } } },
+	{ .name = "nmount", .ret_type = 1, .nargs = 3,
+	  .args = { { Ptr, 0 }, { UInt, 1 }, { Mountflags, 2 } } },
 	{ .name = "open", .ret_type = 1, .nargs = 3,
 	  .args = { { Name | IN, 0 }, { Open, 1 }, { Octal, 2 } } },
 	{ .name = "openat", .ret_type = 1, .nargs = 4,
@@ -384,7 +456,7 @@ static struct syscall decoded_syscalls[] = {
 	{ .name = "unlinkat", .ret_type = 1, .nargs = 3,
 	  .args = { { Atfd, 0 }, { Name, 1 }, { Atflags, 2 } } },
 	{ .name = "unmount", .ret_type = 1, .nargs = 2,
-	  .args = { { Name, 0 }, { Int, 1 } } },
+	  .args = { { Name, 0 }, { Mountflags, 1 } } },
 	{ .name = "utimensat", .ret_type = 1, .nargs = 4,
 	  .args = { { Atfd, 0 }, { Name | IN, 1 }, { Timespec2 | IN, 2 },
 		    { Atflags, 3 } } },
@@ -2031,6 +2103,26 @@ print_arg(struct syscall_args *sc, unsigned long *args, long *retval,
 			fprintf(fp, "0x%lx", args[sc->offset]);
 		break;
 	}
+	case Acltype:
+		print_integer_arg(sysdecode_acltype, fp, args[sc->offset]);
+		break;
+	case Extattrnamespace:
+		print_integer_arg(sysdecode_extattrnamespace, fp,
+		    args[sc->offset]);
+		break;
+	case Minherit:
+		print_integer_arg(sysdecode_minherit_inherit, fp,
+		    args[sc->offset]);
+		break;
+	case Mlockall:
+		print_mask_arg(sysdecode_mlockall_flags, fp, args[sc->offset]);
+		break;
+	case Mountflags:
+		print_mask_arg(sysdecode_mount_flags, fp, args[sc->offset]);
+		break;
+	case Msync:
+		print_mask_arg(sysdecode_msync_flags, fp, args[sc->offset]);
+		break;
 
 	case CloudABIAdvice:
 		fputs(xlookup(cloudabi_advice, args[sc->offset]), fp);
