@@ -69,6 +69,7 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
+#include "opt_compat.h"
 #include "opt_swap.h"
 #include "opt_vm.h"
 
@@ -115,9 +116,8 @@ __FBSDID("$FreeBSD$");
 #include <geom/geom.h>
 
 /*
- * SWB_NPAGES must be a power of 2.  It may be set to 1, 2, 4, 8, 16
- * or 32 pages per allocation.
- * The 32-page limit is due to the radix code (kern/subr_blist.c).
+ * MAX_PAGEOUT_CLUSTER must be a power of 2 between 1 and 64.
+ * The 64-page limit is due to the radix code (kern/subr_blist.c).
  */
 #ifndef MAX_PAGEOUT_CLUSTER
 #define MAX_PAGEOUT_CLUSTER 16
@@ -380,18 +380,14 @@ struct pagerops swappagerops = {
 };
 
 /*
- * dmmax is in page-sized chunks with the new swap system.  It was
- * dev-bsized chunks in the old.  dmmax is always a power of 2.
- *
  * swap_*() routines are externally accessible.  swp_*() routines are
  * internal.
  */
-static int dmmax;
 static int nswap_lowat = 128;	/* in pages, swap_pager_almost_full warn */
 static int nswap_hiwat = 512;	/* in pages, swap_pager_almost_full warn */
 
-SYSCTL_INT(_vm, OID_AUTO, dmmax, CTLFLAG_RD, &dmmax, 0,
-    "Maximum size of a swap block");
+SYSCTL_INT(_vm, OID_AUTO, dmmax, CTLFLAG_RD, &nsw_cluster_max, 0,
+    "Maximum size of a swap block in pages");
 
 static void	swp_sizecheck(void);
 static void	swp_pager_async_iodone(struct buf *bp);
@@ -488,11 +484,6 @@ swap_pager_init(void)
 	mtx_init(&sw_dev_mtx, "swapdev", NULL, MTX_DEF);
 	sx_init(&sw_alloc_sx, "swspsx");
 	sx_init(&swdev_syscall_lock, "swsysc");
-
-	/*
-	 * Device Stripe, in PAGE_SIZE'd blocks
-	 */
-	dmmax = SWB_NPAGES * 2;
 }
 
 /*
@@ -2212,7 +2203,7 @@ swaponsomething(struct vnode *vp, void *id, u_long nblks,
 	sp->sw_end = dvbase + nblks;
 	TAILQ_INSERT_TAIL(&swtailq, sp, sw_list);
 	nswapdev++;
-	swap_pager_avail += nblks;
+	swap_pager_avail += nblks - 2;
 	swap_total += (vm_ooffset_t)nblks * PAGE_SIZE;
 	swapon_check_swzone(swap_total / PAGE_SIZE);
 	swp_sizecheck();
@@ -2280,7 +2271,7 @@ done:
 static int
 swapoff_one(struct swdevt *sp, struct ucred *cred)
 {
-	u_long nblks, dvbase;
+	u_long nblks;
 #ifdef MAC
 	int error;
 #endif
@@ -2309,10 +2300,7 @@ swapoff_one(struct swdevt *sp, struct ucred *cred)
 	 */
 	mtx_lock(&sw_dev_mtx);
 	sp->sw_flags |= SW_CLOSING;
-	for (dvbase = 0; dvbase < sp->sw_end; dvbase += dmmax) {
-		swap_pager_avail -= blist_fill(sp->sw_blist,
-		     dvbase, dmmax);
-	}
+	swap_pager_avail -= blist_fill(sp->sw_blist, 0, nblks);
 	swap_total -= (vm_ooffset_t)nblks * PAGE_SIZE;
 	mtx_unlock(&sw_dev_mtx);
 
@@ -2417,10 +2405,24 @@ swap_dev_info(int name, struct xswdev *xs, char *devname, size_t len)
 	return (error);
 }
 
+#if defined(COMPAT_FREEBSD11)
+#define XSWDEV_VERSION_11	1
+struct xswdev11 {
+	u_int	xsw_version;
+	uint32_t xsw_dev;
+	int	xsw_flags;
+	int	xsw_nblks;
+	int     xsw_used;
+};
+#endif
+
 static int
 sysctl_vm_swap_info(SYSCTL_HANDLER_ARGS)
 {
 	struct xswdev xs;
+#if defined(COMPAT_FREEBSD11)
+	struct xswdev11 xs11;
+#endif
 	int error;
 
 	if (arg2 != 1)			/* name length */
@@ -2428,7 +2430,17 @@ sysctl_vm_swap_info(SYSCTL_HANDLER_ARGS)
 	error = swap_dev_info(*(int *)arg1, &xs, NULL, 0);
 	if (error != 0)
 		return (error);
-	error = SYSCTL_OUT(req, &xs, sizeof(xs));
+#if defined(COMPAT_FREEBSD11)
+	if (req->oldlen == sizeof(xs11)) {
+		xs11.xsw_version = XSWDEV_VERSION_11;
+		xs11.xsw_dev = xs.xsw_dev; /* truncation */
+		xs11.xsw_flags = xs.xsw_flags;
+		xs11.xsw_nblks = xs.xsw_nblks;
+		xs11.xsw_used = xs.xsw_used;
+		error = SYSCTL_OUT(req, &xs11, sizeof(xs11));
+	} else
+#endif
+		error = SYSCTL_OUT(req, &xs, sizeof(xs));
 	return (error);
 }
 

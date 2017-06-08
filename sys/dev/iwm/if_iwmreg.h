@@ -439,23 +439,11 @@ enum iwm_secure_boot_status_reg {
 };
 
 #define IWM_FH_UCODE_LOAD_STATUS	0x1af0
-#define IWM_CSR_UCODE_LOAD_STATUS_ADDR	0x1e70
-enum iwm_secure_load_status_reg {
-	IWM_LMPM_CPU_UCODE_LOADING_STARTED		= 0x00000001,
-	IWM_LMPM_CPU_HDRS_LOADING_COMPLETED		= 0x00000003,
-	IWM_LMPM_CPU_UCODE_LOADING_COMPLETED		= 0x00000007,
-	IWM_LMPM_CPU_STATUS_NUM_OF_LAST_COMPLETED	= 0x000000F8,
-	IWM_LMPM_CPU_STATUS_NUM_OF_LAST_LOADED_BLOCK	= 0x0000FF00,
-};
 #define IWM_FH_MEM_TB_MAX_LENGTH	0x20000
 
-#define IWM_LMPM_SECURE_INSPECTOR_CODE_ADDR		0x1e38
-#define IWM_LMPM_SECURE_INSPECTOR_DATA_ADDR		0x1e3c
 #define IWM_LMPM_SECURE_UCODE_LOAD_CPU1_HDR_ADDR	0x1e78
 #define IWM_LMPM_SECURE_UCODE_LOAD_CPU2_HDR_ADDR	0x1e7c
 
-#define IWM_LMPM_SECURE_INSPECTOR_CODE_MEM_SPACE	0x400000
-#define IWM_LMPM_SECURE_INSPECTOR_DATA_MEM_SPACE	0x402000
 #define IWM_LMPM_SECURE_CPU1_HDR_MEM_SPACE		0x420000
 #define IWM_LMPM_SECURE_CPU2_HDR_MEM_SPACE		0x420400
 
@@ -606,8 +594,6 @@ enum iwm_dtd_diode_reg {
  * @IWM_UCODE_TLV_FLAGS_NEWSCAN: new uCode scan behaviour on hidden SSID,
  *	treats good CRC threshold as a boolean
  * @IWM_UCODE_TLV_FLAGS_MFP: This uCode image supports MFP (802.11w).
- * @IWM_UCODE_TLV_FLAGS_P2P: This uCode image supports P2P.
- * @IWM_UCODE_TLV_FLAGS_DW_BC_TABLE: The SCD byte count table is in DWORDS
  * @IWM_UCODE_TLV_FLAGS_UAPSD: This uCode image supports uAPSD
  * @IWM_UCODE_TLV_FLAGS_SHORT_BL: 16 entries of black list instead of 64 in scan
  *	offload profile config command.
@@ -617,35 +603,24 @@ enum iwm_dtd_diode_reg {
  *	from the probe request template.
  * @IWM_UCODE_TLV_FLAGS_NEW_NSOFFL_SMALL: new NS offload (small version)
  * @IWM_UCODE_TLV_FLAGS_NEW_NSOFFL_LARGE: new NS offload (large version)
- * @IWM_UCODE_TLV_FLAGS_P2P_PS: P2P client power save is supported (only on a
- *	single bound interface).
  * @IWM_UCODE_TLV_FLAGS_UAPSD_SUPPORT: General support for uAPSD
  * @IWM_UCODE_TLV_FLAGS_EBS_SUPPORT: this uCode image supports EBS.
  * @IWM_UCODE_TLV_FLAGS_P2P_PS_UAPSD: P2P client supports uAPSD power save
  * @IWM_UCODE_TLV_FLAGS_BCAST_FILTERING: uCode supports broadcast filtering.
- * @IWM_UCODE_TLV_FLAGS_GO_UAPSD: AP/GO interfaces support uAPSD clients
- *
  */
 enum iwm_ucode_tlv_flag {
 	IWM_UCODE_TLV_FLAGS_PAN			= (1 << 0),
 	IWM_UCODE_TLV_FLAGS_NEWSCAN		= (1 << 1),
 	IWM_UCODE_TLV_FLAGS_MFP			= (1 << 2),
-	IWM_UCODE_TLV_FLAGS_P2P			= (1 << 3),
-	IWM_UCODE_TLV_FLAGS_DW_BC_TABLE		= (1 << 4),
 	IWM_UCODE_TLV_FLAGS_SHORT_BL		= (1 << 7),
 	IWM_UCODE_TLV_FLAGS_D3_6_IPV6_ADDRS	= (1 << 10),
 	IWM_UCODE_TLV_FLAGS_NO_BASIC_SSID	= (1 << 12),
 	IWM_UCODE_TLV_FLAGS_NEW_NSOFFL_SMALL	= (1 << 15),
 	IWM_UCODE_TLV_FLAGS_NEW_NSOFFL_LARGE	= (1 << 16),
-	IWM_UCODE_TLV_FLAGS_P2P_PS		= (1 << 21),
-	IWM_UCODE_TLV_FLAGS_BSS_P2P_PS_DCM	= (1 << 22),
-	IWM_UCODE_TLV_FLAGS_BSS_P2P_PS_SCM	= (1 << 23),
 	IWM_UCODE_TLV_FLAGS_UAPSD_SUPPORT	= (1 << 24),
 	IWM_UCODE_TLV_FLAGS_EBS_SUPPORT		= (1 << 25),
 	IWM_UCODE_TLV_FLAGS_P2P_PS_UAPSD	= (1 << 26),
 	IWM_UCODE_TLV_FLAGS_BCAST_FILTERING	= (1 << 29),
-	IWM_UCODE_TLV_FLAGS_GO_UAPSD		= (1 << 30),
-	IWM_UCODE_TLV_FLAGS_LTE_COEX		= (1 << 31),
 };
 
 #define IWM_UCODE_TLV_FLAG_BITS \
@@ -659,22 +634,14 @@ P2P_PS_SCM\31UAPSD_SUPPORT\32EBS\33P2P_PS_UAPSD\36BCAST_FILTERING\37GO_UAPSD\40L
  * @IWM_UCODE_TLV_API_FRAGMENTED_SCAN: This ucode supports active dwell time
  *	longer than the passive one, which is essential for fragmented scan.
  * @IWM_UCODE_TLV_API_WIFI_MCC_UPDATE: ucode supports MCC updates with source.
- * @IWM_UCODE_TLV_API_WIDE_CMD_HDR: ucode supports wide command header
  * @IWM_UCODE_TLV_API_LQ_SS_PARAMS: Configure STBC/BFER via LQ CMD ss_params
- * @IWM_UCODE_TLV_API_EXT_SCAN_PRIORITY: scan APIs use 8-level priority
- *	instead of 3.
- * @IWM_UCODE_TLV_API_TX_POWER_CHAIN: TX power API has larger command size
- *	(command version 3) that supports per-chain limits
  *
  * @IWM_NUM_UCODE_TLV_API: number of bits used
  */
 enum iwm_ucode_tlv_api {
-	IWM_UCODE_TLV_API_FRAGMENTED_SCAN	= (1 << 8),
-	IWM_UCODE_TLV_API_WIFI_MCC_UPDATE	= (1 << 9),
-	IWM_UCODE_TLV_API_WIDE_CMD_HDR		= (1 << 14),
-	IWM_UCODE_TLV_API_LQ_SS_PARAMS		= (1 << 18),
-	IWM_UCODE_TLV_API_EXT_SCAN_PRIORITY	= (1 << 24),
-	IWM_UCODE_TLV_API_TX_POWER_CHAIN	= (1 << 27),
+	IWM_UCODE_TLV_API_FRAGMENTED_SCAN	= 8,
+	IWM_UCODE_TLV_API_WIFI_MCC_UPDATE	= 9,
+	IWM_UCODE_TLV_API_LQ_SS_PARAMS		= 18,
 
 	IWM_NUM_UCODE_TLV_API = 32
 };
@@ -1818,7 +1785,7 @@ enum {
 	/* Phy */
 	IWM_PHY_CONFIGURATION_CMD = 0x6a,
 	IWM_CALIB_RES_NOTIF_PHY_DB = 0x6b,
-	/* IWM_PHY_DB_CMD = 0x6c, */
+	IWM_PHY_DB_CMD = 0x6c,
 
 	/* Power - legacy power table command */
 	IWM_POWER_TABLE_CMD = 0x77,
@@ -3620,17 +3587,11 @@ struct iwm_powertable_cmd {
 
 /**
  * enum iwm_device_power_flags - masks for device power command flags
- * @DEVIC_POWER_FLAGS_POWER_SAVE_ENA_MSK: '1' Allow to save power by turning off
- *	receiver and transmitter. '0' - does not allow. This flag should be
- *	always set to '1' unless one need to disable actual power down for debug
- *	purposes.
- * @IWM_DEVICE_POWER_FLAGS_CAM_MSK: '1' CAM (Continuous Active Mode) is set, meaning
- *	that power management is disabled. '0' Power management is enabled, one
- *	of power schemes is applied.
-*/
+ * @IWM_DEVICE_POWER_FLAGS_POWER_SAVE_ENA_MSK: '1' Allow to save power by turning off
+ *	receiver and transmitter. '0' - does not allow.
+ */
 enum iwm_device_power_flags {
 	IWM_DEVICE_POWER_FLAGS_POWER_SAVE_ENA_MSK	= (1 << 0),
-	IWM_DEVICE_POWER_FLAGS_CAM_MSK		= (1 << 13),
 };
 
 /**
@@ -4162,7 +4123,6 @@ struct iwm_lq_cmd {
  * @IWM_TX_CMD_FLG_MH_PAD: driver inserted 2 byte padding after MAC header.
  *	Should be set for 26/30 length MAC headers
  * @IWM_TX_CMD_FLG_RESP_TO_DRV: zero this if the response should go only to FW
- * @IWM_TX_CMD_FLG_CCMP_AGG: this frame uses CCMP for aggregation acceleration
  * @IWM_TX_CMD_FLG_TKIP_MIC_DONE: FW already performed TKIP MIC calculation
  * @IWM_TX_CMD_FLG_DUR: disable duration overwriting used in PS-Poll Assoc-id
  * @IWM_TX_CMD_FLG_FW_DROP: FW should mark frame to be dropped
@@ -4190,7 +4150,6 @@ enum iwm_tx_flags {
 	IWM_TX_CMD_FLG_AGG_START	= (1 << 19),
 	IWM_TX_CMD_FLG_MH_PAD		= (1 << 20),
 	IWM_TX_CMD_FLG_RESP_TO_DRV	= (1 << 21),
-	IWM_TX_CMD_FLG_CCMP_AGG		= (1 << 22),
 	IWM_TX_CMD_FLG_TKIP_MIC_DONE	= (1 << 23),
 	IWM_TX_CMD_FLG_DUR		= (1 << 25),
 	IWM_TX_CMD_FLG_FW_DROP		= (1 << 26),
@@ -5985,16 +5944,9 @@ struct iwm_dts_measurement_notif_v2 {
 #define IWM_FRAME_LIMIT	64
 
 /*
- * From Linux commit ab02165ccec4c78162501acedeef1a768acdb811:
- *   As the firmware is slowly running out of command IDs and grouping of
- *   commands is desirable anyway, the firmware is extending the command
- *   header from 4 bytes to 8 bytes to introduce a group (in place of the
- *   former flags field, since that's always 0 on commands and thus can
- *   be easily used to distinguish between the two).
- *
  * These functions retrieve specific information from the id field in
  * the iwm_host_cmd struct which contains the command id, the group id,
- * and the version of the command.
+ * and the version of the command and vice versa.
 */
 static inline uint8_t
 iwm_cmd_opcode(uint32_t cmdid)
@@ -6005,7 +5957,7 @@ iwm_cmd_opcode(uint32_t cmdid)
 static inline uint8_t
 iwm_cmd_groupid(uint32_t cmdid)
 {
-	return ((cmdid & 0Xff00) >> 8);
+	return ((cmdid & 0xff00) >> 8);
 }
 
 static inline uint8_t
@@ -6043,6 +5995,12 @@ struct iwm_cmd_header_wide {
 	uint8_t version;
 } __packed;
 
+/**
+ * enum iwm_power_scheme
+ * @IWM_POWER_LEVEL_CAM - Continuously Active Mode
+ * @IWM_POWER_LEVEL_BPS - Balanced Power Save (default)
+ * @IWM_POWER_LEVEL_LP  - Low Power
+ */
 enum iwm_power_scheme {
 	IWM_POWER_SCHEME_CAM = 1,
 	IWM_POWER_SCHEME_BPS,
@@ -6092,6 +6050,8 @@ struct iwm_rx_packet {
 } __packed;
 
 #define	IWM_FH_RSCSR_FRAME_SIZE_MSK	0x00003fff
+#define IWM_FH_RSCSR_FRAME_INVALID	0x55550000
+#define IWM_FH_RSCSR_FRAME_ALIGN	0x40
 
 static inline uint32_t
 iwm_rx_packet_len(const struct iwm_rx_packet *pkt)

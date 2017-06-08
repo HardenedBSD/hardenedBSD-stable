@@ -297,7 +297,7 @@ struct getgroups_args {
 };
 #endif
 int
-sys_getgroups(struct thread *td, register struct getgroups_args *uap)
+sys_getgroups(struct thread *td, struct getgroups_args *uap)
 {
 	struct ucred *cred;
 	u_int ngrp;
@@ -326,7 +326,7 @@ struct setsid_args {
 #endif
 /* ARGSUSED */
 int
-sys_setsid(register struct thread *td, struct setsid_args *uap)
+sys_setsid(struct thread *td, struct setsid_args *uap)
 {
 	struct pgrp *pgrp;
 	int error;
@@ -384,11 +384,11 @@ struct setpgid_args {
 #endif
 /* ARGSUSED */
 int
-sys_setpgid(struct thread *td, register struct setpgid_args *uap)
+sys_setpgid(struct thread *td, struct setpgid_args *uap)
 {
 	struct proc *curp = td->td_proc;
-	register struct proc *targp;	/* target process */
-	register struct pgrp *pgrp;	/* target pgrp */
+	struct proc *targp;	/* target process */
+	struct pgrp *pgrp;	/* target pgrp */
 	int error;
 	struct pgrp *newpgrp;
 
@@ -879,7 +879,7 @@ struct setreuid_args {
 #endif
 /* ARGSUSED */
 int
-sys_setreuid(register struct thread *td, struct setreuid_args *uap)
+sys_setreuid(struct thread *td, struct setreuid_args *uap)
 {
 	struct proc *p = td->td_proc;
 	struct ucred *newcred, *oldcred;
@@ -949,7 +949,7 @@ struct setregid_args {
 #endif
 /* ARGSUSED */
 int
-sys_setregid(register struct thread *td, struct setregid_args *uap)
+sys_setregid(struct thread *td, struct setregid_args *uap)
 {
 	struct proc *p = td->td_proc;
 	struct ucred *newcred, *oldcred;
@@ -1014,7 +1014,7 @@ struct setresuid_args {
 #endif
 /* ARGSUSED */
 int
-sys_setresuid(register struct thread *td, struct setresuid_args *uap)
+sys_setresuid(struct thread *td, struct setresuid_args *uap)
 {
 	struct proc *p = td->td_proc;
 	struct ucred *newcred, *oldcred;
@@ -1096,7 +1096,7 @@ struct setresgid_args {
 #endif
 /* ARGSUSED */
 int
-sys_setresgid(register struct thread *td, struct setresgid_args *uap)
+sys_setresgid(struct thread *td, struct setresgid_args *uap)
 {
 	struct proc *p = td->td_proc;
 	struct ucred *newcred, *oldcred;
@@ -1163,7 +1163,7 @@ struct getresuid_args {
 #endif
 /* ARGSUSED */
 int
-sys_getresuid(register struct thread *td, struct getresuid_args *uap)
+sys_getresuid(struct thread *td, struct getresuid_args *uap)
 {
 	struct ucred *cred;
 	int error1 = 0, error2 = 0, error3 = 0;
@@ -1190,7 +1190,7 @@ struct getresgid_args {
 #endif
 /* ARGSUSED */
 int
-sys_getresgid(register struct thread *td, struct getresgid_args *uap)
+sys_getresgid(struct thread *td, struct getresgid_args *uap)
 {
 	struct ucred *cred;
 	int error1 = 0, error2 = 0, error3 = 0;
@@ -1215,7 +1215,7 @@ struct issetugid_args {
 #endif
 /* ARGSUSED */
 int
-sys_issetugid(register struct thread *td, struct issetugid_args *uap)
+sys_issetugid(struct thread *td, struct issetugid_args *uap)
 {
 	struct proc *p = td->td_proc;
 
@@ -1396,6 +1396,35 @@ cr_canseeothergids(struct ucred *u1, struct ucred *u2)
 	return (0);
 }
 
+/*
+ * 'see_jail_proc' determines whether or not visibility of processes and
+ * sockets with credentials holding different jail ids is possible using a
+ * variety of system MIBs.
+ *
+ * XXX: data declarations should be together near the beginning of the file.
+ */
+
+static int	see_jail_proc = 1;
+SYSCTL_INT(_security_bsd, OID_AUTO, see_jail_proc, CTLFLAG_RW,
+    &see_jail_proc, 0,
+    "Unprivileged processes may see subjects/objects with different jail ids");
+
+/*-
+ * Determine if u1 "can see" the subject specified by u2, according to the
+ * 'see_jail_proc' policy.
+ * Returns: 0 for permitted, ESRCH otherwise
+ * Locks: none
+ * References: *u1 and *u2 must not change during the call
+ *             u1 may equal u2, in which case only one reference is required
+ */
+int
+cr_canseejailproc(struct ucred *u1, struct ucred *u2)
+{
+	if (u1->cr_uid == 0)
+		return (0);
+	return (!see_jail_proc && u1->cr_prison != u2->cr_prison ? ESRCH : 0);
+}
+
 /*-
  * Determine if u1 "can see" the subject specified by u2.
  * Returns: 0 for permitted, an errno value otherwise
@@ -1417,6 +1446,8 @@ cr_cansee(struct ucred *u1, struct ucred *u2)
 	if ((error = cr_canseeotheruids(u1, u2)))
 		return (error);
 	if ((error = cr_canseeothergids(u1, u2)))
+		return (error);
+	if ((error = cr_canseejailproc(u1, u2)))
 		return (error);
 	return (0);
 }
@@ -1792,7 +1823,7 @@ p_canwait(struct thread *td, struct proc *p)
 struct ucred *
 crget(void)
 {
-	register struct ucred *cr;
+	struct ucred *cr;
 
 	cr = malloc(sizeof(*cr), M_CRED, M_WAITOK | M_ZERO);
 	refcount_init(&cr->cr_ref, 1);

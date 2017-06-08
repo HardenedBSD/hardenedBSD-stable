@@ -969,6 +969,11 @@ vi_intr_iq(struct vi_info *vi, int idx)
 		return (&sc->sge.fwq);
 
 	nintr = vi->nintr;
+#ifdef DEV_NETMAP
+	/* Do not consider any netmap-only interrupts */
+	if (vi->flags & INTR_RXQ && vi->nnmrxq > vi->nrxq)
+		nintr -= vi->nnmrxq - vi->nrxq;
+#endif
 	KASSERT(nintr != 0,
 	    ("%s: vi %p has no exclusive interrupts, total interrupts = %d",
 	    __func__, vi, sc->intr_count));
@@ -2452,6 +2457,13 @@ cannot_use_txpkts(struct mbuf *m)
 	return (needs_tso(m));
 }
 
+static inline int
+discard_tx(struct sge_eq *eq)
+{
+
+	return ((eq->flags & (EQ_ENABLED | EQ_QFLUSH)) != EQ_ENABLED);
+}
+
 /*
  * r->items[cidx] to r->items[pidx], with a wraparound at r->size, are ready to
  * be consumed.  Return the actual number consumed.  0 indicates a stall.
@@ -2477,7 +2489,7 @@ eth_tx(struct mp_ring *r, u_int cidx, u_int pidx)
 	total = 0;
 
 	TXQ_LOCK(txq);
-	if (__predict_false((eq->flags & EQ_ENABLED) == 0)) {
+	if (__predict_false(discard_tx(eq))) {
 		while (cidx != pidx) {
 			m0 = r->items[cidx];
 			m_freem(m0);
@@ -4569,12 +4581,8 @@ write_txpkts_wr(struct sge_txq *txq, struct fw_eth_tx_pkts_wr *wr,
 			if (checkwrap &&
 			    (uintptr_t)cpl == (uintptr_t)&eq->desc[eq->sidx])
 				cpl = (void *)&eq->desc[0];
-			txq->txpkts0_pkts += txp->npkt;
-			txq->txpkts0_wrs++;
 		} else {
 			cpl = flitp;
-			txq->txpkts1_pkts += txp->npkt;
-			txq->txpkts1_wrs++;
 		}
 
 		/* Checksum offload */
@@ -4607,6 +4615,14 @@ write_txpkts_wr(struct sge_txq *txq, struct fw_eth_tx_pkts_wr *wr,
 
 		write_gl_to_txd(txq, m, (caddr_t *)(&flitp), checkwrap);
 
+	}
+
+	if (txp->wr_type == 0) {
+		txq->txpkts0_pkts += txp->npkt;
+		txq->txpkts0_wrs++;
+	} else {
+		txq->txpkts1_pkts += txp->npkt;
+		txq->txpkts1_wrs++;
 	}
 
 	txsd = &txq->sdesc[eq->pidx];
@@ -5311,7 +5327,7 @@ sysctl_tc(SYSCTL_HANDLER_ARGS)
 			tc->refcount--;
 		}
 		txq->tc_idx = tc_idx;
-	} else {
+	} else if (tc_idx != -1) {
 		tc = &pi->sched_params->cl_rl[tc_idx];
 		MPASS(tc->refcount > 0);
 		tc->refcount--;

@@ -8,9 +8,13 @@
     bin
         cat
         ..
+        chmod
+        ..
         date
         ..
         dd
+        ..
+        echo
         ..
         expr
         ..
@@ -606,11 +610,15 @@
         ..
         cmp
         ..
+        compress
+        ..
         cpio
         ..
         col
         ..
         comm
+        ..
+        csplit
         ..
         cut
         ..
@@ -619,6 +627,8 @@
         dirname
         ..
         file2c
+        ..
+        getconf
         ..
         grep
         ..
@@ -647,6 +657,8 @@
         pr
         ..
         printf
+        ..
+        procstat
         ..
         sdiff
         ..

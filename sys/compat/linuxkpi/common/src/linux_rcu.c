@@ -119,7 +119,7 @@ linux_rcu_runtime_init(void *arg __unused)
 		TAILQ_INIT(&record->ts_head);
 	}
 }
-SYSINIT(linux_rcu_runtime, SI_SUB_LOCK, SI_ORDER_SECOND, linux_rcu_runtime_init, NULL);
+SYSINIT(linux_rcu_runtime, SI_SUB_CPU, SI_ORDER_ANY, linux_rcu_runtime_init, NULL);
 
 static void
 linux_rcu_runtime_uninit(void *arg __unused)
@@ -236,7 +236,6 @@ linux_synchronize_rcu_cb(ck_epoch_t *epoch __unused, ck_epoch_record_t *epoch_re
 	if (record->cpuid == PCPU_GET(cpuid)) {
 		bool is_sleeping = 0;
 		u_char prio = 0;
-		u_char old_prio;
 
 		/*
 		 * Find the lowest priority or sleeping thread which
@@ -255,13 +254,10 @@ linux_synchronize_rcu_cb(ck_epoch_t *epoch __unused, ck_epoch_record_t *epoch_re
 			pause("W", 1);
 			thread_lock(td);
 		} else {
-			old_prio = td->td_priority;
 			/* set new thread priority */
 			sched_prio(td, prio);
 			/* task switch */
 			mi_switch(SW_VOL | SWT_RELINQUISH, NULL);
-			/* restore thread priority */
-			sched_prio(td, old_prio);
 		}
 	} else {
 		/*
@@ -282,6 +278,7 @@ linux_synchronize_rcu(void)
 	int was_bound;
 	int old_cpu;
 	int old_pinned;
+	u_char old_prio;
 
 	if (RCU_SKIP())
 		return;
@@ -301,6 +298,7 @@ linux_synchronize_rcu(void)
 
 	old_cpu = PCPU_GET(cpuid);
 	old_pinned = td->td_pinned;
+	old_prio = td->td_priority;
 	td->td_pinned = 0;
 	was_bound = sched_is_bound(td);
 	sched_bind(td, old_cpu);
@@ -319,6 +317,9 @@ linux_synchronize_rcu(void)
 	}
 	/* restore pinned after bind */
 	td->td_pinned = old_pinned;
+
+	/* restore thread priority */
+	sched_prio(td, old_prio);
 	thread_unlock(td);
 
 	PICKUP_GIANT();

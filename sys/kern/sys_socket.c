@@ -346,18 +346,23 @@ soo_fill_kinfo(struct file *fp, struct kinfo_file *kif, struct filedesc *fdp)
 
 	kif->kf_type = KF_TYPE_SOCKET;
 	so = fp->f_data;
-	kif->kf_sock_domain = so->so_proto->pr_domain->dom_family;
-	kif->kf_sock_type = so->so_type;
-	kif->kf_sock_protocol = so->so_proto->pr_protocol;
+	kif->kf_un.kf_sock.kf_sock_domain0 =
+	    so->so_proto->pr_domain->dom_family;
+	kif->kf_un.kf_sock.kf_sock_type0 = so->so_type;
+	kif->kf_un.kf_sock.kf_sock_protocol0 = so->so_proto->pr_protocol;
 	kif->kf_un.kf_sock.kf_sock_pcb = (uintptr_t)so->so_pcb;
-	switch (kif->kf_sock_domain) {
+	switch (kif->kf_un.kf_sock.kf_sock_domain0) {
 	case AF_INET:
 	case AF_INET6:
-		if (kif->kf_sock_protocol == IPPROTO_TCP) {
+		if (kif->kf_un.kf_sock.kf_sock_protocol0 == IPPROTO_TCP) {
 			if (so->so_pcb != NULL) {
 				inpcb = (struct inpcb *)(so->so_pcb);
 				kif->kf_un.kf_sock.kf_sock_inpcb =
 				    (uintptr_t)inpcb->inp_ppcb;
+				kif->kf_un.kf_sock.kf_sock_sendq =
+				    sbused(&so->so_snd);
+				kif->kf_un.kf_sock.kf_sock_recvq =
+				    sbused(&so->so_rcv);
 			}
 		}
 		break;
@@ -371,18 +376,24 @@ soo_fill_kinfo(struct file *fp, struct kinfo_file *kif, struct filedesc *fdp)
 				    so->so_rcv.sb_state;
 				kif->kf_un.kf_sock.kf_sock_snd_sb_state =
 				    so->so_snd.sb_state;
+				kif->kf_un.kf_sock.kf_sock_sendq =
+				    sbused(&so->so_snd);
+				kif->kf_un.kf_sock.kf_sock_recvq =
+				    sbused(&so->so_rcv);
 			}
 		}
 		break;
 	}
 	error = so->so_proto->pr_usrreqs->pru_sockaddr(so, &sa);
-	if (error == 0 && sa->sa_len <= sizeof(kif->kf_sa_local)) {
-		bcopy(sa, &kif->kf_sa_local, sa->sa_len);
+	if (error == 0 &&
+	    sa->sa_len <= sizeof(kif->kf_un.kf_sock.kf_sa_local)) {
+		bcopy(sa, &kif->kf_un.kf_sock.kf_sa_local, sa->sa_len);
 		free(sa, M_SONAME);
 	}
 	error = so->so_proto->pr_usrreqs->pru_peeraddr(so, &sa);
-	if (error == 0 && sa->sa_len <= sizeof(kif->kf_sa_peer)) {
-		bcopy(sa, &kif->kf_sa_peer, sa->sa_len);
+	if (error == 0 &&
+	    sa->sa_len <= sizeof(kif->kf_un.kf_sock.kf_sa_peer)) {
+		bcopy(sa, &kif->kf_un.kf_sock.kf_sa_peer, sa->sa_len);
 		free(sa, M_SONAME);
 	}
 	strncpy(kif->kf_path, so->so_proto->pr_domain->dom_name,

@@ -76,12 +76,14 @@ MALLOC_DEFINE(M_IDMA, "idma", "idma dma test memory");
 
 static int win_eth_can_remap(int i);
 
+static int decode_win_cesa_valid(void);
 static int decode_win_cpu_valid(void);
 static int decode_win_usb_valid(void);
 static int decode_win_usb3_valid(void);
 static int decode_win_eth_valid(void);
 static int decode_win_pcie_valid(void);
 static int decode_win_sata_valid(void);
+static int decode_win_sdhci_valid(void);
 
 static int decode_win_idma_valid(void);
 static int decode_win_xor_valid(void);
@@ -90,21 +92,25 @@ static void decode_win_cpu_setup(void);
 #ifdef SOC_MV_ARMADAXP
 static int decode_win_sdram_fixup(void);
 #endif
+static void decode_win_cesa_setup(u_long);
 static void decode_win_usb_setup(u_long);
 static void decode_win_usb3_setup(u_long);
 static void decode_win_eth_setup(u_long);
 static void decode_win_sata_setup(u_long);
 static void decode_win_ahci_setup(u_long);
+static void decode_win_sdhci_setup(u_long);
 
 static void decode_win_idma_setup(u_long);
 static void decode_win_xor_setup(u_long);
 
+static void decode_win_cesa_dump(u_long);
 static void decode_win_usb_dump(u_long);
 static void decode_win_usb3_dump(u_long);
 static void decode_win_eth_dump(u_long base);
 static void decode_win_idma_dump(u_long base);
 static void decode_win_xor_dump(u_long base);
 static void decode_win_ahci_dump(u_long base);
+static void decode_win_sdhci_dump(u_long);
 
 static int fdt_get_ranges(const char *, void *, int, int *, int *);
 #ifdef SOC_MV_ARMADA38X
@@ -127,6 +133,16 @@ const struct decode_win *cpu_wins = cpu_win_tbl;
 typedef void (*decode_win_setup_t)(u_long);
 typedef void (*dump_win_t)(u_long);
 
+/*
+ * The power status of device feature is only supported on
+ * Kirkwood and Discovery SoCs.
+ */
+#if defined(SOC_MV_KIRKWOOD) || defined(SOC_MV_DISCOVERY)
+#define	SOC_MV_POWER_STAT_SUPPORTED		1
+#else
+#define	SOC_MV_POWER_STAT_SUPPORTED		0
+#endif
+
 struct soc_node_spec {
 	const char		*compat;
 	decode_win_setup_t	decode_handler;
@@ -136,11 +152,14 @@ struct soc_node_spec {
 static struct soc_node_spec soc_nodes[] = {
 	{ "mrvl,ge", &decode_win_eth_setup, &decode_win_eth_dump },
 	{ "mrvl,usb-ehci", &decode_win_usb_setup, &decode_win_usb_dump },
+	{ "marvell,orion-ehci", &decode_win_usb_setup, &decode_win_usb_dump },
 	{ "marvell,armada-380-xhci", &decode_win_usb3_setup, &decode_win_usb3_dump },
 	{ "marvell,armada-380-ahci", &decode_win_ahci_setup, &decode_win_ahci_dump },
+	{ "marvell,armada-380-sdhci", &decode_win_sdhci_setup, &decode_win_sdhci_dump },
 	{ "mrvl,sata", &decode_win_sata_setup, NULL },
 	{ "mrvl,xor", &decode_win_xor_setup, &decode_win_xor_dump },
 	{ "mrvl,idma", &decode_win_idma_setup, &decode_win_idma_dump },
+	{ "mrvl,cesa", &decode_win_cesa_setup, &decode_win_cesa_dump },
 	{ "mrvl,pcie", &decode_win_pcie_setup, NULL },
 	{ NULL, NULL, NULL },
 };
@@ -165,10 +184,10 @@ static struct fdt_pm_mask_entry fdt_pm_mask_table[] = {
 static __inline int
 pm_is_disabled(uint32_t mask)
 {
-#if defined(SOC_MV_KIRKWOOD)
-	return (soc_power_ctrl_get(mask) == mask);
-#else
+#if SOC_MV_POWER_STAT_SUPPORTED
 	return (soc_power_ctrl_get(mask) == mask ? 0 : 1);
+#else
+	return (0);
 #endif
 }
 
@@ -355,7 +374,7 @@ uint32_t
 soc_power_ctrl_get(uint32_t mask)
 {
 
-#if !defined(SOC_MV_ORION)
+#if SOC_MV_POWER_STAT_SUPPORTED
 	if (mask != CPU_PM_CTRL_NONE)
 		mask &= read_cpu_ctrl(CPU_PM_CTRL);
 
@@ -568,7 +587,8 @@ soc_decode_win(void)
 	if (!decode_win_cpu_valid() || !decode_win_usb_valid() ||
 	    !decode_win_eth_valid() || !decode_win_idma_valid() ||
 	    !decode_win_pcie_valid() || !decode_win_sata_valid() ||
-	    !decode_win_xor_valid() || !decode_win_usb3_valid())
+	    !decode_win_xor_valid() || !decode_win_usb3_valid() ||
+	    !decode_win_sdhci_valid() || !decode_win_cesa_valid())
 		return (EINVAL);
 
 	decode_win_cpu_setup();
@@ -594,6 +614,11 @@ WIN_REG_IDX_WR(win_cpu, cr, MV_WIN_CPU_CTRL, MV_MBUS_BRIDGE_BASE)
 WIN_REG_IDX_WR(win_cpu, br, MV_WIN_CPU_BASE, MV_MBUS_BRIDGE_BASE)
 WIN_REG_IDX_WR(win_cpu, remap_l, MV_WIN_CPU_REMAP_LO, MV_MBUS_BRIDGE_BASE)
 WIN_REG_IDX_WR(win_cpu, remap_h, MV_WIN_CPU_REMAP_HI, MV_MBUS_BRIDGE_BASE)
+
+WIN_REG_BASE_IDX_RD(win_cesa, cr, MV_WIN_CESA_CTRL)
+WIN_REG_BASE_IDX_RD(win_cesa, br, MV_WIN_CESA_BASE)
+WIN_REG_BASE_IDX_WR(win_cesa, cr, MV_WIN_CESA_CTRL)
+WIN_REG_BASE_IDX_WR(win_cesa, br, MV_WIN_CESA_BASE)
 
 WIN_REG_BASE_IDX_RD(win_usb, cr, MV_WIN_USB_CTRL)
 WIN_REG_BASE_IDX_RD(win_usb, br, MV_WIN_USB_BASE)
@@ -658,6 +683,11 @@ WIN_REG_BASE_IDX_WR(win_sata, br, MV_WIN_SATA_BASE);
 WIN_REG_BASE_IDX_RD(win_sata, sz, MV_WIN_SATA_SIZE);
 WIN_REG_BASE_IDX_WR(win_sata, sz, MV_WIN_SATA_SIZE);
 #endif
+
+WIN_REG_BASE_IDX_RD(win_sdhci, cr, MV_WIN_SDHCI_CTRL);
+WIN_REG_BASE_IDX_RD(win_sdhci, br, MV_WIN_SDHCI_BASE);
+WIN_REG_BASE_IDX_WR(win_sdhci, cr, MV_WIN_SDHCI_CTRL);
+WIN_REG_BASE_IDX_WR(win_sdhci, br, MV_WIN_SDHCI_BASE);
 
 #ifndef SOC_MV_DOVE
 WIN_REG_IDX_RD(ddr, br, MV_WIN_DDR_BASE, MV_DDR_CADR_BASE)
@@ -1060,6 +1090,78 @@ ddr_target(int i)
 }
 
 /**************************************************************************
+ * CESA windows routines
+ **************************************************************************/
+static int
+decode_win_cesa_valid(void)
+{
+
+	return (decode_win_can_cover_ddr(MV_WIN_CESA_MAX));
+}
+
+static void
+decode_win_cesa_dump(u_long base)
+{
+	int i;
+
+	for (i = 0; i < MV_WIN_CESA_MAX; i++)
+		printf("CESA window#%d: c 0x%08x, b 0x%08x\n", i,
+		    win_cesa_cr_read(base, i), win_cesa_br_read(base, i));
+}
+
+/*
+ * Set CESA decode windows.
+ */
+static void
+decode_win_cesa_setup(u_long base)
+{
+	uint32_t br, cr;
+	uint64_t size;
+	int i, j;
+
+	for (i = 0; i < MV_WIN_CESA_MAX; i++) {
+		win_cesa_cr_write(base, i, 0);
+		win_cesa_br_write(base, i, 0);
+	}
+
+	/* Only access to active DRAM banks is required */
+	for (i = 0; i < MV_WIN_DDR_MAX; i++) {
+		if (ddr_is_active(i)) {
+			br = ddr_base(i);
+
+			size = ddr_size(i);
+#ifdef SOC_MV_ARMADA38X
+			/*
+			 * Armada 38x SoC's equipped with 4GB DRAM
+			 * suffer freeze during CESA operation, if
+			 * MBUS window opened at given DRAM CS reaches
+			 * end of the address space. Apply a workaround
+			 * by setting the window size to the closest possible
+			 * value, i.e. divide it by 2.
+			 */
+			if (size + ddr_base(i) == 0x100000000ULL)
+				size /= 2;
+#endif
+
+			cr = (((size - 1) & 0xffff0000) |
+			    (ddr_attr(i) << IO_WIN_ATTR_SHIFT) |
+			    (ddr_target(i) << IO_WIN_TGT_SHIFT) |
+			    IO_WIN_ENA_MASK);
+
+			/* Set the first free CESA window */
+			for (j = 0; j < MV_WIN_CESA_MAX; j++) {
+				if (win_cesa_cr_read(base, j) & 0x1)
+					continue;
+
+				win_cesa_br_write(base, j, br);
+				win_cesa_cr_write(base, j, cr);
+				break;
+			}
+		}
+	}
+}
+
+/**************************************************************************
  * USB windows routines
  **************************************************************************/
 static int
@@ -1090,7 +1192,6 @@ decode_win_usb_setup(u_long base)
 {
 	uint32_t br, cr;
 	int i, j;
-
 
 	if (pm_is_disabled(CPU_PM_CTRL_USB(usb_port)))
 		return;
@@ -2073,6 +2174,60 @@ decode_win_sata_valid(void)
 	return (decode_win_can_cover_ddr(MV_WIN_SATA_MAX));
 }
 
+static void
+decode_win_sdhci_setup(u_long base)
+{
+	uint32_t cr, br;
+	int i, j;
+
+	for (i = 0; i < MV_WIN_SDHCI_MAX; i++) {
+		win_sdhci_cr_write(base, i, 0);
+		win_sdhci_br_write(base, i, 0);
+	}
+
+	for (i = 0; i < MV_WIN_DDR_MAX; i++)
+		if (ddr_is_active(i)) {
+			br = ddr_base(i);
+			cr = (((ddr_size(i) - 1) &
+			    (IO_WIN_SIZE_MASK << IO_WIN_SIZE_SHIFT)) |
+			    (ddr_attr(i) << IO_WIN_ATTR_SHIFT) |
+			    (ddr_target(i) << IO_WIN_TGT_SHIFT) |
+			    IO_WIN_ENA_MASK);
+
+			/* Use the first available SDHCI window */
+			for (j = 0; j < MV_WIN_SDHCI_MAX; j++) {
+				if (win_sdhci_cr_read(base, j) & IO_WIN_ENA_MASK)
+					continue;
+
+				win_sdhci_cr_write(base, j, cr);
+				win_sdhci_br_write(base, j, br);
+				break;
+			}
+		}
+}
+
+static void
+decode_win_sdhci_dump(u_long base)
+{
+	int i;
+
+	for (i = 0; i < MV_WIN_SDHCI_MAX; i++)
+		printf("SDHCI window#%d: c 0x%08x, b 0x%08x\n", i,
+		    win_sdhci_cr_read(base, i), win_sdhci_br_read(base, i));
+}
+
+static int
+decode_win_sdhci_valid(void)
+{
+
+#ifdef SOC_MV_ARMADA38X
+	return (decode_win_can_cover_ddr(MV_WIN_SDHCI_MAX));
+#endif
+
+	/* Satisfy platforms not equipped with this controller. */
+	return (1);
+}
+
 /**************************************************************************
  * FDT parsing routines.
  **************************************************************************/
@@ -2138,6 +2293,12 @@ win_cpu_from_dt(void)
 		entry_size = tuple_size / sizeof(pcell_t);
 		cpu_wins_no = tuples;
 
+		/* Check range */
+		if (tuples > nitems(cpu_win_tbl)) {
+			debugf("too many tuples to fit into cpu_win_tbl\n");
+			return (ENOMEM);
+		}
+
 		for (i = 0, t = 0; t < tuples; i += entry_size, t++) {
 			cpu_win_tbl[t].target = 1;
 			cpu_win_tbl[t].attr = fdt32_to_cpu(ranges[i + 1]);
@@ -2169,6 +2330,12 @@ moveon:
 	sram_base = sram_size = 0;
 	if (fdt_regsize(node, &sram_base, &sram_size) != 0)
 		return (EINVAL);
+
+	/* Check range */
+	if (t >= nitems(cpu_win_tbl)) {
+		debugf("cannot fit CESA tuple into cpu_win_tbl\n");
+		return (ENOMEM);
+	}
 
 	cpu_win_tbl[t].target = MV_WIN_CESA_TARGET;
 #ifdef SOC_MV_ARMADA38X
@@ -2215,11 +2382,12 @@ moveon:
 static int
 fdt_win_setup(void)
 {
-	phandle_t node, child;
+	phandle_t node, child, sb;
 	struct soc_node_spec *soc_node;
 	u_long size, base;
 	int err, i;
 
+	sb = 0;
 	node = OF_finddevice("/");
 	if (node == -1)
 		panic("fdt_win_setup: no root node");
@@ -2261,7 +2429,7 @@ fdt_win_setup(void)
 		 */
 		child = OF_peer(child);
 		if ((child == 0) && (node == OF_finddevice("/"))) {
-			node = fdt_find_compatible(node, "simple-bus", 0);
+			sb = node = fdt_find_compatible(node, "simple-bus", 0);
 			if (node == 0)
 				return (ENXIO);
 			child = OF_child(node);
@@ -2271,7 +2439,7 @@ fdt_win_setup(void)
 		 * it is present) and its children. This node also have
 		 * "simple-bus" compatible.
 		 */
-		if ((child == 0) && (node == OF_finddevice("simple-bus"))) {
+		if ((child == 0) && (node == sb)) {
 			node = fdt_find_compatible(node, "simple-bus", 0);
 			if (node == 0)
 				return (0);

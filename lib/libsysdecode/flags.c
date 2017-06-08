@@ -487,6 +487,13 @@ sysdecode_getfsstat_mode(int mode)
 }
 
 const char *
+sysdecode_getrusage_who(int who)
+{
+
+	return (lookup_value(rusage, who));
+}
+
+const char *
 sysdecode_kldsym_cmd(int cmd)
 {
 
@@ -727,6 +734,19 @@ sysdecode_socketdomain(int domain)
 {
 
 	return (lookup_value(sockdomain, domain));
+}
+
+const char *
+sysdecode_socket_protocol(int domain, int protocol)
+{
+
+	switch (domain) {
+	case PF_INET:
+	case PF_INET6:
+		return (lookup_value(sockipproto, protocol));
+	default:
+		return (NULL);
+	}
 }
 
 const char *

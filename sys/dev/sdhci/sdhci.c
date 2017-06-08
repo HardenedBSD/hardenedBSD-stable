@@ -731,11 +731,11 @@ sdhci_init_slot(device_t dev, struct sdhci_slot *slot, int num)
 	    MMC_CAP_MMC_DDR52_180 | MMC_CAP_MMC_HS200_180 |
 	    MMC_CAP_MMC_HS400_180))
 		host_caps |= MMC_CAP_SIGNALING_180;
-	if (caps & SDHCI_CTRL2_DRIVER_TYPE_A)
+	if (caps2 & SDHCI_CAN_DRIVE_TYPE_A)
 		host_caps |= MMC_CAP_DRIVER_TYPE_A;
-	if (caps & SDHCI_CTRL2_DRIVER_TYPE_C)
+	if (caps2 & SDHCI_CAN_DRIVE_TYPE_C)
 		host_caps |= MMC_CAP_DRIVER_TYPE_C;
-	if (caps & SDHCI_CTRL2_DRIVER_TYPE_D)
+	if (caps2 & SDHCI_CAN_DRIVE_TYPE_D)
 		host_caps |= MMC_CAP_DRIVER_TYPE_D;
 	slot->host.caps = host_caps;
 
@@ -769,9 +769,9 @@ sdhci_init_slot(device_t dev, struct sdhci_slot *slot, int num)
 		    (caps & SDHCI_CAN_VDD_180) ? " 1.8V" : "",
 		    (host_caps & MMC_CAP_SIGNALING_180) ? " 1.8V" : "",
 		    (host_caps & MMC_CAP_SIGNALING_120) ? " 1.2V" : "",
-		    (caps & SDHCI_CTRL2_DRIVER_TYPE_A) ? "A" : "",
-		    (caps & SDHCI_CTRL2_DRIVER_TYPE_C) ? "C" : "",
-		    (caps & SDHCI_CTRL2_DRIVER_TYPE_D) ? "D" : "",
+		    (caps2 & SDHCI_CAN_DRIVE_TYPE_A) ? "A" : "",
+		    (caps2 & SDHCI_CAN_DRIVE_TYPE_C) ? "C" : "",
+		    (caps2 & SDHCI_CAN_DRIVE_TYPE_D) ? "D" : "",
 		    (slot->opt & SDHCI_HAVE_DMA) ? "DMA" : "PIO");
 		if (host_caps & (MMC_CAP_MMC_DDR52 | MMC_CAP_MMC_HS200 |
 		    MMC_CAP_MMC_HS400 | MMC_CAP_MMC_ENH_STROBE))
@@ -1060,7 +1060,7 @@ sdhci_set_transfer_mode(struct sdhci_slot *slot, struct mmc_data *data)
 		mode |= SDHCI_TRNS_MULTI;
 	if (data->flags & MMC_DATA_READ)
 		mode |= SDHCI_TRNS_READ;
-	if (slot->req->stop)
+	if (slot->req->stop && !(slot->quirks & SDHCI_QUIRK_BROKEN_AUTO_STOP))
 		mode |= SDHCI_TRNS_ACMD12;
 	if (slot->flags & SDHCI_USE_DMA)
 		mode |= SDHCI_TRNS_DMA;
@@ -1305,7 +1305,8 @@ sdhci_finish_data(struct sdhci_slot *slot)
 		    slot->intmask |= SDHCI_INT_RESPONSE);
 	}
 	/* Unload rest of data from DMA buffer. */
-	if (!slot->data_done && (slot->flags & SDHCI_USE_DMA)) {
+	if (!slot->data_done && (slot->flags & SDHCI_USE_DMA) &&
+	    slot->curcmd->data != NULL) {
 		if (data->flags & MMC_DATA_READ) {
 			left = data->len - slot->offset;
 			bus_dmamap_sync(slot->dmatag, slot->dmamap,
@@ -1343,17 +1344,18 @@ sdhci_start(struct sdhci_slot *slot)
 		sdhci_start_command(slot, req->cmd);
 		return;
 	}
-/* 	We don't need this until using Auto-CMD12 feature
-	if (!(slot->flags & STOP_STARTED) && req->stop) {
+	if ((slot->quirks & SDHCI_QUIRK_BROKEN_AUTO_STOP) &&
+	    !(slot->flags & STOP_STARTED) && req->stop) {
 		slot->flags |= STOP_STARTED;
 		sdhci_start_command(slot, req->stop);
 		return;
 	}
-*/
 	if (sdhci_debug > 1)
 		slot_printf(slot, "result: %d\n", req->cmd->error);
 	if (!req->cmd->error &&
-	    (slot->quirks & SDHCI_QUIRK_RESET_AFTER_REQUEST)) {
+	    ((slot->curcmd == req->stop &&
+	     (slot->quirks & SDHCI_QUIRK_BROKEN_AUTO_STOP)) ||
+	     (slot->quirks & SDHCI_QUIRK_RESET_AFTER_REQUEST))) {
 		sdhci_reset(slot, SDHCI_RESET_CMD);
 		sdhci_reset(slot, SDHCI_RESET_DATA);
 	}

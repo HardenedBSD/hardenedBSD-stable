@@ -932,7 +932,6 @@ ktrsyscall(struct ktr_syscall *ktr, u_int sv_flags)
 				ip++;
 				narg--;
 				break;
-			case SYS_mknod:
 			case SYS_mknodat:
 				print_number(ip, narg, c);
 				putchar(',');
@@ -1187,6 +1186,13 @@ ktrsyscall(struct ktr_syscall *ktr, u_int sv_flags)
 			case SYS_setrlimit:
 				putchar('(');
 				print_integer_arg(sysdecode_rlimit, *ip);
+				ip++;
+				narg--;
+				c = ',';
+				break;
+			case SYS_getrusage:
+				putchar('(');
+				print_integer_arg(sysdecode_getrusage_who, *ip);
 				ip++;
 				narg--;
 				c = ',';

@@ -452,7 +452,7 @@ sodealloc(struct socket *so)
 		    &so->so_snd.sb_hiwat, 0, RLIM_INFINITY);
 	/* remove accept filter if one is present. */
 	if (so->so_accf != NULL)
-		do_setopt_accept_filter(so, NULL);
+		accept_filt_setopt(so, NULL);
 #ifdef MAC
 	mac_socket_destroy(so);
 #endif
@@ -2526,7 +2526,7 @@ sosetopt(struct socket *so, struct sockopt *sopt)
 	} else {
 		switch (sopt->sopt_name) {
 		case SO_ACCEPTFILTER:
-			error = do_setopt_accept_filter(so, sopt);
+			error = accept_filt_setopt(so, sopt);
 			if (error)
 				goto bad;
 			break;
@@ -2784,7 +2784,7 @@ sogetopt(struct socket *so, struct sockopt *sopt)
 	} else {
 		switch (sopt->sopt_name) {
 		case SO_ACCEPTFILTER:
-			error = do_getopt_accept_filter(so, sopt);
+			error = accept_filt_getopt(so, sopt);
 			break;
 
 		case SO_LINGER:
@@ -3559,8 +3559,7 @@ sodupsockaddr(const struct sockaddr *sa, int mflags)
  * Register per-socket buffer upcalls.
  */
 void
-soupcall_set(struct socket *so, int which,
-    int (*func)(struct socket *, void *, int), void *arg)
+soupcall_set(struct socket *so, int which, so_upcall_t func, void *arg)
 {
 	struct sockbuf *sb;
 
@@ -3575,10 +3574,6 @@ soupcall_set(struct socket *so, int which,
 		panic("soupcall_set: bad which");
 	}
 	SOCKBUF_LOCK_ASSERT(sb);
-#if 0
-	/* XXX: accf_http actually wants to do this on purpose. */
-	KASSERT(sb->sb_upcall == NULL, ("soupcall_set: overwriting upcall"));
-#endif
 	sb->sb_upcall = func;
 	sb->sb_upcallarg = arg;
 	sb->sb_flags |= SB_UPCALL;

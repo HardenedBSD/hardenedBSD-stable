@@ -64,7 +64,7 @@ static int scanc(u_int, const u_char *, const u_char *, int);
 
 static daddr_t ffs_alloccg(struct inode *, int, daddr_t, int);
 static daddr_t ffs_alloccgblk(struct inode *, struct buf *, daddr_t);
-static daddr_t ffs_hashalloc(struct inode *, int, daddr_t, int,
+static daddr_t ffs_hashalloc(struct inode *, u_int, daddr_t, int,
 		     daddr_t (*)(struct inode *, int, daddr_t, int));
 static int32_t ffs_mapsearch(struct fs *, struct cg *, daddr_t, int);
 
@@ -152,8 +152,8 @@ daddr_t
 ffs_blkpref_ufs1(struct inode *ip, daddr_t lbn, int indx, int32_t *bap)
 {
 	struct fs *fs;
-	int cg;
-	int avgbfree, startcg;
+	u_int cg, startcg;
+	int avgbfree;
 
 	fs = ip->i_fs;
 	if (indx % fs->fs_maxbpg == 0 || bap[indx - 1] == 0) {
@@ -191,8 +191,8 @@ daddr_t
 ffs_blkpref_ufs2(struct inode *ip, daddr_t lbn, int indx, int64_t *bap)
 {
 	struct fs *fs;
-	int cg;
-	int avgbfree, startcg;
+	u_int cg, startcg;
+	int avgbfree;
 
 	fs = ip->i_fs;
 	if (indx % fs->fs_maxbpg == 0 || bap[indx - 1] == 0) {
@@ -240,12 +240,12 @@ ffs_blkpref_ufs2(struct inode *ip, daddr_t lbn, int indx, int64_t *bap)
  */
 /*VARARGS5*/
 static daddr_t
-ffs_hashalloc(struct inode *ip, int cg, daddr_t pref, int size,
+ffs_hashalloc(struct inode *ip, u_int cg, daddr_t pref, int size,
     daddr_t (*allocator)(struct inode *, int, daddr_t, int))
 {
 	struct fs *fs;
 	daddr_t result;
-	int i, icg = cg;
+	u_int i, icg = cg;
 
 	fs = ip->i_fs;
 	/*
@@ -297,11 +297,10 @@ ffs_alloccg(struct inode *ip, int cg, daddr_t bpref, int size)
 	int error, frags, allocsiz, i;
 	struct fs *fs = ip->i_fs;
 	const int needswap = UFS_FSNEEDSWAP(fs);
-	struct vnode vp = { ip->i_fd, ip->i_fs, NULL, 0 };
 
 	if (fs->fs_cs(fs, cg).cs_nbfree == 0 && size == fs->fs_bsize)
 		return (0);
-	error = bread(&vp, fsbtodb(fs, cgtod(fs, cg)), (int)fs->fs_cgsize,
+	error = bread(ip->i_devvp, fsbtodb(fs, cgtod(fs, cg)), (int)fs->fs_cgsize,
 	    NULL, &bp);
 	if (error) {
 		brelse(bp, 0);
@@ -433,7 +432,6 @@ ffs_blkfree(struct inode *ip, daddr_t bno, long size)
 	int i, error, cg, blk, frags, bbase;
 	struct fs *fs = ip->i_fs;
 	const int needswap = UFS_FSNEEDSWAP(fs);
-	struct vnode vp = { ip->i_fd, ip->i_fs, NULL, 0 };
 
 	if (size > fs->fs_bsize || fragoff(fs, size) != 0 ||
 	    fragnum(fs, bno) + numfrags(fs, size) > fs->fs_frag) {
@@ -446,7 +444,7 @@ ffs_blkfree(struct inode *ip, daddr_t bno, long size)
 		    (uintmax_t)ip->i_number);
 		return;
 	}
-	error = bread(&vp, fsbtodb(fs, cgtod(fs, cg)), (int)fs->fs_cgsize,
+	error = bread(ip->i_devvp, fsbtodb(fs, cgtod(fs, cg)), (int)fs->fs_cgsize,
 	    NULL, &bp);
 	if (error) {
 		brelse(bp, 0);
