@@ -834,17 +834,11 @@ rfb_handle(struct rfb_softc *rc, int cfd)
 		/* Encrypt the Challenge with DES */
 		DES_set_key((const_DES_cblock *)keystr, &ks);
 		DES_ecb_encrypt((const_DES_cblock *)challenge,
-<<<<<<< HEAD
-				(const_DES_cblock *)crypt_expected, &ks, DES_ENCRYPT);
-		DES_ecb_encrypt((const_DES_cblock *)(challenge + PASSWD_LENGTH),
-				(const_DES_cblock *)(crypt_expected + PASSWD_LENGTH),
-=======
 				(const_DES_cblock *)crypt_expected,
 				&ks, DES_ENCRYPT);
 		DES_ecb_encrypt((const_DES_cblock *)(challenge + PASSWD_LENGTH),
 				(const_DES_cblock *)(crypt_expected +
 				PASSWD_LENGTH),
->>>>>>> origin/freebsd/current/master
 				&ks, DES_ENCRYPT);
 
 		if (memcmp(crypt_expected, buf, AUTH_LENGTH) != 0) {
