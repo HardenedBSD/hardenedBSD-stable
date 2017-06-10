@@ -240,6 +240,8 @@ static struct syscall decoded_syscalls[] = {
 	  .args = { { Int, 0 }, { Sockaddr | OUT, 1 }, { Ptr | OUT, 2 } } },
 	{ .name = "getpgid", .ret_type = 1, .nargs = 1,
 	  .args = { { Int, 0 } } },
+	{ .name = "getpriority", .ret_type = 1, .nargs = 2,
+	  .args = { { Priowhich, 0 }, { Int, 1 } } },
 	{ .name = "getrlimit", .ret_type = 1, .nargs = 2,
 	  .args = { { Resource, 0 }, { Rlimit | OUT, 1 } } },
 	{ .name = "getrusage", .ret_type = 1, .nargs = 2,
@@ -359,9 +361,13 @@ static struct syscall decoded_syscalls[] = {
 		    { QuadHex, 3 } } },
 	{ .name = "procctl", .ret_type = 1, .nargs = 4,
 	  .args = { { Idtype, 0 }, { Quad, 1 }, { Procctl, 2 }, { Ptr, 3 } } },
+	{ .name = "ptrace", .ret_type = 1, .nargs = 4,
+	  .args = { { Ptraceop, 0 }, { Int, 1 }, { Ptr, 2 }, { Int, 3 } } },
 	{ .name = "pwrite", .ret_type = 1, .nargs = 4,
 	  .args = { { Int, 0 }, { BinString | IN, 1 }, { Sizet, 2 },
 		    { QuadHex, 3 } } },
+	{ .name = "quotactl", .ret_type = 1, .nargs = 4,
+	  .args = { { Name, 0 }, { Quotactlcmd, 1 }, { Int, 2 }, { Ptr, 3 } } },
 	{ .name = "read", .ret_type = 1, .nargs = 3,
 	  .args = { { Int, 0 }, { BinString | OUT, 1 }, { Sizet, 2 } } },
 	{ .name = "readlink", .ret_type = 1, .nargs = 3,
@@ -369,6 +375,8 @@ static struct syscall decoded_syscalls[] = {
 	{ .name = "readlinkat", .ret_type = 1, .nargs = 4,
 	  .args = { { Atfd, 0 }, { Name, 1 }, { Readlinkres | OUT, 2 },
 		    { Sizet, 3 } } },
+	{ .name = "reboot", .ret_type = 1, .nargs = 1,
+	  .args = { { Reboothowto, 0 } } },
 	{ .name = "recvfrom", .ret_type = 1, .nargs = 6,
 	  .args = { { Int, 0 }, { BinString | OUT, 1 }, { Sizet, 2 },
 	            { Msgflags, 3 }, { Sockaddr | OUT, 4 },
@@ -383,6 +391,10 @@ static struct syscall decoded_syscalls[] = {
 	  .args = { { Rforkflags, 0 } } },
 	{ .name = "rmdir", .ret_type = 1, .nargs = 1,
 	  .args = { { Name, 0 } } },
+	{ .name = "rtprio", .ret_type = 1, .nargs = 3,
+	  .args = { { Rtpriofunc, 0 }, { Int, 1 }, { Ptr, 2 } } },
+	{ .name = "rtprio_thread", .ret_type = 1, .nargs = 3,
+	  .args = { { Rtpriofunc, 0 }, { Int, 1 }, { Ptr, 2 } } },
 	{ .name = "sctp_generic_recvmsg", .ret_type = 1, .nargs = 7,
 	  .args = { { Int, 0 }, { Ptr | IN, 1 }, { Int, 2 },
 	            { Sockaddr | OUT, 3 }, { Ptr | OUT, 4 }, { Ptr | OUT, 5 },
@@ -402,6 +414,8 @@ static struct syscall decoded_syscalls[] = {
 	            { Socklent | IN, 5 } } },
 	{ .name = "setitimer", .ret_type = 1, .nargs = 3,
 	  .args = { { Int, 0 }, { Itimerval, 1 }, { Itimerval | OUT, 2 } } },
+	{ .name = "setpriority", .ret_type = 1, .nargs = 3,
+	  .args = { { Priowhich, 0 }, { Int, 1 }, { Int, 2 } } },
 	{ .name = "setrlimit", .ret_type = 1, .nargs = 2,
 	  .args = { { Resource, 0 }, { Rlimit | IN, 1 } } },
 	{ .name = "setsockopt", .ret_type = 1, .nargs = 5,
@@ -2122,6 +2136,24 @@ print_arg(struct syscall_args *sc, unsigned long *args, long *retval,
 		break;
 	case Msync:
 		print_mask_arg(sysdecode_msync_flags, fp, args[sc->offset]);
+		break;
+	case Priowhich:
+		print_integer_arg(sysdecode_prio_which, fp, args[sc->offset]);
+		break;
+	case Ptraceop:
+		print_integer_arg(sysdecode_ptrace_request, fp,
+		    args[sc->offset]);
+		break;
+	case Quotactlcmd:
+		if (!sysdecode_quotactl_cmd(fp, args[sc->offset]))
+			fprintf(fp, "%#x", (int)args[sc->offset]);
+		break;
+	case Reboothowto:
+		print_mask_arg(sysdecode_reboot_howto, fp, args[sc->offset]);
+		break;
+	case Rtpriofunc:
+		print_integer_arg(sysdecode_rtprio_function, fp,
+		    args[sc->offset]);
 		break;
 
 	case CloudABIAdvice:
