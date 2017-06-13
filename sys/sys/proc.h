@@ -297,12 +297,7 @@ struct thread {
 	u_char		td_pri_class;	/* (t) Scheduling class. */
 	u_char		td_user_pri;	/* (t) User pri from estcpu and nice. */
 	u_char		td_base_user_pri; /* (t) Base user pri */
-<<<<<<< HEAD
 	uint32_t	td_pax;		/* (b) Cached PaX settings from process. */
-	u_int		td_dbg_sc_code;	/* (c) Syscall code to debugger. */
-	u_int		td_dbg_sc_narg;	/* (c) Syscall arg count to debugger.*/
-=======
->>>>>>> origin/freebsd/current/master
 	uintptr_t	td_rb_list;	/* (k) Robust list head. */
 	uintptr_t	td_rbp_list;	/* (k) Robust priv list head. */
 	uintptr_t	td_rb_inact;	/* (k) Current in-action mutex loc. */
