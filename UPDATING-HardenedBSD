@@ -1,3 +1,11 @@
+[20170616] Changed default protection settings for text section
+__HardenedBSD_version = 50 
+
+       Fixes the (theoretically) last outstanding memory
+       protection related weakness in HBSD's user-space detectable
+       with paxtest.
+
+
 [20170302] Enable CFI by default for amd64
 __HardenedBSD_version = 49
 
