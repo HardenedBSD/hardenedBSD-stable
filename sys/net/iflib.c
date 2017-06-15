@@ -93,6 +93,7 @@ __FBSDID("$FreeBSD$");
 #include <x86/iommu/busdma_dmar.h>
 #endif
 
+#include <sys/bitstring.h>
 /*
  * enable accounting of every mbuf as it comes in to and goes out of
  * iflib's software descriptor references
@@ -381,6 +382,8 @@ struct iflib_fl {
 #endif
 	/* implicit pad */
 
+	bitstr_t 	*ifl_rx_bitmap;;
+	qidx_t		ifl_fragidx;
 	/* constant */
 	qidx_t		ifl_size;
 	uint16_t	ifl_buf_size;
@@ -520,17 +523,6 @@ rxd_info_zero(if_rxd_info_t ri)
 #define MAX_SINGLE_PACKET_FRACTION 12
 #define IF_BAD_DMA (bus_addr_t)-1
 
-static SYSCTL_NODE(_net, OID_AUTO, iflib, CTLFLAG_RD, 0,
-                   "iflib driver parameters");
-
-static int iflib_timer_int;
-SYSCTL_INT(_net_iflib, OID_AUTO, timer_int, CTLFLAG_RW, &iflib_timer_int,
-    0, "interval at which to run per-queue timers (in ticks)");
-
-static int force_busdma = 1;
-SYSCTL_INT(_net_iflib, OID_AUTO, force_busdma, CTLFLAG_RDTUN, &force_busdma,
-    1, "force busdma");
-
 #define CTX_ACTIVE(ctx) ((if_getdrvflags((ctx)->ifc_ifp) & IFF_DRV_RUNNING))
 
 #define CTX_LOCK_INIT(_sc, _name)  mtx_init(&(_sc)->ifc_mtx, _name, "iflib ctx lock", MTX_DEF)
@@ -569,6 +561,9 @@ TASKQGROUP_DEFINE(if_config_tqg, 1, 1);
 #define IFLIB_DEBUG_COUNTERS 0
 #endif /* !INVARIANTS */
 #endif
+
+static SYSCTL_NODE(_net, OID_AUTO, iflib, CTLFLAG_RD, 0,
+                   "iflib driver parameters");
 
 /*
  * XXX need to ensure that this can't accidentally cause the head to be moved backwards 
@@ -1805,7 +1800,7 @@ static void
 _iflib_fl_refill(if_ctx_t ctx, iflib_fl_t fl, int count)
 {
 	struct mbuf *m;
-	int idx, pidx = fl->ifl_pidx;
+	int idx, frag_idx = fl->ifl_fragidx, pidx = fl->ifl_pidx;
 	caddr_t cl, *sd_cl;
 	struct mbuf **sd_m;
 	uint8_t *sd_flags;
@@ -1848,8 +1843,11 @@ _iflib_fl_refill(if_ctx_t ctx, iflib_fl_t fl, int count)
 		 *
 		 * If the cluster is still set then we know a minimum sized packet was received
 		 */
-		if ((cl = sd_cl[idx]) == NULL) {
-			if ((cl = sd_cl[idx] = m_cljget(NULL, M_NOWAIT, fl->ifl_buf_size)) == NULL)
+		bit_ffc_at(fl->ifl_rx_bitmap, frag_idx, fl->ifl_size,  &frag_idx);
+		if ((frag_idx < 0) || (frag_idx >= fl->ifl_size))
+                	bit_ffc(fl->ifl_rx_bitmap, fl->ifl_size, &frag_idx);
+		if ((cl = sd_cl[frag_idx]) == NULL) {
+                       if ((cl = sd_cl[frag_idx] = m_cljget(NULL, M_NOWAIT, fl->ifl_buf_size)) == NULL)
 				break;
 #if MEMORY_LOGGING
 			fl->ifl_cl_enqueued++;
@@ -1875,9 +1873,11 @@ _iflib_fl_refill(if_ctx_t ctx, iflib_fl_t fl, int count)
 			cb_arg.error = 0;
 			q = fl->ifl_rxq;
 			MPASS(sd_map != NULL);
-			err = bus_dmamap_load(fl->ifl_desc_tag, sd_map[idx],
+			MPASS(sd_map[frag_idx] != NULL);
+			err = bus_dmamap_load(fl->ifl_desc_tag, sd_map[frag_idx],
 		         cl, fl->ifl_buf_size, _rxq_refill_cb, &cb_arg, 0);
-			bus_dmamap_sync(fl->ifl_desc_tag, sd_map[idx], BUS_DMASYNC_PREREAD);
+			bus_dmamap_sync(fl->ifl_desc_tag, sd_map[frag_idx],
+					BUS_DMASYNC_PREREAD);
 
 			if (err != 0 || cb_arg.error) {
 				/*
@@ -1891,12 +1891,13 @@ _iflib_fl_refill(if_ctx_t ctx, iflib_fl_t fl, int count)
 			}
 			bus_addr = cb_arg.seg.ds_addr;
 		}
-		sd_flags[idx] |= RX_SW_DESC_INUSE;
+                bit_set(fl->ifl_rx_bitmap, frag_idx);
+		sd_flags[frag_idx] |= RX_SW_DESC_INUSE;
 
-		MPASS(sd_m[idx] == NULL);
-		sd_cl[idx] = cl;
-		sd_m[idx] = m;
-		fl->ifl_rxd_idxs[i] = idx;
+		MPASS(sd_m[frag_idx] == NULL);
+		sd_cl[frag_idx] = cl;
+		sd_m[frag_idx] = m;
+		fl->ifl_rxd_idxs[i] = frag_idx;
 		fl->ifl_bus_addrs[i] = bus_addr;
 		fl->ifl_vm_addrs[i] = cl;
 		fl->ifl_credits++;
@@ -1912,8 +1913,8 @@ _iflib_fl_refill(if_ctx_t ctx, iflib_fl_t fl, int count)
 			ctx->isc_rxd_refill(ctx->ifc_softc, &iru);
 			i = 0;
 			pidx = idx;
+			fl->ifl_pidx = idx;
 		}
-		fl->ifl_pidx = idx;
 
 	}
 done:
@@ -1927,6 +1928,7 @@ done:
 		bus_dmamap_sync(fl->ifl_ifdi->idi_tag, fl->ifl_ifdi->idi_map,
 				BUS_DMASYNC_PREREAD | BUS_DMASYNC_PREWRITE);
 	ctx->isc_rxd_flush(ctx->ifc_softc, fl->ifl_rxq->ifr_id, fl->ifl_id, pidx);
+	fl->ifl_fragidx = frag_idx;
 }
 
 static __inline void
@@ -2006,6 +2008,7 @@ iflib_fl_setup(iflib_fl_t fl)
 	if_ctx_t ctx = rxq->ifr_ctx;
 	if_softc_ctx_t sctx = &ctx->ifc_softc_ctx;
 
+       fl->ifl_rx_bitmap = bit_alloc(fl->ifl_size, M_IFLIB, M_WAITOK|M_ZERO);
 	/*
 	** Free current RX buffer structs and their mbufs
 	*/
@@ -2117,8 +2120,7 @@ iflib_timer(void *arg)
 
 	sctx->isc_pause_frames = 0;
 	if (if_getdrvflags(ctx->ifc_ifp) & IFF_DRV_RUNNING) 
-		callout_reset_on(&txq->ift_timer, iflib_timer_int, iflib_timer,
-		    txq, txq->ift_timer.c_cpu);
+		callout_reset_on(&txq->ift_timer, hz/2, iflib_timer, txq, txq->ift_timer.c_cpu);
 	return;
 hung:
 	CTX_LOCK(ctx);
@@ -2193,8 +2195,8 @@ iflib_init_locked(if_ctx_t ctx)
 	IFDI_INTR_ENABLE(ctx);
 	txq = ctx->ifc_txqs;
 	for (i = 0; i < sctx->isc_ntxqsets; i++, txq++)
-		callout_reset_on(&txq->ift_timer, iflib_timer_int, iflib_timer,
-			txq, txq->ift_timer.c_cpu);
+		callout_reset_on(&txq->ift_timer, hz/2, iflib_timer, txq,
+			txq->ift_timer.c_cpu);
 }
 
 static int
@@ -2356,6 +2358,7 @@ rxd_frag_to_sd(iflib_rxq_t rxq, if_rxd_frag_t irf, int unload, if_rxsd_t sd)
 	if (map != NULL)
 		bus_dmamap_sync(fl->ifl_ifdi->idi_tag, fl->ifl_ifdi->idi_map,
 			BUS_DMASYNC_PREREAD | BUS_DMASYNC_PREWRITE);
+        bit_clear(fl->ifl_rx_bitmap, cidx);
 }
 
 static struct mbuf *
@@ -2905,7 +2908,7 @@ iflib_busdma_load_mbuf_sg(iflib_txq_t txq, bus_dma_tag_t tag, bus_dmamap_t map,
 	ifsd_m = txq->ift_sds.ifsd_m;
 	ntxd = txq->ift_size;
 	pidx = txq->ift_pidx;
-	if (force_busdma || map != NULL) {
+	if (map != NULL) {
 		uint8_t *ifsd_flags = txq->ift_sds.ifsd_flags;
 
 		err = bus_dmamap_load_mbuf_sg(tag, map,
@@ -3045,8 +3048,7 @@ iflib_encap(iflib_txq_t txq, struct mbuf **m_headp)
 			next = (cidx + CACHE_LINE_SIZE) & (ntxd-1);
 			prefetch(&txq->ift_sds.ifsd_flags[next]);
 		}
-	} 
-	if (txq->ift_sds.ifsd_map != NULL)
+	} else if (txq->ift_sds.ifsd_map != NULL)
 		map = txq->ift_sds.ifsd_map[pidx];
 
 	if (m_head->m_pkthdr.csum_flags & CSUM_TSO) {
@@ -3542,8 +3544,7 @@ _task_fn_admin(void *context)
 	}
 	IFDI_UPDATE_ADMIN_STATUS(ctx);
 	for (txq = ctx->ifc_txqs, i = 0; i < sctx->isc_ntxqsets; i++, txq++)
-		callout_reset_on(&txq->ift_timer, iflib_timer_int, iflib_timer,
-		    txq, txq->ift_timer.c_cpu);
+		callout_reset_on(&txq->ift_timer, hz/2, iflib_timer, txq, txq->ift_timer.c_cpu);
 	IFDI_LINK_INTR_ENABLE(ctx);
 	if (ctx->ifc_flags & IFC_DO_RESET) {
 		ctx->ifc_flags &= ~IFC_DO_RESET;
@@ -4097,8 +4098,6 @@ iflib_device_register(device_t dev, void *sc, if_shared_ctx_t sctx, if_ctx_t *ct
 	/* set unconditionally for !x86 */
 	ctx->ifc_flags |= IFC_DMAR;
 #endif
-	if (force_busdma)
-		ctx->ifc_flags |= IFC_DMAR;
 
 	msix_bar = scctx->isc_msix_bar;
 	main_txq = (sctx->isc_flags & IFLIB_HAS_TXCQ) ? 1 : 0;
@@ -4255,8 +4254,9 @@ iflib_device_deregister(if_ctx_t ctx)
 	iflib_txq_t txq;
 	iflib_rxq_t rxq;
 	device_t dev = ctx->ifc_dev;
-	int i;
+	int i, j;
 	struct taskqgroup *tqg;
+	iflib_fl_t fl;
 
 	/* Make sure VLANS are not using driver */
 	if (if_vlantrunkinuse(ifp)) {
@@ -4291,6 +4291,10 @@ iflib_device_deregister(if_ctx_t ctx)
 	for (i = 0, rxq = ctx->ifc_rxqs; i < NRXQSETS(ctx); i++, rxq++) {
 		if (rxq->ifr_task.gt_uniq != NULL)
 			taskqgroup_detach(tqg, &rxq->ifr_task);
+
+		for (j = 0, fl = rxq->ifr_fl; j < rxq->ifr_nfl; j++, fl++)
+			free(fl->ifl_rx_bitmap, M_IFLIB);
+			
 	}
 	tqg = qgroup_if_config_tqg;
 	if (ctx->ifc_admin_task.gt_uniq != NULL)
@@ -4421,9 +4425,6 @@ iflib_device_iov_add_vf(device_t dev, uint16_t vfnum, const nvlist_t *params)
 static int
 iflib_module_init(void)
 {
-
-	iflib_timer_int = hz / 2;
-	TUNABLE_INT_FETCH("net.iflib.timer_int", &iflib_timer_int);
 	return (0);
 }
 
