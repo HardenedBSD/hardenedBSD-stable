@@ -1,3 +1,11 @@
+[20170616] Changed default protection settings for text section
+__HardenedBSD_version = 47
+
+	Fixes the (theoretically) last outstanding memory
+	protection related weakness in HBSD's user-space detectable
+	with paxtest.	
+
+
 [20160423] RELRO + BIND_NOW
 __HardenedBSD_version = 46
 
