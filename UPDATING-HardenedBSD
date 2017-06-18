@@ -1,3 +1,12 @@
+[20170618] Changed __HardenedBSD_version scheme
+__HardenedBSD_version = 1100047
+
+       The version numbers may differ in different branches (10-STABLE,
+       11-STABLE, 12-CURRENT) and to keep the version number in pair
+       with the features state, there is a need to allow to bump they
+       differently.
+
+
 [20170618] Changed default protection settings for text section
 __HardenedBSD_version = 47
 
