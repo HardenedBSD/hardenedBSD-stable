@@ -355,6 +355,9 @@
 #define TCLK_300MHZ		300000000
 #define TCLK_667MHZ		667000000
 
+#define	A38X_CPU_DDR_CLK_MASK	0x00007c00
+#define	A38X_CPU_DDR_CLK_SHIFT	10
+
 /*
  * CPU Cache Configuration
  */
@@ -424,7 +427,8 @@
 #define	MV_SCU_REGS_LEN		0x100
 #define	MV_SCU_REG_CTRL		0x00
 #define	MV_SCU_REG_CONFIG	0x04
-#define	MV_SCU_ENABLE		1
+#define	MV_SCU_ENABLE		(1 << 0)
+#define	MV_SCU_SL_L2_ENABLE	(1 << 3)
 #define	SCU_CFG_REG_NCPU_MASK	0x3
 #endif
 

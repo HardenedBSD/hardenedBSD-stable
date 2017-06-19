@@ -30,7 +30,6 @@
 #define	_LINUX_MM_TYPES_H_
 
 #include <linux/types.h>
-#include <linux/list.h>
 #include <linux/page.h>
 #include <linux/rwsem.h>
 
@@ -38,11 +37,9 @@
 
 struct vm_area_struct;
 struct task_struct;
-struct vmspace;
 
 struct mm_struct {
 	struct vm_area_struct *mmap;
-	struct vmspace *vmspace;
 	atomic_t mm_count;
 	atomic_t mm_users;
 	size_t pinned_vm;

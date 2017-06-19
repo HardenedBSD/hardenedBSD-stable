@@ -142,6 +142,7 @@ struct pargs {
  *      j - locked by proc slock
  *      k - only accessed by curthread
  *	k*- only accessed by curthread and from an interrupt
+ *	kx- only accessed by curthread and by debugger
  *      l - the attaching proc or attaching proc parent
  *      m - Giant
  *      n - not locked, lazy
@@ -297,11 +298,11 @@ struct thread {
 	u_char		td_user_pri;	/* (t) User pri from estcpu and nice. */
 	u_char		td_base_user_pri; /* (t) Base user pri */
 	uint32_t	td_pax;		/* (b) Cached PaX settings from process. */
-	u_int		td_dbg_sc_code;	/* (c) Syscall code to debugger. */
-	u_int		td_dbg_sc_narg;	/* (c) Syscall arg count to debugger.*/
 	uintptr_t	td_rb_list;	/* (k) Robust list head. */
 	uintptr_t	td_rbp_list;	/* (k) Robust priv list head. */
 	uintptr_t	td_rb_inact;	/* (k) Current in-action mutex loc. */
+	struct syscall_args td_sa;	/* (kx) Syscall parameters. Copied on
+					   fork for child tracing. */
 #define	td_endcopy td_pcb
 
 /*
@@ -631,13 +632,13 @@ struct proc {
 	vm_offset_t	p_timekeep_base;	/* (c) Address of timekeep structure. */
 	vm_offset_t	p_shared_page_base;	/* (c) Address of shared page. */
 	vm_offset_t	p_sigcode_base;	/* (c) Address of sigcode. */
-	u_int		p_xexit;	/* (c) Exit code. */
-	u_int		p_xsig;		/* (c) Stop/kill sig. */
 	uint16_t	p_elf_machine;	/* (x) ELF machine type */
 	uint64_t	p_elf_flags;	/* (x) ELF flags */
-
 /* End area that is copied on creation. */
-#define	p_endcopy	p_elf_flags
+#define	p_endcopy	p_xexit
+
+	u_int		p_xexit;	/* (c) Exit code. */
+	u_int		p_xsig;		/* (c) Stop/kill sig. */
 	struct pgrp	*p_pgrp;	/* (c + e) Pointer to process group. */
 	struct knlist	*p_klist;	/* (c) Knotes attached to this proc. */
 	int		p_numthreads;	/* (c) Number of threads. */
@@ -995,6 +996,7 @@ int	cr_cansee(struct ucred *u1, struct ucred *u2);
 int	cr_canseesocket(struct ucred *cred, struct socket *so);
 int	cr_canseeothergids(struct ucred *u1, struct ucred *u2);
 int	cr_canseeotheruids(struct ucred *u1, struct ucred *u2);
+int	cr_canseejailproc(struct ucred *u1, struct ucred *u2);
 int	cr_cansignal(struct ucred *cred, struct proc *proc, int signum);
 int	enterpgrp(struct proc *p, pid_t pgid, struct pgrp *pgrp,
 	    struct session *sess);
@@ -1059,7 +1061,7 @@ void	userret(struct thread *, struct trapframe *);
 void	cpu_exit(struct thread *);
 void	exit1(struct thread *, int, int) __dead2;
 void	cpu_copy_thread(struct thread *td, struct thread *td0);
-int	cpu_fetch_syscall_args(struct thread *td, struct syscall_args *sa);
+int	cpu_fetch_syscall_args(struct thread *td);
 void	cpu_fork(struct thread *, struct proc *, struct thread *, int);
 void	cpu_fork_kthread_handler(struct thread *, void (*)(void *), void *);
 void	cpu_set_syscall_retval(struct thread *, int);

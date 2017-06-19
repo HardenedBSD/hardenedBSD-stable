@@ -204,11 +204,11 @@ struct vi_info {
 	int first_intr;
 
 	/* These need to be int as they are used in sysctl */
-	int ntxq;	/* # of tx queues */
-	int first_txq;	/* index of first tx queue */
-	int rsrv_noflowq; /* Reserve queue 0 for non-flowid packets */
-	int nrxq;	/* # of rx queues */
-	int first_rxq;	/* index of first rx queue */
+	int ntxq;		/* # of tx queues */
+	int first_txq;		/* index of first tx queue */
+	int rsrv_noflowq; 	/* Reserve queue 0 for non-flowid packets */
+	int nrxq;		/* # of rx queues */
+	int first_rxq;		/* index of first rx queue */
 	int nofldtxq;		/* # of offload tx queues */
 	int first_ofld_txq;	/* index of first offload tx queue */
 	int nofldrxq;		/* # of offload rx queues */
@@ -399,6 +399,7 @@ enum {
 	EQ_TYPEMASK	= 0x3,		/* 2 lsbits hold the type (see above) */
 	EQ_ALLOCATED	= (1 << 2),	/* firmware resources allocated */
 	EQ_ENABLED	= (1 << 3),	/* open for business */
+	EQ_QFLUSH	= (1 << 4),	/* if_qflush in progress */
 };
 
 /* Listed in order of preference.  Update t4_sysctls too if you change these */
@@ -646,7 +647,7 @@ struct sge_wrq {
 
 } __aligned(CACHE_LINE_SIZE);
 
-
+#define INVALID_NM_RXQ_CNTXT_ID ((uint16_t)(-1))
 struct sge_nm_rxq {
 	struct vi_info *vi;
 
@@ -679,6 +680,7 @@ struct sge_nm_rxq {
 	bus_addr_t fl_ba;
 } __aligned(CACHE_LINE_SIZE);
 
+#define INVALID_NM_TXQ_CNTXT_ID ((u_int)(-1))
 struct sge_nm_txq {
 	struct tx_desc *desc;
 	uint16_t cidx;
@@ -704,7 +706,7 @@ struct sge_nm_txq {
 
 struct sge {
 	int nrxq;	/* total # of Ethernet rx queues */
-	int ntxq;	/* total # of Ethernet tx tx queues */
+	int ntxq;	/* total # of Ethernet tx queues */
 	int nofldrxq;	/* total # of TOE rx queues */
 	int nofldtxq;	/* total # of TOE tx queues */
 	int nnmrxq;	/* total # of netmap rx queues */
@@ -795,6 +797,7 @@ struct adapter {
 	struct tom_tunables tt;
 	void *iwarp_softc;	/* (struct c4iw_dev *) */
 	void *iscsi_ulp_softc;	/* (struct cxgbei_data *) */
+	void *ccr_softc;	/* (struct ccr_softc *) */
 	struct l2t_data *l2t;	/* L2 table */
 	struct tid_info tids;
 
@@ -1081,6 +1084,24 @@ port_top_speed(const struct port_info *pi)
 		return (10);
 	if (pi->link_cfg.supported & FW_PORT_CAP_SPEED_1G)
 		return (1);
+
+	return (0);
+}
+
+static inline int
+port_top_speed_raw(const struct port_info *pi)
+{
+
+	if (pi->link_cfg.supported & FW_PORT_CAP_SPEED_100G)
+		return (FW_PORT_CAP_SPEED_100G);
+	if (pi->link_cfg.supported & FW_PORT_CAP_SPEED_40G)
+		return (FW_PORT_CAP_SPEED_40G);
+	if (pi->link_cfg.supported & FW_PORT_CAP_SPEED_25G)
+		return (FW_PORT_CAP_SPEED_25G);
+	if (pi->link_cfg.supported & FW_PORT_CAP_SPEED_10G)
+		return (FW_PORT_CAP_SPEED_10G);
+	if (pi->link_cfg.supported & FW_PORT_CAP_SPEED_1G)
+		return (FW_PORT_CAP_SPEED_1G);
 
 	return (0);
 }

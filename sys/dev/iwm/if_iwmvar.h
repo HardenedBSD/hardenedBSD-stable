@@ -232,6 +232,7 @@ struct iwm_nvm_data {
 	uint16_t nvm_version;
 	uint8_t max_tx_pwr_half_dbm;
 
+	boolean_t lar_enabled;
 	uint16_t nvm_ch_flags[];
 };
 
@@ -304,7 +305,6 @@ struct iwm_tx_ring {
 };
 
 #define IWM_RX_RING_COUNT	256
-#define IWM_RBUF_COUNT		(IWM_RX_RING_COUNT + 32)
 /* Linux driver optionally uses 8k buffer */
 #define IWM_RBUF_SIZE		4096
 
@@ -373,12 +373,32 @@ struct iwm_vap {
 
 	int			(*iv_newstate)(struct ieee80211vap *,
 				    enum ieee80211_state, int);
+
+	struct iwm_mvm_phy_ctxt	*phy_ctxt;
+
+	uint16_t		id;
+	uint16_t		color;
+
+	boolean_t		have_wme;
+	/*
+	 * QoS data from net80211, need to store this here
+	 * as net80211 has a separate callback but we need
+	 * to have the data for the MAC context
+	 */
+        struct {
+		uint16_t cw_min;
+		uint16_t cw_max;
+		uint16_t edca_txop;
+		uint8_t aifsn;
+	} queue_params[WME_NUM_AC];
+
+	/* indicates that this interface requires PS to be disabled */
+	boolean_t		ps_disabled;
 };
 #define IWM_VAP(_vap)		((struct iwm_vap *)(_vap))
 
 struct iwm_node {
 	struct ieee80211_node	in_ni;
-	struct iwm_mvm_phy_ctxt	*in_phyctxt;
 
 	/* status "bits" */
 	int			in_assoc;
@@ -538,6 +558,12 @@ struct iwm_softc {
 	uint16_t		num_of_pages_in_last_blk;
 
 	boolean_t		last_ebs_successful;
+
+	/* last smart fifo state that was successfully sent to firmware */
+	enum iwm_sf_state	sf_state;
+
+	/* Indicate if device power save is allowed */
+	boolean_t		sc_ps_disabled;
 };
 
 #define IWM_LOCK_INIT(_sc) \

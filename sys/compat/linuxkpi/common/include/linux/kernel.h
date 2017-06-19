@@ -49,7 +49,6 @@
 #include <linux/sched.h>
 #include <linux/types.h>
 #include <linux/jiffies.h>
-#include <linux/wait.h>
 #include <linux/log2.h> 
 #include <asm/byteorder.h>
 
@@ -87,7 +86,9 @@
 #define	S64_C(x) x ## LL
 #define	U64_C(x) x ## ULL
 
-#define	BUILD_BUG_ON(x)		CTASSERT(!(x))
+#define	BUILD_BUG_ON(x)			CTASSERT(!(x))
+#define	BUILD_BUG_ON_MSG(x, msg)	BUILD_BUG_ON(x)
+#define	BUILD_BUG_ON_NOT_POWER_OF_2(x)	BUILD_BUG_ON(!powerof2(x))
 
 #define	BUG()			panic("BUG at %s:%d", __FILE__, __LINE__)
 #define	BUG_ON(cond)		do {				\
@@ -118,6 +119,8 @@
       }								\
       unlikely(__ret);						\
 })
+
+#define	oops_in_progress	SCHEDULER_STOPPED()
 
 #undef	ALIGN
 #define	ALIGN(x, y)		roundup2((x), (y))

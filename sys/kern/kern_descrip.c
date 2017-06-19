@@ -1304,6 +1304,24 @@ ofstat(struct thread *td, struct ofstat_args *uap)
 }
 #endif /* COMPAT_43 */
 
+#if defined(COMPAT_FREEBSD11)
+int
+freebsd11_fstat(struct thread *td, struct freebsd11_fstat_args *uap)
+{
+	struct stat sb;
+	struct freebsd11_stat osb;
+	int error;
+
+	error = kern_fstat(td, uap->fd, &sb);
+	if (error != 0)
+		return (error);
+	error = freebsd11_cvtstat(&sb, &osb);
+	if (error == 0)
+		error = copyout(&osb, uap->sb, sizeof(osb));
+	return (error);
+}
+#endif	/* COMPAT_FREEBSD11 */
+
 /*
  * Return status information about a file descriptor.
  */
@@ -1343,6 +1361,14 @@ kern_fstat(struct thread *td, int fd, struct stat *sbp)
 
 	error = fo_stat(fp, sbp, td->td_ucred, td);
 	fdrop(fp, td);
+#ifdef __STAT_TIME_T_EXT
+	if (error == 0) {
+		sbp->st_atim_ext = 0;
+		sbp->st_mtim_ext = 0;
+		sbp->st_ctim_ext = 0;
+		sbp->st_btim_ext = 0;
+	}
+#endif
 #ifdef KTRACE
 	if (error == 0 && KTRPOINT(td, KTR_STRUCT))
 		ktrstat(sbp);
@@ -1350,18 +1376,19 @@ kern_fstat(struct thread *td, int fd, struct stat *sbp)
 	return (error);
 }
 
+#if defined(COMPAT_FREEBSD11)
 /*
  * Return status information about a file descriptor.
  */
 #ifndef _SYS_SYSPROTO_H_
-struct nfstat_args {
+struct freebsd11_nfstat_args {
 	int	fd;
 	struct	nstat *sb;
 };
 #endif
 /* ARGSUSED */
 int
-sys_nfstat(struct thread *td, struct nfstat_args *uap)
+freebsd11_nfstat(struct thread *td, struct freebsd11_nfstat_args *uap)
 {
 	struct nstat nub;
 	struct stat ub;
@@ -1369,11 +1396,12 @@ sys_nfstat(struct thread *td, struct nfstat_args *uap)
 
 	error = kern_fstat(td, uap->fd, &ub);
 	if (error == 0) {
-		cvtnstat(&ub, &nub);
+		freebsd11_cvtnstat(&ub, &nub);
 		error = copyout(&nub, uap->sb, sizeof(nub));
 	}
 	return (error);
 }
+#endif /* COMPAT_FREEBSD11 */
 
 /*
  * Return pathconf information about a file descriptor.
@@ -3590,13 +3618,21 @@ kinfo_to_okinfo(struct kinfo_file *kif, struct kinfo_ofile *okif)
 	    KF_FLAG_APPEND | KF_FLAG_ASYNC | KF_FLAG_FSYNC | KF_FLAG_NONBLOCK |
 	    KF_FLAG_DIRECT | KF_FLAG_HASLOCK);
 	okif->kf_offset = kif->kf_offset;
-	okif->kf_vnode_type = kif->kf_vnode_type;
-	okif->kf_sock_domain = kif->kf_sock_domain;
-	okif->kf_sock_type = kif->kf_sock_type;
-	okif->kf_sock_protocol = kif->kf_sock_protocol;
+	if (kif->kf_type == KF_TYPE_VNODE)
+		okif->kf_vnode_type = kif->kf_un.kf_file.kf_file_type;
+	else
+		okif->kf_vnode_type = KF_VTYPE_VNON;
 	strlcpy(okif->kf_path, kif->kf_path, sizeof(okif->kf_path));
-	okif->kf_sa_local = kif->kf_sa_local;
-	okif->kf_sa_peer = kif->kf_sa_peer;
+	if (kif->kf_type == KF_TYPE_SOCKET) {
+		okif->kf_sock_domain = kif->kf_un.kf_sock.kf_sock_domain0;
+		okif->kf_sock_type = kif->kf_un.kf_sock.kf_sock_type0;
+		okif->kf_sock_protocol = kif->kf_un.kf_sock.kf_sock_protocol0;
+		okif->kf_sa_local = kif->kf_un.kf_sock.kf_sa_local;
+		okif->kf_sa_peer = kif->kf_un.kf_sock.kf_sa_peer;
+	} else {
+		okif->kf_sa_local.ss_family = AF_UNSPEC;
+		okif->kf_sa_peer.ss_family = AF_UNSPEC;
+	}
 }
 
 static int
@@ -3785,23 +3821,33 @@ file_type_to_name(short type)
 	case 0:
 		return ("zero");
 	case DTYPE_VNODE:
-		return ("vnod");
+		return ("vnode");
 	case DTYPE_SOCKET:
-		return ("sock");
+		return ("socket");
 	case DTYPE_PIPE:
 		return ("pipe");
 	case DTYPE_FIFO:
 		return ("fifo");
 	case DTYPE_KQUEUE:
-		return ("kque");
+		return ("kqueue");
 	case DTYPE_CRYPTO:
-		return ("crpt");
+		return ("crypto");
 	case DTYPE_MQUEUE:
-		return ("mque");
+		return ("mqueue");
 	case DTYPE_SHM:
 		return ("shm");
 	case DTYPE_SEM:
 		return ("ksem");
+	case DTYPE_PTS:
+		return ("pts");
+	case DTYPE_DEV:
+		return ("dev");
+	case DTYPE_PROCDESC:
+		return ("proc");
+	case DTYPE_LINUXEFD:
+		return ("levent");
+	case DTYPE_LINUXTFD:
+		return ("ltimer");
 	default:
 		return ("unkn");
 	}
@@ -3836,17 +3882,21 @@ file_to_first_proc(struct file *fp)
 static void
 db_print_file(struct file *fp, int header)
 {
+#define XPTRWIDTH ((int)howmany(sizeof(void *) * NBBY, 4))
 	struct proc *p;
 
 	if (header)
-		db_printf("%8s %4s %8s %8s %4s %5s %6s %8s %5s %12s\n",
-		    "File", "Type", "Data", "Flag", "GCFl", "Count",
-		    "MCount", "Vnode", "FPID", "FCmd");
+		db_printf("%*s %6s %*s %8s %4s %5s %6s %*s %5s %s\n",
+		    XPTRWIDTH, "File", "Type", XPTRWIDTH, "Data", "Flag",
+		    "GCFl", "Count", "MCount", XPTRWIDTH, "Vnode", "FPID",
+		    "FCmd");
 	p = file_to_first_proc(fp);
-	db_printf("%8p %4s %8p %08x %04x %5d %6d %8p %5d %12s\n", fp,
-	    file_type_to_name(fp->f_type), fp->f_data, fp->f_flag,
-	    0, fp->f_count, 0, fp->f_vnode,
+	db_printf("%*p %6s %*p %08x %04x %5d %6d %*p %5d %s\n", XPTRWIDTH,
+	    fp, file_type_to_name(fp->f_type), XPTRWIDTH, fp->f_data,
+	    fp->f_flag, 0, fp->f_count, 0, XPTRWIDTH, fp->f_vnode,
 	    p != NULL ? p->p_pid : -1, p != NULL ? p->p_comm : "-");
+
+#undef XPTRWIDTH
 }
 
 DB_SHOW_COMMAND(file, db_show_file)

@@ -55,6 +55,14 @@ struct atu_opt {
  * Per-Port Switch Registers
  */
 #define PORT_STATUS			0x0
+#define	PORT_STATUS_SPEED_MASK		0x300
+#define	PORT_STATUS_SPEED_10		0
+#define	PORT_STATUS_SPEED_100		1
+#define	PORT_STATUS_SPEED_1000		2
+#define	PORT_STATUS_DUPLEX_MASK		(1 << 10)
+#define	PORT_STATUS_LINK_MASK		(1 << 11)
+#define	PORT_STATUS_PHY_DETECT_MASK	(1 << 12)
+
 #define PSC_CONTROL			0x1
 #define SWITCH_ID			0x3
 #define PORT_CONTROL			0x4
@@ -147,8 +155,6 @@ struct atu_opt {
 #define SMI_PHY_CMD_REG			0x18
 #define SMI_PHY_DATA_REG		0x19
 
-#define PHY_CMD				0x18
-#define PHY_DATA			0x19
 #define PHY_DATA_MASK			0xffff
 
 #define PHY_CMD_SMI_BUSY		15

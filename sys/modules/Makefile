@@ -45,6 +45,15 @@ SUBDIR=	\
 	${_asmc} \
 	ata \
 	ath \
+	ath_dfs \
+	ath_hal \
+	ath_hal_ar5210 \
+	ath_hal_ar5211 \
+	ath_hal_ar5212 \
+	ath_hal_ar5416 \
+	ath_hal_ar9300 \
+	ath_main \
+	ath_rate \
 	ath_pci \
 	${_autofs} \
 	${_auxio} \
@@ -105,6 +114,7 @@ SUBDIR=	\
 	${_efirt} \
 	${_elink} \
 	${_em} \
+	${_ena} \
 	${_ep} \
 	${_epic} \
 	esp \
@@ -116,6 +126,7 @@ SUBDIR=	\
 	fdc \
 	fdescfs \
 	${_fe} \
+	${_ffec} \
 	filemon \
 	firewire \
 	firmware \
@@ -353,8 +364,6 @@ SUBDIR=	\
 	sysvipc \
 	tcp \
 	${_ti} \
-	tests/framework \
-	tests/callout_test \
 	tl \
 	tmpfs \
 	${_toecore} \
@@ -513,6 +522,10 @@ _rtwnfw=	rtwnfw
 _cxgbe=		cxgbe
 .endif
 
+.if ${MK_TESTS} != "no" || defined(ALL_MODULES)
+SUBDIR+=	tests
+.endif
+
 .if ${MK_ZFS} != "no" || defined(ALL_MODULES)
 SUBDIR+=	zfs
 .endif
@@ -560,6 +573,7 @@ _drm=		drm
 _drm2=		drm2
 _ed=		ed
 _em=		em
+_ena=		ena
 _ep=		ep
 _et=		et
 _exca=		exca
@@ -745,6 +759,7 @@ _cfi=		cfi
 _cpufreq=	cpufreq
 _drm=		drm
 _exca=		exca
+_ffec=		ffec
 _pccard=	pccard
 _wi=		wi
 .endif
@@ -771,6 +786,10 @@ _cloudabi32=	cloudabi32
 _cloudabi64=	cloudabi64
 .endif
 
+.endif
+
+.if ${MACHINE_ARCH} == "armv6"
+_ffec=		ffec
 .endif
 
 SUBDIR+=${MODULES_EXTRA}

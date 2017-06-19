@@ -35,9 +35,7 @@ SRCS+=	\
 	__error.c \
 	interposing_table.c
 
-SRCS+= futimens.c utimensat.c
-NOASM+= futimens.o utimensat.o
-PSEUDO+= _futimens.o _utimensat.o
+SRCS+= getdents.c lstat.c mknod.c stat.c
 
 SRCS+= pipe.c
 
@@ -348,7 +346,6 @@ MLINKS+=brk.2 sbrk.2
 MLINKS+=cap_enter.2 cap_getmode.2
 MLINKS+=cap_fcntls_limit.2 cap_fcntls_get.2
 MLINKS+=cap_ioctls_limit.2 cap_ioctls_get.2
-MLINKS+=cap_rights_limit.2 cap_rights_get.2
 MLINKS+=chdir.2 fchdir.2
 MLINKS+=chflags.2 chflagsat.2 \
 	chflags.2 fchflags.2 \
@@ -424,8 +421,7 @@ MLINKS+=open.2 openat.2
 MLINKS+=pathconf.2 fpathconf.2
 MLINKS+=pathconf.2 lpathconf.2
 MLINKS+=pdfork.2 pdgetpid.2\
-	pdfork.2 pdkill.2 \
-	pdfork.2 pdwait4.2
+	pdfork.2 pdkill.2
 MLINKS+=pipe.2 pipe2.2
 MLINKS+=poll.2 ppoll.2
 MLINKS+=rctl_add_rule.2 rctl_get_limits.2 \

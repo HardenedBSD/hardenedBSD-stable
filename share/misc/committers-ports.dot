@@ -84,6 +84,7 @@ daichi [label="Daichi Goto\ndaichi@FreeBSD.org\n2002/10/17"]
 danfe [label="Alexey Dokuchaev\ndanfe@FreeBSD.org\n2004/08/20"]
 danilo [label="Danilo E. Gondolfo\ndanilo@FreeBSD.org\n2013/09/23"]
 db [label="Diane Bruce\ndb@FreeBSD.org\n2007/01/18"]
+dbaio [label="Danilo G. Baio\ndbaio@FreeBSD.org\n2017/05/03"]
 dbn [label="David Naylor\ndbn@FreeBSD.org\n2013/01/14"]
 decke [label="Bernhard Froehlich\ndecke@FreeBSD.org\n2010/03/21"]
 delphij [label="Xin Li\ndelphij@FreeBSD.org\n2006/05/01"]
@@ -237,6 +238,7 @@ trasz [label="Edward Tomasz Napierala\ntrasz@FreeBSD.org\n2007/04/12"]
 trhodes [label="Tom Rhodes\ntrhodes@FreeBSD.org\n2004/07/06"]
 trociny [label="Mikolaj Golub\ntrociny@FreeBSD.org\n2013/10/17"]
 tz [label="Torsten Zuehlsdorff\ntz@FreeBSD.org\n2016/06/04"]
+ultima [label="Richard Gallamore\nultima@FreeBSD.org\n2017/06/07"]
 uqs [label="Ulrich Spoerlein\nuqs@FreeBSD.org\n2012/01/19"]
 vd [label="Vasil Dimov\nvd@FreeBSD.org\n2006/01/19"]
 vg [label="Veniamin Gvozdikov\nvg@FreeBSD.org\n2013/06/11"]
@@ -402,6 +404,7 @@ gabor -> scheidell
 
 garga -> acm
 garga -> alepulver
+garga -> dbaio
 garga -> mandree
 garga -> mm
 garga -> rnoland
@@ -461,6 +464,8 @@ lawrance -> itetcu
 
 leeym -> clsung
 
+lifanov -> ultima
+
 lioux -> pat
 
 lme -> tobik
@@ -493,6 +498,7 @@ mat -> tobik
 mat -> woodsb02
 
 matthew -> lifanov
+matthew -> ultima
 
 mezz -> tmclaugh
 

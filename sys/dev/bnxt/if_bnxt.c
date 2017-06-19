@@ -287,7 +287,8 @@ static driver_t bnxt_iflib_driver = {
  * iflib shared context
  */
 
-char bnxt_driver_version[] = "FreeBSD base";
+#define BNXT_DRIVER_VERSION	"1.0.0.1"
+char bnxt_driver_version[] = BNXT_DRIVER_VERSION;
 extern struct if_txrx bnxt_txrx;
 static struct if_shared_ctx bnxt_sctx_init = {
 	.isc_magic = IFLIB_MAGIC,
@@ -1151,7 +1152,12 @@ bnxt_media_status(if_ctx_t ctx, struct ifmediareq * ifmr)
 			ifmr->ifm_active |= IFM_1000_SGMII;
 			break;
 		default:
-			ifmr->ifm_active |= IFM_UNKNOWN;
+                        /*
+                         * Workaround: 
+                         *    Don't return IFM_UNKNOWN until 
+                         *    Stratus return proper media_type 
+                         */  
+			ifmr->ifm_active |= IFM_1000_KX;
 			break;
 		}
 	break;
@@ -1191,7 +1197,12 @@ bnxt_media_status(if_ctx_t ctx, struct ifmediareq * ifmr)
 			ifmr->ifm_active |= IFM_10G_T;
 			break;
 		default:
-			ifmr->ifm_active |= IFM_UNKNOWN;
+                        /*
+                         * Workaround: 
+                         *    Don't return IFM_UNKNOWN until 
+                         *    Stratus return proper media_type 
+                         */  
+			ifmr->ifm_active |= IFM_10G_CR1;
 			break;
 		}
 		break;
@@ -1212,7 +1223,12 @@ bnxt_media_status(if_ctx_t ctx, struct ifmediareq * ifmr)
 			ifmr->ifm_active |= IFM_25G_SR;
 			break;
 		default:
-			ifmr->ifm_active |= IFM_UNKNOWN;
+                        /*
+                         * Workaround: 
+                         *    Don't return IFM_UNKNOWN until 
+                         *    Stratus return proper media_type 
+                         */  
+			ifmr->ifm_active |= IFM_25G_CR;
 			break;
 		}
 		break;
@@ -1248,7 +1264,12 @@ bnxt_media_status(if_ctx_t ctx, struct ifmediareq * ifmr)
 			ifmr->ifm_active |= IFM_50G_KR2;
 			break;
 		default:
-			ifmr->ifm_active |= IFM_UNKNOWN;
+                        /*
+                         * Workaround: 
+                         *    Don't return IFM_UNKNOWN until 
+                         *    Stratus return proper media_type 
+                         */  
+			ifmr->ifm_active |= IFM_50G_CR2;
 			break;
 		}
 		break;
@@ -1269,7 +1290,12 @@ bnxt_media_status(if_ctx_t ctx, struct ifmediareq * ifmr)
 			ifmr->ifm_active |= IFM_100G_SR4;
 			break;
 		default:
-			ifmr->ifm_active |= IFM_UNKNOWN;
+                        /*
+                         * Workaround: 
+                         *    Don't return IFM_UNKNOWN until 
+                         *    Stratus return proper media_type 
+                         */  
+			ifmr->ifm_active |= IFM_100G_CR4;
 			break;
 		}
 	default:
@@ -1499,6 +1525,7 @@ bnxt_msix_intr_assign(if_ctx_t ctx, int msix)
 	struct bnxt_softc *softc = iflib_get_softc(ctx);
 	int rc;
 	int i;
+	char irq_name[16];
 
 	rc = iflib_irq_alloc_generic(ctx, &softc->def_cp_ring.irq,
 	    softc->def_cp_ring.ring.id + 1, IFLIB_INTR_ADMIN,
@@ -1510,9 +1537,10 @@ bnxt_msix_intr_assign(if_ctx_t ctx, int msix)
 	}
 
 	for (i=0; i<softc->scctx->isc_nrxqsets; i++) {
+		snprintf(irq_name, sizeof(irq_name), "rxq%d", i);
 		rc = iflib_irq_alloc_generic(ctx, &softc->rx_cp_rings[i].irq,
 		    softc->rx_cp_rings[i].ring.id + 1, IFLIB_INTR_RX,
-		    bnxt_handle_rx_cp, &softc->rx_cp_rings[i], i, "rx_cp");
+		    bnxt_handle_rx_cp, &softc->rx_cp_rings[i], i, irq_name);
 		if (rc) {
 			device_printf(iflib_get_dev(ctx),
 			    "Failed to register RX completion ring handler\n");
@@ -2022,9 +2050,6 @@ bnxt_add_media_types(struct bnxt_softc *softc)
 			ifmedia_add(softc->media, IFM_ETHER | IFM_10G_CR1, 0,
 			    NULL);
 		break;
-	case HWRM_PORT_PHY_QCFG_OUTPUT_PHY_TYPE_UNKNOWN:
-		/* Auto only */
-		break;
 	case HWRM_PORT_PHY_QCFG_OUTPUT_PHY_TYPE_BASEKR4:
 	case HWRM_PORT_PHY_QCFG_OUTPUT_PHY_TYPE_BASEKR2:
 	case HWRM_PORT_PHY_QCFG_OUTPUT_PHY_TYPE_BASEKR:
@@ -2105,6 +2130,32 @@ bnxt_add_media_types(struct bnxt_softc *softc)
 		if (supported & HWRM_PORT_PHY_QCFG_OUTPUT_SUPPORT_SPEEDS_1GB)
 			ifmedia_add(softc->media, IFM_ETHER | IFM_1000_SGMII, 0,
 			    NULL);
+		break;
+	case HWRM_PORT_PHY_QCFG_OUTPUT_PHY_TYPE_UNKNOWN:
+        default:
+                /*
+                 * Workaround for Cumulus & Stratus 
+                 *  For Stratus: 
+                 *      media_type is being returned as 0x0
+                 *      Return support speeds as 10G, 25G, 50G & 100G
+                 *
+                 *  For Cumulus: 
+                 *      phy_type is being returned as 0x14 (PHY_TYPE_40G_BASECR4)
+                 *      Return support speeds as 1G, 10G, 25G & 50G
+                 */
+		if (pci_get_device(softc->dev) == BCM57454) {
+                        /* For Stratus: 10G, 25G, 50G & 100G */
+			ifmedia_add(softc->media, IFM_ETHER | IFM_100G_CR4, 0, NULL);
+			ifmedia_add(softc->media, IFM_ETHER | IFM_50G_CR2, 0, NULL);
+			ifmedia_add(softc->media, IFM_ETHER | IFM_25G_CR, 0, NULL);
+			ifmedia_add(softc->media, IFM_ETHER | IFM_10G_CR1, 0, NULL);
+		} else if (pci_get_device(softc->dev) == BCM57414) {
+                        /* For Cumulus: 1G, 10G, 25G & 50G */
+			ifmedia_add(softc->media, IFM_ETHER | IFM_50G_CR2, 0, NULL);
+			ifmedia_add(softc->media, IFM_ETHER | IFM_25G_CR, 0, NULL);
+			ifmedia_add(softc->media, IFM_ETHER | IFM_10G_CR1, 0, NULL);
+			ifmedia_add(softc->media, IFM_ETHER | IFM_1000_T, 0, NULL);
+                } 
 		break;
 	}
 

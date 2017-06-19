@@ -54,7 +54,6 @@
 
 static void mlx4_en_sysctl_stat(struct mlx4_en_priv *priv);
 static void mlx4_en_sysctl_conf(struct mlx4_en_priv *priv);
-static int mlx4_en_unit;
 
 #ifdef CONFIG_NET_RX_BUSY_POLL
 /* must be called with local_bh_disable()d */
@@ -1731,13 +1730,12 @@ void mlx4_en_destroy_netdev(struct net_device *dev)
 		mutex_unlock(&mdev->state_lock);
 	}
 
-	if (priv->allocated)
-		mlx4_free_hwq_res(mdev->dev, &priv->res, MLX4_EN_PAGE_SIZE);
-
 	mutex_lock(&mdev->state_lock);
 	mlx4_en_stop_port(dev);
 	mutex_unlock(&mdev->state_lock);
 
+	if (priv->allocated)
+		mlx4_free_hwq_res(mdev->dev, &priv->res, MLX4_EN_PAGE_SIZE);
 
 	cancel_delayed_work(&priv->stats_task);
 	cancel_delayed_work(&priv->service_task);
@@ -2053,7 +2051,8 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
 		return -ENOMEM;
 	}
 	dev->if_softc = priv;
-	if_initname(dev, "mlxen", atomic_fetchadd_int(&mlx4_en_unit, 1));
+	if_initname(dev, "mlxen", (device_get_unit(
+	    mdev->pdev->dev.bsddev) * MLX4_MAX_PORTS) + port - 1);
 	dev->if_mtu = ETHERMTU;
 	dev->if_init = mlx4_en_open;
 	dev->if_flags = IFF_BROADCAST | IFF_SIMPLEX | IFF_MULTICAST;

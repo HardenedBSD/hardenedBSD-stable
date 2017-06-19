@@ -498,6 +498,42 @@ pmap_set_tex(void)
 }
 
 /*
+ * Remap one vm_meattr class to another one. This can be useful as
+ * workaround for SOC errata, e.g. if devices must be accessed using
+ * SO memory class.
+ *
+ * !!! Please note that this function is absolutely last resort thing.
+ * It should not be used under normal circumstances. !!!
+ *
+ * Usage rules:
+ * - it shall be called after pmap_bootstrap_prepare() and before
+ *   cpu_mp_start() (thus only on boot CPU). In practice, it's expected
+ *   to be called from platform_attach() or platform_late_init().
+ *
+ * - if remapping doesn't change caching mode, or until uncached class
+ *   is remapped to any kind of cached one, then no other restriction exists.
+ *
+ * - if pmap_remap_vm_attr() changes caching mode, but both (original and
+ *   remapped) remain cached, then caller is resposible for calling
+ *   of dcache_wbinv_poc_all().
+ *
+ * - remapping of any kind of cached class to uncached is not permitted.
+ */
+void
+pmap_remap_vm_attr(vm_memattr_t old_attr, vm_memattr_t new_attr)
+{
+	int old_idx, new_idx;
+
+	/* Map VM memattrs to indexes to tex_class table. */
+	old_idx = pte2_attr_tab[(int)old_attr];
+	new_idx = pte2_attr_tab[(int)new_attr];
+
+	/* Replace TEX attribute and apply it. */
+	tex_class[old_idx] = tex_class[new_idx];
+	pmap_set_tex();
+}
+
+/*
  * KERNBASE must be multiple of NPT2_IN_PG * PTE1_SIZE. In other words,
  * KERNBASE is mapped by first L2 page table in L2 page table page. It
  * meets same constrain due to PT2MAP being placed just under KERNBASE.
@@ -727,7 +763,7 @@ pmap_bootstrap_prepare(vm_paddr_t last)
 	pt1_entry_t *pte1p;
 	pt2_entry_t *pte2p;
 	u_int i;
-	uint32_t actlr_mask, actlr_set, l1_attr;
+	uint32_t l1_attr;
 
 	/*
 	 * Now, we are going to make real kernel mapping. Note that we are
@@ -844,8 +880,7 @@ pmap_bootstrap_prepare(vm_paddr_t last)
 
 	/* Finally, switch from 'boot_pt1' to 'kern_pt1'. */
 	pmap_kern_ttb = base_pt1 | ttb_flags;
-	cpuinfo_get_actlr_modifier(&actlr_mask, &actlr_set);
-	reinit_mmu(pmap_kern_ttb, actlr_mask, actlr_set);
+	cpuinfo_reinit_mmu(pmap_kern_ttb);
 	/*
 	 * Initialize the first available KVA. As kernel image is mapped by
 	 * sections, we are leaving some gap behind.

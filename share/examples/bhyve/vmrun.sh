@@ -51,7 +51,8 @@ usage() {
 	echo "                [-g <gdbport> ] [-H <directory>]"
 	echo "                [-I <location of installation iso>] [-l <loader>]"
 	echo "                [-L <VNC IP for UEFI framebuffer>]"
-	echo "                [-m <memsize>] [-P <port>] [-t <tapdev>] <vmname>"
+	echo "                [-m <memsize>] [-P <port>] [-s <password>]"
+	echo "                [-t <tapdev>] <vmname>"
 	echo ""
 	echo "       -h: display this help message"
 	echo "       -a: force memory mapped local APIC access"
@@ -71,6 +72,7 @@ usage() {
 	echo "       -m: memory size (default is ${DEFAULT_MEMSIZE})"
 	echo "       -p: pass-through a host PCI device at bus/slot/func (e.g. 10/0/0)"
 	echo "       -P: UEFI GOP VNC port (default: 5900)"
+	echo "       -s: UEFI GOP VNC password"
 	echo "       -t: tap device for virtio-net (default is $DEFAULT_TAPDEV)"
 	echo "       -T: Enable tablet device (for UEFI GOP)"
 	echo "       -u: RTC keeps UTC time"
@@ -110,10 +112,11 @@ efi_firmware="/usr/local/share/uefi-firmware/BHYVE_UEFI.fd"
 vncwait=""
 vnchost="127.0.0.1"
 vncport=5900
+vncpassword=""
 fbsize="w=1024,h=768"
 tablet=""
 
-while getopts ac:C:d:e:Ef:F:g:hH:iI:l:m:p:P:t:Tuvw c ; do
+while getopts ac:C:d:e:Ef:F:g:hH:iI:l:m:p:P:s:t:Tuvw c ; do
 	case $c in
 	a)
 		bhyverun_opt="${bhyverun_opt} -a"
@@ -170,6 +173,9 @@ while getopts ac:C:d:e:Ef:F:g:hH:iI:l:m:p:P:t:Tuvw c ; do
 		;;
 	P)
 		vncport="${OPTARG}"
+		;;
+	s)
+		vncpassword=",password=${OPTARG}"
 		;;
 	t)
 		eval "tap_dev${tap_total}=\"${OPTARG}\""
@@ -331,7 +337,7 @@ while [ 1 ]; do
 
 	efiargs=""
 	if [ ${efi_mode} -gt 0 ]; then
-		efiargs="-s 29,fbuf,tcp=${vnchost}:${vncport},${fbsize}${vncwait}"
+		efiargs="-s 29,fbuf,tcp=${vnchost}:${vncport},${fbsize}${vncwait}${vncpassword}"
 		efiargs="${efiargs} -l bootrom,${efi_firmware}"
 		efiargs="${efiargs} ${tablet}"
 	fi

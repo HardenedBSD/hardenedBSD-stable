@@ -72,6 +72,7 @@ __DEFAULT_YES_OPTIONS = \
     CASPER \
     CCD \
     CDDL \
+    CLANG_EXTRAS \
     CPP \
     CROSS_COMPILER \
     CRYPT \
@@ -102,7 +103,6 @@ __DEFAULT_YES_OPTIONS = \
     GNU_GREP \
     GPIO \
     GPL_DTC \
-    GROFF \
     HAST \
     HBSD_UPDATE \
     HTML \
@@ -182,7 +182,6 @@ __DEFAULT_YES_OPTIONS = \
 
 __DEFAULT_NO_OPTIONS = \
     BSD_GREP \
-    CLANG_EXTRAS \
     DEVD_PIE \
     DTRACE_TESTS \
     FREEBSD_UPDATE \
@@ -385,7 +384,6 @@ MK_KERBEROS:=	no
 
 .if ${MK_CXX} == "no"
 MK_CLANG:=	no
-MK_GROFF:=	no
 MK_GNUCXX:=	no
 MK_TESTS:=	no
 .endif
@@ -416,10 +414,6 @@ MK_AUTHPF:=	no
 
 .if ${MK_TESTS} == "no"
 MK_DTRACE_TESTS:= no
-.endif
-
-.if ${MK_TEXTPROC} == "no"
-MK_GROFF:=	no
 .endif
 
 .if ${MK_CROSS_COMPILER} == "no"

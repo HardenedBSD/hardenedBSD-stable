@@ -969,6 +969,11 @@ vi_intr_iq(struct vi_info *vi, int idx)
 		return (&sc->sge.fwq);
 
 	nintr = vi->nintr;
+#ifdef DEV_NETMAP
+	/* Do not consider any netmap-only interrupts */
+	if (vi->flags & INTR_RXQ && vi->nnmrxq > vi->nrxq)
+		nintr -= vi->nnmrxq - vi->nrxq;
+#endif
 	KASSERT(nintr != 0,
 	    ("%s: vi %p has no exclusive interrupts, total interrupts = %d",
 	    __func__, vi, sc->intr_count));
@@ -2452,6 +2457,13 @@ cannot_use_txpkts(struct mbuf *m)
 	return (needs_tso(m));
 }
 
+static inline int
+discard_tx(struct sge_eq *eq)
+{
+
+	return ((eq->flags & (EQ_ENABLED | EQ_QFLUSH)) != EQ_ENABLED);
+}
+
 /*
  * r->items[cidx] to r->items[pidx], with a wraparound at r->size, are ready to
  * be consumed.  Return the actual number consumed.  0 indicates a stall.
@@ -2477,7 +2489,7 @@ eth_tx(struct mp_ring *r, u_int cidx, u_int pidx)
 	total = 0;
 
 	TXQ_LOCK(txq);
-	if (__predict_false((eq->flags & EQ_ENABLED) == 0)) {
+	if (__predict_false(discard_tx(eq))) {
 		while (cidx != pidx) {
 			m0 = r->items[cidx];
 			m_freem(m0);
@@ -3252,6 +3264,7 @@ alloc_nm_rxq(struct vi_info *vi, struct sge_nm_rxq *nm_rxq, int intr_idx,
 	nm_rxq->fl_pidx = nm_rxq->fl_cidx = 0;
 	nm_rxq->fl_sidx = na->num_rx_desc;
 	nm_rxq->intr_idx = intr_idx;
+	nm_rxq->iq_cntxt_id = INVALID_NM_RXQ_CNTXT_ID;
 
 	ctx = &vi->ctx;
 	children = SYSCTL_CHILDREN(oid);
@@ -3293,6 +3306,8 @@ free_nm_rxq(struct vi_info *vi, struct sge_nm_rxq *nm_rxq)
 {
 	struct adapter *sc = vi->pi->adapter;
 
+	MPASS(nm_rxq->iq_cntxt_id == INVALID_NM_RXQ_CNTXT_ID);
+
 	free_ring(sc, nm_rxq->iq_desc_tag, nm_rxq->iq_desc_map, nm_rxq->iq_ba,
 	    nm_rxq->iq_desc);
 	free_ring(sc, nm_rxq->fl_desc_tag, nm_rxq->fl_desc_map, nm_rxq->fl_ba,
@@ -3327,6 +3342,7 @@ alloc_nm_txq(struct vi_info *vi, struct sge_nm_txq *nm_txq, int iqidx, int idx,
 	    V_TXPKT_INTF(pi->tx_chan) | V_TXPKT_PF(G_FW_VIID_PFN(vi->viid)) |
 	    V_TXPKT_VF(G_FW_VIID_VIN(vi->viid)) |
 	    V_TXPKT_VF_VLD(G_FW_VIID_VIVLD(vi->viid)));
+	nm_txq->cntxt_id = INVALID_NM_TXQ_CNTXT_ID;
 
 	snprintf(name, sizeof(name), "%d", idx);
 	oid = SYSCTL_ADD_NODE(&vi->ctx, children, OID_AUTO, name, CTLFLAG_RD,
@@ -3349,6 +3365,8 @@ static int
 free_nm_txq(struct vi_info *vi, struct sge_nm_txq *nm_txq)
 {
 	struct adapter *sc = vi->pi->adapter;
+
+	MPASS(nm_txq->cntxt_id == INVALID_NM_TXQ_CNTXT_ID);
 
 	free_ring(sc, nm_txq->desc_tag, nm_txq->desc_map, nm_txq->ba,
 	    nm_txq->desc);
@@ -4569,12 +4587,8 @@ write_txpkts_wr(struct sge_txq *txq, struct fw_eth_tx_pkts_wr *wr,
 			if (checkwrap &&
 			    (uintptr_t)cpl == (uintptr_t)&eq->desc[eq->sidx])
 				cpl = (void *)&eq->desc[0];
-			txq->txpkts0_pkts += txp->npkt;
-			txq->txpkts0_wrs++;
 		} else {
 			cpl = flitp;
-			txq->txpkts1_pkts += txp->npkt;
-			txq->txpkts1_wrs++;
 		}
 
 		/* Checksum offload */
@@ -4607,6 +4621,14 @@ write_txpkts_wr(struct sge_txq *txq, struct fw_eth_tx_pkts_wr *wr,
 
 		write_gl_to_txd(txq, m, (caddr_t *)(&flitp), checkwrap);
 
+	}
+
+	if (txp->wr_type == 0) {
+		txq->txpkts0_pkts += txp->npkt;
+		txq->txpkts0_wrs++;
+	} else {
+		txq->txpkts1_pkts += txp->npkt;
+		txq->txpkts1_wrs++;
 	}
 
 	txsd = &txq->sdesc[eq->pidx];
@@ -5311,7 +5333,7 @@ sysctl_tc(SYSCTL_HANDLER_ARGS)
 			tc->refcount--;
 		}
 		txq->tc_idx = tc_idx;
-	} else {
+	} else if (tc_idx != -1) {
 		tc = &pi->sched_params->cl_rl[tc_idx];
 		MPASS(tc->refcount > 0);
 		tc->refcount--;

@@ -63,8 +63,6 @@
 #include "freebsd_test_suite/macros.h"
 #include "local.h"
 
-#define	PATH_TEMPLATE	"aio.XXXXXXXXXX"
-
 /*
  * GLOBAL_MAX sets the largest usable buffer size to be read and written, as
  * it sizes ac_buffer in the aio_context structure.  It is also the default
@@ -187,7 +185,8 @@ aio_context_init(struct aio_context *ac, int read_fd,
 }
 
 static ssize_t
-poll(struct aiocb *aio) {
+poll(struct aiocb *aio)
+{
 	int error;
 
 	while ((error = aio_error(aio)) == EINPROGRESS && !aio_timedout)
@@ -204,7 +203,8 @@ poll(struct aiocb *aio) {
 }
 
 static ssize_t
-suspend(struct aiocb *aio) {
+suspend(struct aiocb *aio)
+{
 	const struct aiocb *const iocbs[] = {aio};
 	int error;
 
@@ -216,7 +216,8 @@ suspend(struct aiocb *aio) {
 }
 
 static ssize_t
-waitcomplete(struct aiocb *aio) {
+waitcomplete(struct aiocb *aio)
+{
 	struct aiocb *aiop;
 	ssize_t ret;
 
@@ -384,7 +385,7 @@ aio_file_test(completion comp)
 	ATF_REQUIRE_KERNEL_MODULE("aio");
 	ATF_REQUIRE_UNSAFE_AIO();
 
-	fd = open(FILE_PATHNAME, O_RDWR | O_CREAT);
+	fd = open(FILE_PATHNAME, O_RDWR | O_CREAT, 0600);
 	ATF_REQUIRE_MSG(fd != -1, "open failed: %s", strerror(errno));
 
 	arg.afa_fd = fd;
@@ -734,6 +735,7 @@ aio_md_test(completion comp)
 	struct md_ioctl mdio;
 
 	ATF_REQUIRE_KERNEL_MODULE("aio");
+	ATF_REQUIRE_UNSAFE_AIO();
 
 	mdctl_fd = open("/dev/" MDCTL_NAME, O_RDWR, 0);
 	ATF_REQUIRE_MSG(mdctl_fd != -1,
@@ -832,7 +834,7 @@ ATF_TC_BODY(aio_large_read_test, tc)
 		len = INT_MAX;
 #endif
 
-	fd = open(FILE_PATHNAME, O_RDWR | O_CREAT);
+	fd = open(FILE_PATHNAME, O_RDWR | O_CREAT, 0600);
 	ATF_REQUIRE_MSG(fd != -1, "open failed: %s", strerror(errno));
 
 	unlink(FILE_PATHNAME);
@@ -1086,7 +1088,7 @@ ATF_TC_BODY(aio_fsync_test, tc)
 	ATF_REQUIRE_KERNEL_MODULE("aio");
 	ATF_REQUIRE_UNSAFE_AIO();
 
-	fd = open(FILE_PATHNAME, O_RDWR | O_CREAT);
+	fd = open(FILE_PATHNAME, O_RDWR | O_CREAT, 0600);
 	ATF_REQUIRE_MSG(fd != -1, "open failed: %s", strerror(errno));
 	unlink(FILE_PATHNAME);
 

@@ -68,15 +68,15 @@ bread(struct vnode *vp, daddr_t blkno, int size, struct ucred *u1 __unused,
 		printf("%s: blkno %lld size %d\n", __func__, (long long)blkno,
 		    size);
 	*bpp = getblk(vp, blkno, size, 0, 0, 0);
-	offset = (*bpp)->b_blkno * fs->sectorsize;
+	offset = (*bpp)->b_blkno * fs->sectorsize + fs->offset;
 	if (debug & DEBUG_BUF_BREAD)
 		printf("%s: blkno %lld offset %lld bcount %ld\n", __func__,
 		    (long long)(*bpp)->b_blkno, (long long) offset,
 		    (*bpp)->b_bcount);
-	if (lseek((*bpp)->b_fd, offset, SEEK_SET) == -1)
+	if (lseek((*bpp)->b_fs->fd, offset, SEEK_SET) == -1)
 		err(1, "%s: lseek %lld (%lld)", __func__,
 		    (long long)(*bpp)->b_blkno, (long long)offset);
-	rv = read((*bpp)->b_fd, (*bpp)->b_data, (*bpp)->b_bcount);
+	rv = read((*bpp)->b_fs->fd, (*bpp)->b_data, (*bpp)->b_bcount);
 	if (debug & DEBUG_BUF_BREAD)
 		printf("%s: read %ld (%lld) returned %d\n", __func__,
 		    (*bpp)->b_bcount, (long long)offset, (int)rv);
@@ -128,14 +128,14 @@ bwrite(struct buf *bp)
 	fsinfo_t *fs = bp->b_fs;
 
 	assert (bp != NULL);
-	offset = bp->b_blkno * fs->sectorsize;
+	offset = bp->b_blkno * fs->sectorsize + fs->offset;
 	if (debug & DEBUG_BUF_BWRITE)
 		printf("bwrite: blkno %lld offset %lld bcount %ld\n",
 		    (long long)bp->b_blkno, (long long) offset,
 		    bp->b_bcount);
-	if (lseek(bp->b_fd, offset, SEEK_SET) == -1)
+	if (lseek(bp->b_fs->fd, offset, SEEK_SET) == -1)
 		return (errno);
-	rv = write(bp->b_fd, bp->b_data, bp->b_bcount);
+	rv = write(bp->b_fs->fd, bp->b_data, bp->b_bcount);
 	if (debug & DEBUG_BUF_BWRITE)
 		printf("bwrite: write %ld (offset %lld) returned %lld\n",
 		    bp->b_bcount, (long long)offset, (long long)rv);
@@ -198,7 +198,6 @@ getblk(struct vnode *vp, daddr_t blkno, int size, int u1 __unused,
 		bp = ecalloc(1, sizeof(*bp));
 		bp->b_bufsize = 0;
 		bp->b_blkno = bp->b_lblkno = blkno;
-		bp->b_fd = vp->fd;
 		bp->b_fs = vp->fs;
 		bp->b_data = NULL;
 		TAILQ_INSERT_HEAD(&buftail, bp, b_tailq);

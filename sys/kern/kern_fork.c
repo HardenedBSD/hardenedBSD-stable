@@ -198,7 +198,7 @@ SYSCTL_INT(_kern, OID_AUTO, lastpid, CTLFLAG_RD, &lastpid, 0,
  */
 int randompid = 0;
 
-#ifndef PAX_HARDENING
+#ifndef HARDEN_RANDOMPID
 static int
 sysctl_kern_randompid(SYSCTL_HANDLER_ARGS)
 {
@@ -1116,7 +1116,7 @@ fork_return(struct thread *td, struct trapframe *frame)
 		 */
 		PROC_LOCK(p);
 		td->td_dbgflags |= TDB_SCX;
-		_STOPEVENT(p, S_SCX, td->td_dbg_sc_code);
+		_STOPEVENT(p, S_SCX, td->td_sa.code);
 		if ((p->p_ptevents & PTRACE_SCX) != 0 ||
 		    (td->td_dbgflags & TDB_BORN) != 0)
 			ptracestop(td, SIGTRAP, NULL);
