@@ -150,29 +150,7 @@ LIBTERMCAP?=	${LIBDESTDIR}${LIBDIR_BASE}/libtermcap.a
 LIBTERMCAPW?=	${LIBDESTDIR}${LIBDIR_BASE}/libtermcapw.a
 LIBTERMLIB?=	"don't use LIBTERMLIB, use LIBTERMCAP"
 LIBTINFO?=	"don't use LIBTINFO, use LIBNCURSES"
-<<<<<<< HEAD
-LIBTLS?=	${DESTDIR}${LIBDIR_BASE}/libtls.a
-LIBUFS?=	${DESTDIR}${LIBDIR_BASE}/libufs.a
-LIBUGIDFW?=	${DESTDIR}${LIBDIR_BASE}/libugidfw.a
-LIBULOG?=	${DESTDIR}${LIBDIR_BASE}/libulog.a
-LIBUMEM?=	${DESTDIR}${LIBDIR_BASE}/libumem.a
-LIBUSB?=	${DESTDIR}${LIBDIR_BASE}/libusb.a
-LIBUSBHID?=	${DESTDIR}${LIBDIR_BASE}/libusbhid.a
-LIBUTIL?=	${DESTDIR}${LIBDIR_BASE}/libutil.a
-LIBUUTIL?=	${DESTDIR}${LIBDIR_BASE}/libuutil.a
-LIBVGL?=	${DESTDIR}${LIBDIR_BASE}/libvgl.a
-LIBVMMAPI?=	${DESTDIR}${LIBDIR_BASE}/libvmmapi.a
-LIBWIND?=	${DESTDIR}${LIBDIR_BASE}/libwind.a
-LIBWRAP?=	${DESTDIR}${LIBDIR_BASE}/libwrap.a
-LIBXO?=		${DESTDIR}${LIBDIR_BASE}/libxo.a
-LIBXPG4?=	${DESTDIR}${LIBDIR_BASE}/libxpg4.a
-LIBY?=		${DESTDIR}${LIBDIR_BASE}/liby.a
-LIBYPCLNT?=	${DESTDIR}${LIBDIR_BASE}/libypclnt.a
-LIBZ?=		${DESTDIR}${LIBDIR_BASE}/libz.a
-LIBZFS?=	${DESTDIR}${LIBDIR_BASE}/libzfs.a
-LIBZFS_CORE?=	${DESTDIR}${LIBDIR_BASE}/libzfs_core.a
-LIBZPOOL?=	${DESTDIR}${LIBDIR_BASE}/libzpool.a
-=======
+LIBTLS?=	${LIBDESTDIR}${LIBDIR_BASE}/libtls.a
 LIBUFS?=	${LIBDESTDIR}${LIBDIR_BASE}/libufs.a
 LIBUGIDFW?=	${LIBDESTDIR}${LIBDIR_BASE}/libugidfw.a
 LIBULOG?=	${LIBDESTDIR}${LIBDIR_BASE}/libulog.a
@@ -193,7 +171,6 @@ LIBZ?=		${LIBDESTDIR}${LIBDIR_BASE}/libz.a
 LIBZFS?=	${LIBDESTDIR}${LIBDIR_BASE}/libzfs.a
 LIBZFS_CORE?=	${LIBDESTDIR}${LIBDIR_BASE}/libzfs_core.a
 LIBZPOOL?=	${LIBDESTDIR}${LIBDIR_BASE}/libzpool.a
->>>>>>> origin/freebsd/current/master
 
 # enforce the 2 -lpthread and -lc to always be the last in that exact order
 .if defined(LDADD)
