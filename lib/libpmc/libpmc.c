@@ -341,7 +341,11 @@ PMC_CLASS_TABLE_DESC(core2, IAP, core2, iap);
 PMC_CLASS_TABLE_DESC(corei7, IAP, corei7, iap);
 PMC_CLASS_TABLE_DESC(nehalem_ex, IAP, nehalem_ex, iap);
 PMC_CLASS_TABLE_DESC(haswell, IAP, haswell, iap);
+<<<<<<< HEAD
 PMC_CLASS_TABLE_DESC(haswell_xeon, IAP, haswell_xeon, iap);
+=======
+PMC_CLASS_TABLE_DESC(haswell_xeon, IAP, haswell, iap);
+>>>>>>> origin/freebsd/10-stable/master
 PMC_CLASS_TABLE_DESC(broadwell, IAP, broadwell, iap);
 PMC_CLASS_TABLE_DESC(broadwell_xeon, IAP, broadwell_xeon, iap);
 PMC_CLASS_TABLE_DESC(skylake, IAP, skylake, iap);
@@ -853,6 +857,8 @@ static struct pmc_masks iap_rsp_mask_haswell[] = {
 	 * For processor type 06_45H 22 is L4_HIT_LOCAL_L4
 	 * and 23, 24 and 25 are also defined.
 	 */
+<<<<<<< HEAD
+=======
 	PMCMASK(RES_SNOOP_SNP_NONE,	(1ULL << 31)),
 	PMCMASK(RES_SNOOP_SNP_NO_NEEDED,(1ULL << 32)),
 	PMCMASK(RES_SNOOP_SNP_MISS,	(1ULL << 33)),
@@ -879,6 +885,7 @@ static struct pmc_masks iap_rsp_mask_skylake[] = {
 	PMCMASK(RES_SUPPLIER_L4_HIT,	(1ULL << 22)),
 	PMCMASK(RES_SUPPLIER_DRAM,	(1ULL << 26)),
 	PMCMASK(RES_SUPPLIER_SPL_HIT,	(1ULL << 30)),
+>>>>>>> origin/freebsd/10-stable/master
 	PMCMASK(RES_SNOOP_SNP_NONE,	(1ULL << 31)),
 	PMCMASK(RES_SNOOP_SNP_NO_NEEDED,(1ULL << 32)),
 	PMCMASK(RES_SNOOP_SNP_MISS,	(1ULL << 33)),
@@ -889,6 +896,35 @@ static struct pmc_masks iap_rsp_mask_skylake[] = {
 	NULLMASK
 };
 
+<<<<<<< HEAD
+static struct pmc_masks iap_rsp_mask_skylake[] = {
+	PMCMASK(REQ_DMND_DATA_RD,	(1ULL <<  0)),
+	PMCMASK(REQ_DMND_RFO,		(1ULL <<  1)),
+	PMCMASK(REQ_DMND_IFETCH,	(1ULL <<  2)),
+	PMCMASK(REQ_PF_DATA_RD,		(1ULL <<  7)),
+	PMCMASK(REQ_PF_RFO,		(1ULL <<  8)),
+	PMCMASK(REQ_STRM_ST,		(1ULL << 11)),
+	PMCMASK(REQ_OTHER,		(1ULL << 15)),
+	PMCMASK(RES_ANY,		(1ULL << 16)),
+	PMCMASK(RES_SUPPLIER_SUPP,	(1ULL << 17)),
+	PMCMASK(RES_SUPPLIER_LLC_HITM,	(1ULL << 18)),
+	PMCMASK(RES_SUPPLIER_LLC_HITE,	(1ULL << 19)),
+	PMCMASK(RES_SUPPLIER_LLC_HITS,	(1ULL << 20)),
+	PMCMASK(RES_SUPPLIER_L4_HIT,	(1ULL << 22)),
+	PMCMASK(RES_SUPPLIER_DRAM,	(1ULL << 26)),
+	PMCMASK(RES_SUPPLIER_SPL_HIT,	(1ULL << 30)),
+	PMCMASK(RES_SNOOP_SNP_NONE,	(1ULL << 31)),
+	PMCMASK(RES_SNOOP_SNP_NO_NEEDED,(1ULL << 32)),
+	PMCMASK(RES_SNOOP_SNP_MISS,	(1ULL << 33)),
+	PMCMASK(RES_SNOOP_HIT_NO_FWD,	(1ULL << 34)),
+	PMCMASK(RES_SNOOP_HIT_FWD,	(1ULL << 35)),
+	PMCMASK(RES_SNOOP_HITM,		(1ULL << 36)),
+	PMCMASK(RES_NON_DRAM,		(1ULL << 37)),
+	NULLMASK
+};
+
+=======
+>>>>>>> origin/freebsd/10-stable/master
 
 static int
 iap_allocate_pmc(enum pmc_event pe, char *ctrspec,
