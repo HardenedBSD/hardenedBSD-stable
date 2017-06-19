@@ -247,7 +247,7 @@ FILES+=		ntpd
 .endif
 
 .if ${MK_OPENNTPD} != "no"
-FILES+=		openntpd
+FILES+=		local_openntpd
 .endif
 
 .if ${MK_OFED} != "no"
