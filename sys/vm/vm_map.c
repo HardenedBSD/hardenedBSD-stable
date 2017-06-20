@@ -3801,7 +3801,7 @@ Retry:
 		 * If this puts us into the previous entry, cut back our
 		 * growth to the available space. Also, see the note above.
 		 */
-		if (addr < end) {
+		if (addr <= end) {
 			stack_entry->avail_ssize = max_grow;
 			addr = end;
 			if (stack_guard_page)
