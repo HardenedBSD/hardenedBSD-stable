@@ -368,7 +368,6 @@ g_free(void *ptr)
 
 #define g_topology_lock() 					\
 	do {							\
-		mtx_assert(&Giant, MA_NOTOWNED);		\
 		sx_xlock(&topology_lock);			\
 	} while (0)
 
