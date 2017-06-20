@@ -2706,7 +2706,6 @@ g_journal_shutdown(void *arg, int howto __unused)
 	if (panicstr != NULL)
 		return;
 	mp = arg;
-	DROP_GIANT();
 	g_topology_lock();
 	LIST_FOREACH_SAFE(gp, &mp->geom, geom, gp2) {
 		if (gp->softc == NULL)
@@ -2715,7 +2714,6 @@ g_journal_shutdown(void *arg, int howto __unused)
 		g_journal_destroy(gp->softc);
 	}
 	g_topology_unlock();
-	PICKUP_GIANT();
 }
 
 /*
@@ -2734,7 +2732,6 @@ g_journal_lowmem(void *arg, int howto __unused)
 
 	g_journal_stats_low_mem++;
 	mp = arg;
-	DROP_GIANT();
 	g_topology_lock();
 	LIST_FOREACH(gp, &mp->geom, geom) {
 		sc = gp->softc;
@@ -2765,7 +2762,6 @@ g_journal_lowmem(void *arg, int howto __unused)
 			break;
 	}
 	g_topology_unlock();
-	PICKUP_GIANT();
 }
 
 static void g_journal_switcher(void *arg);
@@ -2872,7 +2868,6 @@ g_journal_do_switch(struct g_class *classp)
 	char *mountpoint;
 	int error, save;
 
-	DROP_GIANT();
 	g_topology_lock();
 	LIST_FOREACH(gp, &classp->geom, geom) {
 		sc = gp->softc;
@@ -2887,7 +2882,6 @@ g_journal_do_switch(struct g_class *classp)
 		mtx_unlock(&sc->sc_mtx);
 	}
 	g_topology_unlock();
-	PICKUP_GIANT();
 
 	mtx_lock(&mountlist_mtx);
 	TAILQ_FOREACH(mp, &mountlist, mnt_list) {
@@ -2902,11 +2896,9 @@ g_journal_do_switch(struct g_class *classp)
 			continue;
 		/* mtx_unlock(&mountlist_mtx) was done inside vfs_busy() */
 
-		DROP_GIANT();
 		g_topology_lock();
 		sc = g_journal_find_device(classp, mp->mnt_gjprovider);
 		g_topology_unlock();
-		PICKUP_GIANT();
 
 		if (sc == NULL) {
 			GJ_DEBUG(0, "Cannot find journal geom for %s.",
@@ -2985,7 +2977,6 @@ next:
 
 	sc = NULL;
 	for (;;) {
-		DROP_GIANT();
 		g_topology_lock();
 		LIST_FOREACH(gp, &g_journal_class.geom, geom) {
 			sc = gp->softc;
@@ -3001,7 +2992,6 @@ next:
 			sc = NULL;
 		}
 		g_topology_unlock();
-		PICKUP_GIANT();
 		if (sc == NULL)
 			break;
 		mtx_assert(&sc->sc_mtx, MA_OWNED);
