@@ -3689,7 +3689,7 @@ vm_map_growstack(struct proc *p, vm_offset_t addr)
 	int error;
 #endif
 
-#ifndef	PAX_HARDENING
+#ifndef PAX_HARDENING
 	/*
 	 * Ensure the stack guard size is sane. The only way it can
 	 * become unsane is if the sysctl node is exposed.
