@@ -990,6 +990,7 @@ PAX_ASLR_COMPAT_DELTA_VDSO_DEF_LEN	opt_pax.h
 
 # Other hardening features
 HARDEN_RANDOMPID	opt_pax.h
+STACK_GUARD_SIZE	opt_pax.h
 
 # Random number generator(s)
 # Which CSPRNG hash we get.

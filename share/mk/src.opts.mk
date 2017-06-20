@@ -102,7 +102,6 @@ __DEFAULT_YES_OPTIONS = \
     GNU_DIFF \
     GNU_GREP \
     GPIO \
-    GPL_DTC \
     HAST \
     HBSD_UPDATE \
     HTML \
@@ -185,6 +184,7 @@ __DEFAULT_NO_OPTIONS = \
     DTRACE_TESTS \
     FREEBSD_UPDATE \
     GNU_GREP_COMPAT \
+    GPL_DTC \
     HESIOD \
     LIB32 \
     LIBSOFT \

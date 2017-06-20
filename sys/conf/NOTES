@@ -3031,6 +3031,7 @@ options 	PAX_NOEXEC	# Remove WX pages from user-space and enforce W^X
 options 	PAX_SEGVGUARD	# Track and ban failing process
 options 	PAX_SYSCTLS	# Run-time settings for PAX and Hardening
 options 	PAX_INSECURE_MODE	# Allow to override INVARIANTS enforcements
+options 	STACK_GUARD_SIZE=(2*1024*1024)	# Stack guard size (divisible by PAGE_SIZE)
 options 	HBSD_DEBUG
 
 # BHND(4) drivers
