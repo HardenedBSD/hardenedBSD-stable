@@ -190,6 +190,7 @@ g_mbr_ioctl(struct g_provider *pp, u_long cmd, void *data, int fflag, struct thr
 	case DIOCSMBR: {
 		if (!(fflag & FWRITE))
 			return (EPERM);
+		DROP_GIANT();
 		g_topology_lock();
 		cp = LIST_FIRST(&gp->consumer);
 		if (cp->acw == 0) {
@@ -204,6 +205,7 @@ g_mbr_ioctl(struct g_provider *pp, u_long cmd, void *data, int fflag, struct thr
 		if (opened)
 			g_access(cp, 0, -1 , 0);
 		g_topology_unlock();
+		PICKUP_GIANT();
 		return(error);
 	}
 	default:
