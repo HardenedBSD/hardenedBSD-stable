@@ -351,9 +351,9 @@ kern_mmap(struct thread *td, uintptr_t addr0, size_t size, int prot, int flags,
 		pax_aslr_mmap(td->td_proc, &addr, addr0, flags);
 		pax_aslr_done = 1;
 		error = check_address_limit(td, addr, false);
+		PROC_UNLOCK(td->td_proc);
 		if (error)
 			return (error);
-		PROC_UNLOCK(td->td_proc);
 #endif
 	}
 	if (size == 0) {
