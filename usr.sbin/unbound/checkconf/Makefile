@@ -11,5 +11,6 @@ SRCS=	ub_event.c unbound-checkconf.c worker_cb.c
 CFLAGS+=	-I${UNBOUNDDIR} -I${LDNSDIR}
 LIBADD=	unbound pthread
 MAN=	unbound-checkconf.8
+CFI_OVERRIDE=-fno-sanitize=cfi-icall
 
 .include <bsd.prog.mk>
