@@ -201,10 +201,14 @@ poolnodecommand(remove, argc, argv)
 			}
 			break;
 		case 'T' :
-			ttl = atoi(optarg);
-			if (ttl < 0) {
-				fprintf(stderr, "cannot set negative ttl\n");
-				return -1;
+			if (remove == 0) {
+				ttl = atoi(optarg);
+				if (ttl < 0) {
+					fprintf(stderr, "cannot set negative ttl\n");
+					return -1;
+				}
+			} else {
+				usage(argv[0]);
 			}
 			break;
 		case 'v' :
@@ -583,7 +587,7 @@ poolflush(argc, argv)
 			break;		/* keep compiler happy */
 		}
 
-	if (argc - 1 - optind > 0)
+	if (argc - optind > 0)
 		usage(argv[0]);
 
 	if (opts & OPT_DEBUG)

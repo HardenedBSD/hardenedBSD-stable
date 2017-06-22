@@ -12,5 +12,6 @@ SRCS=	acl_list.c cachedump.c daemon.c remote.c stats.c ub_event.c \
 CFLAGS+=	-I${UNBOUNDDIR} -I${LDNSDIR}
 LIBADD=	unbound util ssl crypto pthread
 MAN=	unbound.8 unbound.conf.5
+NOCFI=	yes
 
 .include <bsd.prog.mk>
