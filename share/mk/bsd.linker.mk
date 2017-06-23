@@ -41,13 +41,13 @@ ${var}=	${${var}.${${X_}_ld_hash}}
 .endif
 
 .if ${ld} == "LD" || (${ld} == "XLD" && ${XLD} != ${LD})
-
+.if !defined(${X_}LINKER_TYPE) || !defined(${X_}LINKER_VERSION)
 _ld_version!=	${${ld}} --version 2>/dev/null | head -n 1 || echo none
 .if ${_ld_version} == "none"
 .error Unable to determine linker type from ${ld}=${${ld}}
 .endif
 .if ${_ld_version:[1..2]} == "GNU ld"
-${X_}LINKER_TYPE=	binutils
+${X_}LINKER_TYPE=	bfd
 _v=	${_ld_version:M[1-9].[0-9]*:[1]}
 .elif ${_ld_version:[1]} == "LLD"
 ${X_}LINKER_TYPE=	lld
@@ -59,6 +59,11 @@ ${X_}LINKER_VERSION!=	echo "${_v:M[1-9].[0-9]*}" | \
 			  awk -F. '{print $$1 * 10000 + $$2 * 100 + $$3;}'
 .undef _ld_version
 .undef _v
+.endif
+.else
+# Use LD's values
+X_LINKER_TYPE=		${LINKER_TYPE}
+X_LINKER_VERSION=	${LINKER_VERSION}
 .endif	# ${ld} == "LD" || (${ld} == "XLD" && ${XLD} != ${LD})
 
 # Export the values so sub-makes don't have to look them up again, using the
