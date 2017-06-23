@@ -1,5 +1,5 @@
-/*
- * Copyright (c) 2004-2016 Maxim Sobolev <sobomax@FreeBSD.org>
+/*-
+ * Copyright (c) 2017 M. Warner Losh <imp@FreeBSD.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,58 +27,28 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
-#include <sys/disk.h>
-#include <sys/ioctl.h>
+#include "namespace.h"
 #include <sys/param.h>
-#include <sys/mount.h>
-#include <sys/stat.h>
-#include <err.h>
-#include <fcntl.h>
+#include <sys/syscall.h>
+#include "compat-ino64.h"
 #include <unistd.h>
 
-#include "mkuz_cfg.h"
-#include "mkuz_insize.h"
+#include "libc_private.h"
 
-off_t
-mkuz_get_insize(struct mkuz_cfg *cfp)
+#undef fstat
+__weak_reference(_fstat, fstat);
+
+#pragma weak _fstat
+int
+_fstat(int fd, struct stat *sb)
 {
-	int ffd;
-	off_t ms;
-	struct stat sb;
-	struct statfs statfsbuf;
+	struct freebsd11_stat stat11;
+	int rv;
 
-	if (fstat(cfp->fdr, &sb) != 0) {
-		warn("fstat(%s)", cfp->iname);
-		return (-1);
-	}
-	if ((sb.st_flags & SF_SNAPSHOT) != 0) {
-		if (fstatfs(cfp->fdr, &statfsbuf) != 0) {
-			warn("fstatfs(%s)", cfp->iname);
-			return (-1);
-		}
-		ffd = open(statfsbuf.f_mntfromname, O_RDONLY);
-		if (ffd < 0) {
-			warn("open(%s, O_RDONLY)", statfsbuf.f_mntfromname);
-			close(ffd);
-			return (-1);
-		}
-		if (ioctl(ffd, DIOCGMEDIASIZE, &ms) < 0) {
-			warn("ioctl(DIOCGMEDIASIZE)");
-			close(ffd);
-			return (-1);
-		}
-		close(ffd);
-		sb.st_size = ms;
-	} else if (S_ISCHR(sb.st_mode)) {
-		if (ioctl(cfp->fdr, DIOCGMEDIASIZE, &ms) < 0) {
-			warn("ioctl(DIOCGMEDIASIZE)");
-			return (-1);
-		}
-		sb.st_size = ms;
-	} else if (!S_ISREG(sb.st_mode)) {
-		warnx("%s: not a character device or regular file\n",
-			cfp->iname);
-		return (-1);
-	}
-	return (sb.st_size);
+	if (__getosreldate() >= INO64_FIRST)
+		return (__sys_fstat(fd, sb));
+	rv = syscall(SYS_freebsd11_fstat, fd, &stat11);
+	if (rv == 0)
+		__stat11_to_stat(&stat11, sb);
+	return (rv);
 }
