@@ -1,3 +1,12 @@
+[20170624] Enable OpenNTPd by default
+__HardenedBSD_version = 1200051
+
+       Enable WITH_OPENNTPD by default on HardenedBSD.
+       After this point we deliver OpenNTPd as base
+       ntp provider for HardenedBSD. ISC ntpd is still
+       available, and accessible with WITHOUT_OPENNTPD=
+       knob in src.conf(5).
+
 [20170616] Changed __HardenedBSD_version scheme
 __HardenedBSD_version = 1200050
 
