@@ -3685,42 +3685,19 @@ vm_map_stack_locked(vm_map_t map, vm_offset_t addrbos, vm_size_t max_ssize,
 	return (rv);
 }
 
-<<<<<<< HEAD
-#ifdef PAX_HARDENING
-static int stack_guard_page = 1;
-#else
-static int stack_guard_page = 0;
-#endif
-=======
-static int stack_guard_page = 1;
->>>>>>> upstream/master
+static int stack_guard_page = 512;
+#ifndef PAX_HARDENING
 SYSCTL_INT(_security_bsd, OID_AUTO, stack_guard_page, CTLFLAG_RWTUN,
     &stack_guard_page, 0,
     "Specifies the number of guard pages for a stack that grows.");
-
-<<<<<<< HEAD
-static int stack_guard_size = STACK_GUARD_SIZE;
-
-#ifndef PAX_HARDENING
-/*
- * Intentinally under !defined(PAX_HARDENING). Don't allow this to be
- * configured if we're hardened.
- */
-SYSCTL_INT(_security_bsd, OID_AUTO, stack_guard_size, CTLFLAG_RWTUN,
-    &stack_guard_size, 0,
-    "Stack guard size in bytes (divisible by PAGE_SIZE).");
+#else
+SYSCTL_INT(_security_bsd, OID_AUTO, stack_guard_page, CTLFLAG_RDTUN,
+    &stack_guard_page, 0,
+    "Specifies the number of guard pages for a stack that grows.");
 #endif
-
-/* Attempts to grow a vm stack entry.  Returns KERN_SUCCESS if the
- * desired address is already mapped, or if we successfully grow
- * the stack.  Also returns KERN_SUCCESS if addr is outside the
- * stack range (this is strange, but preserves compatibility with
- * the grow function in vm_machdep.c).
-=======
 /*
  * Attempts to grow a vm stack entry.  Returns KERN_SUCCESS if we
  * successfully grow the stack.
->>>>>>> upstream/master
  */
 static int
 vm_map_growstack(vm_map_t map, vm_offset_t addr, vm_map_entry_t gap_entry)
@@ -3741,22 +3718,10 @@ vm_map_growstack(vm_map_t map, vm_offset_t addr, vm_map_entry_t gap_entry)
 	int error;
 #endif
 
-<<<<<<< HEAD
-#ifndef PAX_HARDENING
-	/*
-	 * Ensure the stack guard size is sane. The only way it can
-	 * become unsane is if the sysctl node is exposed.
-	 */
-	if (stack_guard_page && (stack_guard_size <= 0
-	    || (stack_guard_size % PAGE_SIZE != 0)))
-		stack_guard_size = STACK_GUARD_SIZE;
-#endif
-=======
 	p = curproc;
 	vm = p->p_vmspace;
 	MPASS(map == &p->p_vmspace->vm_map);
 	MPASS(!map->system_map);
->>>>>>> upstream/master
 
 	lmemlim = lim_cur(curthread, RLIMIT_MEMLOCK);
 	stacklim = lim_cur(curthread, RLIMIT_STACK);
@@ -3784,35 +3749,10 @@ retry:
 	} else {
 		return (KERN_FAILURE);
 	}
-<<<<<<< HEAD
-
-	/*
-	 * If there is no longer enough space between the entries nogo, and
-	 * adjust the available space.  Note: this  should only happen if the
-	 * user has mapped into the stack area after the stack was created,
-	 * and is probably an error.
-	 *
-	 * This also effectively destroys any guard page the user might have
-	 * intended by limiting the stack size.
-	 */
-	if (grow_amount + (stack_guard_page ? stack_guard_size : 0) > max_grow) {
-		if (vm_map_lock_upgrade(map))
-			goto Retry;
-
-		stack_entry->avail_ssize = max_grow;
-
-		vm_map_unlock(map);
-		return (KERN_NO_SPACE);
-	}
-
-	is_procstack = (addr >= (vm_offset_t)vm->vm_maxsaddr &&
-	    addr < (vm_offset_t)p->p_usrstack) ? 1 : 0;
-=======
 	max_grow = gap_entry->end - gap_entry->start - stack_guard_page *
 	    PAGE_SIZE;
 	if (grow_amount > max_grow)
 		return (KERN_NO_SPACE);
->>>>>>> upstream/master
 
 	/*
 	 * If this is the main process stack, see if we're over the stack
@@ -3893,17 +3833,6 @@ retry:
 		goto retry;
 	}
 
-<<<<<<< HEAD
-		/*
-		 * If this puts us into the previous entry, cut back our
-		 * growth to the available space. Also, see the note above.
-		 */
-		if (addr <= end) {
-			stack_entry->avail_ssize = max_grow;
-			addr = end;
-			if (stack_guard_page)
-				addr += stack_guard_size;
-=======
 	if (grow_down) {
 		grow_start = gap_entry->end - grow_amount;
 		if (gap_entry->start + grow_amount == gap_entry->end) {
@@ -3916,7 +3845,6 @@ retry:
 			gap_entry->end -= grow_amount;
 			vm_map_entry_resize_free(map, gap_entry);
 			gap_deleted = false;
->>>>>>> upstream/master
 		}
 		rv = vm_map_insert(map, NULL, 0, grow_start,
 		    grow_start + grow_amount,
@@ -3934,27 +3862,7 @@ retry:
 			}
 		}
 	} else {
-<<<<<<< HEAD
-		/*
-		 * Growing upward.
-		 */
-		addr = stack_entry->end + grow_amount;
-
-		/*
-		 * If this puts us into the next entry, cut back our growth
-		 * to the available space. Also, see the note above.
-		 */
-		if (addr > end) {
-			stack_entry->avail_ssize = end - stack_entry->end;
-			addr = end;
-			if (stack_guard_page)
-				addr -= stack_guard_size;
-		}
-
-		grow_amount = addr - stack_entry->end;
-=======
 		grow_start = stack_entry->end;
->>>>>>> upstream/master
 		cred = stack_entry->cred;
 		if (cred == NULL && stack_entry->object.vm_object != NULL)
 			cred = stack_entry->object.vm_object->cred;
