@@ -150,12 +150,6 @@ static int vm_map_stack_locked(vm_map_t map, vm_offset_t addrbos,
 static void vm_map_wire_entry_failure(vm_map_t map, vm_map_entry_t entry,
     vm_offset_t failed_addr);
 
-#ifndef STACK_GUARD_SIZE
-#define	STACK_GUARD_SIZE	(2 * 1024 * 1024)
-#endif
-
-CTASSERT(STACK_GUARD_SIZE > 0 && (STACK_GUARD_SIZE % PAGE_SIZE) == 0);
-
 #define	ENTRY_CHARGED(e) ((e)->cred != NULL || \
     ((e)->object.vm_object != NULL && (e)->object.vm_object->cred != NULL && \
      !((e)->eflags & MAP_ENTRY_NEEDS_COPY)))
@@ -3763,7 +3757,7 @@ retry:
 	 * limit.
 	 */
 	is_procstack = addr >= (vm_offset_t)vm->vm_maxsaddr &&
-	    addr < (vm_offset_t)p->p_sysent->sv_usrstack;
+	    addr < (vm_offset_t)p->p_usrstack;
 	if (is_procstack && (ctob(vm->vm_ssize) + grow_amount > stacklim))
 		return (KERN_NO_SPACE);
 
