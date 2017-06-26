@@ -150,12 +150,6 @@ static int vm_map_stack_locked(vm_map_t map, vm_offset_t addrbos,
 static void vm_map_wire_entry_failure(vm_map_t map, vm_map_entry_t entry,
     vm_offset_t failed_addr);
 
-#ifndef STACK_GUARD_SIZE
-#define	STACK_GUARD_SIZE	(2 * 1024 * 1024)
-#endif
-
-CTASSERT(STACK_GUARD_SIZE > 0 && (STACK_GUARD_SIZE % PAGE_SIZE) == 0);
-
 #define	ENTRY_CHARGED(e) ((e)->cred != NULL || \
     ((e)->object.vm_object != NULL && (e)->object.vm_object->cred != NULL && \
      !((e)->eflags & MAP_ENTRY_NEEDS_COPY)))
@@ -2027,6 +2021,8 @@ vm_map_protect(vm_map_t map, vm_offset_t start, vm_offset_t end,
 	 */
 	for (current = entry; current != &map->header && current->start < end;
 	    current = current->next) {
+		if ((current->eflags & MAP_ENTRY_GUARD) != 0)
+			continue;
 		if (current->eflags & MAP_ENTRY_IS_SUB_MAP) {
 			vm_map_unlock(map);
 			return (KERN_INVALID_ARGUMENT);
@@ -2741,9 +2737,9 @@ vm_map_wire(vm_map_t map, vm_offset_t start, vm_offset_t end,
 		 * If VM_MAP_WIRE_HOLESOK was specified, skip this check.
 		 */
 	next_entry:
-		if (((flags & VM_MAP_WIRE_HOLESOK) == 0) &&
-		    (entry->end < end && (entry->next == &map->header ||
-		    entry->next->start > entry->end))) {
+		if ((flags & VM_MAP_WIRE_HOLESOK) == 0 &&
+		    entry->end < end && (entry->next == &map->header ||
+		    entry->next->start > entry->end)) {
 			end = entry->end;
 			rv = KERN_INVALID_ADDRESS;
 			goto done;
@@ -3605,13 +3601,24 @@ out:
 	return (rv);
 }
 
+static int stack_guard_page = 512;
+#ifdef PAX_HARDENING
+SYSCTL_INT(_security_bsd, OID_AUTO, stack_guard_page, CTLFLAG_RDTUN,
+    &stack_guard_page, 0,
+    "Specifies the number of guard pages for a stack that grows");
+#else
+SYSCTL_INT(_security_bsd, OID_AUTO, stack_guard_page, CTLFLAG_RWTUN,
+    &stack_guard_page, 0,
+    "Specifies the number of guard pages for a stack that grows");
+#endif
+
 static int
 vm_map_stack_locked(vm_map_t map, vm_offset_t addrbos, vm_size_t max_ssize,
     vm_size_t growsize, vm_prot_t prot, vm_prot_t max, int cow)
 {
 	vm_map_entry_t new_entry, prev_entry;
 	vm_offset_t bot, gap_bot, gap_top, top;
-	vm_size_t init_ssize;
+	vm_size_t init_ssize, sgp;
 	int orient, rv;
 
 	/*
@@ -3624,12 +3631,16 @@ vm_map_stack_locked(vm_map_t map, vm_offset_t addrbos, vm_size_t max_ssize,
 	KASSERT(orient != (MAP_STACK_GROWS_DOWN | MAP_STACK_GROWS_UP),
 	    ("bi-dir stack"));
 
+	sgp = (vm_size_t)stack_guard_page * PAGE_SIZE;
 	if (addrbos < vm_map_min(map) ||
 	    addrbos > vm_map_max(map) ||
-	    addrbos + max_ssize < addrbos)
+	    addrbos + max_ssize < addrbos ||
+	    sgp >= max_ssize)
 		return (KERN_NO_SPACE);
 
-	init_ssize = (max_ssize < growsize) ? max_ssize : growsize;
+	init_ssize = growsize;
+	if (max_ssize < init_ssize + sgp)
+		init_ssize = max_ssize - sgp;
 
 	/* If addr is already mapped, no go */
 	if (vm_map_lookup_entry(map, addrbos, &prev_entry))
@@ -3637,12 +3648,6 @@ vm_map_stack_locked(vm_map_t map, vm_offset_t addrbos, vm_size_t max_ssize,
 
 	/*
 	 * If we can't accommodate max_ssize in the current mapping, no go.
-	 * However, we need to be aware that subsequent user mappings might
-	 * map into the space we have reserved for stack, and currently this
-	 * space is not protected.
-	 *
-	 * Hopefully we will at least detect this condition when we try to
-	 * grow the stack.
 	 */
 	if ((prev_entry->next != &map->header) &&
 	    (prev_entry->next->start < addrbos + max_ssize))
@@ -3689,16 +3694,6 @@ vm_map_stack_locked(vm_map_t map, vm_offset_t addrbos, vm_size_t max_ssize,
 	return (rv);
 }
 
-static int stack_guard_page = 512;
-#ifndef PAX_HARDENING
-SYSCTL_INT(_security_bsd, OID_AUTO, stack_guard_page, CTLFLAG_RWTUN,
-    &stack_guard_page, 0,
-    "Specifies the number of guard pages for a stack that grows.");
-#else
-SYSCTL_INT(_security_bsd, OID_AUTO, stack_guard_page, CTLFLAG_RDTUN,
-    &stack_guard_page, 0,
-    "Specifies the number of guard pages for a stack that grows.");
-#endif
 /*
  * Attempts to grow a vm stack entry.  Returns KERN_SUCCESS if we
  * successfully grow the stack.
@@ -3763,7 +3758,7 @@ retry:
 	 * limit.
 	 */
 	is_procstack = addr >= (vm_offset_t)vm->vm_maxsaddr &&
-	    addr < (vm_offset_t)p->p_sysent->sv_usrstack;
+	    addr < (vm_offset_t)p->p_usrstack;
 	if (is_procstack && (ctob(vm->vm_ssize) + grow_amount > stacklim))
 		return (KERN_NO_SPACE);
 
