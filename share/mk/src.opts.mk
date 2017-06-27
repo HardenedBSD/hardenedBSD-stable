@@ -135,7 +135,7 @@ __DEFAULT_YES_OPTIONS = \
     NETGRAPH \
     NLS_CATALOGS \
     NS_CACHING \
-    NTP \
+    OPENNTPD \
     OPENSSL \
     PAM \
     PC_SYSINSTALL \
@@ -188,6 +188,7 @@ __DEFAULT_NO_OPTIONS = \
     LIB32 \
     LIBSOFT \
     NAND \
+    NTP \
     OFED \
     OPENLDAP \
     PORTSNAP \
@@ -438,6 +439,14 @@ MK_SAFESTACK:=	no
 
 .if ${MK_LLD_IS_LD} == "no" || ${MK_LLD_BOOTSTRAP} == "no"
 MK_CFI:=	no
+.endif
+
+.if ${MK_OPENNTPD} != "no"
+MK_NTP:=	no
+.endif
+
+.if ${MK_NTP} != "no"
+MK_OPENNTPD:=	no
 .endif
 
 #

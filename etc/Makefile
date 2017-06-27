@@ -120,6 +120,10 @@ BIN1+=	${SRCTOP}/usr.bin/mail/misc/mail.rc
 BIN1+=	ntp.conf
 .endif
 
+.if ${MK_OPENNTPD} != "no"
+BIN1+=	ntpd.conf
+.endif
+
 .if ${MK_OPENSSH} != "no"
 SSH=	${SRCTOP}/crypto/openssh/ssh_config \
 	${SRCTOP}/crypto/openssh/sshd_config \

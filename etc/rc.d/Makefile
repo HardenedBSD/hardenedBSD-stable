@@ -246,6 +246,10 @@ _nscd=		nscd
 FILES+=		ntpd
 .endif
 
+.if ${MK_OPENNTPD} != "no"
+FILES+=		local_openntpd
+.endif
+
 .if ${MK_OFED} != "no"
 _opensm=	opensm
 .endif
