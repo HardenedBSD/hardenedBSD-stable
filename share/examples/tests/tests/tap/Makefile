@@ -15,26 +15,26 @@ PACKAGE=	tests
 #
 # For example: if this Makefile were in src/bin/cp/tests/, its TESTSDIR
 # would point at ${TESTSBASE}/bin/cp/.
-TESTSDIR=	${TESTSBASE}/share/examples/tests/atf
+TESTSDIR=	${TESTSBASE}/share/examples/tests/tap
 
 # List of test programs to build.  Note that we can build more than one
 # test from a single directory, and this is expected.
-ATF_TESTS_C=	printf_test
-ATF_TESTS_SH=	cp_test
+TAP_TESTS_C=	printf_test
+TAP_TESTS_SH=	cp_test
 
 # Tell bsd.test.mk that we are providing a hand-crafted Kyuafile in this
 # directory.  We do so because the file in this directory exists for
 # documentation purposes.
 #
 # In general, however, you should NOT define KYUAFILE at all to allow
-# bsd.test.mk auto-generate one for you based on the ATF_TESTS_*
+# bsd.test.mk auto-generate one for you based on the PLAIN_TESTS_*
 # definitions from above.
 KYUAFILE=	yes
 
-# Install file1 and file2 as files via bsd.progs.mk. Please note the intentional
+# Install file1 and file2 as files via bsd.prog.mk. Please note the intentional
 # ${PACKAGE} namespace of files.
 #
-# The basic semantics of this are the same as FILES in bsd.progs.mk, e.g. the
+# The basic semantics of this are the same as FILES in bsd.prog.mk, e.g. the
 # installation of the files can be manipulated via ${PACKAGE}FILESDIR,
 # ${PACKAGE}FILESMODE, etc.
 #
