@@ -592,11 +592,7 @@ __elfN(load_section)(struct image_params *imgp, vm_ooffset_t offset,
 	/* This had damn well better be true! */
 	if (map_len != 0) {
 		rv = __elfN(map_insert)(imgp, map, NULL, 0, map_addr,
-<<<<<<< HEAD
-		    map_addr + map_len, VM_PROT_ALL, VM_PROT_ALL, 0);
-=======
-		    map_addr + map_len, prot, 0);
->>>>>>> origin/freebsd/11-stable/master
+		    map_addr + map_len, prot, VM_PROT_ALL, 0);
 		if (rv != KERN_SUCCESS)
 			return (EINVAL);
 	}
@@ -620,19 +616,15 @@ __elfN(load_section)(struct image_params *imgp, vm_ooffset_t offset,
 	 * Remove write access to the page if it was only granted by map_insert
 	 * to allow copyout.
 	 */
-<<<<<<< HEAD
 #ifdef PAX_NOEXEC
-	vm_map_protect(map, trunc_page(map_addr), round_page(map_addr +
-	    map_len), prot, TRUE);
+	if ((prot & VM_PROT_WRITE) == 0)
+		vm_map_protect(map, trunc_page(map_addr), round_page(map_addr +
+		    map_len), prot, TRUE);
 #else
-	vm_map_protect(map, trunc_page(map_addr), round_page(map_addr +
-	    map_len), prot, FALSE);
-#endif
-=======
 	if ((prot & VM_PROT_WRITE) == 0)
 		vm_map_protect(map, trunc_page(map_addr), round_page(map_addr +
 		    map_len), prot, FALSE);
->>>>>>> origin/freebsd/11-stable/master
+#endif
 
 	return (0);
 }
