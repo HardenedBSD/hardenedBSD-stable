@@ -70,6 +70,7 @@ SHA256="/sbin/sha256"
 SHA512="/sbin/sha512"
 TAIL="/usr/bin/tail"
 UNBOUND_HOST="/usr/sbin/unbound-host"
+PWD_MKDB="/usr/sbin/pwd_mkdb"
 
 debug_print() {
 	echo -e "${1}" >&2
@@ -515,11 +516,8 @@ apply_base() {
 
 	${ETCUPDATE} -t ${tmpdir}/etcupdate.tbz \
 	    -D ${mountpoint} \
-	    -I /etc/passwd \
-	    -I /etc/group \
-	    -I /etc/master.passwd \
 	    -I /etc/pwd.db \
-	    -I /etc/spwd.db > ${tmpdir}/etcupdate.log
+	    -I /etc/spwd.db > ${tmpdir}/etcupdate.log 2>&1
 
 	for res in $(awk '{print $1;}' ${tmpdir}/etcupdate.log); do
 		if [ "${res}" = "C" ]; then
@@ -534,6 +532,18 @@ apply_base() {
 		res=${?}
 		if [ ${res} -gt 0 ]; then
 			return 1
+		fi
+	fi
+
+	if ${GREP} -q passwd ${tmpdir}/etcupdate.log; then
+		debug_print "[*] Updating the password database"
+
+		${PWD_MKDB} -d ${mountpoint}/etc -p \
+		    ${mountpoint}/etc/master.passwd
+		res=${?}
+		if [ ${res} -gt 0 ]; then
+			echo "[-] Making the password database failed" >&2
+			return ${res}
 		fi
 	fi
 
