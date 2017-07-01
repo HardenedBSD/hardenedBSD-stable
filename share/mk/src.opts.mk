@@ -145,7 +145,6 @@ __DEFAULT_YES_OPTIONS = \
     PPP \
     QUOTAS \
     RADIUS_SUPPORT \
-    RCMDS \
     RBOOTD \
     RELRO \
     RESCUE \
@@ -191,7 +190,11 @@ __DEFAULT_NO_OPTIONS = \
     NTP \
     OFED \
     OPENLDAP \
+<<<<<<< HEAD
     PORTSNAP \
+=======
+    RCMDS \
+>>>>>>> origin/freebsd/current/master
     REPRODUCIBLE_BUILD \
     RPCBIND_WARMSTART_SUPPORT \
     SHARED_TOOLCHAIN \
