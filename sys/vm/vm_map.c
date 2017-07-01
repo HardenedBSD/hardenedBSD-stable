@@ -3618,16 +3618,10 @@ out:
 	return (rv);
 }
 
-static int stack_guard_page = 512;
-#ifdef PAX_HARDENING
-SYSCTL_INT(_security_bsd, OID_AUTO, stack_guard_page, CTLFLAG_RDTUN,
-    &stack_guard_page, 0,
-    "Specifies the number of guard pages for a stack that grows");
-#else
+static int stack_guard_page = 16;
 SYSCTL_INT(_security_bsd, OID_AUTO, stack_guard_page, CTLFLAG_RWTUN,
     &stack_guard_page, 0,
     "Specifies the number of guard pages for a stack that grows");
-#endif
 
 static int
 vm_map_stack_locked(vm_map_t map, vm_offset_t addrbos, vm_size_t max_ssize,
