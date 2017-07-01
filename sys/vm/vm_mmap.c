@@ -1599,15 +1599,7 @@ vm_mmap_object(vm_map_t map, vm_offset_t *addr, vm_size_t size, vm_prot_t prot,
 		if ((flags & MAP_32BIT) != 0)
 			max_addr = MAP_32BIT_MAX_ADDR;
 #endif
-		/*
-		 * XXX - Shawn Webb
-		 * Checking for MAP_STACK here is only a temporary
-		 * solution. Using vm_map_find_min here for the stack
-		 * can cause major issues, likely stemming from
-		 * SafeStack using libthr to create the additional
-		 * stacks.
-		 */
-		if ((flags & MAP_STACK) != MAP_STACK && curmap) {
+		if (curmap) {
 			rv = vm_map_find_min(map, object, foff, addr, size,
 			    round_page((vm_offset_t)td->td_proc->p_vmspace->
 			    vm_daddr + lim_max(td, RLIMIT_DATA)), max_addr,
