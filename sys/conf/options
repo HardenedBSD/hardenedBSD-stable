@@ -978,6 +978,7 @@ PAX_HARDENING	opt_pax.h
 PAX_NOEXEC	opt_pax.h
 PAX_INSECURE_MODE	opt_pax.h
 HBSD_DEBUG	opt_pax.h
+STACK_GUARD_MAX_PAGES	opt_pax.h
 
 # ASLR overwritable defaults
 PAX_ASLR_DELTA_MMAP_DEF_LEN		opt_pax.h
