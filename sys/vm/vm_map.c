@@ -3618,7 +3618,7 @@ out:
 	return (rv);
 }
 
-static int stack_guard_page = 16;
+static int stack_guard_page = 1;
 SYSCTL_INT(_security_bsd, OID_AUTO, stack_guard_page, CTLFLAG_RWTUN,
     &stack_guard_page, 0,
     "Specifies the number of guard pages for a stack that grows");
