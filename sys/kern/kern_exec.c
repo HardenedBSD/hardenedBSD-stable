@@ -1140,16 +1140,12 @@ exec_new_vmspace(struct image_params *imgp, struct sysentvec *sv)
 		    MAP_INHERIT_SHARE | MAP_ACC_NO_CHARGE);
 		if (error != KERN_SUCCESS) {
 			vm_object_deallocate(obj);
-<<<<<<< HEAD
 #ifdef PAX_ASLR
 			pax_log_aslr(p, PAX_LOG_DEFAULT,
 			    "failed to map the shared-page @%p",
 			    (void *)p->p_shared_page_base);
 #endif
-			return (error);
-=======
 			return (vm_mmap_to_errno(error));
->>>>>>> origin/freebsd/current/master
 		}
 
 		p->p_timekeep_base = sv->sv_timekeep_base;
@@ -1178,7 +1174,6 @@ exec_new_vmspace(struct image_params *imgp, struct sysentvec *sv)
 	} else {
 		ssiz = maxssiz;
 	}
-<<<<<<< HEAD
 
 	stack_addr = sv->sv_usrstack;
 #ifdef PAX_ASLR
@@ -1194,23 +1189,16 @@ exec_new_vmspace(struct image_params *imgp, struct sysentvec *sv)
 #ifdef PAX_NOEXEC
 	pax_noexec_nx(p, &stackprot, &stackmaxprot);
 #endif
-	error = vm_map_stack(map, stack_addr, (vm_size_t)ssiz, stackprot, stackmaxprot, MAP_STACK_GROWS_DOWN);
-	if (error) {
+	error = vm_map_stack(map, stack_addr, (vm_size_t)ssiz,
+	    stackprot, stackmaxprot, MAP_STACK_GROWS_DOWN);
+	if (error != KERN_SUCCESS) {
 #ifdef PAX_ASLR
 		pax_log_aslr(p, PAX_LOG_DEFAULT,
 		    "failed to map the main stack @%p",
 		    (void *)p->p_usrstack);
 #endif
-		return (error);
-	}
-=======
-	stack_addr = sv->sv_usrstack - ssiz;
-	error = vm_map_stack(map, stack_addr, (vm_size_t)ssiz,
-	    obj != NULL && imgp->stack_prot != 0 ? imgp->stack_prot :
-	    sv->sv_stackprot, VM_PROT_ALL, MAP_STACK_GROWS_DOWN);
-	if (error != KERN_SUCCESS)
 		return (vm_mmap_to_errno(error));
->>>>>>> origin/freebsd/current/master
+	}
 
 	/*
 	 * vm_ssize and vm_maxsaddr are somewhat antiquated concepts, but they
