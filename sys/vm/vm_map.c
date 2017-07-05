@@ -149,13 +149,6 @@ static int vm_map_stack_locked(vm_map_t map, vm_offset_t addrbos,
     int cow);
 static void vm_map_wire_entry_failure(vm_map_t map, vm_map_entry_t entry,
     vm_offset_t failed_addr);
-
-#ifndef STACK_GUARD_SIZE
-#define	STACK_GUARD_SIZE	(2 * 1024 * 1024)
-#endif
-
-CTASSERT(STACK_GUARD_SIZE > 0 && (STACK_GUARD_SIZE % PAGE_SIZE) == 0);
-
 #define	ENTRY_CHARGED(e) ((e)->cred != NULL || \
     ((e)->object.vm_object != NULL && (e)->object.vm_object->cred != NULL && \
      !((e)->eflags & MAP_ENTRY_NEEDS_COPY)))
@@ -3711,38 +3704,9 @@ vm_map_stack_locked(vm_map_t map, vm_offset_t addrbos, vm_size_t max_ssize,
 	return (rv);
 }
 
-<<<<<<< HEAD
-#ifdef PAX_HARDENING
-static int stack_guard_page = 1;
-#else
-static int stack_guard_page = 0;
-#endif
-SYSCTL_INT(_security_bsd, OID_AUTO, stack_guard_page, CTLFLAG_RWTUN,
-    &stack_guard_page, 0,
-    "Insert stack guard page ahead of the growable segments.");
-
-static int stack_guard_size = STACK_GUARD_SIZE;
-
-#ifndef PAX_HARDENING
-/*
- * Intentinally under !defined(PAX_HARDENING). Don't allow this to be
- * configured if we're hardened.
- */
-SYSCTL_INT(_security_bsd, OID_AUTO, stack_guard_size, CTLFLAG_RWTUN,
-    &stack_guard_size, 0,
-    "Stack guard size in bytes (divisible by PAGE_SIZE).");
-#endif
-
-/* Attempts to grow a vm stack entry.  Returns KERN_SUCCESS if the
- * desired address is already mapped, or if we successfully grow
- * the stack.  Also returns KERN_SUCCESS if addr is outside the
- * stack range (this is strange, but preserves compatibility with
- * the grow function in vm_machdep.c).
-=======
 /*
  * Attempts to grow a vm stack entry.  Returns KERN_SUCCESS if we
  * successfully grow the stack.
->>>>>>> origin/freebsd/11-stable/master
  */
 static int
 vm_map_growstack(vm_map_t map, vm_offset_t addr, vm_map_entry_t gap_entry)
@@ -3763,25 +3727,12 @@ vm_map_growstack(vm_map_t map, vm_offset_t addr, vm_map_entry_t gap_entry)
 	int error;
 #endif
 
-<<<<<<< HEAD
-#ifndef PAX_HARDENING
-	/*
-	 * Ensure the stack guard size is sane. The only way it can
-	 * become unsane is if the sysctl node is exposed.
-	 */
-	if (stack_guard_page && (stack_guard_size <= 0
-	    || (stack_guard_size % PAGE_SIZE != 0)))
-		stack_guard_size = STACK_GUARD_SIZE;
-#endif
-
-=======
 	p = curproc;
 	vm = p->p_vmspace;
 	MPASS(map == &p->p_vmspace->vm_map);
 	MPASS(!map->system_map);
 
 	guard = stack_guard_page * PAGE_SIZE;
->>>>>>> origin/freebsd/11-stable/master
 	lmemlim = lim_cur(curthread, RLIMIT_MEMLOCK);
 	stacklim = lim_cur(curthread, RLIMIT_STACK);
 	vmemlim = lim_cur(curthread, RLIMIT_VMEM);
@@ -3811,42 +3762,16 @@ retry:
 	max_grow = gap_entry->end - gap_entry->start;
 	if (guard > max_grow)
 		return (KERN_NO_SPACE);
-<<<<<<< HEAD
-	}
-
-	/*
-	 * If there is no longer enough space between the entries nogo, and
-	 * adjust the available space.  Note: this  should only happen if the
-	 * user has mapped into the stack area after the stack was created,
-	 * and is probably an error.
-	 *
-	 * This also effectively destroys any guard page the user might have
-	 * intended by limiting the stack size.
-	 */
-	if (grow_amount + (stack_guard_page ? stack_guard_size : 0) > max_grow) {
-		if (vm_map_lock_upgrade(map))
-			goto Retry;
-
-		stack_entry->avail_ssize = max_grow;
-
-		vm_map_unlock(map);
-		return (KERN_NO_SPACE);
-	}
-
-	is_procstack = (addr >= (vm_offset_t)vm->vm_maxsaddr &&
-	    addr < (vm_offset_t)p->p_usrstack) ? 1 : 0;
-=======
 	max_grow -= guard;
 	if (grow_amount > max_grow)
 		return (KERN_NO_SPACE);
->>>>>>> origin/freebsd/11-stable/master
 
 	/*
 	 * If this is the main process stack, see if we're over the stack
 	 * limit.
 	 */
 	is_procstack = addr >= (vm_offset_t)vm->vm_maxsaddr &&
-	    addr < (vm_offset_t)p->p_sysent->sv_usrstack;
+	    addr < (vm_offset_t)p->p_usrstack;
 	if (is_procstack && (ctob(vm->vm_ssize) + grow_amount > stacklim))
 		return (KERN_NO_SPACE);
 
@@ -3920,17 +3845,6 @@ retry:
 		goto retry;
 	}
 
-<<<<<<< HEAD
-		/*
-		 * If this puts us into the previous entry, cut back our
-		 * growth to the available space. Also, see the note above.
-		 */
-		if (addr <= end) {
-			stack_entry->avail_ssize = max_grow;
-			addr = end;
-			if (stack_guard_page)
-				addr += stack_guard_size;
-=======
 	if (grow_down) {
 		grow_start = gap_entry->end - grow_amount;
 		if (gap_entry->start + grow_amount == gap_entry->end) {
@@ -3943,7 +3857,6 @@ retry:
 			gap_entry->end -= grow_amount;
 			vm_map_entry_resize_free(map, gap_entry);
 			gap_deleted = false;
->>>>>>> origin/freebsd/11-stable/master
 		}
 		rv = vm_map_insert(map, NULL, 0, grow_start,
 		    grow_start + grow_amount,
@@ -3961,27 +3874,7 @@ retry:
 			}
 		}
 	} else {
-<<<<<<< HEAD
-		/*
-		 * Growing upward.
-		 */
-		addr = stack_entry->end + grow_amount;
-
-		/*
-		 * If this puts us into the next entry, cut back our growth
-		 * to the available space. Also, see the note above.
-		 */
-		if (addr > end) {
-			stack_entry->avail_ssize = end - stack_entry->end;
-			addr = end;
-			if (stack_guard_page)
-				addr -= stack_guard_size;
-		}
-
-		grow_amount = addr - stack_entry->end;
-=======
 		grow_start = stack_entry->end;
->>>>>>> origin/freebsd/11-stable/master
 		cred = stack_entry->cred;
 		if (cred == NULL && stack_entry->object.vm_object != NULL)
 			cred = stack_entry->object.vm_object->cred;
