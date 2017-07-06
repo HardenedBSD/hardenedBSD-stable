@@ -6,8 +6,14 @@ FILESDIR=	${TESTSDIR}
 
 FILES+=		d_align.in
 FILES+=		d_align.out
+FILES+=		d_b_output.in
+FILES+=		d_b_output.out
 FILES+=		d_se_output.in
 FILES+=		d_se_output.out
+FILES+=		d_s_output.in
+FILES+=		d_s_output.out
+FILES+=		d_vt_output.in
+FILES+=		d_vt_output.out
 
 .include <netbsd-tests.test.mk>
 
