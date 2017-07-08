@@ -51,11 +51,8 @@ __FBSDID("$FreeBSD$");
 #include <sys/imgact_elf.h>
 #include <sys/wait.h>
 #include <sys/malloc.h>
-<<<<<<< HEAD
-#include <sys/pax.h>
-=======
 #include <sys/mman.h>
->>>>>>> origin/freebsd/11-stable/master
+#include <sys/pax.h>
 #include <sys/priv.h>
 #include <sys/proc.h>
 #include <sys/pioctl.h>
