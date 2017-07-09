@@ -109,29 +109,6 @@ pax_get_hardenedbsd_version(void)
 	return (HardenedBSD_version);
 }
 
-/*
- * @brief Get the current process prison.
- *
- * @param p		The current process pointer.
- *
- * @return		prion0's address if failed or kernel process
- * 			the actual process' prison's address else
- *
- */
-struct prison *
-pax_get_prison(struct proc *p)
-{
-
-	KASSERT(p != NULL, ("%s: p == NULL", __func__));
-
-	PROC_LOCK_ASSERT(p, MA_OWNED);
-
-	if (p->p_ucred == NULL)
-		return (&prison0);
-
-	return (p->p_ucred->cr_prison);
-}
-
 struct prison *
 pax_get_prison_td(struct thread *td)
 {

@@ -96,7 +96,6 @@ uint64_t pax_get_hardenedbsd_version(void);
 int pax_elf(struct image_params *imgp, struct thread *td, pax_flag_t mode);
 void pax_get_flags(struct proc *p, pax_flag_t *flags);
 void pax_get_flags_td(struct thread *td, pax_flag_t *flags);
-struct prison *pax_get_prison(struct proc *p);
 struct prison *pax_get_prison_td(struct thread *td);
 void pax_init_prison(struct prison *pr);
 
