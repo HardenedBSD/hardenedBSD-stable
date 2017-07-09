@@ -65,6 +65,14 @@ struct hbsd_features {
 
 #include <vm/vm.h>
 
+/*
+ *  These are internal macros, which are used to enforce the correct
+ *  kernel API version from external modules like secadm.
+ */
+#define	__HBSD_KPI_FREEBSD_VERSION	__CONCAT(__FBSD_KPI, __FreeBSD_version)
+#define	__HBSD_KPI_HARDENEDBSD_VERSION	__CONCAT(__HBSD_KPI, __HardenedBSD_version)
+#define	__HBSD_KPI_VERSION	__CONCAT(__HBSD_KPI_FREEBSD_VERSION, __HBSD_KPI_HARDENEDBSD_VERSION)
+
 struct image_params;
 struct prison;
 struct thread;
@@ -93,6 +101,12 @@ extern const char *pax_status_simple_str[];
  * generic pax functions
  */
 uint64_t pax_get_hardenedbsd_version(void);
+#ifndef	pax_elf
+/*
+ * This macro is used to enforce the correct KPI version.
+ */
+#define pax_elf	__CONCAT(pax_elf, __HBSD_KPI_VERSION)
+#endif
 int pax_elf(struct image_params *imgp, struct thread *td, pax_flag_t mode);
 void pax_get_flags(struct proc *p, pax_flag_t *flags);
 void pax_get_flags_td(struct thread *td, pax_flag_t *flags);
