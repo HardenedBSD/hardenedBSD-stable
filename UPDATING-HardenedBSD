@@ -1,3 +1,12 @@
+[20170709] Enforced KPI
+__HardenedBSD_version = 1200052
+
+	Enfore the KPI version at compile time. This
+	will implicate the recompilation of external
+	modules even once __HardenedBSD_version or
+	__FreeBSD_version gets bumped.
+
+
 [20170624] Enable OpenNTPd by default
 __HardenedBSD_version = 1200051
 
