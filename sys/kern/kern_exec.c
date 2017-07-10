@@ -1056,9 +1056,9 @@ exec_unmap_first_page(imgp)
 }
 
 /*
- * Destroy old address space, and allocate a new stack
- *	The new stack is only SGROWSIZ large because it is grown
- *	automatically in trap.c.
+ * Destroy old address space, and allocate a new stack.
+ *	The new stack is only sgrowsiz large because it is grown
+ *	automatically on a page fault.
  */
 int
 exec_new_vmspace(imgp, sv)
@@ -1126,14 +1126,18 @@ exec_new_vmspace(imgp, sv)
 		    VM_PROT_READ | VM_PROT_EXECUTE,
 		    VM_PROT_READ | VM_PROT_EXECUTE,
 		    MAP_INHERIT_SHARE | MAP_ACC_NO_CHARGE);
-		if (error) {
+		if (error != KERN_SUCCESS) {
 			vm_object_deallocate(obj);
+<<<<<<< HEAD
 #ifdef PAX_ASLR
 			pax_log_aslr(p, PAX_LOG_DEFAULT,
 			    "failed to map the shared-page @%p",
 			    (void *)p->p_shared_page_base);
 #endif
 			return (error);
+=======
+			return (vm_mmap_to_errno(error));
+>>>>>>> origin/freebsd/10-stable/master
 		}
 	}
 
@@ -1154,6 +1158,7 @@ exec_new_vmspace(imgp, sv)
 	} else {
 		ssiz = maxssiz;
 	}
+<<<<<<< HEAD
 
 	stack_addr = sv->sv_usrstack;
 #ifdef PAX_ASLR
@@ -1178,6 +1183,14 @@ exec_new_vmspace(imgp, sv)
 #endif
 		return (error);
 	}
+=======
+	stack_addr = sv->sv_usrstack - ssiz;
+	error = vm_map_stack(map, stack_addr, (vm_size_t)ssiz,
+	    obj != NULL && imgp->stack_prot != 0 ? imgp->stack_prot :
+	    sv->sv_stackprot, VM_PROT_ALL, MAP_STACK_GROWS_DOWN);
+	if (error != KERN_SUCCESS)
+		return (vm_mmap_to_errno(error));
+>>>>>>> origin/freebsd/10-stable/master
 
 #ifdef __ia64__
 	ia64backingstore_addr = IA64_BACKINGSTORE;
