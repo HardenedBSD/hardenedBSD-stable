@@ -640,6 +640,8 @@
         ..
         printf
         ..
+        procstat
+        ..
         sdiff
         ..
         sed
@@ -647,6 +649,8 @@
             ..
         ..
         soelim
+        ..
+        stat
         ..
         tail
         ..
