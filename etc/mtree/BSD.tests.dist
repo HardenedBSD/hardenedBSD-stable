@@ -8,7 +8,7 @@
     bin
         cat
         ..
-        chown
+        chmod
         ..
         date
         ..
@@ -612,6 +612,8 @@
         ..
         dirname
         ..
+        du
+        ..
         file2c
         ..
         getconf
@@ -684,6 +686,8 @@
         ..
     ..
     usr.sbin
+        chown
+        ..
         etcupdate
         ..
         extattr
