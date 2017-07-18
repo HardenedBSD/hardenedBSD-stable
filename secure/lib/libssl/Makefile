@@ -34,4 +34,4 @@ LIBADD=	crypto
 
 .else
 .include "Makefile.libressl"
-.endif
+.endif # ${MK_LIBRESSL} != "no"
