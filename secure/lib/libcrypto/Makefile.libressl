@@ -5,7 +5,7 @@ SHLIBDIR?=      /lib
 .include <bsd.own.mk>
 
 LIB=            crypto
-SHLIB_MAJOR=    38
+SHLIB_MAJOR=    41
 
 NO_LINT=
 
@@ -24,10 +24,10 @@ PICFLAG=-fPIC
 INCS+=	crypto.h opensslv.h ossl_typ.h
 INCS+=  aes.h asn1.h asn1_mac.h asn1t.h
 INCS+=  blowfish.h bio.h bn.h buffer.h 
-INCS+=  camellia.h cast.h chacha.h cmac.h cms.h comp.h conf.h conf_api.h
+INCS+=  camellia.h cast.h chacha.h cmac.h comp.h conf.h conf_api.h curve25519.h
 INCS+=  des.h dh.h dsa.h dso.h 
 INCS+=  ec.h ecdh.h ecdsa.h engine.h err.h evp.h 
-INCS+=  gost.h hmac.h idea.h krb5_asn.h lhash.h 
+INCS+=  gost.h hmac.h idea.h lhash.h 
 INCS+=  md4.h md5.h modes.h 
 INCS+=  obj_mac.h objects.h ocsp.h opensslconf.h opensslfeatures.h opensslv.h ossl_typ.h 
 INCS+=  pem.h pem2.h pkcs12.h pkcs7.h poly1305.h 
@@ -40,11 +40,16 @@ INCSDIR=	${INCLUDEDIR}/openssl
 # Hardware engines
 CFLAGS+= -DOPENSSL_NO_HW_PADLOCK # XXX enable this?
 
-CFLAGS+= -I${LCRYPTO_SRC}/modes -I${LCRYPTO_SRC}/asn1 -I${LCRYPTO_SRC}/evp
+
+CFLAGS+= -I${LCRYPTO_SRC}
+CFLAGS+= -I${LCRYPTO_SRC}/asn1 -I${LCRYPTO_SRC}/bn -I${LCRYPTO_SRC}/evp
+CFLAGS+= -I${LCRYPTO_SRC}/modes
+
+CFLAGS+= -DHAVE_EXPLICIT_BZERO=1 -DHAVE_REALLOCARRAY=1
 
 # compat/
-SRCS+=	compat/explicit_bzero.c compat/getentropy_freebsd.c compat/reallocarray.c
-SRCS+=	compat/timingsafe_bcmp.c compat/timingsafe_memcmp.c
+SRCS+=	getentropy_freebsd.c recallocarray.c
+SRCS+=	timingsafe_bcmp.c timingsafe_memcmp.c
 
 ### This is copied straight from the original Makefile
 ### src/lib/libcrypto/crypto/Makefile
@@ -108,17 +113,15 @@ SRCS+= chacha.c
 # cmac/
 SRCS+= cmac.c cm_ameth.c cm_pmeth.c
 
-# cms/
-#SRCS+= cms_lib.c cms_asn1.c cms_att.c cms_io.c cms_smime.c cms_err.c
-#SRCS+= cms_sd.c cms_dd.c cms_cd.c cms_env.c cms_enc.c cms_ess.c
-#SRCS+= cms_pwri.c
-
 # comp/
 SRCS+= comp_lib.c comp_err.c c_rle.c c_zlib.c
 
 # conf/
 SRCS+= conf_err.c conf_lib.c conf_api.c conf_def.c conf_mod.c
 SRCS+= conf_mall.c conf_sap.c
+
+# curve25519/
+SRCS+= curve25519.c curve25519-generic.c
 
 # des/
 SRCS+= cbc_cksm.c cbc_enc.c cfb64enc.c cfb_enc.c
@@ -179,6 +182,7 @@ SRCS+= e_old.c pmeth_lib.c pmeth_fn.c pmeth_gn.c m_sigver.c
 SRCS+= e_aes_cbc_hmac_sha1.c e_rc4_hmac_md5.c
 SRCS+= e_chacha.c evp_aead.c e_chacha20poly1305.c
 SRCS+= e_gost2814789.c m_gost2814789.c m_gostr341194.c m_streebog.c
+SRCS+= m_md5_sha1.c
 
 # gost/
 SRCS+= gost2814789.c gost89_keywrap.c gost89_params.c gost89imit_ameth.c
@@ -191,9 +195,6 @@ SRCS+= hmac.c hm_ameth.c hm_pmeth.c
 
 # idea/
 SRCS+= i_cbc.c i_cfb64.c i_ofb64.c i_ecb.c i_skey.c
-
-# krb5/
-SRCS+= krb5_asn.c
 
 # lhash/
 SRCS+= lhash.c lh_stats.c
@@ -283,32 +284,32 @@ SRCS+= pcy_cache.c pcy_node.c pcy_data.c pcy_map.c pcy_tree.c pcy_lib.c
 .if ${MACHINE_CPUARCH} == "amd64"
 # aes
 CFLAGS+= -DAES_ASM -DBSAES_ASM -DVPAES_ASM
-SRCS+= aes-elf-x86_64.s bsaes-elf-x86_64.s vpaes-elf-x86_64.s aesni-elf-x86_64.s \
-	aesni-sha1-elf-x86_64.s bn_asm.c
+SRCS+= aes-elf-x86_64.S bsaes-elf-x86_64.S vpaes-elf-x86_64.S aesni-elf-x86_64.S \
+	aesni-sha1-elf-x86_64.S bn_asm.c
 # bf
 SRCS+= bf_enc.c
 # bn
 CFLAGS+= -DOPENSSL_IA32_SSE2 -DRSA_ASM -DOPENSSL_BN_ASM_MONT -DOPENSSL_BN_ASM_MONT5 -DOPENSSL_BN_ASM_GF2m
-SRCS+= modexp512-elf-x86_64.s mont-elf-x86_64.s mont5-elf-x86_64.s gf2m-elf-x86_64.s 
+SRCS+= modexp512-elf-x86_64.S mont-elf-x86_64.S mont5-elf-x86_64.S gf2m-elf-x86_64.S 
 # camellia
-SRCS+= cmll_misc.c cmll-elf-x86_64.s
+SRCS+= cmll_misc.c cmll-elf-x86_64.S
 # des
 SRCS+= des_enc.c fcrypt_b.c
 # md5
 CFLAGS+= -DMD5_ASM
-SRCS+= md5-elf-x86_64.s
+SRCS+= md5-elf-x86_64.S
 # modes
 CFLAGS+= -DGHASH_ASM
-SRCS+= ghash-elf-x86_64.s
+SRCS+= ghash-elf-x86_64.S
 # rc4
 CFLAGS+= -DRC4_MD5_ASM
-SRCS+= rc4-elf-x86_64.s rc4-md5-elf-x86_64.s
+SRCS+= rc4-elf-x86_64.S rc4-md5-elf-x86_64.S
 # sha
 CFLAGS+= -DSHA1_ASM -DSHA256_ASM -DSHA512_ASM
-SRCS+= sha1-elf-x86_64.s sha256-elf-x86_64.S sha512-elf-x86_64.S
+SRCS+= sha1-elf-x86_64.S sha256-elf-x86_64.S sha512-elf-x86_64.S
 # whrlpool
 FLAGS+= -DWHIRLPOOL_ASM
-SRCS+= wp-elf-x86_64.s wp-macosx-x86_64.s 
+SRCS+= wp-elf-x86_64.S wp-macosx-x86_64.S 
 # 
 CFLAGS+= -DOPENSSL_CPUID_OBJ
 SRCS+= cpuid-elf-x86_64.S
@@ -339,7 +340,9 @@ SRCS+= wp_block.c
 	${LCRYPTO_SRC}/cmac \
 	${LCRYPTO_SRC}/cms \
 	${LCRYPTO_SRC}/comp \
+	${LCRYPTO_SRC}/compat \
 	${LCRYPTO_SRC}/conf \
+	${LCRYPTO_SRC}/curve25519 \
 	${LCRYPTO_SRC}/des \
 	${LCRYPTO_SRC}/dh \
 	${LCRYPTO_SRC}/dsa \
@@ -354,7 +357,7 @@ SRCS+= wp_block.c
 	${LCRYPTO_SRC}/hmac \
 	${LCRYPTO_SRC}/idea \
 	${LIBRESSL_SRC}/include/openssl \
-	${LCRYPTO_SRC}/krb5 \
+	${LIBRESSL_SRC}/include/compat \
 	${LCRYPTO_SRC}/lhash \
 	${LCRYPTO_SRC}/md4 \
 	${LCRYPTO_SRC}/md5 \
@@ -382,9 +385,6 @@ SRCS+= wp_block.c
 	${LCRYPTO_SRC}/x509 \
 	${LCRYPTO_SRC}/x509v3 \
 	${LIBRESSL_SRC}/man
-
-explicit_bzero.c:
-	CFLAGS+= -O0
 
 # generated
 CFLAGS+= -I${.OBJDIR}

@@ -29,7 +29,6 @@ MAN=	\
 	SSL_CTX_set_mode.3 \
 	SSL_CTX_set_msg_callback.3 \
 	SSL_CTX_set_options.3 \
-	SSL_CTX_set_psk_client_callback.3 \
 	SSL_CTX_set_quiet_shutdown.3 \
 	SSL_CTX_set_session_cache_mode.3 \
 	SSL_CTX_set_session_id_context.3 \
@@ -39,7 +38,6 @@ MAN=	\
 	SSL_CTX_set_tmp_rsa_callback.3 \
 	SSL_CTX_set_verify.3 \
 	SSL_CTX_use_certificate.3 \
-	SSL_CTX_use_psk_identity_hint.3 \
 	SSL_SESSION_free.3 \
 	SSL_SESSION_get_ex_new_index.3 \
 	SSL_SESSION_get_time.3 \
@@ -60,7 +58,6 @@ MAN=	\
 	SSL_get_fd.3 \
 	SSL_get_peer_cert_chain.3 \
 	SSL_get_peer_certificate.3 \
-	SSL_get_psk_identity.3 \
 	SSL_get_rbio.3 \
 	SSL_get_session.3 \
 	SSL_get_verify_result.3 \
@@ -166,7 +163,6 @@ MLINKS+=\
 	SSL_CTX_set_options.3 SSL_CTX_get_options.3 \
 	SSL_CTX_set_options.3 SSL_get_options.3 \
 	SSL_CTX_set_options.3 SSL_set_options.3 \
-	SSL_CTX_set_psk_client_callback.3 SSL_set_psk_client_callback.3 \
 	SSL_CTX_set_quiet_shutdown.3 SSL_CTX_get_quiet_shutdown.3 \
 	SSL_CTX_set_quiet_shutdown.3 SSL_get_quiet_shutdown.3 \
 	SSL_CTX_set_quiet_shutdown.3 SSL_set_quiet_shutdown.3 \
@@ -207,9 +203,6 @@ MLINKS+=\
 	SSL_CTX_use_certificate.3 SSL_use_certificate.3 \
 	SSL_CTX_use_certificate.3 SSL_use_certificate_ASN1.3 \
 	SSL_CTX_use_certificate.3 SSL_use_certificate_file.3 \
-	SSL_CTX_use_psk_identity_hint.3 SSL_use_psk_identity_hint.3 \
-	SSL_CTX_use_psk_identity_hint.3 SSL_CTX_set_psk_server_callback.3 \
-	SSL_CTX_use_psk_identity_hint.3 SSL_set_psk_server_callback.3 \
 	SSL_SESSION_get_ex_new_index.3 SSL_SESSION_get_ex_data.3 \
 	SSL_SESSION_get_ex_new_index.3 SSL_SESSION_set_ex_data.3 \
 	SSL_SESSION_get_time.3 SSL_SESSION_get_timeout.3 \
@@ -232,7 +225,6 @@ MLINKS+=\
 	SSL_get_ex_new_index.3 SSL_set_ex_data.3 \
 	SSL_get_fd.3 SSL_get_rfd.3 \
 	SSL_get_fd.3 SSL_get_wfd.3 \
-	SSL_get_psk_identity.3 SSL_get_psk_identity_hint.3 \
 	SSL_get_rbio.3 SSL_get_wbio.3 \
 	SSL_get_session.3 SSL_get0_session.3 \
 	SSL_get_session.3 SSL_get1_session.3 \
