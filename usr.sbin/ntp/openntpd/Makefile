@@ -4,7 +4,8 @@ OPENNTPD_SRC=	${.CURDIR}/../../../contrib/openntpd/src
 
 PROG=	ntpd
 # compat
-SRCS=	imsg.c imsg-buffer.c adjfreq_freebsd.c progname.c setproctitle.c
+SRCS=	freezero.c imsg.c imsg-buffer.c adjfreq_freebsd.c \
+	progname.c setproctitle.c
 # Imported from OpenBSD src makefile
 SRCS+=	ntpd.c log.c ntp.c ntp_msg.c parse.y config.c \
 	server.c client.c fake-sensors.c util.c ntp_dns.c \
