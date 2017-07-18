@@ -11,7 +11,7 @@ MAN1=	openssl.1
 .endif
 .include "../../lib/libcrypto/Makefile.inc.libressl"
 
-CFLAGS+=        -DMONOLITH
+CFLAGS+= -DLIBRESSL_INTERNAL
 
 SRCS=	apps.c apps_posix.c asn1pars.c ca.c certhash.c ciphers.c cms.c crl.c \
 	crl2p7.c dgst.c dh.c dhparam.c dsa.c dsaparam.c ec.c ecparam.c enc.c \
