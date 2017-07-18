@@ -48,6 +48,7 @@ struct sbuf {
 	ssize_t		 s_len;		/* current length of string */
 #define	SBUF_FIXEDLEN	0x00000000	/* fixed length buffer (default) */
 #define	SBUF_AUTOEXTEND	0x00000001	/* automatically extend buffer */
+#define	SBUF_INCLUDENUL	0x00000002	/* nulterm byte is counted in len */
 #define	SBUF_USRFLAGMSK	0x0000ffff	/* mask of flags the user may specify */
 #define	SBUF_DYNAMIC	0x00010000	/* s_buf must be freed */
 #define	SBUF_FINISHED	0x00020000	/* set by sbuf_finish() */
@@ -72,6 +73,9 @@ __BEGIN_DECLS
 struct sbuf	*sbuf_new(struct sbuf *, char *, int, int);
 #define		 sbuf_new_auto()				\
 	sbuf_new(NULL, NULL, 0, SBUF_AUTOEXTEND)
+int		 sbuf_get_flags(struct sbuf *);
+void		 sbuf_clear_flags(struct sbuf *, int);
+void		 sbuf_set_flags(struct sbuf *, int);
 void		 sbuf_clear(struct sbuf *);
 int		 sbuf_setpos(struct sbuf *, ssize_t);
 int		 sbuf_bcat(struct sbuf *, const void *, size_t);
@@ -95,6 +99,7 @@ void		 sbuf_start_section(struct sbuf *, ssize_t *);
 ssize_t		 sbuf_end_section(struct sbuf *, ssize_t, size_t, int);
 void		 sbuf_hexdump(struct sbuf *, const void *, int, const char *,
 		     int);
+void		 sbuf_putbuf(struct sbuf *);
 
 #ifdef _KERNEL
 struct uio;
