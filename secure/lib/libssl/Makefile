@@ -36,4 +36,4 @@ CFLAGS+=	-I${LCRYPTO_SRC}/crypto
 
 .else
 .include "Makefile.libressl"
-.endif
+.endif # ${MK_LIBRESSL} != "no"

@@ -498,4 +498,4 @@ opensslconf.h: opensslconf-${MACHINE_CPUARCH:C/^(amd64|i386)$/x86/}.h.in
 
 .else
 .include "Makefile.libressl"
-.endif
+.endif # ${MK_LIBRESSL} != "no"

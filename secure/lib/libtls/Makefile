@@ -3,6 +3,7 @@
 .include "../libcrypto/Makefile.inc.libressl"
 
 CFLAGS+= -Wall -Werror -Wimplicit
+CFLAGS+= -DLIBRESSL_INTERNAL
 
 LIB=	tls
 SHLIB_MAJOR=	11
@@ -14,12 +15,14 @@ LIBADD= crypto ssl
 INCS=	tls.h
 
 SRCS=	tls.c \
+	tls_bio_cb.c \
 	tls_client.c \
 	tls_config.c \
 	tls_conninfo.c \
 	tls_peer.c \
 	tls_server.c \
 	tls_util.c \
+	tls_ocsp.c \
 	tls_verify.c
 
 .PATH: ${LTLS_SRC} \
