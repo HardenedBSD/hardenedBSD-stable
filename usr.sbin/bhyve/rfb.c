@@ -32,6 +32,7 @@ __FBSDID("$FreeBSD$");
 #ifndef WITHOUT_CAPSICUM
 #include <sys/capsicum.h>
 #endif
+#include <sys/endian.h>
 #include <sys/socket.h>
 #include <sys/select.h>
 #include <sys/time.h>
@@ -754,7 +755,7 @@ rfb_handle(struct rfb_softc *rc, int cfd)
 {
 	const char *vbuf = "RFB 003.008\n";
 	unsigned char buf[80];
-	unsigned char *message;
+	unsigned char *message = NULL;
 
 #ifndef NO_OPENSSL
 	unsigned char challenge[AUTH_LENGTH];
@@ -766,8 +767,9 @@ rfb_handle(struct rfb_softc *rc, int cfd)
 #endif
 
 	pthread_t tid;
-	uint32_t sres;
+	uint32_t sres = 0;
 	int len;
+	int perror = 1;
 
 	rc->cfd = cfd;
 
@@ -834,9 +836,11 @@ rfb_handle(struct rfb_softc *rc, int cfd)
 		/* Encrypt the Challenge with DES */
 		DES_set_key((const_DES_cblock *)keystr, &ks);
 		DES_ecb_encrypt((const_DES_cblock *)challenge,
-				(const_DES_cblock *)crypt_expected, &ks, DES_ENCRYPT);
+				(const_DES_cblock *)crypt_expected,
+				&ks, DES_ENCRYPT);
 		DES_ecb_encrypt((const_DES_cblock *)(challenge + PASSWD_LENGTH),
-				(const_DES_cblock *)(crypt_expected + PASSWD_LENGTH),
+				(const_DES_cblock *)(crypt_expected +
+				PASSWD_LENGTH),
 				&ks, DES_ENCRYPT);
 
 		if (memcmp(crypt_expected, buf, AUTH_LENGTH) != 0) {
@@ -856,9 +860,9 @@ rfb_handle(struct rfb_softc *rc, int cfd)
 	stream_write(cfd, &sres, 4);
 
 	if (sres) {
-		*((uint32_t *) buf) = htonl(strlen(message));
+		be32enc(buf, strlen(message));
 		stream_write(cfd, buf, 4);
-                stream_write(cfd, message, strlen(message));
+		stream_write(cfd, message, strlen(message));
 		goto done;
 	}
 
@@ -875,8 +879,9 @@ rfb_handle(struct rfb_softc *rc, int cfd)
 
 	rfb_send_screen(rc, cfd, 1);
 
-	pthread_create(&tid, NULL, rfb_wr_thr, rc);
-	pthread_set_name_np(tid, "rfbout");
+	perror = pthread_create(&tid, NULL, rfb_wr_thr, rc);
+	if (perror == 0)
+		pthread_set_name_np(tid, "rfbout");
 
         /* Now read in client requests. 1st byte identifies type */
 	for (;;) {
@@ -912,7 +917,8 @@ rfb_handle(struct rfb_softc *rc, int cfd)
 	}
 done:
 	rc->cfd = -1;
-	pthread_join(tid, NULL);
+	if (perror == 0)
+		pthread_join(tid, NULL);
 	if (rc->enc_zlib_ok)
 		deflateEnd(&rc->zstream);
 }

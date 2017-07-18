@@ -219,6 +219,7 @@ kan [label="Alexander Kabaev\nkan@FreeBSD.org\n2002/07/21"]
 karels [label="Mike Karels\nkarels@FreeBSD.org\n2016/06/09"]
 ken [label="Ken Merry\nken@FreeBSD.org\n1998/09/08"]
 kensmith [label="Ken Smith\nkensmith@FreeBSD.org\n2004/01/23"]
+kevans [label="Kyle Evans\nkevans@FreeBSD.org\n2017/06/20"]
 kevlo [label="Kevin Lo\nkevlo@FreeBSD.org\n2006/07/23"]
 kib [label="Konstantin Belousov\nkib@FreeBSD.org\n2006/06/03"]
 kmacy [label="Kip Macy\nkmacy@FreeBSD.org\n2005/06/01"]
@@ -276,6 +277,7 @@ rdivacky [label="Roman Divacky\nrdivacky@FreeBSD.org\n2008/03/13"]
 remko [label="Remko Lodder\nremko@FreeBSD.org\n2007/02/23"]
 rgrimes [label="Rodney W. Grimes\nrgrimes@FreeBSD.org\n1993/06/12\n2017/03/03"]
 rik [label="Roman Kurakin\nrik@FreeBSD.org\n2003/12/18"]
+rlibby [label="Ryan Libby\nrlibby@FreeBSD.org\n2017/06/07"]
 rmacklem [label="Rick Macklem\nrmacklem@FreeBSD.org\n2009/03/27"]
 rmh [label="Robert Millan\nrmh@FreeBSD.org\n2011/09/18"]
 rnoland [label="Robert Noland\nrnoland@FreeBSD.org\n2008/09/15"]
@@ -465,9 +467,10 @@ eivind -> des
 eivind -> rwatson
 
 emaste -> achim
-emaste -> rstone
 emaste -> dteske
+emaste -> kevans
 emaste -> markj
+emaste -> rstone
 
 emax -> markus
 
@@ -635,6 +638,7 @@ marcel -> nwhitehorn
 marcel -> sjg
 
 markj -> cem
+markj -> rlibby
 
 markm -> jasone
 markm -> sheldonh

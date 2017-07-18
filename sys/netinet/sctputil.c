@@ -2792,6 +2792,7 @@ set_error:
 				stcb->sctp_socket->so_error = ECONNABORTED;
 			}
 		}
+		SOCK_UNLOCK(stcb->sctp_socket);
 	}
 	/* Wake ANY sleepers */
 #if defined(__APPLE__) || defined(SCTP_SO_LOCK_TESTING)
@@ -2811,7 +2812,7 @@ set_error:
 	if (((stcb->sctp_ep->sctp_flags & SCTP_PCB_FLAGS_TCPTYPE) ||
 	    (stcb->sctp_ep->sctp_flags & SCTP_PCB_FLAGS_IN_TCPPOOL)) &&
 	    ((state == SCTP_COMM_LOST) || (state == SCTP_CANT_STR_ASSOC))) {
-		socantrcvmore_locked(stcb->sctp_socket);
+		socantrcvmore(stcb->sctp_socket);
 	}
 	sorwakeup(stcb->sctp_socket);
 	sowwakeup(stcb->sctp_socket);
@@ -7239,8 +7240,6 @@ sctp_over_udp_start(void)
 	return (0);
 }
 
-#if defined(INET6) || defined(INET)
-
 /*
  * sctp_min_mtu ()returns the minimum of all non-zero arguments.
  * If all arguments are zero, zero is returned.
@@ -7324,4 +7323,3 @@ sctp_hc_get_mtu(union sctp_sockstore *addr, uint16_t fibnum)
 	}
 	return ((uint32_t)tcp_hc_getmtu(&inc));
 }
-#endif

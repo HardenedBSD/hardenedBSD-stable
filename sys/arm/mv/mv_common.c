@@ -96,6 +96,7 @@ static void decode_win_cesa_setup(u_long);
 static void decode_win_usb_setup(u_long);
 static void decode_win_usb3_setup(u_long);
 static void decode_win_eth_setup(u_long);
+static void decode_win_neta_setup(u_long);
 static void decode_win_sata_setup(u_long);
 static void decode_win_ahci_setup(u_long);
 static void decode_win_sdhci_setup(u_long);
@@ -107,10 +108,12 @@ static void decode_win_cesa_dump(u_long);
 static void decode_win_usb_dump(u_long);
 static void decode_win_usb3_dump(u_long);
 static void decode_win_eth_dump(u_long base);
+static void decode_win_neta_dump(u_long base);
 static void decode_win_idma_dump(u_long base);
 static void decode_win_xor_dump(u_long base);
 static void decode_win_ahci_dump(u_long base);
 static void decode_win_sdhci_dump(u_long);
+static void decode_win_pcie_dump(u_long);
 
 static int fdt_get_ranges(const char *, void *, int, int *, int *);
 #ifdef SOC_MV_ARMADA38X
@@ -125,6 +128,7 @@ static uint32_t dev_mask = 0;
 static int cpu_wins_no = 0;
 static int eth_port = 0;
 static int usb_port = 0;
+static boolean_t platform_io_coherent = false;
 
 static struct decode_win cpu_win_tbl[MAX_CPU_WIN];
 
@@ -151,6 +155,7 @@ struct soc_node_spec {
 
 static struct soc_node_spec soc_nodes[] = {
 	{ "mrvl,ge", &decode_win_eth_setup, &decode_win_eth_dump },
+	{ "marvell,armada-370-neta", &decode_win_neta_setup, &decode_win_neta_dump },
 	{ "mrvl,usb-ehci", &decode_win_usb_setup, &decode_win_usb_dump },
 	{ "marvell,orion-ehci", &decode_win_usb_setup, &decode_win_usb_dump },
 	{ "marvell,armada-380-xhci", &decode_win_usb3_setup, &decode_win_usb3_dump },
@@ -160,7 +165,7 @@ static struct soc_node_spec soc_nodes[] = {
 	{ "mrvl,xor", &decode_win_xor_setup, &decode_win_xor_dump },
 	{ "mrvl,idma", &decode_win_idma_setup, &decode_win_idma_dump },
 	{ "mrvl,cesa", &decode_win_cesa_setup, &decode_win_cesa_dump },
-	{ "mrvl,pcie", &decode_win_pcie_setup, NULL },
+	{ "mrvl,pcie", &decode_win_pcie_setup, &decode_win_pcie_dump },
 	{ NULL, NULL, NULL },
 };
 
@@ -415,7 +420,7 @@ soc_id(uint32_t *dev, uint32_t *rev)
 static void
 soc_identify(void)
 {
-	uint32_t d, r, size, mode;
+	uint32_t d, r, size, mode, freq;
 	const char *dev;
 	const char *rev;
 
@@ -508,7 +513,11 @@ soc_identify(void)
 	printf("%s", dev);
 	if (*rev != '\0')
 		printf(" rev %s", rev);
-	printf(", TClock %dMHz\n", get_tclk() / 1000 / 1000);
+	printf(", TClock %dMHz", get_tclk() / 1000 / 1000);
+	freq = get_cpu_freq();
+	if (freq != 0)
+		printf(", Frequency %dMHz", freq / 1000 / 1000);
+	printf("\n");
 
 	mode = read_cpu_ctrl(CPU_CONFIG);
 	printf("  Instruction cache prefetch %s, data cache prefetch %s\n",
@@ -660,6 +669,8 @@ WIN_REG_BASE_IDX_WR(win_pcie, cr, MV_WIN_PCIE_CTRL);
 WIN_REG_BASE_IDX_WR(win_pcie, br, MV_WIN_PCIE_BASE);
 WIN_REG_BASE_IDX_WR(win_pcie, remap, MV_WIN_PCIE_REMAP);
 WIN_REG_BASE_IDX_RD(pcie_bar, br, MV_PCIE_BAR_BASE);
+WIN_REG_BASE_IDX_RD(pcie_bar, brh, MV_PCIE_BAR_BASE_H);
+WIN_REG_BASE_IDX_RD(pcie_bar, cr, MV_PCIE_BAR_CTRL);
 WIN_REG_BASE_IDX_WR(pcie_bar, br, MV_PCIE_BAR_BASE);
 WIN_REG_BASE_IDX_WR(pcie_bar, brh, MV_PCIE_BAR_BASE_H);
 WIN_REG_BASE_IDX_WR(pcie_bar, cr, MV_PCIE_BAR_CTRL);
@@ -1054,7 +1065,7 @@ ddr_size(int i)
 uint32_t
 ddr_attr(int i)
 {
-	uint32_t dev, rev;
+	uint32_t dev, rev, attr;
 
 	soc_id(&dev, &rev);
 	if (dev == MV_DEV_88RC8180)
@@ -1062,10 +1073,14 @@ ddr_attr(int i)
 	if (dev == MV_DEV_88F6781)
 		return (0);
 
-	return (i == 0 ? 0xe :
+	attr = (i == 0 ? 0xe :
 	    (i == 1 ? 0xd :
 	    (i == 2 ? 0xb :
 	    (i == 3 ? 0x7 : 0xff))));
+	if (platform_io_coherent)
+		attr |= 0x10;
+
+	return (attr);
 }
 
 uint32_t
@@ -1430,6 +1445,20 @@ decode_win_eth_setup(u_long base)
 		}
 }
 
+static void
+decode_win_neta_dump(u_long base)
+{
+
+	decode_win_eth_dump(base + MV_WIN_NETA_OFFSET);
+}
+
+static void
+decode_win_neta_setup(u_long base)
+{
+
+	decode_win_eth_setup(base + MV_WIN_NETA_OFFSET);
+}
+
 static int
 decode_win_eth_valid(void)
 {
@@ -1440,6 +1469,22 @@ decode_win_eth_valid(void)
 /**************************************************************************
  * PCIE windows routines
  **************************************************************************/
+static void
+decode_win_pcie_dump(u_long base)
+{
+	int i;
+
+	printf("PCIE windows base 0x%08lx\n", base);
+	for (i = 0; i < MV_WIN_PCIE_MAX; i++)
+		printf("PCIE window#%d: cr 0x%08x br 0x%08x remap 0x%08x\n",
+		    i, win_pcie_cr_read(base, i),
+		    win_pcie_br_read(base, i), win_pcie_remap_read(base, i));
+
+	for (i = 0; i < MV_PCIE_BAR_MAX; i++)
+		printf("PCIE bar#%d: cr 0x%08x br 0x%08x brh 0x%08x\n",
+		    i, pcie_bar_cr_read(base, i),
+		    pcie_bar_br_read(base, i), pcie_bar_brh_read(base, i));
+}
 
 void
 decode_win_pcie_setup(u_long base)
@@ -2380,17 +2425,68 @@ moveon:
 }
 
 static int
+fdt_win_process(phandle_t child)
+{
+	int i;
+	struct soc_node_spec *soc_node;
+	int addr_cells, size_cells;
+	pcell_t reg[8];
+	u_long size, base;
+
+	for (i = 0; soc_nodes[i].compat != NULL; i++) {
+
+		soc_node = &soc_nodes[i];
+
+		/* Setup only for enabled devices */
+		if (ofw_bus_node_status_okay(child) == 0)
+			continue;
+
+		if (!ofw_bus_node_is_compatible(child, soc_node->compat))
+			continue;
+
+		if (fdt_addrsize_cells(OF_parent(child), &addr_cells,
+		    &size_cells))
+			return (ENXIO);
+
+		if ((sizeof(pcell_t) * (addr_cells + size_cells)) > sizeof(reg))
+			return (ENOMEM);
+
+		if (OF_getprop(child, "reg", &reg, sizeof(reg)) <= 0)
+			return (EINVAL);
+
+		if (addr_cells <= 2)
+			base = fdt_data_get(&reg[0], addr_cells);
+		else
+			base = fdt_data_get(&reg[addr_cells - 2], 2);
+		size = fdt_data_get(&reg[addr_cells], size_cells);
+
+		base = (base & 0x000fffff) | fdt_immr_va;
+		if (soc_node->decode_handler != NULL)
+			soc_node->decode_handler(base);
+		else
+			return (ENXIO);
+
+		if (MV_DUMP_WIN && (soc_node->dump_handler != NULL))
+			soc_node->dump_handler(base);
+	}
+
+	return (0);
+}
+static int
 fdt_win_setup(void)
 {
 	phandle_t node, child, sb;
-	struct soc_node_spec *soc_node;
-	u_long size, base;
-	int err, i;
+	phandle_t child_pci;
+	int err;
 
 	sb = 0;
 	node = OF_finddevice("/");
 	if (node == -1)
 		panic("fdt_win_setup: no root node");
+
+	/* Allow for coherent transactions on the A38x MBUS */
+	if (ofw_bus_node_is_compatible(node, "marvell,armada380"))
+		platform_io_coherent = true;
 
 	/*
 	 * Traverse through all children of root and simple-bus nodes.
@@ -2398,29 +2494,21 @@ fdt_win_setup(void)
 	 */
 	child = OF_child(node);
 	while (child != 0) {
-		for (i = 0; soc_nodes[i].compat != NULL; i++) {
+		/* Lookup for callback and run */
+		err = fdt_win_process(child);
+		if (err != 0)
+			return (err);
 
-			soc_node = &soc_nodes[i];
+		/* Process Marvell Armada-XP/38x PCIe controllers */
+		if (ofw_bus_node_is_compatible(child, "marvell,armada-370-pcie")) {
+			child_pci = OF_child(child);
+			while (child_pci != 0) {
+				err = fdt_win_process(child_pci);
+				if (err != 0)
+					return (err);
 
-			/* Setup only for enabled devices */
-			if (ofw_bus_node_status_okay(child) == 0)
-				continue;
-
-			if (!ofw_bus_node_is_compatible(child,soc_node->compat))
-				continue;
-
-			err = fdt_regsize(child, &base, &size);
-			if (err != 0)
-				return (err);
-
-			base = (base & 0x000fffff) | fdt_immr_va;
-			if (soc_node->decode_handler != NULL)
-				soc_node->decode_handler(base);
-			else
-				return (ENXIO);
-
-			if (MV_DUMP_WIN && (soc_node->dump_handler != NULL))
-				soc_node->dump_handler(base);
+				child_pci = OF_peer(child_pci);
+			}
 		}
 
 		/*

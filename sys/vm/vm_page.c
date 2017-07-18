@@ -573,8 +573,13 @@ vm_page_startup(vm_offset_t vaddr)
 		size += vm_phys_segs[i].end - vm_phys_segs[i].start;
 	for (i = 0; phys_avail[i + 1] != 0; i += 2)
 		size += phys_avail[i + 1] - phys_avail[i];
-	page_range = size / (PAGE_SIZE + sizeof(struct vm_page));
 #elif defined(VM_PHYSSEG_DENSE)
+	size = high_avail - low_avail;
+#else
+#error "Either VM_PHYSSEG_DENSE or VM_PHYSSEG_SPARSE must be defined."
+#endif
+
+#ifdef VM_PHYSSEG_DENSE
 	/*
 	 * In the VM_PHYSSEG_DENSE case, the number of pages can account for
 	 * the overhead of a page structure per page only if vm_page_array is
@@ -582,14 +587,27 @@ vm_page_startup(vm_offset_t vaddr)
 	 * allocate page structures representing the physical memory
 	 * underlying vm_page_array, even though they will not be used.
 	 */
-	if (new_end == high_avail)
-		page_range = (high_avail - low_avail) / (PAGE_SIZE +
-		    sizeof(struct vm_page));
+	if (new_end != high_avail)
+		page_range = size / PAGE_SIZE;
 	else
-		page_range = high_avail / PAGE_SIZE - first_page;
-#else
-#error "Either VM_PHYSSEG_DENSE or VM_PHYSSEG_SPARSE must be defined."
 #endif
+	{
+		page_range = size / (PAGE_SIZE + sizeof(struct vm_page));
+
+		/*
+		 * If the partial bytes remaining are large enough for
+		 * a page (PAGE_SIZE) without a corresponding
+		 * 'struct vm_page', then new_end will contain an
+		 * extra page after subtracting the length of the VM
+		 * page array.  Compensate by subtracting an extra
+		 * page from new_end.
+		 */
+		if (size % (PAGE_SIZE + sizeof(struct vm_page)) >= PAGE_SIZE) {
+			if (new_end == high_avail)
+				high_avail -= PAGE_SIZE;
+			new_end -= PAGE_SIZE;
+		}
+	}
 	end = new_end;
 
 	/*
@@ -3454,12 +3472,11 @@ vm_page_is_valid(vm_page_t m, int base, int size)
 }
 
 /*
- *	vm_page_ps_is_valid:
- *
- *	Returns TRUE if the entire (super)page is valid and FALSE otherwise.
+ * Returns true if all of the specified predicates are true for the entire
+ * (super)page and false otherwise.
  */
-boolean_t
-vm_page_ps_is_valid(vm_page_t m)
+bool
+vm_page_ps_test(vm_page_t m, int flags, vm_page_t skip_m)
 {
 	int i, npages;
 
@@ -3472,10 +3489,25 @@ vm_page_ps_is_valid(vm_page_t m)
 	 * occupy adjacent entries in vm_page_array[].
 	 */
 	for (i = 0; i < npages; i++) {
-		if (m[i].valid != VM_PAGE_BITS_ALL)
-			return (FALSE);
+		if (&m[i] == skip_m)
+			continue;
+		if ((flags & PS_NONE_BUSY) != 0 && vm_page_busied(&m[i]))
+			return (false);
+		if ((flags & PS_ALL_DIRTY) != 0) {
+			/*
+			 * Calling vm_page_test_dirty() or pmap_is_modified()
+			 * might stop this case from spuriously returning
+			 * "false".  However, that would require a write lock
+			 * on the object containing "m[i]".
+			 */
+			if (m[i].dirty != VM_PAGE_BITS_ALL)
+				return (false);
+		}
+		if ((flags & PS_ALL_VALID) != 0 &&
+		    m[i].valid != VM_PAGE_BITS_ALL)
+			return (false);
 	}
-	return (TRUE);
+	return (true);
 }
 
 /*

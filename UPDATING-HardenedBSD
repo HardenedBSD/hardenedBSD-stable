@@ -1,3 +1,38 @@
+[20170709] Enforced KPI
+__HardenedBSD_version = 1200052
+
+	Enfore the KPI version at compile time. This
+	will implicate the recompilation of external
+	modules even once __HardenedBSD_version or
+	__FreeBSD_version gets bumped.
+
+
+[20170624] Enable OpenNTPd by default
+__HardenedBSD_version = 1200051
+
+       Enable WITH_OPENNTPD by default on HardenedBSD.
+       After this point we deliver OpenNTPd as base
+       ntp provider for HardenedBSD. ISC ntpd is still
+       available, and accessible with WITHOUT_OPENNTPD=
+       knob in src.conf(5).
+
+[20170616] Changed __HardenedBSD_version scheme
+__HardenedBSD_version = 1200050
+
+       The version numbers may differ in different branches (10-STABLE,
+       11-STABLE, 12-CURRENT) and to keep the version number in pair
+       with the features state, there is a need to allow to bump they
+       differently.
+
+
+[20170616] Changed default protection settings for text section
+__HardenedBSD_version = 50 
+
+       Fixes the (theoretically) last outstanding memory
+       protection related weakness in HBSD's user-space detectable
+       with paxtest.
+
+
 [20170302] Enable CFI by default for amd64
 __HardenedBSD_version = 49
 

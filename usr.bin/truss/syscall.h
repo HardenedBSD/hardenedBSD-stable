@@ -10,6 +10,7 @@
  * BinString -- pointer to an array of chars, printed via strvisx().
  * Ptr -- pointer to some unspecified structure.  Just print as hex for now.
  * Stat -- a pointer to a stat buffer.  Prints a couple fields.
+ * Stat11 -- a pointer to a freebsd 11 stat buffer.  Prints a couple fields.
  * StatFs -- a pointer to a statfs buffer.  Prints a few fields.
  * Ioctl -- an ioctl command.  Woefully limited.
  * Quad -- a double-word value.  e.g., lseek(int, offset_t, int)
@@ -38,7 +39,7 @@
  * $FreeBSD$
  */
 
-enum Argtype { None = 1, Hex, Octal, Int, UInt, LongHex, Name, Ptr, Stat, Ioctl,
+enum Argtype { None = 1, Hex, Octal, Int, UInt, LongHex, Name, Ptr, Stat, Stat11, Ioctl,
 	Quad, Signal, Sockaddr, StringArray, Timespec, Timeval, Itimerval,
 	Pollfd, Fd_set, Sigaction, Fcntl, Mprot, Mmapflags, Whence, Readlinkres,
 	Sigset, Sigprocmask, StatFs, Kevent, Sockdomain, Socktype, Open,
@@ -48,7 +49,9 @@ enum Argtype { None = 1, Hex, Octal, Int, UInt, LongHex, Name, Ptr, Stat, Ioctl,
 	Sysarch, ExecArgs, ExecEnv, PipeFds, QuadHex, Utrace, IntArray, Pipe2,
 	CapFcntlRights, Fadvice, FileFlags, Flockop, Getfsstatmode, Kldsymcmd,
 	Kldunloadflags, Sizet, Madvice, Socklent, Sockprotocol, Sockoptlevel,
-	Sockoptname, Msgflags, CapRights, PUInt, PQuadHex,
+	Sockoptname, Msgflags, CapRights, PUInt, PQuadHex, Acltype,
+	Extattrnamespace, Minherit, Mlockall, Mountflags, Msync, Priowhich,
+	Ptraceop, Quotactlcmd, Reboothowto, Rtpriofunc, Schedpolicy, Schedparam,
 
 	CloudABIAdvice, CloudABIClockID, ClouduABIFDSFlags,
 	CloudABIFDStat, CloudABIFileStat, CloudABIFileType,

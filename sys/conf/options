@@ -45,7 +45,6 @@ AHD_REG_PRETTY_PRINT	opt_aic79xx.h
 ADW_ALLOW_MEMIO		opt_adw.h
 
 TWA_DEBUG		opt_twa.h
-TWA_FLASH_FIRMWARE	opt_twa.h
 
 # Debugging options.
 ALT_BREAK_TO_DEBUGGER	opt_kdb.h
@@ -872,6 +871,10 @@ MWL_DIAGAPI		opt_mwl.h
 MWL_AGGR_SIZE		opt_mwl.h
 MWL_TX_NODROP		opt_mwl.h
 
+# Options for the Marvell NETA driver
+MVNETA_MULTIQUEUE	opt_mvneta.h
+MVNETA_KTR		opt_mvneta.h
+
 # Options for the Intel 802.11ac wireless driver
 IWM_DEBUG		opt_iwm.h
 
@@ -973,6 +976,7 @@ PAX_HARDENING	opt_pax.h
 PAX_NOEXEC	opt_pax.h
 PAX_INSECURE_MODE	opt_pax.h
 HBSD_DEBUG	opt_pax.h
+STACK_GUARD_MAX_PAGES	opt_pax.h
 
 # ASLR overwritable defaults
 PAX_ASLR_DELTA_MMAP_DEF_LEN		opt_pax.h
@@ -986,6 +990,7 @@ PAX_ASLR_COMPAT_DELTA_VDSO_DEF_LEN	opt_pax.h
 
 # Other hardening features
 HARDEN_RANDOMPID	opt_pax.h
+STACK_GUARD_SIZE	opt_pax.h
 
 # Random number generator(s)
 # Which CSPRNG hash we get.
@@ -1016,5 +1021,7 @@ UINPUT_DEBUG	opt_evdev.h
 # Hyper-V network driver
 HN_DEBUG	opt_hn.h
 
+# CAM-based MMC stack
+MMCCAM
 # Encrypted kernel crash dumps
 EKCD		opt_ekcd.h

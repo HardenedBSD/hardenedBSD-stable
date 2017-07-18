@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011, 2016 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2017 by Delphix. All rights reserved.
  */
 /* Copyright (c) 2013 by Saso Kiselkov. All rights reserved. */
 /* Copyright (c) 2013, Joyent, Inc. All rights reserved. */
@@ -46,6 +46,7 @@
 #include <sys/zio_compress.h>
 #include <sys/sa.h>
 #include <sys/zfeature.h>
+#include <sys/abd.h>
 #ifdef _KERNEL
 #include <sys/racct.h>
 #include <sys/vm.h>
@@ -1715,6 +1716,7 @@ dmu_sync_late_arrival_done(zio_t *zio)
 
 	dsa->dsa_done(dsa->dsa_zgd, zio->io_error);
 
+	abd_put(zio->io_abd);
 	kmem_free(dsa, sizeof (*dsa));
 }
 
@@ -1740,10 +1742,10 @@ dmu_sync_late_arrival(zio_t *pio, objset_t *os, dmu_sync_cb_t *done, zgd_t *zgd,
 	dsa->dsa_tx = tx;
 
 	zio_nowait(zio_write(pio, os->os_spa, dmu_tx_get_txg(tx), zgd->zgd_bp,
-	    zgd->zgd_db->db_data, zgd->zgd_db->db_size, zgd->zgd_db->db_size,
-	    zp, dmu_sync_late_arrival_ready, NULL,
-	    NULL, dmu_sync_late_arrival_done, dsa, ZIO_PRIORITY_SYNC_WRITE,
-	    ZIO_FLAG_CANFAIL, zb));
+	    abd_get_from_buf(zgd->zgd_db->db_data, zgd->zgd_db->db_size),
+	    zgd->zgd_db->db_size, zgd->zgd_db->db_size, zp,
+	    dmu_sync_late_arrival_ready, NULL, NULL, dmu_sync_late_arrival_done,
+	    dsa, ZIO_PRIORITY_SYNC_WRITE, ZIO_FLAG_CANFAIL, zb));
 
 	return (0);
 }
@@ -1794,8 +1796,7 @@ dmu_sync(zio_t *pio, uint64_t txg, dmu_sync_cb_t *done, zgd_t *zgd)
 
 	DB_DNODE_ENTER(db);
 	dn = DB_DNODE(db);
-	dmu_write_policy(os, dn, db->db_level, WP_DMU_SYNC,
-	    ZIO_COMPRESS_INHERIT, &zp);
+	dmu_write_policy(os, dn, db->db_level, WP_DMU_SYNC, &zp);
 	DB_DNODE_EXIT(db);
 
 	/*
@@ -1967,8 +1968,7 @@ SYSCTL_INT(_vfs_zfs, OID_AUTO, mdcomp_disable, CTLFLAG_RWTUN,
 int zfs_redundant_metadata_most_ditto_level = 2;
 
 void
-dmu_write_policy(objset_t *os, dnode_t *dn, int level, int wp,
-    enum zio_compress override_compress, zio_prop_t *zp)
+dmu_write_policy(objset_t *os, dnode_t *dn, int level, int wp, zio_prop_t *zp)
 {
 	dmu_object_type_t type = dn ? dn->dn_type : DMU_OT_OBJSET;
 	boolean_t ismd = (level > 0 || DMU_OT_IS_METADATA(type) ||
@@ -1980,10 +1980,6 @@ dmu_write_policy(objset_t *os, dnode_t *dn, int level, int wp,
 	boolean_t nopwrite = B_FALSE;
 	boolean_t dedup_verify = os->os_dedup_verify;
 	int copies = os->os_copies;
-	boolean_t lz4_ac = spa_feature_is_active(os->os_spa,
-	    SPA_FEATURE_LZ4_COMPRESS);
-
-	IMPLY(override_compress == ZIO_COMPRESS_LZ4, lz4_ac);
 
 	/*
 	 * We maintain different write policies for each of the following
@@ -2071,14 +2067,7 @@ dmu_write_policy(objset_t *os, dnode_t *dn, int level, int wp,
 	}
 
 	zp->zp_checksum = checksum;
-
-	/*
-	 * If we're writing a pre-compressed buffer, the compression type we use
-	 * must match the data. If it hasn't been compressed yet, then we should
-	 * use the value dictated by the policies above.
-	 */
-	zp->zp_compress = override_compress != ZIO_COMPRESS_INHERIT
-	    ? override_compress : compress;
+	zp->zp_compress = compress;
 	ASSERT3U(zp->zp_compress, !=, ZIO_COMPRESS_INHERIT);
 
 	zp->zp_type = (wp & WP_SPILL) ? dn->dn_bonustype : type;
@@ -2278,6 +2267,7 @@ byteswap_uint8_array(void *vbuf, size_t size)
 void
 dmu_init(void)
 {
+	abd_init();
 	zfs_dbgmsg_init();
 	sa_cache_init();
 	xuio_stat_init();
@@ -2303,4 +2293,5 @@ dmu_fini(void)
 	xuio_stat_fini();
 	sa_cache_fini();
 	zfs_dbgmsg_fini();
+	abd_fini();
 }

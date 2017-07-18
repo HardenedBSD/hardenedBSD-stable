@@ -63,8 +63,6 @@ static inline void ixl_rx_input(struct rx_ring *, struct ifnet *,
 		    struct mbuf *, u8);
 
 static inline bool ixl_tso_detect_sparse(struct mbuf *mp);
-static int	ixl_tx_setup_offload(struct ixl_queue *que,
-    struct mbuf *mp, u32 *cmd, u32 *off);
 static inline u32 ixl_get_tx_head(struct ixl_queue *que);
 
 #ifdef DEV_NETMAP
@@ -431,7 +429,7 @@ ixl_allocate_tx_data(struct ixl_queue *que)
 	/*
 	 * Setup DMA descriptor areas.
 	 */
-	if ((error = bus_dma_tag_create(NULL,		/* parent */
+	if ((error = bus_dma_tag_create(bus_get_dma_tag(dev),		/* parent */
 			       1, 0,			/* alignment, bounds */
 			       BUS_SPACE_MAXADDR,	/* lowaddr */
 			       BUS_SPACE_MAXADDR,	/* highaddr */
@@ -448,7 +446,7 @@ ixl_allocate_tx_data(struct ixl_queue *que)
 	}
 
 	/* Make a special tag for TSO */
-	if ((error = bus_dma_tag_create(NULL,		/* parent */
+	if ((error = bus_dma_tag_create(bus_get_dma_tag(dev),		/* parent */
 			       1, 0,			/* alignment, bounds */
 			       BUS_SPACE_MAXADDR,	/* lowaddr */
 			       BUS_SPACE_MAXADDR,	/* highaddr */
@@ -933,7 +931,6 @@ ixl_txeof(struct ixl_queue *que)
 				    buf->map);
 				m_freem(buf->m_head);
 				buf->m_head = NULL;
-				buf->map = NULL;
 			}
 			buf->eop_index = -1;
 
@@ -1096,7 +1093,7 @@ ixl_allocate_rx_data(struct ixl_queue *que)
 		return (error);
 	}
 
-	if ((error = bus_dma_tag_create(NULL,	/* parent */
+	if ((error = bus_dma_tag_create(bus_get_dma_tag(dev),	/* parent */
 				   1, 0,	/* alignment, bounds */
 				   BUS_SPACE_MAXADDR,	/* lowaddr */
 				   BUS_SPACE_MAXADDR,	/* highaddr */
@@ -1112,7 +1109,7 @@ ixl_allocate_rx_data(struct ixl_queue *que)
 		return (error);
 	}
 
-	if ((error = bus_dma_tag_create(NULL,	/* parent */
+	if ((error = bus_dma_tag_create(bus_get_dma_tag(dev),	/* parent */
 				   1, 0,	/* alignment, bounds */
 				   BUS_SPACE_MAXADDR,	/* lowaddr */
 				   BUS_SPACE_MAXADDR,	/* highaddr */
@@ -1578,6 +1575,18 @@ ixl_rxeof(struct ixl_queue *que, int count)
 			vtag = le16toh(cur->wb.qword0.lo_dword.l2tag1);
 		else
 			vtag = 0;
+
+		/* Remove device access to the rx buffers. */
+		if (rbuf->m_head != NULL) {
+			bus_dmamap_sync(rxr->htag, rbuf->hmap,
+			    BUS_DMASYNC_POSTREAD);
+			bus_dmamap_unload(rxr->htag, rbuf->hmap);
+		}
+		if (rbuf->m_pack != NULL) {
+			bus_dmamap_sync(rxr->ptag, rbuf->pmap,
+			    BUS_DMASYNC_POSTREAD);
+			bus_dmamap_unload(rxr->ptag, rbuf->pmap);
+		}
 
 		/*
 		** Make sure bad packets are discarded,

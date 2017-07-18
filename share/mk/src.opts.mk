@@ -102,8 +102,6 @@ __DEFAULT_YES_OPTIONS = \
     GNU_DIFF \
     GNU_GREP \
     GPIO \
-    GPL_DTC \
-    GROFF \
     HAST \
     HBSD_UPDATE \
     HTML \
@@ -137,7 +135,7 @@ __DEFAULT_YES_OPTIONS = \
     NETGRAPH \
     NLS_CATALOGS \
     NS_CACHING \
-    NTP \
+    OPENNTPD \
     OPENSSL \
     PAM \
     PC_SYSINSTALL \
@@ -147,7 +145,6 @@ __DEFAULT_YES_OPTIONS = \
     PPP \
     QUOTAS \
     RADIUS_SUPPORT \
-    RCMDS \
     RBOOTD \
     RELRO \
     RESCUE \
@@ -190,15 +187,18 @@ __DEFAULT_NO_OPTIONS = \
     LIB32 \
     LIBSOFT \
     NAND \
+    NTP \
     OFED \
     OPENLDAP \
-    OPENNTPD \
     PORTSNAP \
+    RCMDS \
     REPRODUCIBLE_BUILD \
     RPCBIND_WARMSTART_SUPPORT \
     SHARED_TOOLCHAIN \
     SORT_THREADS \
     SVN \
+    ZONEINFO_LEAPSECONDS_SUPPORT \
+    ZONEINFO_OLD_TIMEZONES_SUPPORT \
 
 
 #
@@ -230,16 +230,16 @@ __TT=${MACHINE}
     ${__T} == "amd64" || ${__TT} == "arm" || ${__T} == "i386")
 # Clang is enabled, and will be installed as the default /usr/bin/cc.
 __DEFAULT_YES_OPTIONS+=CLANG CLANG_BOOTSTRAP CLANG_FULL CLANG_IS_CC LLD
-__DEFAULT_NO_OPTIONS+=GCC GCC_BOOTSTRAP GNUCXX
-.elif ${COMPILER_FEATURES:Mc++11} && ${__T} != "riscv64" && ${__T} != "sparc64"
+__DEFAULT_NO_OPTIONS+=GCC GCC_BOOTSTRAP GNUCXX GPL_DTC
+.elif ${COMPILER_FEATURES:Mc++11} && ${__T:Mriscv*} == "" && ${__T} != "sparc64"
 # If an external compiler that supports C++11 is used as ${CC} and Clang
 # supports the target, then Clang is enabled but GCC is installed as the
 # default /usr/bin/cc.
 __DEFAULT_YES_OPTIONS+=CLANG CLANG_FULL GCC GCC_BOOTSTRAP GNUCXX
-__DEFAULT_NO_OPTIONS+=CLANG_BOOTSTRAP CLANG_IS_CC LLD
+__DEFAULT_NO_OPTIONS+=CLANG_BOOTSTRAP CLANG_IS_CC GPL_DTC LLD
 .else
 # Everything else disables Clang, and uses GCC instead.
-__DEFAULT_YES_OPTIONS+=GCC GCC_BOOTSTRAP GNUCXX
+__DEFAULT_YES_OPTIONS+=GCC GCC_BOOTSTRAP GNUCXX GPL_DTC
 __DEFAULT_NO_OPTIONS+=CLANG CLANG_BOOTSTRAP CLANG_FULL CLANG_IS_CC LLD
 .endif
 # In-tree binutils/gcc are older versions without modern architecture support.
@@ -384,7 +384,6 @@ MK_KERBEROS:=	no
 
 .if ${MK_CXX} == "no"
 MK_CLANG:=	no
-MK_GROFF:=	no
 MK_GNUCXX:=	no
 MK_TESTS:=	no
 .endif
@@ -417,8 +416,9 @@ MK_AUTHPF:=	no
 MK_DTRACE_TESTS:= no
 .endif
 
-.if ${MK_TEXTPROC} == "no"
-MK_GROFF:=	no
+.if ${MK_ZONEINFO} == "no"
+MK_ZONEINFO_LEAPSECONDS_SUPPORT:= no
+MK_ZONEINFO_OLD_TIMEZONES_SUPPORT:= no
 .endif
 
 .if ${MK_CROSS_COMPILER} == "no"
@@ -446,6 +446,14 @@ MK_SAFESTACK:=	no
 
 .if ${MK_LLD_IS_LD} == "no" || ${MK_LLD_BOOTSTRAP} == "no"
 MK_CFI:=	no
+.endif
+
+.if ${MK_OPENNTPD} != "no"
+MK_NTP:=	no
+.endif
+
+.if ${MK_NTP} != "no"
+MK_OPENNTPD:=	no
 .endif
 
 #
