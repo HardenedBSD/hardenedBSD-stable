@@ -2,14 +2,18 @@ AC_DEFUN([CHECK_LIBC_COMPAT], [
 # Check for libc headers
 AC_CHECK_HEADERS([err.h readpassphrase.h])
 # Check for general libc functions
-AC_CHECK_FUNCS([asprintf inet_pton memmem readpassphrase reallocarray])
+AC_CHECK_FUNCS([asprintf getpagesize inet_ntop inet_pton memmem readpassphrase])
+AC_CHECK_FUNCS([reallocarray recallocarray])
 AC_CHECK_FUNCS([strlcat strlcpy strndup strnlen strsep strtonum])
 AC_CHECK_FUNCS([timegm _mkgmtime])
 AM_CONDITIONAL([HAVE_ASPRINTF], [test "x$ac_cv_func_asprintf" = xyes])
+AM_CONDITIONAL([HAVE_GETPAGESIZE], [test "x$ac_cv_func_getpagesize" = xyes])
+AM_CONDITIONAL([HAVE_INET_NTOP], [test "x$ac_cv_func_inet_ntop" = xyes])
 AM_CONDITIONAL([HAVE_INET_PTON], [test "x$ac_cv_func_inet_pton" = xyes])
 AM_CONDITIONAL([HAVE_MEMMEM], [test "x$ac_cv_func_memmem" = xyes])
 AM_CONDITIONAL([HAVE_READPASSPHRASE], [test "x$ac_cv_func_readpassphrase" = xyes])
 AM_CONDITIONAL([HAVE_REALLOCARRAY], [test "x$ac_cv_func_reallocarray" = xyes])
+AM_CONDITIONAL([HAVE_RECALLOCARRAY], [test "x$ac_cv_func_recallocarray" = xyes])
 AM_CONDITIONAL([HAVE_STRLCAT], [test "x$ac_cv_func_strlcat" = xyes])
 AM_CONDITIONAL([HAVE_STRLCPY], [test "x$ac_cv_func_strlcpy" = xyes])
 AM_CONDITIONAL([HAVE_STRNDUP], [test "x$ac_cv_func_strndup" = xyes])
@@ -20,10 +24,12 @@ AM_CONDITIONAL([HAVE_TIMEGM], [test "x$ac_cv_func_timegm" = xyes])
 ])
 
 AC_DEFUN([CHECK_SYSCALL_COMPAT], [
-AC_CHECK_FUNCS([accept4 pledge poll])
+AC_CHECK_FUNCS([accept4 pipe2 pledge poll socketpair])
 AM_CONDITIONAL([HAVE_ACCEPT4], [test "x$ac_cv_func_accept4" = xyes])
+AM_CONDITIONAL([HAVE_PIPE2], [test "x$ac_cv_func_pipe2" = xyes])
 AM_CONDITIONAL([HAVE_PLEDGE], [test "x$ac_cv_func_pledge" = xyes])
 AM_CONDITIONAL([HAVE_POLL], [test "x$ac_cv_func_poll" = xyes])
+AM_CONDITIONAL([HAVE_SOCKETPAIR], [test "x$ac_cv_func_socketpair" = xyes])
 ])
 
 AC_DEFUN([CHECK_B64_NTOP], [
@@ -139,5 +145,87 @@ va_list x,y;
 ])
 if test "x$ac_cv_have___va_copy" = "xyes" ; then
 	AC_DEFINE([HAVE___VA_COPY], [1], [Define if __va_copy exists])
+fi
+])
+
+AC_DEFUN([GENERATE_CRYPTO_PORTABLE_SYM], [
+AS_CASE([$host_cpu],
+	[i?86], [HOSTARCH=intel],
+	[x86_64], [HOSTARCH=intel],
+	[amd64], [HOSTARCH=intel],
+)
+AC_SUBST([HOSTARCH])
+crypto_sym=$srcdir/crypto/crypto.sym
+crypto_p_sym=./crypto/crypto_portable.sym
+echo "generating $crypto_p_sym ..."
+mkdir -p ./crypto
+cp $crypto_sym $crypto_p_sym
+chmod u+w $crypto_p_sym
+if test "x$ac_cv_func_arc4random_buf" = "xno" ; then
+	echo arc4random >> $crypto_p_sym
+	echo arc4random_buf >> $crypto_p_sym
+	echo arc4random_uniform >> $crypto_p_sym
+	if test "x$ac_cv_func_getentropy" = "xno" ; then
+		echo getentropy >> $crypto_p_sym
+	fi
+fi
+if test "x$ac_cv_func_asprintf" = "xno" ; then
+	echo asprintf >> $crypto_p_sym
+	echo vasprintf >> $crypto_p_sym
+fi
+if test "x$ac_cv_func_explicit_bzero" = "xno" ; then
+	echo explicit_bzero >> $crypto_p_sym
+fi
+if test "x$ac_cv_func_inet_pton" = "xno" ; then
+	echo inet_pton >> $crypto_p_sym
+fi
+if test "x$ac_cv_func_reallocarray" = "xno" ; then
+	echo reallocarray >> $crypto_p_sym
+fi
+if test "x$ac_cv_func_recallocarray" = "xno" ; then
+	echo recallocarray >> $crypto_p_sym
+fi
+if test "x$ac_cv_func_strlcat" = "xno" ; then
+	echo strlcat >> $crypto_p_sym
+fi
+if test "x$ac_cv_func_strlcpy" = "xno" ; then
+	echo strlcpy >> $crypto_p_sym
+fi
+if test "x$ac_cv_func_strndup" = "xno" ; then
+	echo strndup >> $crypto_p_sym
+fi
+if test "x$ac_cv_func_strnlen" = "xno" ; then
+	echo strnlen >> $crypto_p_sym
+fi
+if test "x$ac_cv_func_strsep" = "xno" ; then
+	echo strsep >> $crypto_p_sym
+fi
+if test "x$ac_cv_func_timegm" = "xno" ; then
+	echo timegm >> $crypto_p_sym
+fi
+if test "x$ac_cv_func_timingsafe_bcmp" = "xno" ; then
+	echo timingsafe_bcmp >> $crypto_p_sym
+fi
+if test "x$ac_cv_func_timingsafe_memcmp" = "xno" ; then
+	echo timingsafe_memcmp >> $crypto_p_sym
+fi
+if test "x$HOSTARCH" = "xintel" ; then
+	echo OPENSSL_ia32cap_P >> $crypto_p_sym
+fi
+if test "x$HOST_OS" = "xwin" ; then
+	echo posix_perror >> $crypto_p_sym
+	echo posix_fopen >> $crypto_p_sym
+	echo posix_fgets >> $crypto_p_sym
+	echo posix_open >> $crypto_p_sym
+	echo posix_rename >> $crypto_p_sym
+	echo posix_connect >> $crypto_p_sym
+	echo posix_close >> $crypto_p_sym
+	echo posix_read >> $crypto_p_sym
+	echo posix_write >> $crypto_p_sym
+	echo posix_getsockopt >> $crypto_p_sym
+	echo posix_setsockopt >> $crypto_p_sym
+
+	grep -v BIO_s_log $crypto_p_sym > $crypto_p_sym.tmp
+	mv $crypto_p_sym.tmp $crypto_p_sym
 fi
 ])

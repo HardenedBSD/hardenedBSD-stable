@@ -54,6 +54,8 @@ CHECK_CRYPTO_COMPAT
 CHECK_VA_COPY
 CHECK_B64_NTOP
 
+GENERATE_CRYPTO_PORTABLE_SYM
+
 AC_ARG_WITH([openssldir],
 	AS_HELP_STRING([--with-openssldir],
 		       [Set the default openssl directory]),
@@ -126,6 +128,7 @@ AC_CONFIG_FILES([
 	tls/Makefile
 	tests/Makefile
 	apps/Makefile
+	apps/ocspcheck/Makefile
 	apps/openssl/Makefile
 	apps/nc/Makefile
 	man/Makefile
@@ -139,6 +142,12 @@ AM_CONDITIONAL([SMALL_TIME_T], [test "$ac_cv_sizeof_time_t" = "4"])
 if test "$ac_cv_sizeof_time_t" = "4"; then
     echo " ** Warning, this system is unable to represent times past 2038"
     echo " ** It will behave incorrectly when handling valid RFC5280 dates"
+
+    if test "$host_os" = "mingw32" ; then
+        echo " **"
+        echo " ** You can solve this by adjusting the build flags in your"
+        echo " ** mingw-w64 toolchain. Refer to README.windows for details."
+    fi
 fi
 
 AC_REQUIRE_AUX_FILE([tap-driver.sh])

@@ -1,4 +1,4 @@
-/*	$OpenBSD: explicit_bzero.c,v 1.5 2014/07/11 00:38:17 matthew Exp $	*/
+/*	$OpenBSD: explicit_bzero.c,v 1.6 2014/07/11 01:10:35 matthew Exp $	*/
 /*
  * Copyright (c) 2014 Google Inc.
  *

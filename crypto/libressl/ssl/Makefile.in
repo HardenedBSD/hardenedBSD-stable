@@ -137,12 +137,12 @@ LTLIBRARIES = $(lib_LTLIBRARIES)
 libssl_la_DEPENDENCIES = $(abs_top_builddir)/crypto/libcrypto.la
 am_libssl_la_OBJECTS = bio_ssl.lo bs_ber.lo bs_cbb.lo bs_cbs.lo \
 	d1_both.lo d1_clnt.lo d1_enc.lo d1_lib.lo d1_meth.lo d1_pkt.lo \
-	d1_srtp.lo d1_srvr.lo pqueue.lo s23_clnt.lo s23_lib.lo \
-	s23_pkt.lo s23_srvr.lo s3_both.lo s3_cbc.lo s3_clnt.lo \
-	s3_lib.lo s3_pkt.lo s3_srvr.lo ssl_algs.lo ssl_asn1.lo \
-	ssl_cert.lo ssl_ciph.lo ssl_err.lo ssl_err2.lo ssl_lib.lo \
-	ssl_rsa.lo ssl_sess.lo ssl_stat.lo ssl_txt.lo t1_clnt.lo \
-	t1_enc.lo t1_lib.lo t1_meth.lo t1_reneg.lo t1_srvr.lo
+	d1_srtp.lo d1_srvr.lo pqueue.lo s3_cbc.lo s3_lib.lo \
+	ssl_algs.lo ssl_asn1.lo ssl_both.lo ssl_cert.lo ssl_ciph.lo \
+	ssl_clnt.lo ssl_err.lo ssl_lib.lo ssl_packet.lo ssl_pkt.lo \
+	ssl_rsa.lo ssl_sess.lo ssl_srvr.lo ssl_stat.lo ssl_txt.lo \
+	ssl_versions.lo t1_clnt.lo t1_enc.lo t1_hash.lo t1_lib.lo \
+	t1_meth.lo t1_reneg.lo t1_srvr.lo
 libssl_la_OBJECTS = $(am_libssl_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
@@ -244,6 +244,7 @@ EGREP = @EGREP@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
 GREP = @GREP@
+HOSTARCH = @HOSTARCH@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -339,18 +340,20 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AM_CFLAGS = 
-AM_CPPFLAGS = -I$(top_srcdir)/include -I$(top_srcdir)/include/compat -DLIBRESSL_INTERNAL
+AM_CPPFLAGS = -I$(top_srcdir)/include -I$(top_srcdir)/include/compat \
+	-DLIBRESSL_INTERNAL -D__BEGIN_HIDDEN_DECLS= \
+	-D__END_HIDDEN_DECLS=
 lib_LTLIBRARIES = libssl.la
-EXTRA_DIST = VERSION CMakeLists.txt
-libssl_la_LDFLAGS = -version-info @LIBSSL_VERSION@ -no-undefined
+EXTRA_DIST = VERSION CMakeLists.txt ssl.sym
+libssl_la_LDFLAGS = -version-info @LIBSSL_VERSION@ -no-undefined -export-symbols $(top_srcdir)/ssl/ssl.sym
 libssl_la_LIBADD = $(abs_top_builddir)/crypto/libcrypto.la
 libssl_la_SOURCES = bio_ssl.c bs_ber.c bs_cbb.c bs_cbs.c d1_both.c \
 	d1_clnt.c d1_enc.c d1_lib.c d1_meth.c d1_pkt.c d1_srtp.c \
-	d1_srvr.c pqueue.c s23_clnt.c s23_lib.c s23_pkt.c s23_srvr.c \
-	s3_both.c s3_cbc.c s3_clnt.c s3_lib.c s3_pkt.c s3_srvr.c \
-	ssl_algs.c ssl_asn1.c ssl_cert.c ssl_ciph.c ssl_err.c \
-	ssl_err2.c ssl_lib.c ssl_rsa.c ssl_sess.c ssl_stat.c ssl_txt.c \
-	t1_clnt.c t1_enc.c t1_lib.c t1_meth.c t1_reneg.c t1_srvr.c
+	d1_srvr.c pqueue.c s3_cbc.c s3_lib.c ssl_algs.c ssl_asn1.c \
+	ssl_both.c ssl_cert.c ssl_ciph.c ssl_clnt.c ssl_err.c \
+	ssl_lib.c ssl_packet.c ssl_pkt.c ssl_rsa.c ssl_sess.c \
+	ssl_srvr.c ssl_stat.c ssl_txt.c ssl_versions.c t1_clnt.c \
+	t1_enc.c t1_hash.c t1_lib.c t1_meth.c t1_reneg.c t1_srvr.c
 noinst_HEADERS = srtp.h ssl_locl.h bytestring.h
 all: all-am
 
@@ -444,29 +447,27 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/d1_srtp.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/d1_srvr.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pqueue.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/s23_clnt.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/s23_lib.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/s23_pkt.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/s23_srvr.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/s3_both.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/s3_cbc.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/s3_clnt.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/s3_lib.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/s3_pkt.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/s3_srvr.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ssl_algs.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ssl_asn1.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ssl_both.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ssl_cert.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ssl_ciph.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ssl_clnt.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ssl_err.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ssl_err2.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ssl_lib.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ssl_packet.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ssl_pkt.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ssl_rsa.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ssl_sess.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ssl_srvr.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ssl_stat.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ssl_txt.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ssl_versions.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/t1_clnt.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/t1_enc.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/t1_hash.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/t1_lib.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/t1_meth.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/t1_reneg.Plo@am__quote@

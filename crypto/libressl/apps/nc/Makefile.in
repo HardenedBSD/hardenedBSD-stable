@@ -92,12 +92,10 @@ host_triplet = @host@
 @BUILD_NC_TRUE@@ENABLE_NC_TRUE@bin_PROGRAMS = nc$(EXEEXT)
 @BUILD_NC_TRUE@@ENABLE_NC_FALSE@noinst_PROGRAMS = nc$(EXEEXT)
 @BUILD_NC_TRUE@am__append_1 = -I$(top_srcdir)/apps/nc/compat
-@BUILD_NC_TRUE@@OPENSSLDIR_DEFINED_TRUE@am__append_2 = -DDEFAULT_CA_FILE=\"@OPENSSLDIR@/cert.pem\"
-@BUILD_NC_TRUE@@OPENSSLDIR_DEFINED_FALSE@am__append_3 = -DDEFAULT_CA_FILE=\"$(sysconfdir)/ssl/cert.pem\"
-@BUILD_NC_TRUE@@HAVE_B64_NTOP_FALSE@am__append_4 = compat/base64.c
-@BUILD_NC_TRUE@@HAVE_ACCEPT4_FALSE@am__append_5 = compat/accept4.c
-@BUILD_NC_TRUE@@HAVE_READPASSPHRASE_FALSE@am__append_6 = compat/readpassphrase.c
-@BUILD_NC_TRUE@@HAVE_STRTONUM_FALSE@am__append_7 = compat/strtonum.c
+@BUILD_NC_TRUE@@HAVE_B64_NTOP_FALSE@am__append_2 = compat/base64.c
+@BUILD_NC_TRUE@@HAVE_ACCEPT4_FALSE@am__append_3 = compat/accept4.c
+@BUILD_NC_TRUE@@HAVE_READPASSPHRASE_FALSE@am__append_4 = compat/readpassphrase.c
+@BUILD_NC_TRUE@@HAVE_STRTONUM_FALSE@am__append_5 = compat/strtonum.c
 subdir = apps/nc
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/check-hardening-options.m4 \
@@ -114,7 +112,7 @@ DIST_COMMON = $(srcdir)/Makefile.am $(am__noinst_HEADERS_DIST) \
 mkinstalldirs = $(install_sh) -d
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
-am__installdirs = "$(DESTDIR)$(bindir)"
+am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(man1dir)"
 PROGRAMS = $(bin_PROGRAMS) $(noinst_PROGRAMS)
 am__nc_SOURCES_DIST = atomicio.c netcat.c socks.c compat/socket.c \
 	compat/base64.c compat/accept4.c compat/readpassphrase.c \
@@ -133,11 +131,11 @@ am__dirstamp = $(am__leading_dot)dirstamp
 @BUILD_NC_TRUE@	$(am__objects_3) $(am__objects_4)
 nc_OBJECTS = $(am_nc_OBJECTS)
 am__DEPENDENCIES_1 =
-@BUILD_NC_TRUE@nc_DEPENDENCIES = $(am__DEPENDENCIES_1) \
-@BUILD_NC_TRUE@	$(am__DEPENDENCIES_1) \
+@BUILD_NC_TRUE@nc_DEPENDENCIES =  \
 @BUILD_NC_TRUE@	$(abs_top_builddir)/crypto/libcrypto.la \
 @BUILD_NC_TRUE@	$(abs_top_builddir)/ssl/libssl.la \
-@BUILD_NC_TRUE@	$(abs_top_builddir)/tls/libtls.la
+@BUILD_NC_TRUE@	$(abs_top_builddir)/tls/libtls.la \
+@BUILD_NC_TRUE@	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
@@ -183,6 +181,36 @@ am__can_run_installinfo = \
     n|no|NO) false;; \
     *) (install-info --version) >/dev/null 2>&1;; \
   esac
+am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
+am__vpath_adj = case $$p in \
+    $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
+    *) f=$$p;; \
+  esac;
+am__strip_dir = f=`echo $$p | sed -e 's|^.*/||'`;
+am__install_max = 40
+am__nobase_strip_setup = \
+  srcdirstrip=`echo "$(srcdir)" | sed 's/[].[^$$\\*|]/\\\\&/g'`
+am__nobase_strip = \
+  for p in $$list; do echo "$$p"; done | sed -e "s|$$srcdirstrip/||"
+am__nobase_list = $(am__nobase_strip_setup); \
+  for p in $$list; do echo "$$p $$p"; done | \
+  sed "s| $$srcdirstrip/| |;"' / .*\//!s/ .*/ ./; s,\( .*\)/[^/]*$$,\1,' | \
+  $(AWK) 'BEGIN { files["."] = "" } { files[$$2] = files[$$2] " " $$1; \
+    if (++n[$$2] == $(am__install_max)) \
+      { print $$2, files[$$2]; n[$$2] = 0; files[$$2] = "" } } \
+    END { for (dir in files) print dir, files[dir] }'
+am__base_list = \
+  sed '$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;s/\n/ /g' | \
+  sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
+am__uninstall_files_from_dir = { \
+  test -z "$$files" \
+    || { test ! -d "$$dir" && test ! -f "$$dir" && test ! -r "$$dir"; } \
+    || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
+         $(am__cd) "$$dir" && rm -f $$files; }; \
+  }
+man1dir = $(mandir)/man1
+NROFF = nroff
+MANS = $(dist_man_MANS)
 am__noinst_HEADERS_DIST = atomicio.h compat/sys/socket.h
 HEADERS = $(noinst_HEADERS)
 am__tagged_files = $(HEADERS) $(SOURCES) $(TAGS_FILES) $(LISP)
@@ -204,7 +232,7 @@ am__define_uniq_tagged_files = \
   done | $(am__uniquify_input)`
 ETAGS = etags
 CTAGS = ctags
-am__DIST_COMMON = $(srcdir)/Makefile.in \
+am__DIST_COMMON = $(dist_man_MANS) $(srcdir)/Makefile.in \
 	$(top_srcdir)/Makefile.am.common $(top_srcdir)/depcomp
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
@@ -236,6 +264,7 @@ EGREP = @EGREP@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
 GREP = @GREP@
+HOSTARCH = @HOSTARCH@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -332,16 +361,17 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AM_CFLAGS = 
 AM_CPPFLAGS = -I$(top_srcdir)/include -I$(top_srcdir)/include/compat \
-	-DLIBRESSL_INTERNAL $(am__append_1) $(am__append_2) \
-	$(am__append_3)
+	-DLIBRESSL_INTERNAL -D__BEGIN_HIDDEN_DECLS= \
+	-D__END_HIDDEN_DECLS= $(am__append_1)
+@BUILD_NC_TRUE@@ENABLE_NC_TRUE@dist_man_MANS = nc.1
 @BUILD_NC_TRUE@EXTRA_DIST = nc.1 CMakeLists.txt
-@BUILD_NC_TRUE@nc_LDADD = $(PLATFORM_LDADD) $(PROG_LDADD) \
-@BUILD_NC_TRUE@	$(abs_top_builddir)/crypto/libcrypto.la \
+@BUILD_NC_TRUE@nc_LDADD = $(abs_top_builddir)/crypto/libcrypto.la \
 @BUILD_NC_TRUE@	$(abs_top_builddir)/ssl/libssl.la \
-@BUILD_NC_TRUE@	$(abs_top_builddir)/tls/libtls.la
+@BUILD_NC_TRUE@	$(abs_top_builddir)/tls/libtls.la \
+@BUILD_NC_TRUE@	$(PLATFORM_LDADD) $(PROG_LDADD)
 @BUILD_NC_TRUE@nc_SOURCES = atomicio.c netcat.c socks.c \
-@BUILD_NC_TRUE@	compat/socket.c $(am__append_4) $(am__append_5) \
-@BUILD_NC_TRUE@	$(am__append_6) $(am__append_7)
+@BUILD_NC_TRUE@	compat/socket.c $(am__append_2) $(am__append_3) \
+@BUILD_NC_TRUE@	$(am__append_4) $(am__append_5)
 @BUILD_NC_TRUE@noinst_HEADERS = atomicio.h compat/sys/socket.h
 all: all-am
 
@@ -501,6 +531,49 @@ mostlyclean-libtool:
 
 clean-libtool:
 	-rm -rf .libs _libs
+install-man1: $(dist_man_MANS)
+	@$(NORMAL_INSTALL)
+	@list1=''; \
+	list2='$(dist_man_MANS)'; \
+	test -n "$(man1dir)" \
+	  && test -n "`echo $$list1$$list2`" \
+	  || exit 0; \
+	echo " $(MKDIR_P) '$(DESTDIR)$(man1dir)'"; \
+	$(MKDIR_P) "$(DESTDIR)$(man1dir)" || exit 1; \
+	{ for i in $$list1; do echo "$$i"; done;  \
+	if test -n "$$list2"; then \
+	  for i in $$list2; do echo "$$i"; done \
+	    | sed -n '/\.1[a-z]*$$/p'; \
+	fi; \
+	} | while read p; do \
+	  if test -f $$p; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; echo "$$p"; \
+	done | \
+	sed -e 'n;s,.*/,,;p;h;s,.*\.,,;s,^[^1][0-9a-z]*$$,1,;x' \
+	      -e 's,\.[0-9a-z]*$$,,;$(transform);G;s,\n,.,' | \
+	sed 'N;N;s,\n, ,g' | { \
+	list=; while read file base inst; do \
+	  if test "$$base" = "$$inst"; then list="$$list $$file"; else \
+	    echo " $(INSTALL_DATA) '$$file' '$(DESTDIR)$(man1dir)/$$inst'"; \
+	    $(INSTALL_DATA) "$$file" "$(DESTDIR)$(man1dir)/$$inst" || exit $$?; \
+	  fi; \
+	done; \
+	for i in $$list; do echo "$$i"; done | $(am__base_list) | \
+	while read files; do \
+	  test -z "$$files" || { \
+	    echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(man1dir)'"; \
+	    $(INSTALL_DATA) $$files "$(DESTDIR)$(man1dir)" || exit $$?; }; \
+	done; }
+
+uninstall-man1:
+	@$(NORMAL_UNINSTALL)
+	@list=''; test -n "$(man1dir)" || exit 0; \
+	files=`{ for i in $$list; do echo "$$i"; done; \
+	l2='$(dist_man_MANS)'; for i in $$l2; do echo "$$i"; done | \
+	  sed -n '/\.1[a-z]*$$/p'; \
+	} | sed -e 's,.*/,,;h;s,.*\.,,;s,^[^1][0-9a-z]*$$,1,;x' \
+	      -e 's,\.[0-9a-z]*$$,,;$(transform);G;s,\n,.,'`; \
+	dir='$(DESTDIR)$(man1dir)'; $(am__uninstall_files_from_dir)
 
 ID: $(am__tagged_files)
 	$(am__define_uniq_tagged_files); mkid -fID $$unique
@@ -586,9 +659,9 @@ distdir: $(DISTFILES)
 	done
 check-am: all-am
 check: check-am
-all-am: Makefile $(PROGRAMS) $(HEADERS)
+all-am: Makefile $(PROGRAMS) $(MANS) $(HEADERS)
 installdirs:
-	for dir in "$(DESTDIR)$(bindir)"; do \
+	for dir in "$(DESTDIR)$(bindir)" "$(DESTDIR)$(man1dir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-am
@@ -646,7 +719,7 @@ info: info-am
 
 info-am:
 
-install-data-am:
+install-data-am: install-man
 
 install-dvi: install-dvi-am
 
@@ -662,7 +735,7 @@ install-info: install-info-am
 
 install-info-am:
 
-install-man:
+install-man: install-man1
 
 install-pdf: install-pdf-am
 
@@ -692,7 +765,9 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-binPROGRAMS
+uninstall-am: uninstall-binPROGRAMS uninstall-man
+
+uninstall-man: uninstall-man1
 
 .MAKE: install-am install-strip
 
@@ -704,12 +779,13 @@ uninstall-am: uninstall-binPROGRAMS
 	install install-am install-binPROGRAMS install-data \
 	install-data-am install-dvi install-dvi-am install-exec \
 	install-exec-am install-html install-html-am install-info \
-	install-info-am install-man install-pdf install-pdf-am \
-	install-ps install-ps-am install-strip installcheck \
-	installcheck-am installdirs maintainer-clean \
+	install-info-am install-man install-man1 install-pdf \
+	install-pdf-am install-ps install-ps-am install-strip \
+	installcheck installcheck-am installdirs maintainer-clean \
 	maintainer-clean-generic mostlyclean mostlyclean-compile \
 	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
-	tags tags-am uninstall uninstall-am uninstall-binPROGRAMS
+	tags tags-am uninstall uninstall-am uninstall-binPROGRAMS \
+	uninstall-man uninstall-man1
 
 .PRECIOUS: Makefile
 

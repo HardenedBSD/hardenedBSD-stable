@@ -1,4 +1,4 @@
-/* $OpenBSD: pkcs12.c,v 1.6 2015/10/17 07:51:10 semarie Exp $ */
+/* $OpenBSD: pkcs12.c,v 1.9 2017/01/20 08:57:12 deraadt Exp $ */
 /* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project.
  */
@@ -125,7 +125,7 @@ pkcs12_main(int argc, char **argv)
 	char *CApath = NULL, *CAfile = NULL;
 
 	if (single_execution) {
-		if (pledge("stdio rpath wpath cpath tty", NULL) == -1) {
+		if (pledge("stdio cpath wpath rpath tty", NULL) == -1) {
 			perror("pledge");
 			exit(1);
 		}
@@ -667,7 +667,7 @@ dump_certs_pkeys_bag(BIO * out, PKCS12_SAFEBAG * bag, char *pass,
 	PKCS8_PRIV_KEY_INFO *p8;
 	X509 *x509;
 
-	switch (M_PKCS12_bag_type(bag)) {
+	switch (OBJ_obj2nid(bag->type)) {
 	case NID_keyBag:
 		if (options & INFO)
 			BIO_printf(bio_err, "Key bag\n");
@@ -713,7 +713,7 @@ dump_certs_pkeys_bag(BIO * out, PKCS12_SAFEBAG * bag, char *pass,
 		} else if (options & CLCERTS)
 			return 1;
 		print_attribs(out, bag->attrib, "Bag Attributes");
-		if (M_PKCS12_cert_bag_type(bag) != NID_x509Certificate)
+		if (OBJ_obj2nid(bag->value.bag->type) != NID_x509Certificate)
 			return 1;
 		if (!(x509 = PKCS12_certbag2x509(bag)))
 			return 0;

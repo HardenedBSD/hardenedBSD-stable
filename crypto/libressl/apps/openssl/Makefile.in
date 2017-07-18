@@ -114,14 +114,14 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(man1dir)"
 PROGRAMS = $(bin_PROGRAMS)
-am__openssl_SOURCES_DIST = apps.c asn1pars.c ca.c ciphers.c cms.c \
-	crl.c crl2p7.c dgst.c dh.c dhparam.c dsa.c dsaparam.c ec.c \
-	ecparam.c enc.c errstr.c gendh.c gendsa.c genpkey.c genrsa.c \
-	nseq.c ocsp.c openssl.c passwd.c pkcs12.c pkcs7.c pkcs8.c \
-	pkey.c pkeyparam.c pkeyutl.c prime.c rand.c req.c rsa.c \
-	rsautl.c s_cb.c s_client.c s_server.c s_socket.c s_time.c \
-	sess_id.c smime.c speed.c spkac.c ts.c verify.c version.c \
-	x509.c certhash.c certhash_win.c apps_win.c apps_posix.c \
+am__openssl_SOURCES_DIST = apps.c asn1pars.c ca.c ciphers.c crl.c \
+	crl2p7.c dgst.c dh.c dhparam.c dsa.c dsaparam.c ec.c ecparam.c \
+	enc.c errstr.c gendh.c gendsa.c genpkey.c genrsa.c nseq.c \
+	ocsp.c openssl.c passwd.c pkcs12.c pkcs7.c pkcs8.c pkey.c \
+	pkeyparam.c pkeyutl.c prime.c rand.c req.c rsa.c rsautl.c \
+	s_cb.c s_client.c s_server.c s_socket.c s_time.c sess_id.c \
+	smime.c speed.c spkac.c ts.c verify.c version.c x509.c \
+	certhash.c certhash_win.c apps_win.c apps_posix.c \
 	compat/poll_win.c compat/strtonum.c
 @BUILD_CERTHASH_TRUE@am__objects_1 = certhash.$(OBJEXT)
 @BUILD_CERTHASH_FALSE@am__objects_2 = certhash_win.$(OBJEXT)
@@ -132,7 +132,7 @@ am__dirstamp = $(am__leading_dot)dirstamp
 @HAVE_POLL_FALSE@@HOST_WIN_TRUE@	compat/poll_win.$(OBJEXT)
 @HAVE_STRTONUM_FALSE@am__objects_6 = compat/strtonum.$(OBJEXT)
 am_openssl_OBJECTS = apps.$(OBJEXT) asn1pars.$(OBJEXT) ca.$(OBJEXT) \
-	ciphers.$(OBJEXT) cms.$(OBJEXT) crl.$(OBJEXT) crl2p7.$(OBJEXT) \
+	ciphers.$(OBJEXT) crl.$(OBJEXT) crl2p7.$(OBJEXT) \
 	dgst.$(OBJEXT) dh.$(OBJEXT) dhparam.$(OBJEXT) dsa.$(OBJEXT) \
 	dsaparam.$(OBJEXT) ec.$(OBJEXT) ecparam.$(OBJEXT) \
 	enc.$(OBJEXT) errstr.$(OBJEXT) gendh.$(OBJEXT) \
@@ -150,9 +150,9 @@ am_openssl_OBJECTS = apps.$(OBJEXT) asn1pars.$(OBJEXT) ca.$(OBJEXT) \
 	$(am__objects_5) $(am__objects_6)
 openssl_OBJECTS = $(am_openssl_OBJECTS)
 am__DEPENDENCIES_1 =
-openssl_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
-	$(abs_top_builddir)/ssl/libssl.la \
-	$(abs_top_builddir)/crypto/libcrypto.la
+openssl_DEPENDENCIES = $(abs_top_builddir)/ssl/libssl.la \
+	$(abs_top_builddir)/crypto/libcrypto.la $(am__DEPENDENCIES_1) \
+	$(am__DEPENDENCIES_1)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
@@ -280,6 +280,7 @@ EGREP = @EGREP@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
 GREP = @GREP@
+HOSTARCH = @HOSTARCH@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -375,20 +376,22 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AM_CFLAGS = 
-AM_CPPFLAGS = -I$(top_srcdir)/include -I$(top_srcdir)/include/compat -DLIBRESSL_INTERNAL
+AM_CPPFLAGS = -I$(top_srcdir)/include -I$(top_srcdir)/include/compat \
+	-DLIBRESSL_INTERNAL -D__BEGIN_HIDDEN_DECLS= \
+	-D__END_HIDDEN_DECLS=
 dist_man_MANS = openssl.1
-openssl_LDADD = $(PLATFORM_LDADD) $(PROG_LDADD) \
-	$(abs_top_builddir)/ssl/libssl.la \
-	$(abs_top_builddir)/crypto/libcrypto.la
-openssl_SOURCES = apps.c asn1pars.c ca.c ciphers.c cms.c crl.c \
-	crl2p7.c dgst.c dh.c dhparam.c dsa.c dsaparam.c ec.c ecparam.c \
-	enc.c errstr.c gendh.c gendsa.c genpkey.c genrsa.c nseq.c \
-	ocsp.c openssl.c passwd.c pkcs12.c pkcs7.c pkcs8.c pkey.c \
-	pkeyparam.c pkeyutl.c prime.c rand.c req.c rsa.c rsautl.c \
-	s_cb.c s_client.c s_server.c s_socket.c s_time.c sess_id.c \
-	smime.c speed.c spkac.c ts.c verify.c version.c x509.c \
-	$(am__append_1) $(am__append_2) $(am__append_3) \
-	$(am__append_4) $(am__append_5) $(am__append_6)
+openssl_LDADD = $(abs_top_builddir)/ssl/libssl.la \
+	$(abs_top_builddir)/crypto/libcrypto.la $(PLATFORM_LDADD) \
+	$(PROG_LDADD)
+openssl_SOURCES = apps.c asn1pars.c ca.c ciphers.c crl.c crl2p7.c \
+	dgst.c dh.c dhparam.c dsa.c dsaparam.c ec.c ecparam.c enc.c \
+	errstr.c gendh.c gendsa.c genpkey.c genrsa.c nseq.c ocsp.c \
+	openssl.c passwd.c pkcs12.c pkcs7.c pkcs8.c pkey.c pkeyparam.c \
+	pkeyutl.c prime.c rand.c req.c rsa.c rsautl.c s_cb.c \
+	s_client.c s_server.c s_socket.c s_time.c sess_id.c smime.c \
+	speed.c spkac.c ts.c verify.c version.c x509.c $(am__append_1) \
+	$(am__append_2) $(am__append_3) $(am__append_4) \
+	$(am__append_5) $(am__append_6)
 noinst_HEADERS = apps.h progs.h s_apps.h testdsa.h testrsa.h \
 	timeouts.h
 EXTRA_DIST = cert.pem openssl.cnf x509v3.cnf CMakeLists.txt
@@ -505,7 +508,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/certhash.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/certhash_win.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ciphers.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cms.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/crl.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/crl2p7.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dgst.Po@am__quote@
@@ -842,9 +844,9 @@ uninstall-man: uninstall-man1
 
 install-exec-hook:
 	@if [ "@OPENSSLDIR@x" != "x" ]; then \
-		OPENSSLDIR="$(DESTDIR)/@OPENSSLDIR@"; \
+		OPENSSLDIR="$(DESTDIR)@OPENSSLDIR@"; \
 	else \
-		OPENSSLDIR="$(DESTDIR)/$(sysconfdir)/ssl"; \
+		OPENSSLDIR="$(DESTDIR)$(sysconfdir)/ssl"; \
 	fi; \
 	mkdir -p "$$OPENSSLDIR/certs"; \
 	for i in cert.pem openssl.cnf x509v3.cnf; do \
@@ -857,9 +859,9 @@ install-exec-hook:
 
 uninstall-local:
 	@if [ "@OPENSSLDIR@x" != "x" ]; then \
-		OPENSSLDIR="$(DESTDIR)/@OPENSSLDIR@"; \
+		OPENSSLDIR="$(DESTDIR)@OPENSSLDIR@"; \
 	else \
-		OPENSSLDIR="$(DESTDIR)/$(sysconfdir)/ssl"; \
+		OPENSSLDIR="$(DESTDIR)$(sysconfdir)/ssl"; \
 	fi; \
 	for i in cert.pem openssl.cnf x509v3.cnf; do \
 		if cmp -s "$$OPENSSLDIR/$$i" "$(srcdir)/$$i"; then \

@@ -214,6 +214,7 @@ EGREP = @EGREP@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
 GREP = @GREP@
+HOSTARCH = @HOSTARCH@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -309,8 +310,10 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AM_CFLAGS = 
-AM_CPPFLAGS = -I$(top_srcdir)/include -I$(top_srcdir)/include/compat -DLIBRESSL_INTERNAL
-SUBDIRS = openssl nc
+AM_CPPFLAGS = -I$(top_srcdir)/include -I$(top_srcdir)/include/compat \
+	-DLIBRESSL_INTERNAL -D__BEGIN_HIDDEN_DECLS= \
+	-D__END_HIDDEN_DECLS=
+SUBDIRS = ocspcheck openssl nc
 EXTRA_DIST = CMakeLists.txt
 all: all-recursive
 

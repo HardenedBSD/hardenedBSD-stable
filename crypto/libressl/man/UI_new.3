@@ -1,4 +1,55 @@
-.Dd $Mdocdate: November 12 2015 $
+.\"	$OpenBSD: UI_new.3,v 1.6 2017/03/26 00:06:10 schwarze Exp $
+.\"	OpenSSL UI_new.pod 5469600e Mar 11 00:51:53 2017 +0100
+.\"	OpenSSL UI_new.pod 99d63d46 Oct 26 13:56:48 2016 -0400
+.\"
+.\" This file was written by Richard Levitte <levitte@openssl.org>.
+.\" Copyright (c) 2001, 2016, 2017 The OpenSSL Project.  All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\"
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\"
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in
+.\"    the documentation and/or other materials provided with the
+.\"    distribution.
+.\"
+.\" 3. All advertising materials mentioning features or use of this
+.\"    software must display the following acknowledgment:
+.\"    "This product includes software developed by the OpenSSL Project
+.\"    for use in the OpenSSL Toolkit. (http://www.openssl.org/)"
+.\"
+.\" 4. The names "OpenSSL Toolkit" and "OpenSSL Project" must not be used to
+.\"    endorse or promote products derived from this software without
+.\"    prior written permission. For written permission, please contact
+.\"    openssl-core@openssl.org.
+.\"
+.\" 5. Products derived from this software may not be called "OpenSSL"
+.\"    nor may "OpenSSL" appear in their names without prior written
+.\"    permission of the OpenSSL Project.
+.\"
+.\" 6. Redistributions of any form whatsoever must retain the following
+.\"    acknowledgment:
+.\"    "This product includes software developed by the OpenSSL Project
+.\"    for use in the OpenSSL Toolkit (http://www.openssl.org/)"
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE OpenSSL PROJECT ``AS IS'' AND ANY
+.\" EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+.\" PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE OpenSSL PROJECT OR
+.\" ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+.\" SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+.\" NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+.\" LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+.\" STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+.\" ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+.\" OF THE POSSIBILITY OF SUCH DAMAGE.
+.\"
+.Dd $Mdocdate: March 26 2017 $
 .Dt UI_NEW 3
 .Os
 .Sh NAME
@@ -25,13 +76,10 @@
 .Nm UI_get_default_method ,
 .Nm UI_get_method ,
 .Nm UI_set_method ,
-.Nm UI_OpenSSL ,
-.Nm ERR_load_UI_strings
+.Nm UI_OpenSSL
 .Nd New User Interface
 .Sh SYNOPSIS
 .In openssl/ui.h
-.Fd typedef struct ui_st UI;
-.Fd typedef struct ui_method_st UI_METHOD;
 .Ft UI *
 .Fn UI_new void
 .Ft UI *
@@ -179,10 +227,10 @@
 .Fa void
 .Fc
 .Sh DESCRIPTION
-UI stands for User Interface, and is general purpose set of routines
+UI stands for User Interface, and is a general purpose set of routines
 to prompt the user for text-based information.
 Through user-written methods (see
-.Xr ui_create 3 Ns ),
+.Xr UI_create_method 3 ) ,
 prompting can be done in any way imaginable, be it plain text prompting,
 through dialog boxes or from a cell phone.
 .Pp
@@ -255,6 +303,11 @@ removes
 .Fa ui
 from memory, along with all other pieces of memory that are connected
 to it, like duplicated input strings, results and others.
+If
+.Fa ui
+is a
+.Dv NULL
+pointer, no action occurs.
 .Pp
 .Fn UI_add_input_string
 and
@@ -262,12 +315,12 @@ and
 add a prompt to
 .Fa ui ,
 as well as flags and a result buffer and the desired minimum and
-maximum sizes of the result.
+maximum sizes of the result, not counting the final NUL character.
 The given information is used to prompt for information, for example
 a password, and to verify a password (i.e. having the user enter
 it twice and check that the same string was entered twice).
 .Fn UI_add_verify_string
-takes and extra argument that should be a pointer to the result buffer
+takes an extra argument that should be a pointer to the result buffer
 of the input string that it's supposed to verify, or verification will
 fail.
 .Pp
@@ -295,7 +348,7 @@ With the builtin method, there's no technical difference between them.
 Other methods may make a difference between them, however.
 .Pp
 The flags currently supported are
-.Dv UI_INPUT_FLAG_ECHO,
+.Dv UI_INPUT_FLAG_ECHO ,
 which is relevant for
 .Fn UI_add_input_string
 and will have the users response be echoed (when prompting for a
@@ -316,7 +369,7 @@ counterparts, except that they make their own copies of all strings.
 .Pp
 .Fn UI_construct_prompt
 is a helper function that can be used to create a prompt from two pieces
-of information: an description and a name.
+of information: a description and a name.
 The default constructor (if there is none provided by the method used)
 creates a string "Enter
 .Em description
@@ -330,8 +383,8 @@ other method functions.
 .Fn UI_add_user_data
 adds a piece of memory for the method to use at any time.
 The builtin UI method doesn't care about this info.
-Note that several calls to this function doesn't add data, it replaces
-the previous blob with the one given as argument.
+Note that several calls to this function doesn't add data -
+the previous blob is replaced with the one given as argument.
 .Pp
 .Fn UI_get0_user_data
 retrieves the data that has last been given to the
@@ -346,7 +399,8 @@ indexed by
 .Pp
 .Fn UI_process
 goes through the information given so far, does all the printing and
-prompting and returns.
+prompting and returns the final status, which is -2 on out-of-band
+events (Interrupt, Cancel, ...), -1 on error, or 0 on success.
 .Pp
 .Fn UI_ctrl
 adds extra control for the application author.
@@ -376,7 +430,10 @@ returns the UI method associated with a given
 changes the UI method associated with a given
 .Fa ui .
 .Sh SEE ALSO
-.Xr des_read_pw 3
+.Xr des_read_pw 3 ,
+.Xr UI_create_method 3 ,
+.Xr UI_get_string_type 3 ,
+.Xr UI_UTIL_read_pw 3
 .Sh HISTORY
 The UI section was first introduced in OpenSSL 0.9.7.
 .Sh AUTHORS

@@ -1,4 +1,4 @@
-/*	$OpenBSD: biotest.c,v 1.4 2014/07/11 08:48:52 bcook Exp $	*/
+/*	$OpenBSD: biotest.c,v 1.5 2015/05/08 21:30:37 miod Exp $	*/
 /*
  * Copyright (c) 2014 Joel Sing <jsing@openbsd.org>
  *

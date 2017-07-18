@@ -1,4 +1,4 @@
-/* $OpenBSD: s_server.c,v 1.23 2015/12/01 12:04:51 jca Exp $ */
+/* $OpenBSD: s_server.c,v 1.25 2017/01/20 08:57:12 deraadt Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -605,7 +605,7 @@ s_server_main(int argc, char *argv[])
 	tlsextalpnctx alpn_ctx = { NULL, 0 };
 
 	if (single_execution) {
-		if (pledge("stdio inet dns rpath tty", NULL) == -1) {
+		if (pledge("stdio rpath inet dns tty", NULL) == -1) {
 			perror("pledge");
 			exit(1);
 		}

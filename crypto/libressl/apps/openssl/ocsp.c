@@ -1,4 +1,4 @@
-/* $OpenBSD: ocsp.c,v 1.7 2015/10/17 15:00:11 doug Exp $ */
+/* $OpenBSD: ocsp.c,v 1.12 2017/01/21 09:29:09 deraadt Exp $ */
 /* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 2000.
  */
@@ -147,7 +147,7 @@ ocsp_main(int argc, char **argv)
 	const char *errstr = NULL;
 
 	if (single_execution) {
-		if (pledge("stdio inet dns rpath wpath cpath", NULL) == -1) {
+		if (pledge("stdio cpath wpath rpath inet dns tty", NULL) == -1) {
 			perror("pledge");
 			exit(1);
 		}
@@ -496,8 +496,8 @@ ocsp_main(int argc, char **argv)
 		BIO_printf(bio_err, "-rkey file	 responder key to sign responses with\n");
 		BIO_printf(bio_err, "-rother file	 other certificates to include in response\n");
 		BIO_printf(bio_err, "-resp_no_certs     don't include any certificates in response\n");
-		BIO_printf(bio_err, "-nmin n	 	 number of minutes before next update\n");
-		BIO_printf(bio_err, "-ndays n	 	 number of days before next update\n");
+		BIO_printf(bio_err, "-nmin n		 number of minutes before next update\n");
+		BIO_printf(bio_err, "-ndays n		 number of days before next update\n");
 		BIO_printf(bio_err, "-resp_key_id       identify reponse by signing certificate key ID\n");
 		BIO_printf(bio_err, "-nrequest n        number of requests to accept (default unlimited)\n");
 		BIO_printf(bio_err, "-<dgst alg>     use specified digest in the request\n");
@@ -664,11 +664,11 @@ done_resp:
 	i = OCSP_response_status(resp);
 
 	if (i != OCSP_RESPONSE_STATUS_SUCCESSFUL) {
-		BIO_printf(out, "Responder Error: %s (%d)\n",
+		BIO_printf(bio_err, "Responder Error: %s (%d)\n",
 		    OCSP_response_status_str(i), i);
 		if (ignore_err)
 			goto redo_accept;
-		ret = 0;
+		ret = 1;
 		goto end;
 	}
 	if (resp_text)

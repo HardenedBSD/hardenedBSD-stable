@@ -4,15 +4,14 @@ bin_PROGRAMS = openssl
 
 dist_man_MANS = openssl.1
 
-openssl_LDADD = $(PLATFORM_LDADD) $(PROG_LDADD)
-openssl_LDADD += $(abs_top_builddir)/ssl/libssl.la
+openssl_LDADD = $(abs_top_builddir)/ssl/libssl.la
 openssl_LDADD += $(abs_top_builddir)/crypto/libcrypto.la
+openssl_LDADD += $(PLATFORM_LDADD) $(PROG_LDADD)
 
 openssl_SOURCES = apps.c
 openssl_SOURCES += asn1pars.c
 openssl_SOURCES += ca.c
 openssl_SOURCES += ciphers.c
-openssl_SOURCES += cms.c
 openssl_SOURCES += crl.c
 openssl_SOURCES += crl2p7.c
 openssl_SOURCES += dgst.c
@@ -93,9 +92,9 @@ EXTRA_DIST += CMakeLists.txt
 
 install-exec-hook:
 	@if [ "@OPENSSLDIR@x" != "x" ]; then \
-		OPENSSLDIR="$(DESTDIR)/@OPENSSLDIR@"; \
+		OPENSSLDIR="$(DESTDIR)@OPENSSLDIR@"; \
 	else \
-		OPENSSLDIR="$(DESTDIR)/$(sysconfdir)/ssl"; \
+		OPENSSLDIR="$(DESTDIR)$(sysconfdir)/ssl"; \
 	fi; \
 	mkdir -p "$$OPENSSLDIR/certs"; \
 	for i in cert.pem openssl.cnf x509v3.cnf; do \
@@ -108,9 +107,9 @@ install-exec-hook:
 
 uninstall-local:
 	@if [ "@OPENSSLDIR@x" != "x" ]; then \
-		OPENSSLDIR="$(DESTDIR)/@OPENSSLDIR@"; \
+		OPENSSLDIR="$(DESTDIR)@OPENSSLDIR@"; \
 	else \
-		OPENSSLDIR="$(DESTDIR)/$(sysconfdir)/ssl"; \
+		OPENSSLDIR="$(DESTDIR)$(sysconfdir)/ssl"; \
 	fi; \
 	for i in cert.pem openssl.cnf x509v3.cnf; do \
 		if cmp -s "$$OPENSSLDIR/$$i" "$(srcdir)/$$i"; then \

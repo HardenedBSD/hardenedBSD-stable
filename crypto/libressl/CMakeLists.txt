@@ -4,21 +4,25 @@ include(CheckLibraryExists)
 include(CheckIncludeFiles)
 include(CheckTypeSize)
 
+set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}" ${CMAKE_MODULE_PATH})
+include(cmake_export_symbol)
+include(GNUInstallDirs)
+
 project (LibreSSL C)
 
 enable_testing()
 
-file(READ ${CMAKE_SOURCE_DIR}/ssl/VERSION SSL_VERSION)
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/ssl/VERSION SSL_VERSION)
 string(STRIP ${SSL_VERSION} SSL_VERSION)
 string(REPLACE ":" "." SSL_VERSION ${SSL_VERSION})
 string(REGEX REPLACE "\\..*" "" SSL_MAJOR_VERSION ${SSL_VERSION})
 
-file(READ ${CMAKE_SOURCE_DIR}/crypto/VERSION CRYPTO_VERSION)
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/crypto/VERSION CRYPTO_VERSION)
 string(STRIP ${CRYPTO_VERSION} CRYPTO_VERSION)
 string(REPLACE ":" "." CRYPTO_VERSION ${CRYPTO_VERSION})
 string(REGEX REPLACE "\\..*" "" CRYPTO_MAJOR_VERSION ${CRYPTO_VERSION})
 
-file(READ ${CMAKE_SOURCE_DIR}/tls/VERSION TLS_VERSION)
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/tls/VERSION TLS_VERSION)
 string(STRIP ${TLS_VERSION} TLS_VERSION)
 string(REPLACE ":" "." TLS_VERSION ${TLS_VERSION})
 string(REGEX REPLACE "\\..*" "" TLS_MAJOR_VERSION ${TLS_VERSION})
@@ -26,6 +30,7 @@ string(REGEX REPLACE "\\..*" "" TLS_MAJOR_VERSION ${TLS_VERSION})
 option(ENABLE_ASM "Enable assembly" ON)
 option(ENABLE_EXTRATESTS "Enable extra tests that may be unreliable on some platforms" OFF)
 option(ENABLE_NC "Enable installing TLS-enabled nc(1)" OFF)
+option(ENABLE_VSTEST "Enable test on Visual Studio" OFF)
 set(OPENSSLDIR ${OPENSSLDIR} CACHE PATH "Set the default openssl directory" FORCE)
 
 set(BUILD_NC true)
@@ -49,7 +54,7 @@ if(CMAKE_SYSTEM_NAME MATCHES "MINGW")
 	set(BUILD_NC false)
 endif()
 
-if(MSVC)
+if(WIN32)
 	set(BUILD_NC false)
 endif()
 
@@ -73,6 +78,8 @@ endif()
 
 add_definitions(-DLIBRESSL_INTERNAL)
 add_definitions(-DOPENSSL_NO_HW_PADLOCK)
+add_definitions(-D__BEGIN_HIDDEN_DECLS=)
+add_definitions(-D__END_HIDDEN_DECLS=)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE true)
 
@@ -80,32 +87,57 @@ if (CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
 	add_definitions(-Wno-pointer-sign)
 endif()
 
-if(MSVC)
-	add_definitions(-Dinline=__inline)
+if(WIN32)
 	add_definitions(-Drestrict)
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 	add_definitions(-D_CRT_DEPRECATED_NO_WARNINGS)
 	add_definitions(-D_REENTRANT -D_POSIX_THREAD_SAFE_FUNCTIONS)
 	add_definitions(-DWIN32_LEAN_AND_MEAN -D_WIN32_WINNT=0x0501)
 	add_definitions(-DCPPFLAGS -DOPENSSL_NO_SPEED -DNO_SYSLOG -DNO_CRYPT)
+endif()
 
-	set(MSVC_DISABLED_WARNINGS_LIST
-		"C4057" # C4057: 'initializing' : 'unsigned char *' differs in
-		        # indirection to slightly different base types from 'char [2]'
-		"C4100" # 'exarg' : unreferenced formal parameter
-		"C4127" # conditional expression is constant
-		"C4242" # 'function' : conversion from 'int' to 'uint8_t',
-		        # possible loss of data
-		"C4244" # 'function' : conversion from 'int' to 'uint8_t',
-		        # possible loss of data
-		"C4706" # assignment within conditional expression
-		"C4820" # 'bytes' bytes padding added after construct 'member_name'
-		"C4996" # 'read': The POSIX name for this item is deprecated. Instead,
-		        # use the ISO C++ conformant name: _read.
-	)
+if(MSVC)
+	add_definitions(-Dinline=__inline)
+	message(STATUS "Using [${CMAKE_C_COMPILER_ID}] compiler")
+	if(CMAKE_C_COMPILER_ID MATCHES "MSVC")
+		set(MSVC_DISABLED_WARNINGS_LIST
+			"C4057" # C4057: 'initializing' : 'unsigned char *' differs in
+		        	# indirection to slightly different base types from 'char [2]'
+			"C4100" # 'exarg' : unreferenced formal parameter
+			"C4127" # conditional expression is constant
+			"C4242" # 'function' : conversion from 'int' to 'uint8_t',
+			        # possible loss of data
+			"C4244" # 'function' : conversion from 'int' to 'uint8_t',
+			        # possible loss of data
+			"C4267" # conversion from 'size_t' to 'some type that is almost
+				# certainly safe to convert a size_t to'.
+			"C4706" # assignment within conditional expression
+			"C4820" # 'bytes' bytes padding added after construct 'member_name'
+			"C4996" # 'read': The POSIX name for this item is deprecated. Instead,
+			        # use the ISO C++ conformant name: _read.
+		)
+	elseif(CMAKE_C_COMPILER_ID MATCHES "Intel")
+		add_definitions(-D_CRT_SUPPRESS_RESTRICT)
+		set(MSVC_DISABLED_WARNINGS_LIST
+			"C111"  # Unreachable statement
+			"C128"  # Unreachable loop
+			"C167"  # Unexplict casting unsigned to signed
+			"C186"  # Pointless comparison of unsigned int with zero
+			"C188"  # Enumerated type mixed with another type
+			"C344"  # Redeclared type
+			"C556"  # Unexplict casting signed to unsigned
+			"C869"  # Unreferenced parameters
+			"C1786" # Deprecated functions
+			"C2545" # Empty else statement
+			"C2557" # Comparing signed to unsigned
+			"C2722" # List init syntax is c++11 feature
+			"C3280" # Declaration hides variable
+		)
+	endif()
 	string(REPLACE "C" " -wd" MSVC_DISABLED_WARNINGS_STR
 		${MSVC_DISABLED_WARNINGS_LIST})
-	set(CMAKE_C_FLAGS  "-MP -W4 ${MSVC_DISABLED_WARNINGS_STR}")
+	string(REGEX REPLACE "[/-]W[1234][ ]?" "" CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -MP -W4 ${MSVC_DISABLED_WARNINGS_STR}")
 endif()
 
 check_function_exists(asprintf HAVE_ASPRINTF)
@@ -143,7 +175,7 @@ if(HAVE_STRNDUP)
 	add_definitions(-DHAVE_STRNDUP)
 endif()
 
-if(MSVC)
+if(WIN32)
 	set(HAVE_STRNLEN true)
 	add_definitions(-DHAVE_STRNLEN)
 else()
@@ -188,6 +220,11 @@ if(HAVE_GETENTROPY)
 	add_definitions(-DHAVE_GETENTROPY)
 endif()
 
+check_function_exists(getpagesize HAVE_GETPAGESIZE)
+if(HAVE_GETPAGESIZE)
+	add_definitions(-DHAVE_GETPAGESIZE)
+endif()
+
 check_function_exists(timingsafe_bcmp HAVE_TIMINGSAFE_BCMP)
 if(HAVE_TIMINGSAFE_BCMP)
 	add_definitions(-DHAVE_TIMINGSAFE_BCMP)
@@ -220,7 +257,24 @@ if(ENABLE_ASM)
 	endif()
 endif()
 
-set(OPENSSL_LIBS ssl crypto)
+if(NOT (CMAKE_SYSTEM_NAME MATCHES "(Darwin|CYGWIN)"))
+	set(BUILD_SHARED true)
+endif()
+
+# USE_SHARED builds applications (e.g. openssl) using shared LibreSSL.
+# By default, applications use LibreSSL static library to avoid dependencies.
+# USE_SHARED isn't set by default; use -DUSE_SHARED=ON with CMake to enable.
+# Can be helpful for debugging; don't use for public releases.
+if(NOT BUILD_SHARED)
+	set(USE_SHARED off)
+endif()
+
+if(USE_SHARED)
+	set(OPENSSL_LIBS tls-shared ssl-shared crypto-shared)
+else()
+	set(OPENSSL_LIBS tls ssl crypto)
+endif()
+
 if(CMAKE_HOST_WIN32)
 	set(OPENSSL_LIBS ${OPENSSL_LIBS} ws2_32)
 endif()
@@ -235,10 +289,6 @@ if(CMAKE_SYSTEM_NAME MATCHES "HP-UX")
 endif()
 if(CMAKE_SYSTEM_NAME MATCHES "SunOS")
 	set(OPENSSL_LIBS ${OPENSSL_LIBS} nsl socket)
-endif()
-
-if(NOT (CMAKE_SYSTEM_NAME MATCHES "(Darwin|MINGW|CYGWIN)" OR MSVC))
-	set(BUILD_SHARED true)
 endif()
 
 check_type_size(time_t SIZEOF_TIME_T)
@@ -256,6 +306,8 @@ add_subdirectory(tls)
 add_subdirectory(include)
 if(NOT MSVC)
 	add_subdirectory(man)
+endif()
+if(NOT MSVC OR ENABLE_VSTEST)
 	add_subdirectory(tests)
 endif()
 

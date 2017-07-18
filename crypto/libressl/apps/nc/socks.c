@@ -1,4 +1,4 @@
-/*	$OpenBSD: socks.c,v 1.23 2015/12/10 18:31:52 mmcc Exp $	*/
+/*	$OpenBSD: socks.c,v 1.24 2016/06/27 14:43:04 deraadt Exp $	*/
 
 /*
  * Copyright (c) 1999 Niklas Hallqvist.  All rights reserved.

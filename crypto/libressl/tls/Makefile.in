@@ -91,7 +91,6 @@ build_triplet = @build@
 host_triplet = @host@
 @OPENSSLDIR_DEFINED_TRUE@am__append_1 = -D_PATH_SSL_CA_FILE=\"@OPENSSLDIR@/cert.pem\"
 @OPENSSLDIR_DEFINED_FALSE@am__append_2 = -D_PATH_SSL_CA_FILE=\"$(sysconfdir)/ssl/cert.pem\"
-@HAVE_STRSEP_FALSE@am__append_3 = strsep.c
 subdir = tls
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/check-hardening-options.m4 \
@@ -140,14 +139,11 @@ LTLIBRARIES = $(lib_LTLIBRARIES)
 am__DEPENDENCIES_1 =
 libtls_la_DEPENDENCIES = $(abs_top_builddir)/ssl/libssl.la \
 	$(abs_top_builddir)/crypto/libcrypto.la $(am__DEPENDENCIES_1)
-am__libtls_la_SOURCES_DIST = tls.c tls_client.c tls_config.c \
-	tls_conninfo.c tls_server.c tls_peer.c tls_util.c tls_verify.c \
-	strsep.c
-@HAVE_STRSEP_FALSE@am__objects_1 = libtls_la-strsep.lo
 am_libtls_la_OBJECTS = libtls_la-tls.lo libtls_la-tls_client.lo \
-	libtls_la-tls_config.lo libtls_la-tls_conninfo.lo \
-	libtls_la-tls_server.lo libtls_la-tls_peer.lo \
-	libtls_la-tls_util.lo libtls_la-tls_verify.lo $(am__objects_1)
+	libtls_la-tls_bio_cb.lo libtls_la-tls_config.lo \
+	libtls_la-tls_conninfo.lo libtls_la-tls_server.lo \
+	libtls_la-tls_ocsp.lo libtls_la-tls_peer.lo \
+	libtls_la-tls_util.lo libtls_la-tls_verify.lo
 libtls_la_OBJECTS = $(am_libtls_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
@@ -191,7 +187,7 @@ am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
 SOURCES = $(libtls_la_SOURCES)
-DIST_SOURCES = $(am__libtls_la_SOURCES_DIST)
+DIST_SOURCES = $(libtls_la_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -249,6 +245,7 @@ EGREP = @EGREP@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
 GREP = @GREP@
+HOSTARCH = @HOSTARCH@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -344,16 +341,18 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AM_CFLAGS = 
-AM_CPPFLAGS = -I$(top_srcdir)/include -I$(top_srcdir)/include/compat -DLIBRESSL_INTERNAL
+AM_CPPFLAGS = -I$(top_srcdir)/include -I$(top_srcdir)/include/compat \
+	-DLIBRESSL_INTERNAL -D__BEGIN_HIDDEN_DECLS= \
+	-D__END_HIDDEN_DECLS=
 lib_LTLIBRARIES = libtls.la
-EXTRA_DIST = VERSION CMakeLists.txt
-libtls_la_LDFLAGS = -version-info @LIBTLS_VERSION@ -no-undefined
+EXTRA_DIST = VERSION CMakeLists.txt tls.sym
+libtls_la_LDFLAGS = -version-info @LIBTLS_VERSION@ -no-undefined -export-symbols $(top_srcdir)/tls/tls.sym
 libtls_la_LIBADD = $(abs_top_builddir)/ssl/libssl.la \
 	$(abs_top_builddir)/crypto/libcrypto.la $(PLATFORM_LDADD)
 libtls_la_CPPFLAGS = $(AM_CPPFLAGS) $(am__append_1) $(am__append_2)
-libtls_la_SOURCES = tls.c tls_client.c tls_config.c tls_conninfo.c \
-	tls_server.c tls_peer.c tls_util.c tls_verify.c \
-	$(am__append_3)
+libtls_la_SOURCES = tls.c tls_client.c tls_bio_cb.c tls_config.c \
+	tls_conninfo.c tls_server.c tls_ocsp.c tls_peer.c tls_util.c \
+	tls_verify.c
 noinst_HEADERS = tls_internal.h
 all: all-am
 
@@ -434,11 +433,12 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libtls_la-strsep.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libtls_la-tls.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libtls_la-tls_bio_cb.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libtls_la-tls_client.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libtls_la-tls_config.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libtls_la-tls_conninfo.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libtls_la-tls_ocsp.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libtls_la-tls_peer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libtls_la-tls_server.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libtls_la-tls_util.Plo@am__quote@
@@ -482,6 +482,13 @@ libtls_la-tls_client.lo: tls_client.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtls_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o libtls_la-tls_client.lo `test -f 'tls_client.c' || echo '$(srcdir)/'`tls_client.c
 
+libtls_la-tls_bio_cb.lo: tls_bio_cb.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtls_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT libtls_la-tls_bio_cb.lo -MD -MP -MF $(DEPDIR)/libtls_la-tls_bio_cb.Tpo -c -o libtls_la-tls_bio_cb.lo `test -f 'tls_bio_cb.c' || echo '$(srcdir)/'`tls_bio_cb.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libtls_la-tls_bio_cb.Tpo $(DEPDIR)/libtls_la-tls_bio_cb.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='tls_bio_cb.c' object='libtls_la-tls_bio_cb.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtls_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o libtls_la-tls_bio_cb.lo `test -f 'tls_bio_cb.c' || echo '$(srcdir)/'`tls_bio_cb.c
+
 libtls_la-tls_config.lo: tls_config.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtls_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT libtls_la-tls_config.lo -MD -MP -MF $(DEPDIR)/libtls_la-tls_config.Tpo -c -o libtls_la-tls_config.lo `test -f 'tls_config.c' || echo '$(srcdir)/'`tls_config.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libtls_la-tls_config.Tpo $(DEPDIR)/libtls_la-tls_config.Plo
@@ -503,6 +510,13 @@ libtls_la-tls_server.lo: tls_server.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtls_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o libtls_la-tls_server.lo `test -f 'tls_server.c' || echo '$(srcdir)/'`tls_server.c
 
+libtls_la-tls_ocsp.lo: tls_ocsp.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtls_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT libtls_la-tls_ocsp.lo -MD -MP -MF $(DEPDIR)/libtls_la-tls_ocsp.Tpo -c -o libtls_la-tls_ocsp.lo `test -f 'tls_ocsp.c' || echo '$(srcdir)/'`tls_ocsp.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libtls_la-tls_ocsp.Tpo $(DEPDIR)/libtls_la-tls_ocsp.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='tls_ocsp.c' object='libtls_la-tls_ocsp.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtls_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o libtls_la-tls_ocsp.lo `test -f 'tls_ocsp.c' || echo '$(srcdir)/'`tls_ocsp.c
+
 libtls_la-tls_peer.lo: tls_peer.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtls_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT libtls_la-tls_peer.lo -MD -MP -MF $(DEPDIR)/libtls_la-tls_peer.Tpo -c -o libtls_la-tls_peer.lo `test -f 'tls_peer.c' || echo '$(srcdir)/'`tls_peer.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libtls_la-tls_peer.Tpo $(DEPDIR)/libtls_la-tls_peer.Plo
@@ -523,13 +537,6 @@ libtls_la-tls_verify.lo: tls_verify.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='tls_verify.c' object='libtls_la-tls_verify.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtls_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o libtls_la-tls_verify.lo `test -f 'tls_verify.c' || echo '$(srcdir)/'`tls_verify.c
-
-libtls_la-strsep.lo: strsep.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtls_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT libtls_la-strsep.lo -MD -MP -MF $(DEPDIR)/libtls_la-strsep.Tpo -c -o libtls_la-strsep.lo `test -f 'strsep.c' || echo '$(srcdir)/'`strsep.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libtls_la-strsep.Tpo $(DEPDIR)/libtls_la-strsep.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='strsep.c' object='libtls_la-strsep.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtls_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o libtls_la-strsep.lo `test -f 'strsep.c' || echo '$(srcdir)/'`strsep.c
 
 mostlyclean-libtool:
 	-rm -f *.lo

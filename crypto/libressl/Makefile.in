@@ -194,7 +194,7 @@ DIST_SUBDIRS = $(SUBDIRS)
 am__DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/libcrypto.pc.in \
 	$(srcdir)/libssl.pc.in $(srcdir)/libtls.pc.in \
 	$(srcdir)/openssl.pc.in COPYING ChangeLog compile config.guess \
-	config.sub depcomp install-sh ltmain.sh missing tap-driver.sh
+	config.sub install-sh ltmain.sh missing tap-driver.sh
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 distdir = $(PACKAGE)-$(VERSION)
 top_distdir = $(distdir)
@@ -266,6 +266,7 @@ EGREP = @EGREP@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
 GREP = @GREP@
+HOSTARCH = @HOSTARCH@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -365,7 +366,8 @@ ACLOCAL_AMFLAGS = -I m4
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libcrypto.pc libssl.pc libtls.pc openssl.pc
 EXTRA_DIST = README.md README.windows VERSION config scripts \
-	CMakeLists.txt cmake_uninstall.cmake.in
+	CMakeLists.txt cmake_export_symbol.cmake \
+	cmake_uninstall.cmake.in
 all: all-recursive
 
 .SUFFIXES:

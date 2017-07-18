@@ -1,4 +1,4 @@
-/*	$OpenBSD: verifytest.c,v 1.4 2015/09/11 12:57:24 beck Exp $	*/
+/*	$OpenBSD: verifytest.c,v 1.5 2015/09/11 13:10:42 beck Exp $	*/
 /*
  * Copyright (c) 2014 Joel Sing <jsing@openbsd.org>
  *

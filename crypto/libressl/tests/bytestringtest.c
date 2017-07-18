@@ -1,4 +1,4 @@
-/*	$OpenBSD: bytestringtest.c,v 1.9 2015/07/18 21:57:00 bcook Exp $	*/
+/*	$OpenBSD: bytestringtest.c,v 1.10 2015/10/25 20:15:06 doug Exp $	*/
 /*
  * Copyright (c) 2014, Google Inc.
  *
