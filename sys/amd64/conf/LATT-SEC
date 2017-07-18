@@ -13,3 +13,5 @@ nooptions MALLOC_DEBUG_MAXZONES
 
 # Virtual networking for jails
 options VIMAGE
+
+options MMCCAM
