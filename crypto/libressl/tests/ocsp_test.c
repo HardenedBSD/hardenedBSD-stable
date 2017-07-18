@@ -16,6 +16,11 @@ static int tcp_connect(char *host, char *port) {
 	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_STREAM;
 
+#ifdef _MSC_VER
+	if (BIO_sock_init() != 1)
+		exit(-1);
+#endif
+
 	error = getaddrinfo(host, port, &hints, &res);
 	if (error != 0) {
 		perror("getaddrinfo()");

@@ -1,4 +1,4 @@
-/* $OpenBSD: asn1time.c,v 1.7 2015/10/25 11:59:37 miod Exp $ */
+/* $OpenBSD: asn1time.c,v 1.8 2015/12/28 14:18:38 bcook Exp $ */
 /*
  * Copyright (c) 2015 Joel Sing <jsing@openbsd.org>
  *

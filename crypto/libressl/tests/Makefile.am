@@ -5,11 +5,15 @@ AM_CPPFLAGS += -I $(top_srcdir)/crypto/asn1
 AM_CPPFLAGS += -I $(top_srcdir)/ssl
 AM_CPPFLAGS += -I $(top_srcdir)/apps/openssl
 AM_CPPFLAGS += -I $(top_srcdir)/apps/openssl/compat
+AM_CPPFLAGS += -D_PATH_SSL_CA_FILE=\"$(top_srcdir)/apps/openssl/cert.pem\"
 
-LDADD = $(PLATFORM_LDADD) $(PROG_LDADD)
-LDADD += $(abs_top_builddir)/ssl/libssl.la
-LDADD += $(abs_top_builddir)/crypto/libcrypto.la
-LDADD += $(abs_top_builddir)/tls/libtls.la
+LDADD = $(abs_top_builddir)/tls/.libs/libtls.a
+LDADD += $(abs_top_builddir)/ssl/.libs/libssl.a
+LDADD += $(abs_top_builddir)/crypto/.libs/libcrypto.a
+LDADD += $(PLATFORM_LDADD) $(PROG_LDADD)
+if HOST_ASM_MACOSX_X86_64
+LDADD += $(abs_top_builddir)/crypto/.libs/libcrypto_la-cpuid-macosx-x86_64.o
+endif
 
 TEST_LOG_DRIVER = env AM_TAP_AWK='$(AWK)' $(SHELL) $(top_srcdir)/tap-driver.sh
 
@@ -69,6 +73,7 @@ endif
 
 # bntest
 TESTS += bntest
+bntest_CPPFLAGS = $(AM_CPPFLAGS) -ULIBRESSL_INTERNAL
 check_PROGRAMS += bntest
 bntest_SOURCES = bntest.c
 
@@ -158,7 +163,7 @@ TESTS += explicit_bzero
 check_PROGRAMS += explicit_bzero
 explicit_bzero_SOURCES = explicit_bzero.c
 if !HAVE_MEMMEM
-explicit_bzero_SOURCES += memmem.c
+explicit_bzero_SOURCES += compat/memmem.c
 endif
 endif
 endif
@@ -166,6 +171,7 @@ endif
 # exptest
 TESTS += exptest
 check_PROGRAMS += exptest
+exptest_CPPFLAGS = $(AM_CPPFLAGS) -ULIBRESSL_INTERNAL
 exptest_SOURCES = exptest.c
 
 # gcm128test
@@ -214,7 +220,7 @@ TESTS += ocsptest.sh
 check_PROGRAMS += ocsp_test
 ocsp_test_SOURCES = ocsp_test.c
 endif
-EXTRA_DIST += ocsptest.sh
+EXTRA_DIST += ocsptest.sh ocsptest.bat
 
 # optionstest
 TESTS += optionstest
@@ -250,7 +256,7 @@ poly1305test_SOURCES = poly1305test.c
 TESTS += pq_test.sh
 check_PROGRAMS += pq_test
 pq_test_SOURCES = pq_test.c
-EXTRA_DIST += pq_test.sh
+EXTRA_DIST += pq_test.sh pq_test.bat
 EXTRA_DIST += pq_expected.txt
 
 # randtest
@@ -283,6 +289,17 @@ TESTS += rmdtest
 check_PROGRAMS += rmdtest
 rmdtest_SOURCES = rmdtest.c
 
+# rsa_test
+TESTS += rsa_test
+check_PROGRAMS += rsa_test
+rsa_test_SOURCES = rsa_test.c
+
+# servertest
+TESTS += servertest.sh
+check_PROGRAMS += servertest
+servertest_SOURCES = servertest.c
+EXTRA_DIST += servertest.sh servertest.bat
+
 # sha1test
 TESTS += sha1test
 check_PROGRAMS += sha1test
@@ -298,30 +315,54 @@ TESTS += sha512test
 check_PROGRAMS += sha512test
 sha512test_SOURCES = sha512test.c
 
+# ssl_versions
+TESTS += ssl_versions
+check_PROGRAMS += ssl_versions
+ssl_versions_SOURCES = ssl_versions.c
+
 # ssltest
 TESTS += ssltest.sh
 check_PROGRAMS += ssltest
 ssltest_SOURCES = ssltest.c
-EXTRA_DIST += ssltest.sh
-EXTRA_DIST += testssl ca.pem server.pem
+EXTRA_DIST += ssltest.sh ssltest.bat
+EXTRA_DIST += testssl testssl.bat ca.pem server.pem
 
 # testdsa
 TESTS += testdsa.sh
-EXTRA_DIST += testdsa.sh
+EXTRA_DIST += testdsa.sh testdsa.bat
 EXTRA_DIST += openssl.cnf
 
 # testenc
 TESTS += testenc.sh
-EXTRA_DIST += testenc.sh
+EXTRA_DIST += testenc.sh testenc.bat
 
 # testrsa
 TESTS += testrsa.sh
-EXTRA_DIST += testrsa.sh
+EXTRA_DIST += testrsa.sh testrsa.bat
 
 # timingsafe
 TESTS += timingsafe
 check_PROGRAMS += timingsafe
 timingsafe_SOURCES = timingsafe.c
+
+# tlstest
+TESTS += tlstest.sh
+check_PROGRAMS += tlstest
+tlstest_SOURCES = tlstest.c
+if !HAVE_PIPE2
+tlstest_SOURCES += compat/pipe2.c
+endif
+EXTRA_DIST += tlstest.sh tlstest.bat
+
+# tls_ext_alpn
+TESTS += tls_ext_alpn
+check_PROGRAMS += tls_ext_alpn
+tls_ext_alpn_SOURCES = tls_ext_alpn.c
+
+# tls_prf
+TESTS += tls_prf
+check_PROGRAMS += tls_prf
+tls_prf_SOURCES = tls_prf.c
 
 # utf8test
 TESTS += utf8test
@@ -332,3 +373,8 @@ utf8test_SOURCES = utf8test.c
 TESTS += verifytest
 check_PROGRAMS += verifytest
 verifytest_SOURCES = verifytest.c
+
+# x25519test
+TESTS += x25519test
+check_PROGRAMS += x25519test
+x25519test_SOURCES = x25519test.c

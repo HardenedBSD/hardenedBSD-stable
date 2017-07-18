@@ -1,4 +1,4 @@
-/* $OpenBSD: ciphers.c,v 1.7 2015/10/10 22:28:51 doug Exp $ */
+/* $OpenBSD: ciphers.c,v 1.8 2015/10/17 15:00:11 doug Exp $ */
 /*
  * Copyright (c) 2014 Joel Sing <jsing@openbsd.org>
  *

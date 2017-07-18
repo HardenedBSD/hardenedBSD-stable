@@ -1,4 +1,4 @@
-/*	$OpenBSD: gost2814789t.c,v 1.1 2014/11/09 19:45:26 miod Exp $	*/
+/*	$OpenBSD: gost2814789t.c,v 1.2 2014/12/15 06:03:15 miod Exp $	*/
 /* vim: set fileencoding=ascii : Charset: ASCII */
 /* test/gostr2814789t.c */
 /* ====================================================================

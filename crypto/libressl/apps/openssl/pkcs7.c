@@ -1,4 +1,4 @@
-/* $OpenBSD: pkcs7.c,v 1.7 2015/10/10 22:28:51 doug Exp $ */
+/* $OpenBSD: pkcs7.c,v 1.9 2017/01/20 08:57:12 deraadt Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -155,7 +155,7 @@ pkcs7_main(int argc, char **argv)
 	int i;
 
 	if (single_execution) {
-		if (pledge("stdio rpath wpath cpath", NULL) == -1) {
+		if (pledge("stdio cpath wpath rpath", NULL) == -1) {
 			perror("pledge");
 			exit(1);
 		}

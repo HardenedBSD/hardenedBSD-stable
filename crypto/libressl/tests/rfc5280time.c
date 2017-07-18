@@ -1,4 +1,4 @@
-/* $OpenBSD: rfc5280time.c,v 1.3 2015/10/22 14:01:19 jsing Exp $ */
+/* $OpenBSD: rfc5280time.c,v 1.4 2015/10/30 15:52:55 miod Exp $ */
 /*
  * Copyright (c) 2015 Joel Sing <jsing@openbsd.org>
  * Copyright (c) 2015 Bob Beck <beck@opebsd.org>

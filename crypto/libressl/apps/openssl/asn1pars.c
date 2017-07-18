@@ -1,4 +1,4 @@
-/* $OpenBSD: asn1pars.c,v 1.5 2015/10/10 22:28:51 doug Exp $ */
+/* $OpenBSD: asn1pars.c,v 1.7 2017/01/20 08:57:11 deraadt Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -248,7 +248,7 @@ asn1parse_main(int argc, char **argv)
 	ASN1_TYPE *at = NULL;
 
 	if (single_execution) {
-		if (pledge("stdio rpath wpath cpath", NULL) == -1) {
+		if (pledge("stdio cpath wpath rpath", NULL) == -1) {
 			perror("pledge");
 			exit(1);
 		}

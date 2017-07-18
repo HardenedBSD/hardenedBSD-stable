@@ -75,6 +75,12 @@
 
 #define BUF_MAX 1024
 
+#ifdef _MSC_VER
+#ifdef IN
+#undef IN
+#endif
+#endif
+
 /* These are the different types of line that are found in the input file. */
 enum {
 	AEAD = 0,	/* name of the AEAD algorithm. */

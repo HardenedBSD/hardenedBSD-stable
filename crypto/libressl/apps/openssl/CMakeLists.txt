@@ -10,7 +10,6 @@ set(
 	asn1pars.c
 	ca.c
 	ciphers.c
-	cms.c
 	crl.c
 	crl2p7.c
 	dgst.c
@@ -77,8 +76,8 @@ endif()
 add_executable(openssl ${OPENSSL_SRC})
 target_link_libraries(openssl ${OPENSSL_LIBS})
 
-install(TARGETS openssl DESTINATION bin)
-install(FILES openssl.1 DESTINATION share/man/man1)
+install(TARGETS openssl DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(FILES openssl.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1)
 
 if(NOT "${OPENSSLDIR}" STREQUAL "")
 	set(CONF_DIR "${OPENSSLDIR}")

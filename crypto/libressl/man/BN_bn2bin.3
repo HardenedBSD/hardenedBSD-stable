@@ -1,4 +1,54 @@
-.Dd $Mdocdate: July 17 2014 $
+.\"	$OpenBSD: BN_bn2bin.3,v 1.6 2017/01/25 16:12:45 schwarze Exp $
+.\"	OpenSSL a528d4f0 Oct 27 13:40:11 2015 -0400
+.\"
+.\" This file was written by Ulf Moeller <ulf@openssl.org>.
+.\" Copyright (c) 2000, 2002, 2016 The OpenSSL Project.  All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\"
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\"
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in
+.\"    the documentation and/or other materials provided with the
+.\"    distribution.
+.\"
+.\" 3. All advertising materials mentioning features or use of this
+.\"    software must display the following acknowledgment:
+.\"    "This product includes software developed by the OpenSSL Project
+.\"    for use in the OpenSSL Toolkit. (http://www.openssl.org/)"
+.\"
+.\" 4. The names "OpenSSL Toolkit" and "OpenSSL Project" must not be used to
+.\"    endorse or promote products derived from this software without
+.\"    prior written permission. For written permission, please contact
+.\"    openssl-core@openssl.org.
+.\"
+.\" 5. Products derived from this software may not be called "OpenSSL"
+.\"    nor may "OpenSSL" appear in their names without prior written
+.\"    permission of the OpenSSL Project.
+.\"
+.\" 6. Redistributions of any form whatsoever must retain the following
+.\"    acknowledgment:
+.\"    "This product includes software developed by the OpenSSL Project
+.\"    for use in the OpenSSL Toolkit (http://www.openssl.org/)"
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE OpenSSL PROJECT ``AS IS'' AND ANY
+.\" EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+.\" PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE OpenSSL PROJECT OR
+.\" ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+.\" SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+.\" NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+.\" LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+.\" STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+.\" ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+.\" OF THE POSSIBILITY OF SUCH DAMAGE.
+.\"
+.Dd $Mdocdate: January 25 2017 $
 .Dt BN_BN2BIN 3
 .Os
 .Sh NAME
@@ -8,6 +58,7 @@
 .Nm BN_bn2dec ,
 .Nm BN_hex2bn ,
 .Nm BN_dec2bn ,
+.Nm BN_asc2bn ,
 .Nm BN_print ,
 .Nm BN_print_fp ,
 .Nm BN_bn2mpi ,
@@ -41,6 +92,11 @@
 .Fc
 .Ft int
 .Fo BN_dec2bn
+.Fa "BIGNUM **a"
+.Fa "const char *str"
+.Fc
+.Ft int
+.Fo BN_asc2bn
 .Fa "BIGNUM **a"
 .Fa "const char *str"
 .Fc
@@ -104,11 +160,15 @@ The string must be freed later using
 .Xr free 3 .
 .Pp
 .Fn BN_hex2bn
-converts the string
+interprets
 .Fa str
-containing a hexadecimal number to a
+as a hexadecimal number.
+The string may start with a minus sign
+.Pq Sq - .
+Conversion stops at the first byte that is not a hexadecimal digit.
+The number is converted to a
 .Vt BIGNUM
-and stores it in
+and stored in
 .Pf * Fa a .
 If
 .Pf * Fa a
@@ -122,9 +182,23 @@ If
 is
 .Dv NULL ,
 it only computes the number's length in hexadecimal digits.
-If the string starts with a minus sign, the number is negative.
+A "negative zero" is converted to zero.
 .Fn BN_dec2bn
 is the same using the decimal system.
+.Fn BN_asc2bn
+infers the number base from an optional prefix.
+If
+.Fa str
+starts with
+.Qq 0x
+or
+.Qq 0X ,
+it calls
+.Fn BN_hex2bn ,
+otherwise
+.Fn BN_dec2bn .
+If the number is negative, the minus sign can be given before or
+after the prefix.
 .Pp
 .Fn BN_print
 and
@@ -157,7 +231,7 @@ where
 .Fa to
 must be large enough to hold the result.
 The size can be determined by calling
-.Fn BN_bn2mpi a , NULL .
+.Fn BN_bn2mpi a  NULL .
 .Pp
 .Fn BN_mpi2bn
 converts the
@@ -194,8 +268,14 @@ on error.
 .Fn BN_hex2bn
 and
 .Fn BN_dec2bn
-return the number's length in hexadecimal or decimal digits, and 0 on
-error.
+return the number's length in hexadecimal or decimal digits
+or 0 on error, in which case no new
+.Vt BIGNUM
+is created.
+.Fn BN_asc2bn
+returns 1 on success or 0 on error, in which case no new
+.Vt BIGNUM
+is created.
 .Pp
 .Fn BN_print_fp
 and
@@ -214,8 +294,7 @@ on error.
 The error codes can be obtained by
 .Xr ERR_get_error 3 .
 .Sh SEE ALSO
-.Xr ASN1_INTEGER_to_BN 3 ,
-.Xr bn 3 ,
+.Xr BN_new 3 ,
 .Xr BN_num_bytes 3 ,
 .Xr BN_zero 3 ,
 .Xr ERR_get_error 3

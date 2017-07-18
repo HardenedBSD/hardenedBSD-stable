@@ -1,6 +1,7 @@
 include $(top_srcdir)/Makefile.am.common
 
 AM_CPPFLAGS += -I$(top_srcdir)/crypto/asn1
+AM_CPPFLAGS += -I$(top_srcdir)/crypto/bn
 AM_CPPFLAGS += -I$(top_srcdir)/crypto/evp
 AM_CPPFLAGS += -I$(top_srcdir)/crypto/modes
 AM_CPPFLAGS += -I$(top_srcdir)/crypto
@@ -9,11 +10,15 @@ lib_LTLIBRARIES = libcrypto.la
 
 EXTRA_DIST = VERSION
 EXTRA_DIST += CMakeLists.txt
+EXTRA_DIST += crypto.sym
 
 # needed for a CMake target
 EXTRA_DIST += compat/strcasecmp.c
 
-libcrypto_la_LDFLAGS = -version-info @LIBCRYPTO_VERSION@ -no-undefined
+BUILT_SOURCES = crypto_portable.sym
+CLEANFILES = crypto_portable.sym
+
+libcrypto_la_LDFLAGS = -version-info @LIBCRYPTO_VERSION@ -no-undefined -export-symbols crypto_portable.sym
 libcrypto_la_LIBADD = libcompat.la
 if !HAVE_EXPLICIT_BZERO
 libcrypto_la_LIBADD += libcompatnoopt.la
@@ -71,8 +76,16 @@ libcompat_la_SOURCES += compat/strnlen.c
 endif
 endif
 
+if !HAVE_STRSEP
+libcompat_la_SOURCES += compat/strsep.c
+endif
+
 if !HAVE_ASPRINTF
 libcompat_la_SOURCES += compat/bsd-asprintf.c
+endif
+
+if !HAVE_GETPAGESIZE
+libcompat_la_SOURCES += compat/getpagesize.c
 endif
 
 if !HAVE_INET_PTON
@@ -85,6 +98,10 @@ endif
 
 if !HAVE_REALLOCARRAY
 libcompat_la_SOURCES += compat/reallocarray.c
+endif
+
+if !HAVE_RECALLOCARRAY
+libcompat_la_SOURCES += compat/recallocarray.c
 endif
 
 if !HAVE_TIMINGSAFE_MEMCMP
@@ -133,6 +150,7 @@ noinst_HEADERS += constant_time_locl.h
 noinst_HEADERS += cryptlib.h
 noinst_HEADERS += md32_common.h
 noinst_HEADERS += o_time.h
+noinst_HEADERS += x86_arch.h
 
 # aes
 libcrypto_la_SOURCES += aes/aes_cfb.c
@@ -342,6 +360,12 @@ libcrypto_la_SOURCES += conf/conf_mod.c
 libcrypto_la_SOURCES += conf/conf_sap.c
 noinst_HEADERS += conf/conf_def.h
 
+# curve25519
+libcrypto_la_SOURCES += curve25519/curve25519-generic.c
+libcrypto_la_SOURCES += curve25519/curve25519.c
+noinst_HEADERS += curve25519/curve25519_internal.h
+
+
 # des
 libcrypto_la_SOURCES += des/cbc_cksm.c
 libcrypto_la_SOURCES += des/cbc_enc.c
@@ -422,6 +446,10 @@ libcrypto_la_SOURCES += ec/ec_print.c
 libcrypto_la_SOURCES += ec/eck_prn.c
 libcrypto_la_SOURCES += ec/ecp_mont.c
 libcrypto_la_SOURCES += ec/ecp_nist.c
+libcrypto_la_SOURCES += ec/ecp_nistp224.c
+libcrypto_la_SOURCES += ec/ecp_nistp256.c
+libcrypto_la_SOURCES += ec/ecp_nistp521.c
+libcrypto_la_SOURCES += ec/ecp_nistputil.c
 libcrypto_la_SOURCES += ec/ecp_oct.c
 libcrypto_la_SOURCES += ec/ecp_smpl.c
 noinst_HEADERS += ec/ec_lcl.h
@@ -510,6 +538,7 @@ libcrypto_la_SOURCES += evp/m_gost2814789.c
 libcrypto_la_SOURCES += evp/m_gostr341194.c
 libcrypto_la_SOURCES += evp/m_md4.c
 libcrypto_la_SOURCES += evp/m_md5.c
+libcrypto_la_SOURCES += evp/m_md5_sha1.c
 libcrypto_la_SOURCES += evp/m_null.c
 libcrypto_la_SOURCES += evp/m_ripemd.c
 libcrypto_la_SOURCES += evp/m_sha1.c
@@ -562,9 +591,6 @@ libcrypto_la_SOURCES += idea/i_ecb.c
 libcrypto_la_SOURCES += idea/i_ofb64.c
 libcrypto_la_SOURCES += idea/i_skey.c
 noinst_HEADERS += idea/idea_lcl.h
-
-# krb5
-libcrypto_la_SOURCES += krb5/krb5_asn.c
 
 # lhash
 libcrypto_la_SOURCES += lhash/lh_stats.c
@@ -769,6 +795,7 @@ libcrypto_la_SOURCES += x509/x509spki.c
 libcrypto_la_SOURCES += x509/x509type.c
 libcrypto_la_SOURCES += x509/x_all.c
 noinst_HEADERS += x509/x509_lcl.h
+noinst_HEADERS += x509/vpm_int.h
 
 # x509v3
 libcrypto_la_SOURCES += x509v3/pcy_cache.c

@@ -1,4 +1,4 @@
-/* $OpenBSD: s_socket.c,v 1.7 2015/07/20 03:22:25 doug Exp $ */
+/* $OpenBSD: s_socket.c,v 1.8 2015/09/10 02:23:29 lteo Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *

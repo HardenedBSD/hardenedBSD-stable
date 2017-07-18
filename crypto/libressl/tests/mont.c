@@ -1,4 +1,4 @@
-/*	$OpenBSD: mont.c,v 1.1 2014/06/20 10:38:22 miod Exp $	*/
+/*	$OpenBSD: mont.c,v 1.2 2014/10/22 13:23:05 jsing Exp $	*/
 
 /*
  * Copyright (c) 2014 Miodrag Vallat.

@@ -1,4 +1,4 @@
-.\"     $OpenBSD: nc.1,v 1.73 2016/06/28 17:35:14 jca Exp $
+.\"     $OpenBSD: nc.1,v 1.82 2017/02/09 20:15:59 jca Exp $
 .\"
 .\" Copyright (c) 1996 David Sacerdote
 .\" All rights reserved.
@@ -25,7 +25,7 @@
 .\" (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 .\" THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 .\"
-.Dd $Mdocdate: June 28 2016 $
+.Dd $Mdocdate: February 9 2017 $
 .Dt NC 1
 .Os
 .Sh NAME
@@ -43,6 +43,7 @@
 .Op Fl M Ar ttl
 .Op Fl m Ar minttl
 .Op Fl O Ar length
+.Op Fl o Ar staplefile
 .Op Fl P Ar proxy_username
 .Op Fl p Ar source_port
 .Op Fl R Ar CAfile
@@ -187,6 +188,12 @@ Do not do any DNS or service lookups on any specified addresses,
 hostnames or ports.
 .It Fl O Ar length
 Specifies the size of the TCP send buffer.
+.It Fl o Ar staplefile
+Specifies the filename from which to load data to be stapled
+during the TLS handshake.
+The file is expected to contain an OCSP response from an OCSP server in
+DER format.
+May only be used with TLS and when a certificate is being used.
 .It Fl P Ar proxy_username
 Specifies a username to present to a proxy server that requires authentication.
 If no username is specified then authentication will not be attempted.
@@ -224,14 +231,17 @@ Change IPv4 TOS value or TLS options.
 For TLS options
 .Ar keyword
 may be one of
-.Ar tlslegacy ,
-which allows legacy TLS protocols;
-.Ar noverify ,
+.Ar tlsall ;
+which allows the use of all supported TLS protocols and ciphers,
+.Ar noverify ;
 which disables certificate verification;
 .Ar noname ,
-which disables certificate name checking; or
+which disables certificate name checking;
 .Ar clientcert ,
-which requires a client certificate on incoming connections.
+which requires a client certificate on incoming connections; or
+.Ar muststaple ,
+which requires the peer to provide a valid stapled OCSP response
+with the handshake.
 It is illegal to specify TLS options if not using TLS.
 .Pp
 For IPv4 TOS value
@@ -317,6 +327,9 @@ If
 .Ar port
 is not specified, the well-known port for the proxy protocol is used (1080
 for SOCKS, 3128 for HTTPS).
+An IPv6 address can be specified unambiguously by enclosing
+.Ar proxy_address
+in square brackets.
 .It Fl z
 Specifies that
 .Nm

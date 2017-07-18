@@ -1,4 +1,4 @@
-/*	$OpenBSD: pkcs7test.c,v 1.2 2014/07/09 06:42:01 bcook Exp $	*/
+/*	$OpenBSD: pkcs7test.c,v 1.3 2014/11/26 05:48:00 bcook Exp $	*/
 /*
  * Copyright (c) 2014 Joel Sing <jsing@openbsd.org>
  *

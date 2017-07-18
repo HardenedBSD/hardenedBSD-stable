@@ -793,11 +793,7 @@ bad:
 				goto end;
 			}
 		} else
-#ifdef OPENSSL_NO_EC2M
 			nid = NID_X9_62_prime256v1;
-#else
-		nid = NID_sect163r2;
-#endif
 
 		ecdh = EC_KEY_new_by_curve_name(nid);
 		if (ecdh == NULL) {
@@ -1266,21 +1262,11 @@ doit_biopair(SSL *s_ssl, SSL *c_ssl, long count, clock_t *s_time,
 				}
 			} /* no loop, BIO_ctrl_get_read_request now returns 0 anyway */
 
-			if (!progress && !prev_progress)
+			if (!progress && !prev_progress) {
 				if (cw_num > 0 || cr_num > 0 || sw_num > 0 || sr_num > 0) {
-				fprintf(stderr, "ERROR: got stuck\n");
-				if (strcmp("SSLv2", SSL_get_version(c_ssl)) == 0) {
-					fprintf(stderr, "This can happen for SSL2 because "
-					    "CLIENT-FINISHED and SERVER-VERIFY are written \n"
-					    "concurrently ...");
-					if (strncmp("2SCF", SSL_state_string(c_ssl), 4) == 0 &&
-						    strncmp("2SSV", SSL_state_string(s_ssl), 4) == 0) {
-						fprintf(stderr, " ok.\n");
-						goto end;
-					}
+					fprintf(stderr, "ERROR: got stuck\n");
+					goto err;
 				}
-				fprintf(stderr, " ERROR.\n");
-				goto err;
 			}
 			prev_progress = progress;
 		}
@@ -1298,7 +1284,6 @@ doit_biopair(SSL *s_ssl, SSL *c_ssl, long count, clock_t *s_time,
 		goto err;
 	}
 
-end:
 	ret = 0;
 
 err:
@@ -1385,27 +1370,20 @@ doit(SSL *s_ssl, SSL *c_ssl, long count)
 			if (SSL_in_init(s_ssl))
 				printf("server waiting in SSL_accept - %s\n",
 				    SSL_state_string_long(s_ssl));
-/*			else if (s_write)
-				printf("server:SSL_write()\n");
-			else
-				printf("server:SSL_read()\n"); */
-			}
+		}
 
-			if (do_client && debug) {
+		if (do_client && debug) {
 			if (SSL_in_init(c_ssl))
 				printf("client waiting in SSL_connect - %s\n",
 				    SSL_state_string_long(c_ssl));
-/*			else if (c_write)
-				printf("client:SSL_write()\n");
-			else
-				printf("client:SSL_read()\n"); */
-			}
-
-			if (!do_client && !do_server) {
-			fprintf(stdout, "ERROR IN STARTUP\n");
-			ERR_print_errors(bio_err);
-			break;
 		}
+
+		if (!do_client && !do_server) {
+			fprintf(stdout, "ERROR in STARTUP\n");
+			ERR_print_errors(bio_err);
+			goto err;
+		}
+
 		if (do_client && !(done & C_DONE)) {
 			if (c_write) {
 				j = (cw_num > (long)sizeof(cbuf)) ?
