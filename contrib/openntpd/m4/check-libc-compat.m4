@@ -1,6 +1,6 @@
 AC_DEFUN([CHECK_PROGNAME], [
 AC_CACHE_CHECK([if libc defines __progname], ac_cv_libc_defines___progname, [
-	AC_LINK_IFELSE([AC_LANG_PROGRAM([[]],
+       AC_LINK_IFELSE([AC_LANG_PROGRAM([[]],
                 [[ extern char *__progname; printf("%s", __progname); ]])],
         [ ac_cv_libc_defines___progname="yes" ],
         [ ac_cv_libc_defines___progname="no"
@@ -12,10 +12,12 @@ fi
 ])
 
 AC_DEFUN([CHECK_SYSCALL_COMPAT], [
-AC_CHECK_FUNCS([accept4 pledge poll])
+AC_CHECK_FUNCS([accept4 pipe2 pledge poll socketpair])
 AM_CONDITIONAL([HAVE_ACCEPT4], [test "x$ac_cv_func_accept4" = xyes])
+AM_CONDITIONAL([HAVE_PIPE2], [test "x$ac_cv_func_pipe2" = xyes])
 AM_CONDITIONAL([HAVE_PLEDGE], [test "x$ac_cv_func_pledge" = xyes])
 AM_CONDITIONAL([HAVE_POLL], [test "x$ac_cv_func_poll" = xyes])
+AM_CONDITIONAL([HAVE_SOCKETPAIR], [test "x$ac_cv_func_socketpair" = xyes])
 ])
 
 AC_DEFUN([CHECK_B64_NTOP], [
@@ -39,7 +41,52 @@ AM_CONDITIONAL([HAVE_B64_NTOP], [test "x$ac_cv_func_b64_ntop_arg" = xyes])
 AC_DEFUN([CHECK_CRYPTO_COMPAT], [
 # Check crypto-related libc functions and syscalls
 AC_CHECK_FUNCS([arc4random arc4random_buf arc4random_uniform])
-AC_CHECK_FUNCS([explicit_bzero getauxval getentropy])
+AC_CHECK_FUNCS([explicit_bzero getauxval])
+
+AC_CACHE_CHECK([for getentropy], ac_cv_func_getentropy, [
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#include <sys/types.h>
+#include <unistd.h>
+
+/*
+ * Explanation:
+ *
+ *   - iOS <= 10.1 fails because of missing sys/random.h
+ *
+ *   - in macOS 10.12 getentropy is not tagged as introduced in
+ *     10.12 so we cannot use it for target < 10.12
+ */
+#ifdef __APPLE__
+#  include <AvailabilityMacros.h>
+#  include <TargetConditionals.h>
+
+# if (TARGET_OS_IPHONE || TARGET_OS_SIMULATOR)
+#  include <sys/random.h> /* Not available as of iOS <= 10.1 */
+# else
+
+#  include <sys/random.h> /* Pre 10.12 systems should die here */
+
+/* Based on: https://gitweb.torproject.org/tor.git/commit/?id=16fcbd21 */
+#  ifndef MAC_OS_X_VERSION_10_12
+#    define MAC_OS_X_VERSION_10_12 101200 /* Robustness */
+#  endif
+#  if defined(MAC_OS_X_VERSION_MIN_REQUIRED)
+#    if MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_12
+#      error "Targeting on Mac OSX 10.11 or earlier"
+#    endif
+#  endif
+
+# endif
+#endif /* __APPLE__ */
+		]], [[
+	char buffer;
+	(void)getentropy(&buffer, sizeof (buffer));
+]])],
+	[ ac_cv_func_getentropy="yes" ],
+	[ ac_cv_func_getentropy="no"
+	])
+])
+
 AC_CHECK_FUNCS([timingsafe_bcmp timingsafe_memcmp])
 AM_CONDITIONAL([HAVE_ARC4RANDOM], [test "x$ac_cv_func_arc4random" = xyes])
 AM_CONDITIONAL([HAVE_ARC4RANDOM_BUF], [test "x$ac_cv_func_arc4random_buf" = xyes])
@@ -51,7 +98,7 @@ AM_CONDITIONAL([HAVE_TIMINGSAFE_MEMCMP], [test "x$ac_cv_func_timingsafe_memcmp" 
 
 # Override arc4random_buf implementations with known issues
 AM_CONDITIONAL([HAVE_ARC4RANDOM_BUF],
-	[test "x$USE_BUILTIN_ARC4RANDOM" != yes \
+	[test "x$USE_BUILTIN_ARC4RANDOM" != xyes \
 	   -a "x$ac_cv_func_arc4random_buf" = xyes])
 
 # Check for getentropy fallback dependencies

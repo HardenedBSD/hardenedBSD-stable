@@ -24,8 +24,16 @@ uint32_t arc4random_uniform(uint32_t);
 int daemon(int nochdir, int noclose);
 #endif
 
+#ifndef HAVE_FREEZERO
+void freezero(void *ptr, size_t sz);
+#endif
+
 #ifndef HAVE_REALLOCARRAY
 void *reallocarray(void *, size_t, size_t);
+#endif
+
+#ifndef HAVE_RECALLOCARRAY
+void *recallocarray(void *, size_t, size_t, size_t);
 #endif
 
 #ifndef HAVE_SETPROCTITLE

@@ -1,4 +1,4 @@
-/*	$OpenBSD: ntpd.h,v 1.129 2016/01/27 21:48:34 reyk Exp $ */
+/*	$OpenBSD: ntpd.h,v 1.135 2017/05/30 23:30:48 benno Exp $ */
 
 /*
  * Copyright (c) 2003, 2004 Henning Brauer <henning@openbsd.org>
@@ -12,9 +12,9 @@
  * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
  * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF MIND, USE, DATA OR PROFITS, WHETHER
- * IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
- * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include <sys/types.h>
@@ -49,6 +49,12 @@
 #endif
 #define	DRIFTFILE	LOCALSTATEDIR "/db/ntpd.drift"
 #define	CTLSOCKET	LOCALSTATEDIR "/run/ntpd.sock"
+
+#if defined(SO_SETFIB)
+#define	SO_RTABLE	SO_SETFIB
+#define	SIOCGIFRDOMAIN	SIOCGIFFIB
+#define	ifr_rdomainid	ifr_fib
+#endif
 
 #define	INTERVAL_QUERY_NORMAL		30	/* sync to peers every n secs */
 #define	INTERVAL_QUERY_PATHETIC		60
@@ -93,6 +99,12 @@
 #ifndef CONSTRAINT_CA
 #define CONSTRAINT_CA			"/etc/ssl/cert.pem"
 #endif
+
+#define PARENT_SOCK_FILENO		CONSTRAINT_PASSFD
+
+#define NTP_PROC_NAME			"ntp_main"
+#define NTPDNS_PROC_NAME		"ntp_dns"
+#define CONSTRAINT_PROC_NAME		"constraint"
 
 enum client_state {
 	STATE_NONE,
@@ -159,6 +171,8 @@ struct ntp_peer {
 	struct ntp_query		*query;
 	struct ntp_offset		 reply[OFFSET_ARRAY_SIZE];
 	struct ntp_offset		 update;
+	struct sockaddr_in		 query_addr4;
+	struct sockaddr_in6		 query_addr6;
 	enum client_state		 state;
 	time_t				 next;
 	time_t				 deadline;
@@ -225,6 +239,8 @@ struct ntpd_conf {
 	TAILQ_HEAD(constraints, constraint)		constraints;
 	struct ntp_status				status;
 	struct ntp_freq					freq;
+	struct sockaddr_in				query_addr4;
+	struct sockaddr_in6				query_addr6;
 	u_int32_t					scale;
 	int				        	debug;
 	int				        	verbose;
@@ -315,7 +331,7 @@ enum ctl_actions {
 /* prototypes */
 
 /* ntp.c */
-pid_t	 ntp_main(int[2], int, struct ntpd_conf *, struct passwd *);
+void	 ntp_main(struct ntpd_conf *, struct passwd *, int, char **);
 int	 priv_adjtime(void);
 void	 priv_settime(double);
 void	 priv_dns(int, char *, u_int32_t);
@@ -365,8 +381,8 @@ int	 constraint_check(double);
 void	 constraint_msg_dns(u_int32_t, u_int8_t *, size_t);
 void	 constraint_msg_result(u_int32_t, u_int8_t *, size_t);
 void	 constraint_msg_close(u_int32_t, u_int8_t *, size_t);
-void	 priv_constraint_msg(u_int32_t, u_int8_t *, size_t,
-	    const char *, uid_t, gid_t);
+void	 priv_constraint_msg(u_int32_t, u_int8_t *, size_t, int, char **);
+void	 priv_constraint_child(const char *, uid_t, gid_t);
 void	 priv_constraint_kill(u_int32_t);
 int	 priv_constraint_dispatch(struct pollfd *);
 void	 priv_constraint_check_child(pid_t, int);
@@ -385,6 +401,8 @@ double			 sfp_to_d(struct s_fixedpt);
 struct s_fixedpt	 d_to_sfp(double);
 char			*print_rtable(int);
 const char		*log_sockaddr(struct sockaddr *);
+pid_t			 start_child(char *, int, int, char **);
+int			 sanitize_argv(int *, char ***);
 
 /* sensors.c */
 void			sensor_init(void);
@@ -392,7 +410,7 @@ int			sensor_scan(void);
 void			sensor_query(struct ntp_sensor *);
 
 /* ntp_dns.c */
-pid_t	ntp_dns(int[2], struct ntpd_conf *, struct passwd *);
+void			ntp_dns(struct ntpd_conf *, struct passwd *);
 
 /* control.c */
 int			 control_init(char *);
@@ -413,7 +431,8 @@ void			 build_show_sensor(struct ctl_show_sensor *,
 /* log.c */
 void	log_init(int, int);
 void	log_procinit(const char *);
-void	log_verbose(int);
+void	log_setverbose(int);
+int	log_getverbose(void);
 void	log_warn(const char *, ...)
 	    __attribute__((__format__ (printf, 1, 2)));
 void	log_warnx(const char *, ...)

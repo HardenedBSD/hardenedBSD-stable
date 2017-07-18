@@ -1,4 +1,4 @@
-/*	$OpenBSD: util.c,v 1.19 2015/03/28 03:49:01 bcook Exp $ */
+/*	$OpenBSD: util.c,v 1.24 2017/03/01 00:56:30 gsoares Exp $ */
 
 /*
  * Copyright (c) 2004 Alexander Guy <alexander.guy@andern.org>
@@ -11,14 +11,17 @@
  * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
  * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF MIND, USE, DATA OR PROFITS, WHETHER
- * IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
- * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <fcntl.h>
 #include <limits.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "ntpd.h"
 
@@ -150,4 +153,85 @@ log_sockaddr(struct sockaddr *sa)
 		return ("(unknown)");
 	else
 		return (buf);
+}
+
+pid_t
+start_child(char *pname, int cfd, int argc, char **argv)
+{
+	char		**nargv;
+	int		  nargc, i;
+	pid_t		  pid;
+
+	/* Prepare the child process new argv. */
+	nargv = calloc(argc + 3, sizeof(char *));
+	if (nargv == NULL)
+		fatal("%s: calloc", __func__);
+
+	/* Copy the program name first. */
+	nargc = 0;
+	nargv[nargc++] = argv[0];
+
+	/* Set the process name and copy the original args. */
+	nargv[nargc++] = "-P";
+	nargv[nargc++] = pname;
+	for (i = 1; i < argc; i++)
+		nargv[nargc++] = argv[i];
+
+	nargv[nargc] = NULL;
+
+	switch (pid = fork()) {
+	case -1:
+		fatal("%s: fork", __func__);
+		break;
+	case 0:
+		/* Prepare the parent socket and execute. */
+		if (cfd != PARENT_SOCK_FILENO) {
+			if (dup2(cfd, PARENT_SOCK_FILENO) == -1)
+				fatal("dup2");
+		} else if (fcntl(cfd, F_SETFD, 0) == -1)
+			fatal("fcntl");
+
+		execvp(argv[0], nargv);
+		fatal("%s: execvp", __func__);
+		break;
+
+	default:
+		/* Close child's socket end. */
+		close(cfd);
+		break;
+	}
+
+	free(nargv);
+	return (pid);
+}
+
+int
+sanitize_argv(int *argc, char ***argv)
+{
+	char		**nargv;
+	int		  nargc;
+	int		  i;
+
+	/*
+	 * We need at least three arguments:
+	 * Example: '/usr/sbin/ntpd' '-P' 'foobar'.
+	 */
+	if (*argc < 3)
+		return (-1);
+
+	*argc -= 2;
+
+	/* Allocate new arguments vector and copy pointers. */
+	nargv = calloc((*argc) + 1, sizeof(char *));
+	if (nargv == NULL)
+		return (-1);
+
+	nargc = 0;
+	nargv[nargc++] = (*argv)[0];
+	for (i = 1; i < *argc; i++)
+		nargv[nargc++] = (*argv)[i + 2];
+
+	nargv[nargc] = NULL;
+	*argv = nargv;
+	return (0);
 }

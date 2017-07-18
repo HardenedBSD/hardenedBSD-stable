@@ -1,4 +1,4 @@
-/*	$OpenBSD: client.c,v 1.102 2015/07/18 00:53:44 bcook Exp $ */
+/*	$OpenBSD: client.c,v 1.105 2017/05/30 23:30:48 benno Exp $ */
 
 /*
  * Copyright (c) 2003, 2004 Henning Brauer <henning@openbsd.org>
@@ -12,9 +12,9 @@
  * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
  * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF MIND, USE, DATA OR PROFITS, WHETHER
- * IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
- * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include <sys/types.h>
@@ -137,6 +137,8 @@ client_query(struct ntp_peer *p)
 
 	if (p->query->fd == -1) {
 		struct sockaddr *sa = (struct sockaddr *)&p->addr->ss;
+		struct sockaddr *qa4 = (struct sockaddr *)&p->query_addr4;
+		struct sockaddr *qa6 = (struct sockaddr *)&p->query_addr6;
 
 		p->query->fd = socket(p->addr->ss.ss_family, SOCK_DGRAM, 0);
 		if (p->query->fd == -1) {
@@ -147,6 +149,16 @@ client_query(struct ntp_peer *p)
 				return (-1);
 			} else
 				fatal("client_query socket");
+		}
+
+		if (p->addr->ss.ss_family == qa4->sa_family) {
+			if (bind(p->query->fd, qa4, SA_LEN(qa4)) == -1)
+				fatal("couldn't bind to IPv4 query address: %s",
+				    log_sockaddr(qa4));
+		} else if (p->addr->ss.ss_family == qa6->sa_family) {
+			if (bind(p->query->fd, qa6, SA_LEN(qa6)) == -1)
+				fatal("couldn't bind to IPv6 query address: %s",
+				    log_sockaddr(qa6));
 		}
 
 		if (connect(p->query->fd, sa, SA_LEN(sa)) == -1) {

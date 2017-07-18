@@ -1,6 +1,23 @@
 For detailed changes, see the changes either in the OpenBSD CVS repository or
 the GitHub mirror.
 
+2017-06-*   OpenNTPD 6.2p1
+	* Added option "query from <ip>" to ntpd.conf, to specify a local IP
+	  address for outgoing NTP queries.
+
+2017-06-12  OpenNTPD 6.1p1
+	* Quieted warnings about constraint connection retries.
+	* Implemented fork+exec for ntpd child processes.
+	* Added imsg inter-process reliability fixes.
+	* Fixed memory leaks and reduced heap memory usage.
+	* Numerous logging improvements and additions.
+
+	OpenNTPD portable-specific changes:
+
+	* Added macOS 10.12 getentropy support.
+	* Fixed arc4random blacklist use native implementations where
+	  possible.
+
 2016-05-30  OpenNTPD 6.0p1
 
 	* Fixed a link failure on older Linux distributions and a build

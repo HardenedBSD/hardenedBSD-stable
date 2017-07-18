@@ -14,10 +14,6 @@
 #include <_bsd_types.h>
 #endif
 
-#if !defined(HAVE_ATTRIBUTE__DEAD) && !defined(__dead)
-#define __dead
-#endif
-
 #if !defined(HAVE_ATTRIBUTE__BOUNDED__) && !defined(__bounded__)
 # define __bounded__(x, y, z)
 #endif

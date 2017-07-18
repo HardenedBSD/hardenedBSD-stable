@@ -1,4 +1,4 @@
-/*	$OpenBSD: ntp_dns.c,v 1.15 2015/12/05 13:12:16 claudio Exp $ */
+/*	$OpenBSD: ntp_dns.c,v 1.20 2017/04/17 16:03:15 otto Exp $ */
 
 /*
  * Copyright (c) 2003-2008 Henning Brauer <henning@openbsd.org>
@@ -11,9 +11,9 @@
  * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
  * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF MIND, USE, DATA OR PROFITS, WHETHER
- * IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
- * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include <sys/types.h>
@@ -49,22 +49,11 @@ sighdlr_dns(int sig)
 	}
 }
 
-pid_t
-ntp_dns(int pipe_ntp[2], struct ntpd_conf *nconf, struct passwd *pw)
+void
+ntp_dns(struct ntpd_conf *nconf, struct passwd *pw)
 {
-	pid_t			 pid;
 	struct pollfd		 pfd[1];
 	int			 nfds, nullfd;
-
-	switch (pid = fork()) {
-	case -1:
-		fatal("cannot fork");
-		break;
-	case 0:
-		break;
-	default:
-		return (pid);
-	}
 
 	if (setpriority(PRIO_PROCESS, 0, 0) == -1)
 		log_warn("could not set priority");
@@ -89,8 +78,6 @@ ntp_dns(int pipe_ntp[2], struct ntpd_conf *nconf, struct passwd *pw)
 
 	setproctitle("dns engine");
 
-	close(pipe_ntp[0]);
-
 	if (setgroups(1, &pw->pw_gid) ||
 	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
 	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
@@ -102,7 +89,7 @@ ntp_dns(int pipe_ntp[2], struct ntpd_conf *nconf, struct passwd *pw)
 
 	if ((ibuf_dns = malloc(sizeof(struct imsgbuf))) == NULL)
 		fatal(NULL);
-	imsg_init(ibuf_dns, pipe_ntp[1]);
+	imsg_init(ibuf_dns, PARENT_SOCK_FILENO);
 
 	if (pledge("stdio dns", NULL) == -1)
 		err(1, "pledge");
@@ -135,7 +122,7 @@ ntp_dns(int pipe_ntp[2], struct ntpd_conf *nconf, struct passwd *pw)
 
 	msgbuf_clear(&ibuf_dns->w);
 	free(ibuf_dns);
-	_exit(0);
+	exit(0);
 }
 
 int
@@ -147,14 +134,10 @@ dns_dispatch_imsg(void)
 	struct ntp_addr		*h, *hn;
 	struct ibuf		*buf;
 	const char		*str;
+	size_t			 len;
 
-	if ((n = imsg_read(ibuf_dns)) == -1 && errno != EAGAIN)
+	if (((n = imsg_read(ibuf_dns)) == -1 && errno != EAGAIN) || n == 0)
 		return (-1);
-
-	if (n == 0) {	/* connection closed */
-		log_warnx("dispatch_imsg in main: pipe closed");
-		return (-1);
-	}
 
 	for (;;) {
 		if ((n = imsg_get(ibuf_dns, &imsg)) == -1)
@@ -173,9 +156,9 @@ dns_dispatch_imsg(void)
 			name = imsg.data;
 			if (imsg.hdr.len < 1 + IMSG_HEADER_SIZE)
 				fatalx("invalid %s received", str);
-			imsg.hdr.len -= 1 + IMSG_HEADER_SIZE;
-			if (name[imsg.hdr.len] != '\0' ||
-			    strlen(name) != imsg.hdr.len)
+			len = imsg.hdr.len - 1 - IMSG_HEADER_SIZE;
+			if (name[len] != '\0' ||
+			    strlen(name) != len)
 				fatalx("invalid %s received", str);
 			if ((cnt = host_dns(name, &hn)) == -1)
 				break;

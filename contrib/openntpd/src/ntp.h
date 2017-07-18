@@ -1,4 +1,4 @@
-/*	$OpenBSD: ntp.h,v 1.12 2007/05/26 21:20:35 henning Exp $ */
+/*	$OpenBSD: ntp.h,v 1.13 2009/04/22 07:42:17 henning Exp $ */
 
 /*
  * Copyright (c) 2004 Henning Brauer <henning@openbsd.org>

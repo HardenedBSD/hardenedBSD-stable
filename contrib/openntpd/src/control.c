@@ -1,4 +1,4 @@
-/*	$OpenBSD: control.c,v 1.9 2015/12/05 13:12:16 claudio Exp $ */
+/*	$OpenBSD: control.c,v 1.12 2017/01/09 14:04:31 krw Exp $ */
 
 /*
  * Copyright (c) 2003, 2004 Henning Brauer <henning@openbsd.org>
@@ -43,7 +43,7 @@ control_init(char *path)
 	int			 fd;
 	mode_t			 old_umask;
 
-	if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
+	if ((fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0)) == -1) {
 		log_warn("control_init: socket");
 		return (-1);
 	}
@@ -142,9 +142,10 @@ control_connbyfd(int fd)
 {
 	struct ctl_conn	*c;
 
-	for (c = TAILQ_FIRST(&ctl_conns); c != NULL && c->ibuf.fd != fd;
-	    c = TAILQ_NEXT(c, entry))
-		;	/* nothing */
+	TAILQ_FOREACH(c, &ctl_conns, entry) {
+		if (c->ibuf.fd == fd)
+			break;
+	}
 
 	return (c);
 }

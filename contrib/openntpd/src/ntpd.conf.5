@@ -1,4 +1,4 @@
-.\" $OpenBSD: ntpd.conf.5,v 1.32 2015/08/28 02:59:29 deraadt Exp $
+.\" $OpenBSD: ntpd.conf.5,v 1.36 2017/05/31 06:23:19 jmc Exp $
 .\"
 .\" Copyright (c) 2003, 2004 Henning Brauer <henning@openbsd.org>
 .\"
@@ -14,7 +14,7 @@
 .\" AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
 .\" OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.Dd $Mdocdate: August 28 2015 $
+.Dd $Mdocdate: May 31 2017 $
 .Dt NTPD.CONF 5
 .Os
 .Sh NAME
@@ -72,6 +72,15 @@ or
 listen on 127.0.0.1
 listen on ::1
 listen on 127.0.0.1 rtable 4
+.Ed
+.It Ic query from Ar address
+Specify a local IP address the
+.Xr ntpd 8
+daemon should use for outgoing queries.
+For example:
+.Bd -literal -offset indent
+query from 192.0.2.1
+query from 2001:db8::1
 .Ed
 .It Xo Ic sensor Ar device
 .Op Ic correction Ar microseconds
@@ -131,8 +140,9 @@ For example:
 sensor nmea0 refid GPS
 .Ed
 .Pp
-A stratum value other than the default of 1 can be assigned using
-the stratum keyword.
+A stratum value other than the default of 1 can be assigned using the
+.Ic stratum
+keyword.
 .It Xo Ic server Ar address
 .Op Ic weight Ar weight-value
 .Xc
@@ -186,10 +196,14 @@ thereby reducing the impact of unauthenticated NTP
 man-in-the-middle attacks.
 Received NTP packets with time information falling outside of a range
 near the constraint will be discarded and such NTP servers will be marked as
-invalid. Contraints are only available if
+invalid.
+.Pp
+Support for constraints is only available if
 .Xr ntpd 8
-has been compiled with libtls support. Configuring a constraint without libtls
-support will result in a fatal error.
+has been linked with libtls from LibreSSL. Configuring a constraint
+without libtls causes
+.Xr ntpd 8
+to log a warning message on startup.
 .Bl -tag -width Ds
 .It Ic constraint from Ar url
 Specify the URL, IP address or the hostname of an HTTPS server to

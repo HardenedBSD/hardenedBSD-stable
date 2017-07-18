@@ -1,4 +1,4 @@
-/*	$OpenBSD: ntpd.c,v 1.106 2016/02/02 17:51:11 sthen Exp $ */
+/*	$OpenBSD: ntpd.c,v 1.113 2017/01/09 14:49:22 reyk Exp $ */
 
 /*
  * Copyright (c) 2003, 2004 Henning Brauer <henning@openbsd.org>
@@ -12,9 +12,9 @@
  * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
  * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF MIND, USE, DATA OR PROFITS, WHETHER
- * IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
- * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include <sys/types.h>
@@ -41,8 +41,8 @@
 void		sighdlr(int);
 __dead void	usage(void);
 int		main(int, char *[]);
-int		check_child(pid_t, const char *);
-int		dispatch_imsg(struct ntpd_conf *, const char *, uid_t, gid_t);
+void		check_child(void);
+int		dispatch_imsg(struct ntpd_conf *, int, char **);
 int		dispatch_imsg_ctl(struct ntpd_conf *);
 void		reset_adjtime(void);
 int		ntpd_adjtime(double);
@@ -130,18 +130,18 @@ main(int argc, char *argv[])
 {
 	struct ntpd_conf	 lconf;
 	struct pollfd		*pfd = NULL;
-	pid_t			 chld_pid = 0, pid;
+	pid_t			 pid;
 	const char		*conffile;
-	int			 fd_ctl, ch, nfds, i, j;
+	int			 ch, nfds, i, j;
 	int			 pipe_chld[2];
 	extern char		*__progname;
 	u_int			 pfd_elms = 0, new_cnt;
 	struct constraint	*cstr;
 	struct passwd		*pw;
-	const char		*pw_dir;
-	uid_t			pw_uid;
-	gid_t			pw_gid;
 	void			*newp;
+	int			argc0 = argc;
+	char			**argv0 = argv;
+	char			*pname = NULL;
 
 	__progname = get_progname(argv[0]);
 
@@ -162,9 +162,10 @@ main(int argc, char *argv[])
 	saved_argv[i] = NULL;
 	compat_init_setproctitle(argc, argv);
 	argv = saved_argv;
+	argv0 = argv;
 #endif
 
-	while ((ch = getopt(argc, argv, "df:np:sSv")) != -1) {
+	while ((ch = getopt(argc, argv, "df:np:P:sSv")) != -1) {
 		switch (ch) {
 		case 'd':
 			lconf.debug = 2;
@@ -175,6 +176,9 @@ main(int argc, char *argv[])
 		case 'n':
 			lconf.debug = 2;
 			lconf.noaction = 1;
+			break;
+		case 'P':
+			pname = optarg;
 			break;
 		case 'p':
 			lconf.pid_file = optarg;
@@ -216,9 +220,24 @@ main(int argc, char *argv[])
 	if ((pw = getpwnam(NTPD_USER)) == NULL)
 		errx(1, "unknown user %s", NTPD_USER);
 
-	pw_dir = strdup(pw->pw_dir);
-	pw_uid = pw->pw_uid;
-	pw_gid = pw->pw_gid;
+	if (pname != NULL) {
+		/* Remove our proc arguments, so child doesn't need to. */
+		if (sanitize_argv(&argc0, &argv0) == -1)
+			fatalx("sanitize_argv");
+
+		if (strcmp(NTP_PROC_NAME, pname) == 0)
+			ntp_main(&lconf, pw, argc0, argv0);
+		else if (strcmp(NTPDNS_PROC_NAME, pname) == 0)
+			ntp_dns(&lconf, pw);
+		else if (strcmp(CONSTRAINT_PROC_NAME, pname) == 0)
+			priv_constraint_child(pw->pw_dir, pw->pw_uid,
+			    pw->pw_gid);
+		else
+			fatalx("%s: invalid process name '%s'", __func__,
+			    pname);
+
+		fatalx("%s: process '%s' failed", __func__, pname);
+	}
 
 	if (setpriority(PRIO_PROCESS, 0, -20) == -1)
 		warn("can't set priority");
@@ -226,26 +245,23 @@ main(int argc, char *argv[])
 	reset_adjtime();
 	if (!lconf.settime) {
 		log_init(lconf.debug, LOG_DAEMON);
-		log_verbose(lconf.verbose);
+		log_setverbose(lconf.verbose);
 		if (!lconf.debug) {
 			if (daemon(1, 0))
 				fatal("daemon");
+			writepid(&lconf);
 		}
-		writepid(&lconf);
 	} else
 		timeout = SETTIME_TIMEOUT * 1000;
 
-	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, pipe_chld) == -1)
+	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, PF_UNSPEC,
+	    pipe_chld) == -1)
 		fatal("socketpair");
 
-	if ((fd_ctl = control_init(CTLSOCKET)) == -1)
-		fatalx("control socket init failed");
-	if (control_listen(fd_ctl) == -1)
-		fatalx("control socket listen failed");
-
 	signal(SIGCHLD, sighdlr);
+
 	/* fork child process */
-	chld_pid = ntp_main(pipe_chld, fd_ctl, &lconf, pw);
+	start_child(NTP_PROC_NAME, pipe_chld[1], argc0, argv0);
 
 	log_procinit("[priv]");
 	readfreq();
@@ -254,7 +270,6 @@ main(int argc, char *argv[])
 	signal(SIGINT, sighdlr);
 	signal(SIGHUP, sighdlr);
 
-	close(pipe_chld[1]);
 	constraint_purge();
 
 	if ((ibuf = malloc(sizeof(struct imsgbuf))) == NULL)
@@ -267,10 +282,8 @@ main(int argc, char *argv[])
 	 * Constraint processes are forked with certificates in memory,
 	 * then privdrop into chroot before speaking to the outside world.
 	 */
-#if 0
-	if (pledge("stdio rpath inet settime proc id", NULL) == -1)
+	if (pledge("stdio rpath inet settime proc exec id", NULL) == -1)
 		err(1, "pledge");
-#endif
 
 	while (quit == 0) {
 		new_cnt = PFD_MAX + constraint_cnt;
@@ -309,7 +322,7 @@ main(int argc, char *argv[])
 			lconf.settime = 0;
 			timeout = INFTIM;
 			log_init(lconf.debug, LOG_DAEMON);
-			log_verbose(lconf.verbose);
+			log_setverbose(lconf.verbose);
 			log_warnx("no reply received in time, skipping initial "
 			    "time setting");
 			if (!lconf.debug) {
@@ -327,7 +340,7 @@ main(int argc, char *argv[])
 
 		if (nfds > 0 && pfd[PFD_PIPE].revents & POLLIN) {
 			nfds--;
-			if (dispatch_imsg(&lconf, pw_dir, pw_uid, pw_gid) == -1)
+			if (dispatch_imsg(&lconf, argc0, argv0) == -1)
 				quit = 1;
 		}
 
@@ -336,19 +349,15 @@ main(int argc, char *argv[])
 		}
 
 		if (sigchld) {
-			if (check_child(chld_pid, "child")) {
-				quit = 1;
-				chld_pid = 0;
-			}
+			check_child();
 			sigchld = 0;
 		}
-
 	}
 
 	signal(SIGCHLD, SIG_DFL);
 
-	if (chld_pid)
-		kill(chld_pid, SIGTERM);
+	/* Close socket and start shutdown. */
+	close(ibuf->fd);
 
 	do {
 		if ((pid = wait(NULL)) == -1 &&
@@ -364,53 +373,30 @@ main(int argc, char *argv[])
 	return (0);
 }
 
-int
-check_child(pid_t chld_pid, const char *pname)
+void
+check_child(void)
 {
-	int	 status, sig;
-	char	*signame;
+	int	 status;
 	pid_t	 pid;
 
 	do {
 		pid = waitpid(WAIT_ANY, &status, WNOHANG);
-		if (pid <= 0) {
+		if (pid <= 0)
 			continue;
-		} else if (pid == chld_pid) {
-			if (WIFEXITED(status)) {
-				log_warnx("Lost child: %s exited", pname);
-				return (1);
-			}
-			if (WIFSIGNALED(status)) {
-				sig = WTERMSIG(status);
-				signame = strsignal(sig) ?
-				    strsignal(sig) : "unknown";
-				log_warnx("Lost child: %s terminated; "
-				    "signal %d (%s)", pname, sig, signame);
-				return (1);
-			}
-		} else {
-			priv_constraint_check_child(pid, status);
-		}
-	} while (pid > 0 || (pid == -1 && errno == EINTR));
 
-	return (0);
+		priv_constraint_check_child(pid, status);
+	} while (pid > 0 || (pid == -1 && errno == EINTR));
 }
 
 int
-dispatch_imsg(struct ntpd_conf *lconf, const char *pw_dir,
-    uid_t pw_uid, gid_t pw_gid)
+dispatch_imsg(struct ntpd_conf *lconf, int argc, char **argv)
 {
 	struct imsg		 imsg;
 	int			 n;
 	double			 d;
 
-	if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
+	if (((n = imsg_read(ibuf)) == -1 && errno != EAGAIN) || n == 0)
 		return (-1);
-
-	if (n == 0) {	/* connection closed */
-		log_warnx("dispatch_imsg in main: pipe closed");
-		return (-1);
-	}
 
 	for (;;) {
 		if ((n = imsg_get(ibuf, &imsg)) == -1)
@@ -440,7 +426,7 @@ dispatch_imsg(struct ntpd_conf *lconf, const char *pw_dir,
 			if (!lconf->settime)
 				break;
 			log_init(lconf->debug, LOG_DAEMON);
-			log_verbose(lconf->verbose);
+			log_setverbose(lconf->verbose);
 			memcpy(&d, imsg.data, sizeof(d));
 			ntpd_settime(d);
 			/* daemonize now */
@@ -455,7 +441,7 @@ dispatch_imsg(struct ntpd_conf *lconf, const char *pw_dir,
 		case IMSG_CONSTRAINT_QUERY:
 			priv_constraint_msg(imsg.hdr.peerid,
 			    imsg.data, imsg.hdr.len - IMSG_HEADER_SIZE,
-			    pw_dir, pw_uid, pw_gid);
+			    argc, argv);
 			break;
 		case IMSG_CONSTRAINT_KILL:
 			priv_constraint_kill(imsg.hdr.peerid);

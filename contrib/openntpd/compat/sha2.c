@@ -1,4 +1,4 @@
-/*	$OpenBSD: sha2.c,v 1.23 2015/01/15 13:05:59 millert Exp $	*/
+/*	$OpenBSD: sha2.c,v 1.26 2017/05/27 15:32:51 naddy Exp $	*/
 
 /*
  * FILE:	sha2.c
@@ -195,18 +195,6 @@ static const u_int32_t K256[64] = {
 	0x90befffaUL, 0xa4506cebUL, 0xbef9a3f7UL, 0xc67178f2UL
 };
 
-/* Initial hash value H for SHA-224: */
-static const u_int32_t sha224_initial_hash_value[8] = {
-	0xc1059ed8UL,
-	0x367cd507UL,
-	0x3070dd17UL,
-	0xf70e5939UL,
-	0xffc00b31UL,
-	0x68581511UL,
-	0x64f98fa7UL,
-	0xbefa4fa4UL
-};
-
 /* Initial hash value H for SHA-256: */
 static const u_int32_t sha256_initial_hash_value[8] = {
 	0x6a09e667UL,
@@ -276,6 +264,18 @@ static const u_int64_t sha512_initial_hash_value[8] = {
 };
 
 #if !defined(SHA2_SMALL)
+/* Initial hash value H for SHA-224: */
+static const u_int32_t sha224_initial_hash_value[8] = {
+	0xc1059ed8UL,
+	0x367cd507UL,
+	0x3070dd17UL,
+	0xf70e5939UL,
+	0xffc00b31UL,
+	0x68581511UL,
+	0x64f98fa7UL,
+	0xbefa4fa4UL
+};
+
 /* Initial hash value H for SHA-384 */
 static const u_int64_t sha384_initial_hash_value[8] = {
 	0xcbbb9d5dc1059ed8ULL,
@@ -286,6 +286,18 @@ static const u_int64_t sha384_initial_hash_value[8] = {
 	0x8eb44a8768581511ULL,
 	0xdb0c2e0d64f98fa7ULL,
 	0x47b5481dbefa4fa4ULL
+};
+
+/* Initial hash value H for SHA-512-256 */
+static const u_int64_t sha512_256_initial_hash_value[8] = {
+	0x22312194fc2bf72cULL,
+	0x9f555fa3c84c64c2ULL,
+	0x2393b86b6f53b151ULL,
+	0x963877195940eabdULL,
+	0x96283ee2a88effe3ULL,
+	0xbe5e1e2553863992ULL,
+	0x2b0199fc2c85b8aaULL,
+	0x0eb72ddc81c52ca2ULL
 };
 
 /*** SHA-224: *********************************************************/
@@ -899,6 +911,38 @@ SHA384Final(u_int8_t digest[SHA384_DIGEST_LENGTH], SHA2_CTX *context)
 		BE_64_TO_8(digest + i * 8, context->state.st64[i]);
 #else
 	memcpy(digest, context->state.st64, SHA384_DIGEST_LENGTH);
+#endif
+	/* Zero out state data */
+	explicit_bzero(context, sizeof(*context));
+}
+
+/*** SHA-512/256: *********************************************************/
+void
+SHA512_256Init(SHA2_CTX *context)
+{
+	memcpy(context->state.st64, sha512_256_initial_hash_value,
+	    sizeof(sha512_256_initial_hash_value));
+	memset(context->buffer, 0, sizeof(context->buffer));
+	context->bitcount[0] = context->bitcount[1] = 0;
+}
+
+MAKE_CLONE(SHA512_256Transform, SHA512Transform);
+MAKE_CLONE(SHA512_256Update, SHA512Update);
+MAKE_CLONE(SHA512_256Pad, SHA512Pad);
+
+void
+SHA512_256Final(u_int8_t digest[SHA512_256_DIGEST_LENGTH], SHA2_CTX *context)
+{
+	SHA512_256Pad(context);
+
+#if BYTE_ORDER == LITTLE_ENDIAN
+	int	i;
+
+	/* Convert TO host byte order */
+	for (i = 0; i < 4; i++)
+		BE_64_TO_8(digest + i * 8, context->state.st64[i]);
+#else
+	memcpy(digest, context->state.st64, SHA512_256_DIGEST_LENGTH);
 #endif
 	/* Zero out state data */
 	explicit_bzero(context, sizeof(*context));

@@ -1,4 +1,4 @@
-/*	$OpenBSD: config.c,v 1.27 2015/07/18 00:53:44 bcook Exp $ */
+/*	$OpenBSD: config.c,v 1.28 2015/10/12 06:50:08 reyk Exp $ */
 
 /*
  * Copyright (c) 2003, 2004 Henning Brauer <henning@openbsd.org>
@@ -220,7 +220,7 @@ new_constraint(void)
 	p->fd = -1;
 
 #ifndef HAVE_LIBTLS
-	fatal("constraint configured without libtls support");
+	log_warnx("constraint configured without libtls support");
 #endif
 	return (p);
 }

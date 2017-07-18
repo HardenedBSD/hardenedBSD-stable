@@ -1,4 +1,4 @@
-/*	$OpenBSD: ntp.c,v 1.140 2015/12/05 13:12:16 claudio Exp $ */
+/*	$OpenBSD: ntp.c,v 1.146 2017/05/30 23:30:48 benno Exp $ */
 
 /*
  * Copyright (c) 2003, 2004 Henning Brauer <henning@openbsd.org>
@@ -12,9 +12,9 @@
  * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
  * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF MIND, USE, DATA OR PROFITS, WHETHER
- * IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
- * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include <sys/types.h>
@@ -66,17 +66,16 @@ ntp_sighdlr(int sig)
 	}
 }
 
-pid_t
-ntp_main(int pipe_prnt[2], int fd_ctl, struct ntpd_conf *nconf,
-    struct passwd *pw)
+void
+ntp_main(struct ntpd_conf *nconf, struct passwd *pw, int argc, char **argv)
 {
 	int			 a, b, nfds, i, j, idx_peers, timeout;
 	int			 nullfd, pipe_dns[2], idx_clients;
 	int			 ctls;
+	int			 fd_ctl;
 	u_int			 pfd_elms = 0, idx2peer_elms = 0;
 	u_int			 listener_cnt, new_cnt, sent_cnt, trial_cnt;
 	u_int			 ctl_cnt;
-	pid_t			 pid;
 	struct pollfd		*pfd = NULL;
 	struct servent		*se;
 	struct listen_addr	*la;
@@ -90,15 +89,11 @@ ntp_main(int pipe_prnt[2], int fd_ctl, struct ntpd_conf *nconf,
 	time_t			 nextaction, last_sensor_scan = 0, now;
 	void			*newp;
 
-	switch (pid = fork()) {
-	case -1:
-		fatal("cannot fork");
-		break;
-	case 0:
-		break;
-	default:
-		return (pid);
-	}
+	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, PF_UNSPEC,
+	    pipe_dns) == -1)
+		fatal("socketpair");
+
+	start_child(NTPDNS_PROC_NAME, pipe_dns[1], argc, argv);
 
 	/* in this case the parent didn't init logging and didn't daemonize */
 	if (nconf->settime && !nconf->debug) {
@@ -111,14 +106,13 @@ ntp_main(int pipe_prnt[2], int fd_ctl, struct ntpd_conf *nconf,
 	if ((se = getservbyname("ntp", "udp")) == NULL)
 		fatal("getservbyname");
 
+	/* Start control socket. */
+	if ((fd_ctl = control_init(CTLSOCKET)) == -1)
+		fatalx("control socket init failed");
+	if (control_listen(fd_ctl) == -1)
+		fatalx("control socket listen failed");
 	if ((nullfd = open("/dev/null", O_RDWR, 0)) == -1)
 		fatal(NULL);
-
-	close(pipe_prnt[0]);
-	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, pipe_dns) == -1)
-		fatal("socketpair");
-	ntp_dns(pipe_dns, nconf, pw);
-	close(pipe_dns[1]);
 
 	if (stat(pw->pw_dir, &stb) == -1) {
 		fatal("privsep dir %s could not be opened", pw->pw_dir);
@@ -163,7 +157,7 @@ ntp_main(int pipe_prnt[2], int fd_ctl, struct ntpd_conf *nconf,
 
 	if ((ibuf_main = malloc(sizeof(struct imsgbuf))) == NULL)
 		fatal(NULL);
-	imsg_init(ibuf_main, pipe_prnt[1]);
+	imsg_init(ibuf_main, PARENT_SOCK_FILENO);
 	if ((ibuf_dns = malloc(sizeof(struct imsgbuf))) == NULL)
 		fatal(NULL);
 	imsg_init(ibuf_dns, pipe_dns[0]);
@@ -364,8 +358,10 @@ ntp_main(int pipe_prnt[2], int fd_ctl, struct ntpd_conf *nconf,
 
 		if (nfds > 0 && pfd[PFD_PIPE_MAIN].revents & (POLLIN|POLLERR)) {
 			nfds--;
-			if (ntp_dispatch_imsg() == -1)
+			if (ntp_dispatch_imsg() == -1) {
+				log_warn("pipe write error (from main)");
 				ntp_quit = 1;
+			}
 		}
 
 		if (nfds > 0 && (pfd[PFD_PIPE_DNS].revents & POLLOUT))
@@ -377,8 +373,10 @@ ntp_main(int pipe_prnt[2], int fd_ctl, struct ntpd_conf *nconf,
 
 		if (nfds > 0 && pfd[PFD_PIPE_DNS].revents & (POLLIN|POLLERR)) {
 			nfds--;
-			if (ntp_dispatch_imsg_dns() == -1)
+			if (ntp_dispatch_imsg_dns() == -1) {
+				log_warn("pipe write error (from dns engine)");
 				ntp_quit = 1;
+			}
 		}
 
 		if (nfds > 0 && pfd[PFD_SOCK_CTL].revents & (POLLIN|POLLERR)) {
@@ -389,16 +387,20 @@ ntp_main(int pipe_prnt[2], int fd_ctl, struct ntpd_conf *nconf,
 		for (j = PFD_MAX; nfds > 0 && j < idx_peers; j++)
 			if (pfd[j].revents & (POLLIN|POLLERR)) {
 				nfds--;
-				if (server_dispatch(pfd[j].fd, conf) == -1)
+				if (server_dispatch(pfd[j].fd, conf) == -1) {
+					log_warn("pipe write error (conf)");
 					ntp_quit = 1;
+				}
 			}
 
 		for (; nfds > 0 && j < idx_clients; j++) {
 			if (pfd[j].revents & (POLLIN|POLLERR)) {
 				nfds--;
 				if (client_dispatch(idx2peer[j - idx_peers],
-				    conf->settime) == -1)
+				    conf->settime) == -1) {
+					log_warn("pipe write error (settime)");
 					ntp_quit = 1;
+				}
 			}
 		}
 
@@ -422,7 +424,7 @@ ntp_main(int pipe_prnt[2], int fd_ctl, struct ntpd_conf *nconf,
 	free(ibuf_dns);
 
 	log_info("ntp engine exiting");
-	_exit(0);
+	exit(0);
 }
 
 int
@@ -431,13 +433,8 @@ ntp_dispatch_imsg(void)
 	struct imsg		 imsg;
 	int			 n;
 
-	if ((n = imsg_read(ibuf_main)) == -1 && errno != EAGAIN)
+	if (((n = imsg_read(ibuf_main)) == -1 && errno != EAGAIN) || n == 0)
 		return (-1);
-
-	if (n == 0) {	/* connection closed */
-		log_warnx("ntp_dispatch_imsg in ntp engine: pipe closed");
-		return (-1);
-	}
 
 	for (;;) {
 		if ((n = imsg_get(ibuf_main, &imsg)) == -1)
@@ -483,13 +480,8 @@ ntp_dispatch_imsg_dns(void)
 	struct ntp_addr		*h;
 	int			 n;
 
-	if ((n = imsg_read(ibuf_dns)) == -1)
+	if (((n = imsg_read(ibuf_dns)) == -1 && errno != EAGAIN) || n == 0)
 		return (-1);
-
-	if (n == 0) {	/* connection closed */
-		log_warnx("ntp_dispatch_imsg_dns in ntp engine: pipe closed");
-		return (-1);
-	}
 
 	for (;;) {
 		if ((n = imsg_get(ibuf_dns, &imsg)) == -1)
@@ -529,6 +521,8 @@ ntp_dispatch_imsg_dns(void)
 				if (peer->addr_head.pool) {
 					npeer = new_peer();
 					npeer->weight = peer->weight;
+					npeer->query_addr4 = peer->query_addr4;
+					npeer->query_addr6 = peer->query_addr6;
 					h->next = NULL;
 					npeer->addr = h;
 					npeer->addr_head.a = h;

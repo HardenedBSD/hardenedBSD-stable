@@ -41,7 +41,6 @@ ntpd_SOURCES += constraint-disabled.c
 endif
 ntpd_SOURCES += control.c
 ntpd_SOURCES += log.c
-ntpd_SOURCES += log.h
 ntpd_SOURCES += ntp.c
 ntpd_SOURCES += ntp.h
 ntpd_SOURCES += ntp_dns.c

@@ -128,9 +128,9 @@ am__installdirs = "$(DESTDIR)$(sbindir)" "$(DESTDIR)$(man5dir)" \
 	"$(DESTDIR)$(man8dir)"
 PROGRAMS = $(sbin_PROGRAMS)
 am__ntpd_SOURCES_DIST = client.c config.c constraint.c \
-	constraint-disabled.c control.c log.c log.h ntp.c ntp.h \
-	ntp_dns.c ntp_msg.c ntpd.c ntpd.h parse.y sensors.c \
-	fake-sensors.c server.c util.c
+	constraint-disabled.c control.c log.c ntp.c ntp.h ntp_dns.c \
+	ntp_msg.c ntpd.c ntpd.h parse.y sensors.c fake-sensors.c \
+	server.c util.c
 @HAVE_LIBTLS_TRUE@am__objects_1 = ntpd-constraint.$(OBJEXT)
 @HAVE_LIBTLS_FALSE@am__objects_2 = ntpd-constraint-disabled.$(OBJEXT)
 @HAVE_SENSORS_TRUE@am__objects_3 = ntpd-sensors.$(OBJEXT)
@@ -387,8 +387,8 @@ ntpd_LDADD = $(PLATFORM_LDADD) $(PROG_LDADD) -lm \
 	$(top_builddir)/compat/libcompat.la \
 	$(top_builddir)/compat/libcompatnoopt.la
 ntpd_SOURCES = client.c config.c $(am__append_1) $(am__append_2) \
-	control.c log.c log.h ntp.c ntp.h ntp_dns.c ntp_msg.c ntpd.c \
-	ntpd.h parse.y $(am__append_3) $(am__append_4) server.c util.c
+	control.c log.c ntp.c ntp.h ntp_dns.c ntp_msg.c ntpd.c ntpd.h \
+	parse.y $(am__append_3) $(am__append_4) server.c util.c
 all: all-am
 
 .SUFFIXES:

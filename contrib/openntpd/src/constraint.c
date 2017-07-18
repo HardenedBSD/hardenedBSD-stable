@@ -1,4 +1,4 @@
-/*	$OpenBSD: constraint.c,v 1.26 2016/03/05 16:09:20 naddy Exp $	*/
+/*	$OpenBSD: constraint.c,v 1.35 2016/12/05 10:41:33 rzalamena Exp $	*/
 
 /*
  * Copyright (c) 2015 Reyk Floeter <reyk@openbsd.org>
@@ -57,8 +57,8 @@ void	 constraint_reset(void);
 int	 constraint_cmp(const void *, const void *);
 
 void	 priv_constraint_close(int, int);
-void	 priv_constraint_child(struct constraint *, struct ntp_addr_msg *,
-	    u_int8_t *, int[2], const char *, uid_t, gid_t);
+void	 priv_constraint_readquery(struct constraint *, struct ntp_addr_msg *,
+	    uint8_t **);
 
 struct httpsdate *
 	 httpsdate_init(const char *, const char *, const char *,
@@ -210,13 +210,14 @@ constraint_query(struct constraint *cstr)
 }
 
 void
-priv_constraint_msg(u_int32_t id, u_int8_t *data, size_t len,
-    const char *pw_dir, uid_t pw_uid, gid_t pw_gid)
+priv_constraint_msg(u_int32_t id, u_int8_t *data, size_t len, int argc,
+    char **argv)
 {
 	struct ntp_addr_msg	 am;
 	struct ntp_addr		*h;
 	struct constraint	*cstr;
 	int			 pipes[2];
+	int			 rv;
 
 	if ((cstr = constraint_byid(id)) != NULL) {
 		log_warnx("IMSG_CONSTRAINT_QUERY repeated for id %d", id);
@@ -246,46 +247,89 @@ priv_constraint_msg(u_int32_t id, u_int8_t *data, size_t len,
 	constraint_add(cstr);
 	constraint_cnt++;
 
-	if (socketpair(AF_UNIX, SOCK_DGRAM, AF_UNSPEC, pipes) == -1)
+	if (socketpair(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, AF_UNSPEC,
+	    pipes) == -1)
 		fatal("%s pipes", __func__);
+
+	/* Prepare and send constraint data to child. */
+	cstr->fd = pipes[0];
+	imsg_init(&cstr->ibuf, cstr->fd);
+	if (imsg_compose(&cstr->ibuf, IMSG_CONSTRAINT_QUERY, id, 0, -1,
+	    data, len) == -1)
+		fatal("%s: imsg_compose", __func__);
+	do {
+		rv = imsg_flush(&cstr->ibuf);
+	} while (rv == -1 && errno == EAGAIN);
+	if (rv == -1)
+		fatal("imsg_flush");
 
 	/*
 	 * Fork child handlers and make sure to do any sensitive work in the
 	 * the (unprivileged) child.  The parent should not do any parsing,
 	 * certificate loading etc.
 	 */
-	switch (cstr->pid = fork()) {
-	case -1:
-		cstr->senderrors++;
-		close(pipes[0]);
-		close(pipes[1]);
-		return;
-	case 0:
-		priv_constraint_child(cstr, &am, data + sizeof(am), pipes,
-		    pw_dir, pw_uid, pw_gid);
-
-		_exit(0);
-		/* NOTREACHED */
-	default:
-		/* Parent */
-		close(pipes[1]);
-		cstr->fd = pipes[0];
-
-		imsg_init(&cstr->ibuf, cstr->fd);
-		break;
-	}
+	cstr->pid = start_child(CONSTRAINT_PROC_NAME, pipes[1], argc, argv);
 }
 
 void
-priv_constraint_child(struct constraint *cstr, struct ntp_addr_msg *am,
-    u_int8_t *data, int pipes[2], const char *pw_dir, uid_t pw_uid, gid_t pw_gid)
+priv_constraint_readquery(struct constraint *cstr, struct ntp_addr_msg *am,
+    uint8_t **data)
 {
+	struct ntp_addr		*h;
+	uint8_t			*dptr;
+	int			 n;
+	struct imsg		 imsg;
+	size_t			 mlen;
+
+	/* Read the message our parent left us. */
+	if (((n = imsg_read(&cstr->ibuf)) == -1 && errno != EAGAIN) || n == 0)
+		fatal("%s: imsg_read", __func__);
+	if (((n = imsg_get(&cstr->ibuf, &imsg)) == -1) || n == 0)
+		fatal("%s: imsg_get", __func__);
+	if (imsg.hdr.type != IMSG_CONSTRAINT_QUERY)
+		fatalx("%s: invalid message type", __func__);
+
+	/*
+	 * Copy the message contents just like our father:
+	 * priv_constraint_msg().
+	 */
+	mlen = imsg.hdr.len - IMSG_HEADER_SIZE;
+	if (mlen < sizeof(*am))
+		fatalx("%s: mlen < sizeof(*am)", __func__);
+
+	memcpy(am, imsg.data, sizeof(*am));
+	if (mlen != (sizeof(*am) + am->namelen + am->pathlen))
+		fatalx("%s: mlen < sizeof(*am) + am->namelen + am->pathlen",
+		    __func__);
+
+	if ((h = calloc(1, sizeof(*h))) == NULL ||
+	    (*data = calloc(1, mlen)) == NULL)
+		fatal("%s: calloc", __func__);
+
+	memcpy(h, &am->a, sizeof(*h));
+	h->next = NULL;
+
+	cstr->id = imsg.hdr.peerid;
+	cstr->addr = h;
+	cstr->addr_head.a = h;
+
+	dptr = imsg.data;
+	memcpy(*data, dptr + sizeof(*am), mlen - sizeof(*am));
+	imsg_free(&imsg);
+}
+
+void
+priv_constraint_child(const char *pw_dir, uid_t pw_uid, gid_t pw_gid)
+{
+	struct constraint	 cstr;
+	struct ntp_addr_msg	 am;
+	uint8_t			*data;
 	static char		 addr[NI_MAXHOST];
 	struct timeval		 rectv, xmttv;
 	struct sigaction	 sa;
 	void			*ctx;
 	struct iovec		 iov[2];
-	int			 i;
+	int			 i, rv;
 
 	log_procinit("constraint");
 
@@ -322,47 +366,51 @@ priv_constraint_child(struct constraint *cstr, struct ntp_addr_msg *am,
 	if (pledge("stdio inet", NULL) == -1)
 		fatal("pledge");
 
-	/* Get name and set process title */
-	if (getnameinfo((struct sockaddr *)&cstr->addr->ss,
-	    SA_LEN((struct sockaddr *)&cstr->addr->ss),
+	cstr.fd = CONSTRAINT_PASSFD;
+	imsg_init(&cstr.ibuf, cstr.fd);
+	priv_constraint_readquery(&cstr, &am, &data);
+
+	/*
+	 * Get the IP address as name and set the process title accordingly.
+	 * This only converts an address into a string and does not trigger
+	 * any DNS operation, so it is safe to be called without the dns
+	 * pledge.
+	 */
+	if (getnameinfo((struct sockaddr *)&cstr.addr->ss,
+	    SA_LEN((struct sockaddr *)&cstr.addr->ss),
 	    addr, sizeof(addr), NULL, 0,
 	    NI_NUMERICHOST) != 0)
 		fatalx("%s getnameinfo", __func__);
 
 	log_debug("constraint request to %s", addr);
 	setproctitle("constraint from %s", addr);
-
-	/* Set file descriptors */
-	if (dup2(pipes[1], CONSTRAINT_PASSFD) == -1)
-		fatal("%s dup2 CONSTRAINT_PASSFD", __func__);
-	if (pipes[0] != CONSTRAINT_PASSFD)
-		close(pipes[0]);
-	if (pipes[1] != CONSTRAINT_PASSFD)
-		close(pipes[1]);
 	(void)closefrom(CONSTRAINT_PASSFD + 1);
 
+	/*
+	 * Set the close-on-exec flag to prevent leaking the communication
+	 * channel to any exec'ed child.  In theory this could never happen,
+	 * constraints don't exec children and pledge() prevents it,
+	 * but we keep it as a safety belt; especially for portability.
+	 */
 	if (fcntl(CONSTRAINT_PASSFD, F_SETFD, FD_CLOEXEC) == -1)
 		fatal("%s fcntl F_SETFD", __func__);
 
-	cstr->fd = CONSTRAINT_PASSFD;
-	imsg_init(&cstr->ibuf, cstr->fd);
-
 	/* Get remaining data from imsg in the unpriv child */
-	if (am->namelen) {
-		if ((cstr->addr_head.name =
-		    get_string(data, am->namelen)) == NULL)
+	if (am.namelen) {
+		if ((cstr.addr_head.name =
+		    get_string(data, am.namelen)) == NULL)
 			fatalx("invalid IMSG_CONSTRAINT_QUERY name");
-		data += am->namelen;
+		data += am.namelen;
 	}
-	if (am->pathlen) {
-		if ((cstr->addr_head.path =
-		    get_string(data, am->pathlen)) == NULL)
+	if (am.pathlen) {
+		if ((cstr.addr_head.path =
+		    get_string(data, am.pathlen)) == NULL)
 			fatalx("invalid IMSG_CONSTRAINT_QUERY path");
 	}
 
 	/* Run! */
 	if ((ctx = httpsdate_query(addr,
-	    CONSTRAINT_PORT, cstr->addr_head.name, cstr->addr_head.path,
+	    CONSTRAINT_PORT, cstr.addr_head.name, cstr.addr_head.path,
 	    conf->ca, conf->ca_len, &rectv, &xmttv)) == NULL) {
 		/* Abort with failure but without warning */
 		exit(1);
@@ -372,12 +420,16 @@ priv_constraint_child(struct constraint *cstr, struct ntp_addr_msg *am,
 	iov[0].iov_len = sizeof(rectv);
 	iov[1].iov_base = &xmttv;
 	iov[1].iov_len = sizeof(xmttv);
-	imsg_composev(&cstr->ibuf,
+	imsg_composev(&cstr.ibuf,
 	    IMSG_CONSTRAINT_RESULT, 0, 0, -1, iov, 2);
-	imsg_flush(&cstr->ibuf);
+	do {
+		rv = imsg_flush(&cstr.ibuf);
+	} while (rv == -1 && errno == EAGAIN);
 
 	/* Tear down the TLS connection after sending the result */
 	httpsdate_free(ctx);
+
+	exit(0);
 }
 
 void
@@ -820,7 +872,7 @@ httpsdate_init(const char *addr, const char *port, const char *hostname,
 	if ((httpsdate->tls_config = tls_config_new()) == NULL)
 		goto fail;
 
-	if (tls_config_set_ciphers(httpsdate->tls_config, "compat") != 0)
+	if (tls_config_set_ciphers(httpsdate->tls_config, "all") != 0)
 		goto fail;
 
 	if (ca == NULL || ca_len == 0)
@@ -866,9 +918,15 @@ httpsdate_request(struct httpsdate *httpsdate, struct timeval *when)
 	if (tls_configure(httpsdate->tls_ctx, httpsdate->tls_config) == -1)
 		goto fail;
 
+	/*
+	 * libtls expects an address string, which can also be a DNS name,
+	 * but we pass a pre-resolved IP address string in tls_addr so it
+	 * does not trigger any DNS operation and is safe to be called
+	 * without the dns pledge.
+	 */
 	if (tls_connect_servername(httpsdate->tls_ctx, httpsdate->tls_addr,
 	    httpsdate->tls_port, httpsdate->tls_hostname) == -1) {
-		log_warnx("tls connect failed: %s (%s): %s",
+		log_debug("tls connect failed: %s (%s): %s",
 		    httpsdate->tls_addr, httpsdate->tls_hostname,
 		    tls_error(httpsdate->tls_ctx));
 		goto fail;

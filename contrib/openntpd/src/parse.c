@@ -48,6 +48,8 @@ int		 lungetc(int);
 int		 findeol(void);
 
 struct ntpd_conf		*conf;
+struct sockaddr_in		 query_addr4;
+struct sockaddr_in6		 query_addr6;
 
 struct opts {
 	int		weight;
@@ -68,80 +70,81 @@ typedef struct {
 	int lineno;
 } YYSTYPE;
 
-#line 72 "parse.c"
+#line 74 "parse.c"
 #define LISTEN 257
 #define ON 258
 #define CONSTRAINT 259
 #define CONSTRAINTS 260
 #define FROM 261
-#define SERVER 262
-#define SERVERS 263
-#define SENSOR 264
-#define CORRECTION 265
-#define RTABLE 266
-#define REFID 267
-#define STRATUM 268
-#define WEIGHT 269
-#define ERROR 270
-#define STRING 271
-#define NUMBER 272
+#define QUERY 262
+#define SERVER 263
+#define SERVERS 264
+#define SENSOR 265
+#define CORRECTION 266
+#define RTABLE 267
+#define REFID 268
+#define STRATUM 269
+#define WEIGHT 270
+#define ERROR 271
+#define STRING 272
+#define NUMBER 273
 #define YYERRCODE 256
 const short yylhs[] =
 	{                                        -1,
     0,    0,    0,    0,   17,   17,   17,   17,   17,   17,
-    1,    2,   18,    3,    3,    4,    4,    5,   19,    6,
-    6,    7,    7,    8,   20,    9,    9,   10,   10,   11,
-   11,   11,   11,   12,   14,   15,   16,   13,
+   17,    1,    2,   18,    3,    3,    4,    4,    5,   19,
+    6,    6,    7,    7,    8,   20,    9,    9,   10,   10,
+   11,   11,   11,   11,   12,   14,   15,   16,   13,
 };
 const short yylen[] =
 	{                                         2,
     0,    2,    3,    3,    4,    3,    3,    3,    3,    3,
-    1,    1,    0,    2,    0,    2,    1,    1,    0,    2,
-    0,    2,    1,    1,    0,    2,    0,    2,    1,    1,
-    1,    1,    1,    2,    2,    2,    2,    2,
+    3,    1,    1,    0,    2,    0,    2,    1,    1,    0,
+    2,    0,    2,    1,    1,    0,    2,    0,    2,    1,
+    1,    1,    1,    1,    2,    2,    2,    2,    2,
 };
 const short yydefred[] =
 	{                                      1,
-    0,    0,    0,    0,    0,    0,    0,    0,    2,    0,
-    4,    0,    0,    0,   11,    0,    0,    0,    3,    0,
-   12,    9,    8,    7,    0,    6,   10,    0,    5,    0,
-    0,    0,   23,   24,    0,    0,    0,    0,   29,   30,
-   31,   32,   33,    0,    0,   17,   18,   37,   22,   34,
-   35,   36,   28,   38,   16,
+    0,    0,    0,    0,    0,    0,    0,    0,    0,    2,
+    0,    4,    0,    0,    0,    0,   12,    0,    0,    0,
+    3,    0,   13,   10,    9,    6,    8,    0,    7,   11,
+    0,    5,    0,    0,    0,   24,   25,    0,    0,    0,
+    0,   30,   31,   32,   33,   34,    0,    0,   18,   19,
+   38,   23,   35,   36,   37,   29,   39,   17,
 };
 const short yydgoto[] =
 	{                                       1,
-   16,   22,   29,   45,   46,   24,   32,   33,   27,   38,
-   39,   40,   47,   41,   42,   34,   10,   30,   25,   28,
+   18,   24,   32,   48,   49,   27,   35,   36,   30,   41,
+   42,   43,   50,   44,   45,   37,   11,   33,   28,   31,
 };
 const short yysindex[] =
 	{                                      0,
-    6,   -6, -252, -248, -247, -256, -256, -254,    0,    8,
-    0, -256, -251, -251,    0,    0,    0,    0,    0,    0,
-    0,    0,    0,    0, -250,    0,    0, -258,    0, -245,
- -249, -250,    0,    0, -246, -244, -243, -258,    0,    0,
-    0,    0,    0, -242, -245,    0,    0,    0,    0,    0,
-    0,    0,    0,    0,    0,};
+    7,   -7, -252, -254, -253, -251, -256, -256, -250,    0,
+    8,    0, -256, -249, -249, -248,    0,    0,    0,    0,
+    0,    0,    0,    0,    0,    0,    0, -245,    0,    0,
+ -255,    0, -247, -246, -245,    0,    0, -244, -242, -241,
+ -255,    0,    0,    0,    0,    0, -240, -247,    0,    0,
+    0,    0,    0,    0,    0,    0,    0,    0,};
 const short yyrindex[] =
 	{                                      0,
     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
-    0,    0,    0,    0,    0,   -9,   -9,  -10,    0,   -5,
-    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
-    0,   12,    0,    0,    0,    0,    0,   14,    0,    0,
-    0,    0,    0,    0,   15,    0,    0,    0,    0,    0,
-    0,    0,    0,    0,    0,};
+    0,    0,    0,    0,    0,    0,    0,   -9,   -9,  -10,
+    0,   -5,    0,    0,    0,    0,    0,    0,    0,    0,
+    0,    0,    0,    0,    8,    0,    0,    0,    0,    0,
+    9,    0,    0,    0,    0,    0,    0,   11,    0,    0,
+    0,    0,    0,    0,    0,    0,    0,    0,};
 const short yygindex[] =
 	{                                      0,
-   -4,   17,    0,    0,  -17,   16,    0,    2,    0,    0,
-   -3,    0,    0,    0,    0,  -26,    0,    0,    0,    0,
+   -4,   13,    0,    0,  -22,   12,    0,   -1,    0,    0,
+   -6,    0,    0,    0,    0,  -29,    0,    0,    0,    0,
 };
-#define YYTABLESIZE 270
+#define YYTABLESIZE 272
 const short yytable[] =
-	{                                      27,
-   21,   43,   17,   11,   15,   12,   35,   20,   36,   37,
-   31,   43,   13,   14,   15,    9,   18,   19,   31,   21,
-   44,   20,   48,   26,   14,   50,   51,   55,   52,   54,
-   23,    0,   26,   49,   53,    0,    0,    0,    0,    0,
+	{                                      28,
+   22,   46,   12,   19,   16,   13,   14,   15,   22,   16,
+   38,   46,   39,   40,   34,   17,   10,   21,   27,   47,
+   15,   20,   23,   26,   34,   58,   51,   25,   53,   54,
+   29,   55,   57,   52,   56,    0,    0,    0,    0,    0,
     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
@@ -163,15 +166,16 @@ const short yytable[] =
     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
-    0,    0,    0,    0,   25,    0,   25,   25,   25,   19,
-   13,    2,    3,    0,    4,    5,    0,    6,    7,    8,
+    0,    0,    0,    0,    0,   26,    0,   26,   26,   26,
+   20,   14,    2,    3,    0,    4,    5,    0,    6,    7,
+    8,    9,
 };
 const short yycheck[] =
 	{                                      10,
-   10,   28,    7,   10,   10,  258,  265,   12,  267,  268,
-  269,   38,  261,  261,  271,   10,  271,   10,  269,  271,
-  266,   10,  272,   10,   10,  272,  271,   45,  272,  272,
-   14,   -1,   17,   32,   38,   -1,   -1,   -1,   -1,   -1,
+   10,   31,   10,    8,   10,  258,  261,  261,   13,  261,
+  266,   41,  268,  269,  270,  272,   10,   10,   10,  267,
+   10,  272,  272,  272,  270,   48,  273,   15,  273,  272,
+   19,  273,  273,   35,   41,   -1,   -1,   -1,   -1,   -1,
    -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,
    -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,
    -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,
@@ -193,14 +197,15 @@ const short yycheck[] =
    -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,
    -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,
    -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,
-   -1,   -1,   -1,   -1,  265,   -1,  267,  268,  269,  269,
-  266,  256,  257,   -1,  259,  260,   -1,  262,  263,  264,
+   -1,   -1,   -1,   -1,   -1,  266,   -1,  268,  269,  270,
+  270,  267,  256,  257,   -1,  259,  260,   -1,  262,  263,
+  264,  265,
 };
 #define YYFINAL 1
 #ifndef YYDEBUG
 #define YYDEBUG 0
 #endif
-#define YYMAXTOKEN 272
+#define YYMAXTOKEN 273
 #if YYDEBUG
 const char * const yyname[] =
 	{
@@ -211,8 +216,8 @@ const char * const yyname[] =
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,"LISTEN","ON","CONSTRAINT",
-"CONSTRAINTS","FROM","SERVER","SERVERS","SENSOR","CORRECTION","RTABLE","REFID",
-"STRATUM","WEIGHT","ERROR","STRING","NUMBER",
+"CONSTRAINTS","FROM","QUERY","SERVER","SERVERS","SENSOR","CORRECTION","RTABLE",
+"REFID","STRATUM","WEIGHT","ERROR","STRING","NUMBER",
 };
 const char * const yyrule[] =
 	{"$accept : grammar",
@@ -221,6 +226,7 @@ const char * const yyrule[] =
 "grammar : grammar main '\\n'",
 "grammar : grammar error '\\n'",
 "main : LISTEN ON address listen_opts",
+"main : QUERY FROM STRING",
 "main : SERVERS address server_opts",
 "main : SERVER address server_opts",
 "main : CONSTRAINTS FROM url",
@@ -282,7 +288,7 @@ short *yysslim;
 YYSTYPE *yyvs;
 unsigned int yystacksize;
 int yyparse(void);
-#line 419 "parse.y"
+#line 449 "parse.y"
 
 void
 opts_default(void)
@@ -330,6 +336,7 @@ lookup(char *s)
 		{ "from",		FROM},
 		{ "listen",		LISTEN},
 		{ "on",			ON},
+		{ "query",		QUERY},
 		{ "refid",		REFID},
 		{ "rtable",		RTABLE},
 		{ "sensor",		SENSOR},
@@ -628,7 +635,7 @@ parse_config(const char *filename, struct ntpd_conf *xconf)
 
 	return (errors ? -1 : 0);
 }
-#line 624 "parse.c"
+#line 631 "parse.c"
 /* allocate initial stack or double stack size, up to YYMAXDEPTH */
 static int yygrowstack(void)
 {
@@ -823,11 +830,11 @@ yyreduce:
     switch (yyn)
     {
 case 4:
-#line 102 "parse.y"
+#line 104 "parse.y"
 { file->errors++; }
 break;
 case 5:
-#line 105 "parse.y"
+#line 107 "parse.y"
 {
 			struct listen_addr	*la;
 			struct ntp_addr		*h, *next;
@@ -858,7 +865,34 @@ case 5:
 		}
 break;
 case 6:
-#line 133 "parse.y"
+#line 135 "parse.y"
+{
+			struct sockaddr_in sin4;
+			struct sockaddr_in6 sin6;
+
+			sin4.sin_family = AF_INET;
+			sin6.sin6_family = AF_INET6;
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
+			sin4.sin_len = sizeof(struct sockaddr_in);
+			sin6.sin6_len = sizeof(struct sockaddr_in6);
+#endif
+
+			if (inet_pton(AF_INET, yyvsp[0].v.string, &sin4.sin_addr) == 1)
+				memcpy(&query_addr4, &sin4, sizeof(struct in_addr));
+			else if (inet_pton(AF_INET6, yyvsp[0].v.string, &sin6.sin6_addr) == 1)
+				memcpy(&query_addr6, &sin6, sizeof(struct in6_addr));
+			else {
+				yyerror("invalid IPv4 or IPv6 address: %s\n",
+				    yyvsp[0].v.string);
+				free(yyvsp[0].v.string);
+				YYERROR;
+			}
+
+			free(yyvsp[0].v.string);
+		}
+break;
+case 7:
+#line 159 "parse.y"
 {
 			struct ntp_peer		*p;
 			struct ntp_addr		*h, *next;
@@ -882,6 +916,8 @@ case 6:
 
 				p = new_peer();
 				p->weight = yyvsp[0].v.opts.weight;
+				p->query_addr4 = query_addr4;
+				p->query_addr6 = query_addr6;
 				p->addr = h;
 				p->addr_head.a = h;
 				p->addr_head.pool = 1;
@@ -898,8 +934,8 @@ case 6:
 			free(yyvsp[-1].v.addr);
 		}
 break;
-case 7:
-#line 171 "parse.y"
+case 8:
+#line 199 "parse.y"
 {
 			struct ntp_peer		*p;
 			struct ntp_addr		*h, *next;
@@ -922,6 +958,8 @@ case 7:
 			}
 
 			p->weight = yyvsp[0].v.opts.weight;
+			p->query_addr4 = query_addr4;
+			p->query_addr6 = query_addr6;
 			p->addr_head.a = p->addr;
 			p->addr_head.pool = 0;
 			p->addr_head.name = strdup(yyvsp[-1].v.addr->name);
@@ -934,8 +972,8 @@ case 7:
 			free(yyvsp[-1].v.addr);
 		}
 break;
-case 8:
-#line 204 "parse.y"
+case 9:
+#line 234 "parse.y"
 {
 			struct constraint	*p;
 			struct ntp_addr		*h, *next;
@@ -977,8 +1015,8 @@ case 8:
 			free(yyvsp[0].v.addr);
 		}
 break;
-case 9:
-#line 244 "parse.y"
+case 10:
+#line 274 "parse.y"
 {
 			struct constraint	*p;
 			struct ntp_addr		*h, *next;
@@ -1015,8 +1053,8 @@ case 9:
 			free(yyvsp[0].v.addr);
 		}
 break;
-case 10:
-#line 279 "parse.y"
+case 11:
+#line 309 "parse.y"
 {
 			struct ntp_conf_sensor	*s;
 
@@ -1029,8 +1067,8 @@ case 10:
 			TAILQ_INSERT_TAIL(&conf->ntp_conf_sensors, s, entry);
 		}
 break;
-case 11:
-#line 292 "parse.y"
+case 12:
+#line 322 "parse.y"
 {
 			if ((yyval.v.addr = calloc(1, sizeof(struct ntp_addr_wrap))) ==
 			    NULL)
@@ -1039,8 +1077,8 @@ case 11:
 			yyval.v.addr->name = yyvsp[0].v.string;
 		}
 break;
-case 12:
-#line 301 "parse.y"
+case 13:
+#line 331 "parse.y"
 {
 			char	*hname, *path;
 
@@ -1070,44 +1108,44 @@ case 12:
 				fatal("strdup");
 		}
 break;
-case 13:
-#line 331 "parse.y"
-{ opts_default(); }
-break;
 case 14:
-#line 333 "parse.y"
-{ yyval.v.opts = opts; }
+#line 361 "parse.y"
+{ opts_default(); }
 break;
 case 15:
-#line 334 "parse.y"
-{ opts_default(); yyval.v.opts = opts; }
+#line 363 "parse.y"
+{ yyval.v.opts = opts; }
 break;
-case 19:
-#line 342 "parse.y"
-{ opts_default(); }
+case 16:
+#line 364 "parse.y"
+{ opts_default(); yyval.v.opts = opts; }
 break;
 case 20:
-#line 344 "parse.y"
-{ yyval.v.opts = opts; }
-break;
-case 21:
-#line 345 "parse.y"
-{ opts_default(); yyval.v.opts = opts; }
-break;
-case 25:
-#line 353 "parse.y"
+#line 372 "parse.y"
 { opts_default(); }
 break;
-case 26:
-#line 355 "parse.y"
+case 21:
+#line 374 "parse.y"
 { yyval.v.opts = opts; }
 break;
-case 27:
-#line 356 "parse.y"
+case 22:
+#line 375 "parse.y"
 { opts_default(); yyval.v.opts = opts; }
 break;
-case 34:
-#line 367 "parse.y"
+case 26:
+#line 383 "parse.y"
+{ opts_default(); }
+break;
+case 27:
+#line 385 "parse.y"
+{ yyval.v.opts = opts; }
+break;
+case 28:
+#line 386 "parse.y"
+{ opts_default(); yyval.v.opts = opts; }
+break;
+case 35:
+#line 397 "parse.y"
 {
 			if (yyvsp[0].v.number < -127000000 || yyvsp[0].v.number > 127000000) {
 				yyerror("correction must be between "
@@ -1117,8 +1155,8 @@ case 34:
 			opts.correction = yyvsp[0].v.number;
 		}
 break;
-case 35:
-#line 377 "parse.y"
+case 36:
+#line 407 "parse.y"
 {
 			size_t l = strlen(yyvsp[0].v.string);
 
@@ -1130,8 +1168,8 @@ case 35:
 			opts.refstr = yyvsp[0].v.string;
 		}
 break;
-case 36:
-#line 389 "parse.y"
+case 37:
+#line 419 "parse.y"
 {
 			if (yyvsp[0].v.number < 1 || yyvsp[0].v.number > 15) {
 				yyerror("stratum must be between "
@@ -1141,8 +1179,8 @@ case 36:
 			opts.stratum = yyvsp[0].v.number;
 		}
 break;
-case 37:
-#line 399 "parse.y"
+case 38:
+#line 429 "parse.y"
 {
 			if (yyvsp[0].v.number < 1 || yyvsp[0].v.number > 10) {
 				yyerror("weight must be between 1 and 10");
@@ -1151,8 +1189,8 @@ case 37:
 			opts.weight = yyvsp[0].v.number;
 		}
 break;
-case 38:
-#line 406 "parse.y"
+case 39:
+#line 436 "parse.y"
 {
 #ifdef RT_TABLEID_MAX
 			if (yyvsp[0].v.number < 0 || yyvsp[0].v.number > RT_TABLEID_MAX) {
@@ -1164,7 +1202,7 @@ case 38:
 			opts.rtable = yyvsp[0].v.number;
 		}
 break;
-#line 1160 "parse.c"
+#line 1198 "parse.c"
     }
     yyssp -= yym;
     yystate = *yyssp;

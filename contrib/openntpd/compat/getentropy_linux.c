@@ -1,4 +1,4 @@
-/*	$OpenBSD: getentropy_linux.c,v 1.41 2015/09/11 11:52:55 deraadt Exp $	*/
+/*	$OpenBSD: getentropy_linux.c,v 1.44 2017/04/29 18:43:31 beck Exp $	*/
 
 /*
  * Copyright (c) 2014 Theo de Raadt <deraadt@openbsd.org>
@@ -17,7 +17,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  * Emulation of getentropy(2) as documented at:
- * http://www.openbsd.org/cgi-bin/man.cgi/OpenBSD-current/man2/getentropy.2
+ * http://man.openbsd.org/getentropy.2
  */
 
 #define	_POSIX_C_SOURCE	199309L
@@ -96,13 +96,16 @@ getentropy(void *buf, size_t len)
 
 #ifdef SYS_getrandom
 	/*
-	 * Try descriptor-less getrandom()
+	 * Try descriptor-less getrandom(), in non-blocking mode.
+	 *
+	 * The design of Linux getrandom is broken.  It has an
+	 * uninitialized phase coupled with blocking behaviour, which
+	 * is unacceptable from within a library at boot time without
+	 * possible recovery. See http://bugs.python.org/issue26839#msg267745
 	 */
 	ret = getentropy_getrandom(buf, len);
 	if (ret != -1)
 		return (ret);
-	if (errno != ENOSYS)
-		return (-1);
 #endif
 
 	/*
@@ -156,7 +159,7 @@ getentropy(void *buf, size_t len)
 	 *     - Do the best under the circumstances....
 	 *
 	 * This code path exists to bring light to the issue that Linux
-	 * does not provide a failsafe API for entropy collection.
+	 * still does not provide a failsafe API for entropy collection.
 	 *
 	 * We hope this demonstrates that Linux should either retain their
 	 * sysctl ABI, or consider providing a new failsafe API which
@@ -199,7 +202,7 @@ getentropy_getrandom(void *buf, size_t len)
 	if (len > 256)
 		return (-1);
 	do {
-		ret = syscall(SYS_getrandom, buf, len, 0);
+		ret = syscall(SYS_getrandom, buf, len, GRND_NONBLOCK);
 	} while (ret == -1 && errno == EINTR);
 
 	if (ret != len)

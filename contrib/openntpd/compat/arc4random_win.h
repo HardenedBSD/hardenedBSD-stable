@@ -1,4 +1,4 @@
-/*	$OpenBSD: arc4random_win.h,v 1.4 2014/07/20 20:51:13 bcook Exp $	*/
+/*	$OpenBSD: arc4random_win.h,v 1.6 2016/06/30 12:17:29 bcook Exp $	*/
 
 /*
  * Copyright (c) 1996, David Mazieres <dm@uun.org>
@@ -52,13 +52,16 @@ _getentropy_fail(void)
 static inline int
 _rs_allocate(struct _rs **rsp, struct _rsx **rsxp)
 {
-	*rsp = calloc(1, sizeof(**rsp));
+	*rsp = VirtualAlloc(NULL, sizeof(**rsp),
+	    MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 	if (*rsp == NULL)
 		return (-1);
 
-	*rsxp = calloc(1, sizeof(**rsxp));
+	*rsxp = VirtualAlloc(NULL, sizeof(**rsxp),
+	    MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 	if (*rsxp == NULL) {
-		free(*rsp);
+		VirtualFree(*rsp, 0, MEM_RELEASE);
+		*rsp = NULL;
 		return (-1);
 	}
 	return (0);

@@ -39,7 +39,7 @@ CHECK_OS_OPTIONS
 CHECK_CRYPTO_COMPAT
 
 # check functions that are expected to be in libc
-AC_CHECK_FUNCS([asprintf closefrom daemon memmem poll reallocarray])
+AC_CHECK_FUNCS([asprintf closefrom daemon freezero memmem poll reallocarray recallocarray])
 AC_CHECK_FUNCS([setproctitle setgroups])
 AC_CHECK_FUNCS([setregid setresgid setreuid setresuid])
 AC_CHECK_FUNCS([strlcat strlcpy strtonum sysconf])
@@ -95,11 +95,13 @@ AM_CONDITIONAL([HAVE_ASPRINTF], [test "x$ac_cv_func_asprintf" = xyes])
 AM_CONDITIONAL([HAVE_CLOSEFROM], [test "x$ac_cv_func_closefrom" = xyes])
 AM_CONDITIONAL([HAVE_DAEMON], [test "x$ac_cv_func_daemon" = xyes])
 AM_CONDITIONAL([HAVE_EXPLICIT_BZERO], [test "x$ac_cv_func_explicit_bzero" = xyes])
+AM_CONDITIONAL([HAVE_FREEZERO], [test "x$ac_cv_func_freezero" = xyes])
 AM_CONDITIONAL([HAVE_IFADDRS_H], [test "x$ac_cv_header_ifaddrs_h" = xyes])
 AM_CONDITIONAL([HAVE_IMSG], [test "x$ac_cv_func_ibuf_open" = xyes])
 AM_CONDITIONAL([HAVE_MEMMEM], [test "x$ac_cv_func_memmem" = xyes])
 AM_CONDITIONAL([HAVE_POLL], [test "x$ac_cv_func_poll" = xyes])
 AM_CONDITIONAL([HAVE_REALLOCARRAY], [test "x$ac_cv_func_reallocarray" = xyes])
+AM_CONDITIONAL([HAVE_RECALLOCARRAY], [test "x$ac_cv_func_recallocarray" = xyes])
 AM_CONDITIONAL([HAVE_SETGROUPS], [test "x$ac_cv_func_setgroups" = xyes])
 AM_CONDITIONAL([HAVE_SETRESGID], [test "x$ac_cv_func_setresgid" = xyes])
 AM_CONDITIONAL([HAVE_SETRESUID], [test "x$ac_cv_func_setresuid" = xyes])
