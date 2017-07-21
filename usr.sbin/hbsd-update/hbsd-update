@@ -88,6 +88,7 @@ usage() {
 	debug_print "\t-j jailname\tInstall updates to jail <jailname>"
 	debug_print "\t-K backupkern\tBackup the previous kernel to <backupkern>"
 	debug_print "\t-k kernel\tUse kernel <kernel>"
+	debug_print "\t-n\t\tDo not install kernel"
 	debug_print "\t-o\t\tDo not remove obsolete files/directories"
 	debug_print "\t-s\t\tInstall sources (if present)"
 	debug_print "\t-t tmpdir\tTemporary directory"
