@@ -85,13 +85,8 @@ for feature in $FEATURES; do
 	if [ "$feature" = "proc_debug" ]; then
 		echo security.bsd.unprivileged_proc_debug=0 >> $BSDINSTALL_TMPETC/sysctl.conf.hardening
 	fi
-<<<<<<< HEAD
-	if [ "$feature" = "stack_guard" ]; then
-		echo security.bsd.stack_guard_page=512 >> $BSDINSTALL_TMPETC/sysctl.conf.hardening
-=======
 	if [ "$feature" = "random_pid" ]; then
 		echo kern.randompid=$(jot -r 1 9999) >> $BSDINSTALL_TMPETC/sysctl.conf.hardening
->>>>>>> origin/freebsd/current/master
 	fi
 	if [ "$feature" = "clear_tmp" ]; then
 		echo 'clear_tmp_enable="YES"' >> $BSDINSTALL_TMPETC/rc.conf.hardening
