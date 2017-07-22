@@ -869,6 +869,11 @@ check_sanity() {
 		debug_print "[-] ZFS BE and Jail options are mutually exclusive"
 		exit 1
 	fi
+
+	if [ ! -z "${zfsbe}" ] && [ ! -x ${BEADM} ]; then
+		debug_print "[-] Please install sysutils/beadm"
+		exit 1
+	fi
 }
 
 report_version() {
@@ -912,11 +917,6 @@ main() {
 	while getopts 'dhinosBCDITUVb:c:j:K:k:r:t:u:v:' opt; do
 		case "${opt}" in
 			b)
-				if ! which -s ${BEADM}; then
-					debug_print "[*] Please install the beadm pkg."
-					exit 1
-				fi
-
 				zfsbe="${OPTARG}"
 				;;
 			B)
