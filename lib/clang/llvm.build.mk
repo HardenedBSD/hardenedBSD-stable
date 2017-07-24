@@ -55,3 +55,4 @@ STATIC_CXXFLAGS+= -mlong-calls
 .endif
 
 NOCFI=		yes
+NOSAFESTACK=	yes
