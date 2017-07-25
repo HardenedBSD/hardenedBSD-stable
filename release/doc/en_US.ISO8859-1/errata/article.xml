@@ -105,8 +105,8 @@
 	  without recompiling the kernel.</para>
 
 	<para>To mitigate system crashes with such configurations,
-	  chose <literal>Escape to loader prompt</literal> in the boot
-	  menu and enter the following lines from &man.loader.8;
+	  choose <literal>Escape to loader prompt</literal> in the
+	  boot menu and enter the following lines from &man.loader.8;
 	  prompt, after an <literal>OK</literal>:</para>
 
 	<screen>set kern.kstack_pages=4
@@ -130,6 +130,26 @@ boot</screen>
 	  from the historical situation where one could generally
 	  upgrade from anywhere on earlier stable branches, so caution
 	  should be exercised.</para>
+      </listitem>
+
+      <listitem>
+	<para>[2017-07-25] &os;/&arch.arm64; currently lacks
+	  <acronym>EFI</acronym> real-time clock
+	  (<acronym>RTC</acronym>) support, which may cause the system
+	  to boot with the wrong time set.</para>
+
+	<para>As a workaround, either enable &man.ntpdate.8; or
+	  include <literal>ntpd_sync_on_start="YES"</literal> in
+	  &man.rc.conf.5;.</para>
+      </listitem>
+
+      <listitem>
+	<para>[2017-07-25] A late issue was discovered with
+	  &os;/&arch.arm64; and &quot;root on
+	  <acronym>ZFS</acronym>&quot; installations where the root
+	  <acronym>ZFS</acronym> pool would fail to be located.</para>
+
+	<para>There currently is no workaround.</para>
       </listitem>
     </itemizedlist>
   </sect1>
