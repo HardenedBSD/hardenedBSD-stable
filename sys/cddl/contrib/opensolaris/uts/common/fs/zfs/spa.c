@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2017 by Delphix. All rights reserved.
  * Copyright (c) 2015, Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2013 Martin Matuska <mm@FreeBSD.org>. All rights reserved.
  * Copyright (c) 2014 Spectra Logic Corporation, All rights reserved.
@@ -1141,7 +1141,7 @@ spa_activate(spa_t *spa, int mode)
 	list_create(&spa->spa_state_dirty_list, sizeof (vdev_t),
 	    offsetof(vdev_t, vdev_state_dirty_node));
 
-	txg_list_create(&spa->spa_vdev_txg_list,
+	txg_list_create(&spa->spa_vdev_txg_list, spa,
 	    offsetof(struct vdev, vdev_txg_node));
 
 	avl_create(&spa->spa_errlist_scrub,
@@ -1302,6 +1302,19 @@ spa_unload(spa_t *spa)
 	if (spa->spa_sync_on) {
 		txg_sync_stop(spa->spa_dsl_pool);
 		spa->spa_sync_on = B_FALSE;
+	}
+
+	/*
+	 * Even though vdev_free() also calls vdev_metaslab_fini, we need
+	 * to call it earlier, before we wait for async i/o to complete.
+	 * This ensures that there is no async metaslab prefetching, by
+	 * calling taskq_wait(mg_taskq).
+	 */
+	if (spa->spa_root_vdev != NULL) {
+		spa_config_enter(spa, SCL_ALL, FTAG, RW_WRITER);
+		for (int c = 0; c < spa->spa_root_vdev->vdev_children; c++)
+			vdev_metaslab_fini(spa->spa_root_vdev->vdev_child[c]);
+		spa_config_exit(spa, SCL_ALL, FTAG);
 	}
 
 	/*
@@ -2723,10 +2736,14 @@ spa_load_impl(spa_t *spa, uint64_t pool_guid, nvlist_t *config,
 	error = spa_dir_prop(spa, DMU_POOL_VDEV_ZAP_MAP,
 	    &spa->spa_all_vdev_zaps);
 
-	if (error != ENOENT && error != 0) {
+	if (error == ENOENT) {
+		VERIFY(!nvlist_exists(mos_config,
+		    ZPOOL_CONFIG_HAS_PER_VDEV_ZAPS));
+		spa->spa_avz_action = AVZ_ACTION_INITIALIZE;
+		ASSERT0(vdev_count_verify_zaps(spa->spa_root_vdev));
+	} else if (error != 0) {
 		return (spa_vdev_err(rvd, VDEV_AUX_CORRUPT_DATA, EIO));
-	} else if (error == 0 && !nvlist_exists(mos_config,
-	    ZPOOL_CONFIG_HAS_PER_VDEV_ZAPS)) {
+	} else if (!nvlist_exists(mos_config, ZPOOL_CONFIG_HAS_PER_VDEV_ZAPS)) {
 		/*
 		 * An older version of ZFS overwrote the sentinel value, so
 		 * we have orphaned per-vdev ZAPs in the MOS. Defer their
@@ -6490,6 +6507,7 @@ spa_sync_config_object(spa_t *spa, dmu_tx_t *tx)
 	spa_config_enter(spa, SCL_STATE, FTAG, RW_READER);
 
 	ASSERT(spa->spa_avz_action == AVZ_ACTION_NONE ||
+	    spa->spa_avz_action == AVZ_ACTION_INITIALIZE ||
 	    spa->spa_all_vdev_zaps != 0);
 
 	if (spa->spa_avz_action == AVZ_ACTION_REBUILD) {
