@@ -2046,8 +2046,13 @@ check_mos_features(const spa_t *spa)
 	if ((rc = objset_get_dnode(spa, &spa->spa_mos, DMU_OT_OBJECT_DIRECTORY,
 	    &dir)) != 0)
 		return (rc);
-	if ((rc = zap_lookup(spa, &dir, DMU_POOL_FEATURES_FOR_READ, &objnum)) != 0)
-		return (rc);
+	if ((rc = zap_lookup(spa, &dir, DMU_POOL_FEATURES_FOR_READ, &objnum)) != 0) {
+		/*
+		 * It is older pool without features. As we have already
+		 * tested the label, just return without raising the error.
+		 */
+		return (0);
+	}
 
 	if ((rc = objset_get_dnode(spa, &spa->spa_mos, objnum, &dir)) != 0)
 		return (rc);
@@ -2212,7 +2217,7 @@ zfs_lookup(const struct zfsmount *mount, const char *upath, dnode_phys_t *dnode)
 	char path[1024];
 	int symlinks_followed = 0;
 	struct stat sb;
-	struct obj_list *entry;
+	struct obj_list *entry, *tentry;
 	STAILQ_HEAD(, obj_list) on_cache = STAILQ_HEAD_INITIALIZER(on_cache);
 
 	spa = mount->spa;
@@ -2360,7 +2365,7 @@ zfs_lookup(const struct zfsmount *mount, const char *upath, dnode_phys_t *dnode)
 
 	*dnode = dn;
 done:
-	STAILQ_FOREACH(entry, &on_cache, entry)
+	STAILQ_FOREACH_SAFE(entry, &on_cache, entry, tentry)
 		free(entry);
 	return (rc);
 }
