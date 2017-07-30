@@ -3561,10 +3561,18 @@ out:
 	return (rv);
 }
 
+#ifdef PAX_HARDENING
+static int stack_guard_page = 1;
+SYSCTL_INT(_security_bsd, OID_AUTO, stack_guard_page, CTLFLAG_RDTUN,
+    &stack_guard_page, 0,
+    "Specifies the number of guard pages for a stack that grows");
+#else
 static int stack_guard_page = 1;
 SYSCTL_INT(_security_bsd, OID_AUTO, stack_guard_page, CTLFLAG_RWTUN,
     &stack_guard_page, 0,
     "Specifies the number of guard pages for a stack that grows");
+#endif
+
 
 static int
 vm_map_stack_locked(vm_map_t map, vm_offset_t addrbos, vm_size_t max_ssize,
@@ -3648,27 +3656,9 @@ vm_map_stack_locked(vm_map_t map, vm_offset_t addrbos, vm_size_t max_ssize,
 	return (rv);
 }
 
-<<<<<<< HEAD
-#ifdef PAX_HARDENING
-static int stack_guard_page = 1;
-#else
-static int stack_guard_page = 0;
-#endif
-TUNABLE_INT("security.bsd.stack_guard_page", &stack_guard_page);
-SYSCTL_INT(_security_bsd, OID_AUTO, stack_guard_page, CTLFLAG_RW,
-    &stack_guard_page, 0,
-    "Insert stack guard page ahead of the growable segments.");
-
-/* Attempts to grow a vm stack entry.  Returns KERN_SUCCESS if the
- * desired address is already mapped, or if we successfully grow
- * the stack.  Also returns KERN_SUCCESS if addr is outside the
- * stack range (this is strange, but preserves compatibility with
- * the grow function in vm_machdep.c).
-=======
 /*
  * Attempts to grow a vm stack entry.  Returns KERN_SUCCESS if we
  * successfully grow the stack.
->>>>>>> origin/freebsd/10-stable/master
  */
 static int
 vm_map_growstack(vm_map_t map, vm_offset_t addr, vm_map_entry_t gap_entry)
@@ -3737,20 +3727,13 @@ retry:
 	max_grow -= guard;
 	if (grow_amount > max_grow)
 		return (KERN_NO_SPACE);
-<<<<<<< HEAD
-	}
-
-	is_procstack = (addr >= (vm_offset_t)vm->vm_maxsaddr &&
-	    addr < (vm_offset_t)p->p_usrstack) ? 1 : 0;
-=======
->>>>>>> origin/freebsd/10-stable/master
 
 	/*
 	 * If this is the main process stack, see if we're over the stack
 	 * limit.
 	 */
 	is_procstack = addr >= (vm_offset_t)vm->vm_maxsaddr &&
-	    addr < (vm_offset_t)p->p_sysent->sv_usrstack;
+	    addr < (vm_offset_t)p->p_usrstack;
 	if (is_procstack && (ctob(vm->vm_ssize) + grow_amount > stacklim))
 		return (KERN_NO_SPACE);
 
@@ -3824,17 +3807,6 @@ retry:
 		goto retry;
 	}
 
-<<<<<<< HEAD
-		/*
-		 * If this puts us into the previous entry, cut back our
-		 * growth to the available space. Also, see the note above.
-		 */
-		if (addr <= end) {
-			stack_entry->avail_ssize = max_grow;
-			addr = end;
-			if (stack_guard_page)
-				addr += PAGE_SIZE;
-=======
 	if (grow_down) {
 		grow_start = gap_entry->end - grow_amount;
 		if (gap_entry->start + grow_amount == gap_entry->end) {
@@ -3847,7 +3819,6 @@ retry:
 			gap_entry->end -= grow_amount;
 			vm_map_entry_resize_free(map, gap_entry);
 			gap_deleted = false;
->>>>>>> origin/freebsd/10-stable/master
 		}
 		rv = vm_map_insert(map, NULL, 0, grow_start,
 		    grow_start + grow_amount,
