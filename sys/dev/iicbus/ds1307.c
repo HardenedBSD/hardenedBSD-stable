@@ -328,6 +328,10 @@ ds1307_gettime(device_t dev, struct timespec *ts)
 		return (error);
 	}
 
+	/* If the clock halted, we don't have good data. */
+	if (data[DS1307_SECS] & DS1307_SECS_CH)
+		return (EINVAL);
+
 	/* If chip is in AM/PM mode remember that. */
 	if (data[DS1307_HOUR] & DS1307_HOUR_USE_AMPM) {
 		sc->sc_use_ampm = true;
@@ -375,6 +379,10 @@ ds1307_settime(device_t dev, struct timespec *ts)
 			ct.hour = 12;
 	} else
 		pmflags = 0;
+
+	getnanotime(ts);
+	ts->tv_sec -= utc_offset();
+	clock_ts_to_ct(ts, &ct);
 
 	data[DS1307_SECS]    = TOBCD(ct.sec);
 	data[DS1307_MINS]    = TOBCD(ct.min);
