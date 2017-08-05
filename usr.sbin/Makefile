@@ -6,7 +6,7 @@
 SUBDIR=	adduser \
 	arp \
 	binmiscctl \
-	bsdconfig \
+	${_bsdconfig} \
 	camdd \
 	cdcontrol \
 	chkgrp \
@@ -150,6 +150,10 @@ SUBDIR+=	ctm
 
 .if ${MK_CXGBETOOL} != "no"
 SUBDIR+=	cxgbetool
+.endif
+
+.if ${MK_DIALOG} != "no"
+_bsdconfig=	bsdconfig
 .endif
 
 .if ${MK_FLOPPY} != "no"
