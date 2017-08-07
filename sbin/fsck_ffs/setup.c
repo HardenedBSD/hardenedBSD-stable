@@ -68,10 +68,9 @@ static void badsb(int listerr, const char *s);
 int
 setup(char *dev)
 {
-	long cg, asked, i, j;
+	long asked, i, j;
 	long bmapsize;
 	struct stat statb;
-	struct fs proto;
 	size_t size;
 
 	havesb = 0;
@@ -178,26 +177,8 @@ setup(char *dev)
 		skipclean = 0;
 		if (bflag || preen)
 			return(0);
-		if (reply("LOOK FOR ALTERNATE SUPERBLOCKS") == 0)
-			return (0);
-		for (cg = 0; cg < proto.fs_ncg; cg++) {
-			bflag = fsbtodb(&proto, cgsblock(&proto, cg));
-			if (readsb(0) != 0)
-				break;
-		}
-		if (cg >= proto.fs_ncg) {
-			printf("%s %s\n%s %s\n%s %s\n",
-				"SEARCH FOR ALTERNATE SUPER-BLOCK",
-				"FAILED. YOU MUST USE THE",
-				"-b OPTION TO FSCK TO SPECIFY THE",
-				"LOCATION OF AN ALTERNATE",
-				"SUPER-BLOCK TO SUPPLY NEEDED",
-				"INFORMATION; SEE fsck_ffs(8).");
-			bflag = 0;
-			return(0);
-		}
-		pwarn("USING ALTERNATE SUPERBLOCK AT %jd\n", bflag);
-		bflag = 0;
+		/* Looking for alternates is hard punt for now but retain structure */
+		return (0);
 	}
 	if (skipclean && ckclean && sblock.fs_clean) {
 		pwarn("FILE SYSTEM CLEAN; SKIPPING CHECKS\n");
@@ -313,7 +294,7 @@ int
 readsb(int listerr)
 {
 	ufs2_daddr_t super;
-	int i;
+	int i, bad;
 
 	if (bflag) {
 		super = bflag;
@@ -363,39 +344,56 @@ readsb(int listerr)
 	dev_bsize = sblock.fs_fsize / fsbtodb(&sblock, 1);
 	sblk.b_bno = super / dev_bsize;
 	sblk.b_size = SBLOCKSIZE;
-	if (bflag)
-		goto out;
 	/*
 	 * Compare all fields that should not differ in alternate super block.
 	 * When an alternate super-block is specified this check is skipped.
 	 */
+	if (bflag)
+		goto out;
 	getblk(&asblk, cgsblock(&sblock, sblock.fs_ncg - 1), sblock.fs_sbsize);
 	if (asblk.b_errs)
 		return (0);
-	if (altsblock.fs_sblkno != sblock.fs_sblkno ||
-	    altsblock.fs_cblkno != sblock.fs_cblkno ||
-	    altsblock.fs_iblkno != sblock.fs_iblkno ||
-	    altsblock.fs_dblkno != sblock.fs_dblkno ||
-	    altsblock.fs_ncg != sblock.fs_ncg ||
-	    altsblock.fs_bsize != sblock.fs_bsize ||
-	    altsblock.fs_fsize != sblock.fs_fsize ||
-	    altsblock.fs_frag != sblock.fs_frag ||
-	    altsblock.fs_bmask != sblock.fs_bmask ||
-	    altsblock.fs_fmask != sblock.fs_fmask ||
-	    altsblock.fs_bshift != sblock.fs_bshift ||
-	    altsblock.fs_fshift != sblock.fs_fshift ||
-	    altsblock.fs_fragshift != sblock.fs_fragshift ||
-	    altsblock.fs_fsbtodb != sblock.fs_fsbtodb ||
-	    altsblock.fs_sbsize != sblock.fs_sbsize ||
-	    altsblock.fs_nindir != sblock.fs_nindir ||
-	    altsblock.fs_inopb != sblock.fs_inopb ||
-	    altsblock.fs_cssize != sblock.fs_cssize ||
-	    altsblock.fs_ipg != sblock.fs_ipg ||
-	    altsblock.fs_fpg != sblock.fs_fpg ||
-	    altsblock.fs_magic != sblock.fs_magic) {
-		badsb(listerr,
-		"VALUES IN SUPER BLOCK DISAGREE WITH THOSE IN FIRST ALTERNATE");
-		return (0);
+	bad = 0;
+#define CHK(x, y)				\
+	if (altsblock.x != sblock.x) {		\
+		bad++;				\
+		if (listerr && debug)		\
+			printf("SUPER BLOCK VS ALTERNATE MISMATCH %s: " y " vs " y "\n", \
+			    #x, (intmax_t)sblock.x, (intmax_t)altsblock.x); \
+	}
+	CHK(fs_sblkno, "%jd");
+	CHK(fs_cblkno, "%jd");
+	CHK(fs_iblkno, "%jd");
+	CHK(fs_dblkno, "%jd");
+	CHK(fs_ncg, "%jd");
+	CHK(fs_bsize, "%jd");
+	CHK(fs_fsize, "%jd");
+	CHK(fs_frag, "%jd");
+	CHK(fs_bmask, "%#jx");
+	CHK(fs_fmask, "%#jx");
+	CHK(fs_bshift, "%jd");
+	CHK(fs_fshift, "%jd");
+	CHK(fs_fragshift, "%jd");
+	CHK(fs_fsbtodb, "%jd");
+	CHK(fs_sbsize, "%jd");
+	CHK(fs_nindir, "%jd");
+	CHK(fs_inopb, "%jd");
+	CHK(fs_cssize, "%jd");
+	CHK(fs_ipg, "%jd");
+	CHK(fs_fpg, "%jd");
+	CHK(fs_magic, "%#jx");
+#undef CHK
+	if (bad) {
+		if (listerr == 0)
+			return (0);
+		if (preen)
+			printf("%s: ", cdevname);
+		printf(
+		    "VALUES IN SUPER BLOCK LSB=%jd DISAGREE WITH THOSE IN\n"
+		    "LAST ALTERNATE LSB=%jd\n",
+		    sblk.b_bno, asblk.b_bno);
+		if (reply("IGNORE ALTERNATE SUPER BLOCK") == 0)
+			return (0);
 	}
 out:
 	/*
@@ -415,17 +413,6 @@ out:
 	}
 	havesb = 1;
 	return (1);
-}
-
-static void
-badsb(int listerr, const char *s)
-{
-
-	if (!listerr)
-		return;
-	if (preen)
-		printf("%s: ", cdevname);
-	pfatal("BAD SUPER BLOCK: %s\n", s);
 }
 
 void
