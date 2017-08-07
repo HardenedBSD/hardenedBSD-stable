@@ -4771,7 +4771,7 @@ tls_get_addr_common(Elf_Addr **dtvp, int index, size_t offset)
 }
 
 #if defined(__aarch64__) || defined(__arm__) || defined(__mips__) || \
-    defined(__powerpc__) || defined(__riscv__)
+    defined(__powerpc__) || defined(__riscv)
 
 /*
  * Allocate Static TLS using the Variant I method.
