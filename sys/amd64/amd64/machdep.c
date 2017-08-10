@@ -1860,6 +1860,8 @@ hammer_time(u_int64_t modulep, u_int64_t physfree)
 	ksym_end = MD_FETCH(kmdp, MODINFOMD_ESYM, uintptr_t);
 #endif
 
+	identify_hypervisor();
+
 	/* Init basic tunables, hz etc */
 	init_param1();
 

@@ -416,7 +416,15 @@ __DEFAULT_NO_OPTIONS = \
     PORTSNAP \
     RPCBIND_WARMSTART_SUPPORT \
     SVN \
+<<<<<<< HEAD
     USB_GADGET_EXAMPLES
+=======
+    TESTS \
+    USB_GADGET_EXAMPLES \
+    ZONEINFO_LEAPSECONDS_SUPPORT \
+    ZONEINFO_OLD_TIMEZONES_SUPPORT \
+
+>>>>>>> origin/freebsd/10-stable/master
 
 #
 # Default behaviour of some options depends on the architecture.  Unfortunately
@@ -589,6 +597,11 @@ MK_BINUTILS:=	no
 MK_CLANG:=	no
 MK_GCC:=	no
 MK_GDB:=	no
+.endif
+
+.if ${MK_ZONEINFO} == "no"
+MK_ZONEINFO_LEAPSECONDS_SUPPORT:= no
+MK_ZONEINFO_OLD_TIMEZONES_SUPPORT:= no
 .endif
 
 .if ${MK_CLANG} == "no"
