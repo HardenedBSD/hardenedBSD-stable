@@ -5,7 +5,7 @@
 name = "FreeBSD-%PKGNAME%"
 origin = "base"
 version = "%VERSION%"
-comment = "%COMMENT%"
+comment = "%COMMENT% %VCS_REVISION%"
 categories = [ base ]
 maintainer = "re@FreeBSD.org"
 www = "https://www.FreeBSD.org"
@@ -25,6 +25,9 @@ scripts: {
 			continue
 			;;
 	esac
+	if [ -z "${TERM}" ]; then
+		exit 0
+	fi
 	echo "****************************************************************"
 	echo "It is recommended to install the FreeBSD-%PKGNAME% package"
 	echo "with:"
@@ -38,13 +41,14 @@ scripts: {
 	echo
 	echo "****************************************************************"
 	echo
-	echo "Do you want to continue anyway?"
-	echo "[Enter] to continue, ^C to cancel."
-	echo
+	echo "Do you want to continue anyway? (N/y)"
 	read ANSWER
 	case ${ANSWER} in
+		[Yy])
+			exit 0
+			;;
 		*)
-			continue
+			kill ${PPID} ${PID}
 			;;
 	esac
 EOD
