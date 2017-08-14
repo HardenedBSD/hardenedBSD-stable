@@ -263,6 +263,7 @@ SUBDIR+=pf
 .endif
 .endif
 
+HAS_TESTS=
 SUBDIR.${MK_TESTS}+= tests
 
 SUBDIR_PARALLEL=

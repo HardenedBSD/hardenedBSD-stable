@@ -94,6 +94,7 @@ LIBADD+=	gnuregex
 CFLAGS+= -DWITHOUT_NLS
 .endif
 
+HAS_TESTS=
 SUBDIR.${MK_TESTS}+= tests
 
 .include <bsd.prog.mk>

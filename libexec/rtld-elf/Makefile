@@ -86,6 +86,7 @@ beforeinstall:
 
 .PATH: ${.CURDIR}/${RTLD_ARCH}
 
+HAS_TESTS=
 SUBDIR.${MK_TESTS}+= tests
 
 .if ${MK_SHLIBRANDOM} != "no"
