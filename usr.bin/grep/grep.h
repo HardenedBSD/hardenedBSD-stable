@@ -36,7 +36,9 @@
 #include <stdio.h>
 #include <zlib.h>
 
+#ifndef WITHOUT_FASTMATCH
 #include "fastmatch.h"
+#endif
 
 #ifdef WITHOUT_NLS
 #define	getstr(n)	 errstr[n]
@@ -121,13 +123,14 @@ extern char	*label;
 extern const char *color;
 extern int	 binbehave, devbehave, dirbehave, filebehave, grepbehave, linkbehave;
 
-extern bool	 file_err, first, matchall, prev;
-extern int	 tail;
+extern bool	 file_err, matchall;
 extern unsigned int dpatterns, fpatterns, patterns;
 extern struct pat *pattern;
 extern struct epat *dpattern, *fpattern;
 extern regex_t	*er_pattern, *r_pattern;
+#ifndef WITHOUT_FASTMATCH
 extern fastmatch_t *fg_pattern;
+#endif
 
 /* For regex errors  */
 #define	RE_ERROR_BUF	512
@@ -141,10 +144,10 @@ void	*grep_malloc(size_t size);
 void	*grep_calloc(size_t nmemb, size_t size);
 void	*grep_realloc(void *ptr, size_t size);
 char	*grep_strdup(const char *str);
-void	 printline(struct str *line, int sep, regmatch_t *matches, int m);
+void	 grep_printline(struct str *line, int sep);
 
 /* queue.c */
-void	 enqueue(struct str *x);
+bool	 enqueue(struct str *x);
 void	 printqueue(void);
 void	 clearqueue(void);
 
