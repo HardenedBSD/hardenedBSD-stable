@@ -50,6 +50,7 @@ no_obsolete=0
 interactive=0
 install_src=0
 keeptmp=0
+local_resolver=1
 
 update_hash=""
 
@@ -152,11 +153,17 @@ dnssec_check() {
 	local val
 	local rec
 	local is_secure
+	local resolver_flag
+
+	if [ ${local_resolver} -gt 0 ]; then
+		resolver_flag="-r"
+	fi
 
 	case "${dnssec}" in
 		[yY]*)
 			debug_print "[*] Looking up version info with DNSSEC enabled."
 			val=$(${UNBOUND_HOST} \
+				${resolver_flag} \
 				-v \
 				-t txt \
 				-f ${mountpoint}/${dnssec_key} \
