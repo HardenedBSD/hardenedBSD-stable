@@ -189,7 +189,7 @@ SYSCTL_INT(_kern, OID_AUTO, nodump_coredump, CTLFLAG_RW, &set_core_nodump_flag,
 
 #ifdef PAX_HARDENING
 static int	coredump_devctl = 0; // XXX Force disable this feature.
-SYSCTL_INT(_kern, OID_AUTO, coredump_devctl, CTLFLAG_RO, &coredump_devctl,
+SYSCTL_INT(_kern, OID_AUTO, coredump_devctl, CTLFLAG_RD, &coredump_devctl,
 	0, "Generate a devctl notification when processes coredump");
 #else
 static int	coredump_devctl = 0;
