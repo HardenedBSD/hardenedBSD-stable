@@ -399,6 +399,12 @@ check_set_validity() {
 		fi
 	fi
 
+	if [ ${install_src} -gt 0 ]; then
+		if [ -f ${tmpdir}/src.txz ]; then
+			extrafiles="${extrafiles} src.txz"
+		fi
+	fi
+
 	${OPENSSL} x509 \
 		-in ${tmpdir}/pubkey.pem \
 		-pubkey \
@@ -451,7 +457,7 @@ check_set_validity() {
 			-pubin \
 			-inkey ${tmpdir}/pubkey.rsa.pem)
 
-		computedhash=$(sha512 -q ${tmpdir}/${file})
+		computedhash=$(${SHA512} -q ${tmpdir}/${file})
 		res=${?}
 		if [ ${res} -gt 0 ]; then
 			return 1
