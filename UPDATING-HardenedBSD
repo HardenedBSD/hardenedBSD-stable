@@ -1,3 +1,12 @@
+[20170904] Changed pax_elf API
+__HardenedBSD_version = 1100049
+
+	As preparation to hardenedBSD rationalize
+	the pax_elf(...) functions signature, to
+	follow the codes in kern_exec's style.
+	For the details, see the code.
+
+
 [20170716] Enforced KPI
 __HardenedBSD_version = 1100048
 
