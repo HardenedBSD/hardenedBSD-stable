@@ -32,7 +32,7 @@
 #ifndef	_SYS_PAX_H
 #define	_SYS_PAX_H
 
-#define	__HardenedBSD_version	1200052UL
+#define	__HardenedBSD_version	1200053UL
 
 #if defined(_KERNEL) || defined(_WANT_PRISON)
 struct hbsd_features {
@@ -107,7 +107,7 @@ uint64_t pax_get_hardenedbsd_version(void);
  */
 #define pax_elf	__CONCAT(pax_elf, __HBSD_KPI_VERSION)
 #endif
-int pax_elf(struct image_params *imgp, struct thread *td, pax_flag_t mode);
+int pax_elf(struct thread *td, struct image_params *imgp, pax_flag_t mode);
 void pax_get_flags(struct proc *p, pax_flag_t *flags);
 void pax_get_flags_td(struct thread *td, pax_flag_t *flags);
 struct prison *pax_get_prison_td(struct thread *td);
