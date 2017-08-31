@@ -459,18 +459,19 @@ interpret:
 		imgp->vp = newtextvp;
 	}
 
-#ifdef PAX
-	error = pax_elf(td, imgp, 0);
-	if (error)
-		goto exec_fail_dealloc;
-#endif
-
 	/*
 	 * Check file permissions (also 'opens' file)
 	 */
 	error = exec_check_permissions(imgp);
 	if (error)
 		goto exec_fail_dealloc;
+
+#ifdef PAX
+	error = pax_elf(td, imgp, 0);
+	if (error) {
+		goto exec_fail_dealloc;
+	}
+#endif
 
 	imgp->object = imgp->vp->v_object;
 	if (imgp->object != NULL)
