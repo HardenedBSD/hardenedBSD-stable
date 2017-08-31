@@ -13,6 +13,7 @@ LDIRS=	BSD_daemon \
 	drivers \
 	etc \
 	find_interface \
+	hardenedbsd \
 	indent \
 	ipfw \
 	jails \
@@ -60,6 +61,7 @@ XFILES=	BSD_daemon/FreeBSD.pfa \
 	find_interface/Makefile \
 	find_interface/README \
 	find_interface/find_interface.c \
+	hardenedbsd/hbsdcontrol.sh \
 	indent/indent.pro \
 	ipfw/change_rules.sh \
 	jails/README \
