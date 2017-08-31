@@ -331,6 +331,8 @@
             ..
             find_interface
             ..
+            hardenedbsd
+            ..
             hast
             ..
             hostapd
