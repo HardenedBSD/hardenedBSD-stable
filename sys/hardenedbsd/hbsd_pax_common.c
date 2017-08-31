@@ -231,7 +231,7 @@ pax_check_conflicting_modes(const pax_flag_t mode)
  * 			0 on success
  */
 int
-pax_elf(struct thread *td, struct image_params *imgp, pax_flag_t mode)
+pax_elf(struct thread *td, struct image_params *imgp, const pax_flag_t mode)
 {
 	pax_flag_t flags;
 
