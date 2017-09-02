@@ -356,3 +356,14 @@ pax_init_prison(struct prison *pr)
 	pax_log_init_prison(pr);
 }
 
+/*
+ * This function used from traps / panics.
+ */
+void
+pax_print_hbsd_context(void)
+{
+
+	printf("__HardenedBSD_version: %"PRIu64" __FreeBSD_version %"PRIu64"\n",
+	    (uint64_t)__HardenedBSD_version, (uint64_t)__FreeBSD_version);
+	printf("%s", version);
+}
