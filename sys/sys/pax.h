@@ -112,6 +112,7 @@ void pax_get_flags(struct proc *p, pax_flag_t *flags);
 void pax_get_flags_td(struct thread *td, pax_flag_t *flags);
 struct prison *pax_get_prison_td(struct thread *td);
 void pax_init_prison(struct prison *pr);
+void pax_print_hbsd_context(void);
 
 /*
  * ASLR related functions
