@@ -90,8 +90,10 @@ pax_hardening_sysinit(void)
 		    " (hardening.procfs_harden = %d)\n", pax_procfs_harden_global);
 		pax_procfs_harden_global = PAX_FEATURE_SIMPLE_ENABLED;
 	}
-	printf("[HBSD HARDENING] procfs hardening: %s\n",
-	    pax_status_simple_str[pax_procfs_harden_global]);
+	if (bootverbose) {
+		printf("[HBSD HARDENING] procfs hardening: %s\n",
+		    pax_status_simple_str[pax_procfs_harden_global]);
+	}
 
 	switch (pax_randomize_pids_global) {
 	case PAX_FEATURE_SIMPLE_DISABLED:
@@ -102,8 +104,10 @@ pax_hardening_sysinit(void)
 		    " (hardening.randomize_pids = %d)\n", pax_randomize_pids_global);
 		pax_randomize_pids_global = PAX_FEATURE_SIMPLE_ENABLED;
 	}
-	printf("[HBSD HARDENING] randomize pids: %s\n",
-	    pax_status_simple_str[pax_randomize_pids_global]);
+	if (bootverbose) {
+		printf("[HBSD HARDENING] randomize pids: %s\n",
+		    pax_status_simple_str[pax_randomize_pids_global]);
+	}
 
 	switch (pax_init_hardening_global) {
 	case PAX_FEATURE_SIMPLE_DISABLED:
@@ -112,8 +116,10 @@ pax_hardening_sysinit(void)
 	default:
 		pax_init_hardening_global = PAX_FEATURE_SIMPLE_ENABLED;
 	}
-	printf("[HBSD HARDENING] unset insecure init variables: %s\n",
-	    pax_status_simple_str[pax_init_hardening_global]);
+	if (bootverbose) {
+		printf("[HBSD HARDENING] unset insecure init variables: %s\n",
+		    pax_status_simple_str[pax_init_hardening_global]);
+	}
 }
 SYSINIT(pax_hardening, SI_SUB_PAX, SI_ORDER_SECOND, pax_hardening_sysinit, NULL);
 
