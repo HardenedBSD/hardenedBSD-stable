@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2016 Alexander Motin <mav@FreeBSD.org>
+ * Copyright (c) 2016-2017 Alexander Motin <mav@FreeBSD.org>
  * Copyright (C) 2013 Intel Corporation
  * Copyright (C) 2015 EMC Corporation
  * All rights reserved.
@@ -2689,7 +2689,7 @@ reschedule:
 	ntb->lnk_sta = pci_read_config(ntb->device, ntb->reg->lnk_sta, 2);
 	if (_xeon_link_is_up(ntb)) {
 		callout_reset(&ntb->peer_msix_work,
-		    hz * (ntb->peer_msix_good ? 2 : 1) / 100,
+		    hz * (ntb->peer_msix_good ? 2 : 1) / 10,
 		    intel_ntb_exchange_msix, ntb);
 	} else
 		intel_ntb_spad_clear(ntb->device);
@@ -3085,6 +3085,9 @@ static device_method_t ntb_intel_methods[] = {
 	DEVMETHOD(device_probe,		intel_ntb_probe),
 	DEVMETHOD(device_attach,	intel_ntb_attach),
 	DEVMETHOD(device_detach,	intel_ntb_detach),
+	/* Bus interface */
+	DEVMETHOD(bus_child_location_str, ntb_child_location_str),
+	DEVMETHOD(bus_print_child,	ntb_print_child),
 	/* NTB interface */
 	DEVMETHOD(ntb_link_is_up,	intel_ntb_link_is_up),
 	DEVMETHOD(ntb_link_enable,	intel_ntb_link_enable),
