@@ -363,7 +363,7 @@ void
 pax_print_hbsd_context(void)
 {
 
-	printf("__HardenedBSD_version: %"PRIu64" __FreeBSD_version %"PRIu64"\n",
+	printf("__HardenedBSD_version = %"PRIu64" __FreeBSD_version = %"PRIu64"\n",
 	    (uint64_t)__HardenedBSD_version, (uint64_t)__FreeBSD_version);
-	printf("%s", version);
+	printf("version = %s", version);
 }
