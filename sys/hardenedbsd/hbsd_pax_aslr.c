@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Elad Efrat <elad@NetBSD.org>
- * Copyright (c) 2013-2016, by Oliver Pinter <oliver.pinter@hardenedbsd.org>
+ * Copyright (c) 2013-2017, by Oliver Pinter <oliver.pinter@hardenedbsd.org>
  * Copyright (c) 2014-2015, by Shawn Webb <shawn.webb@hardenedbsd.org>
  * All rights reserved.
  *
