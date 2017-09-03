@@ -110,7 +110,10 @@ pax_noexec_sysinit(void)
 		pax_pageexec_status = PAX_FEATURE_FORCE_ENABLED;
 		break;
 	}
-	printf("[HBSD PAGEEXEC] status: %s\n", pax_status_str[pax_pageexec_status]);
+	if (bootverbose) {
+		printf("[HBSD PAGEEXEC] status: %s\n",
+		    pax_status_str[pax_pageexec_status]);
+	}
 
 	switch (pax_mprotect_status) {
 	case PAX_FEATURE_DISABLED:
@@ -124,7 +127,10 @@ pax_noexec_sysinit(void)
 		pax_mprotect_status = PAX_FEATURE_FORCE_ENABLED;
 		break;
 	}
-	printf("[HBSD MPROTECT] status: %s\n", pax_status_str[pax_mprotect_status]);
+	if (bootverbose) {
+		printf("[HBSD MPROTECT] status: %s\n",
+		    pax_status_str[pax_mprotect_status]);
+	}
 }
 SYSINIT(pax_noexec, SI_SUB_PAX, SI_ORDER_SECOND, pax_noexec_sysinit, NULL);
 

@@ -87,8 +87,10 @@ pax_SKEL_sysinit(void)
 		    " (hardening.SKEL.status = %d)\n", pax_SKEL_status);
 		pax_SKEL_status = PAX_FEATURE_SIMPLE_ENABLED;
 	}
-	printf("[HBSD SKEL] skel status: %s\n",
-	    pax_status_simple_str[pax_SKEL_status]);
+	if (bootverbose) {
+		printf("[HBSD SKEL] skel status: %s\n",
+		    pax_status_simple_str[pax_SKEL_status]);
+	}
 }
 SYSINIT(pax_SKEL, SI_SUB_PAX, SI_ORDER_SECOND, pax_SKEL_sysinit, NULL);
 

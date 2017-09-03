@@ -281,13 +281,18 @@ pax_aslr_sysinit(void)
 		pax_aslr_status = PAX_FEATURE_FORCE_ENABLED;
 		break;
 	}
-	printf("[HBSD ASLR] status: %s\n", pax_status_str[pax_aslr_status]);
-	printf("[HBSD ASLR] mmap: %d bit\n", pax_aslr_mmap_len);
-	printf("[HBSD ASLR] exec base: %d bit\n", pax_aslr_exec_len);
-	printf("[HBSD ASLR] stack: %d bit\n", pax_aslr_stack_len);
-	printf("[HBSD ASLR] vdso: %d bit\n", pax_aslr_vdso_len);
+	if (bootverbose) {
+		printf("[HBSD ASLR] status: %s\n", pax_status_str[pax_aslr_status]);
+		printf("[HBSD ASLR] mmap: %d bit\n", pax_aslr_mmap_len);
+		printf("[HBSD ASLR] exec base: %d bit\n", pax_aslr_exec_len);
+		printf("[HBSD ASLR] stack: %d bit\n", pax_aslr_stack_len);
+		printf("[HBSD ASLR] vdso: %d bit\n", pax_aslr_vdso_len);
+	}
 #ifdef MAP_32BIT
-	printf("[HBSD ASLR] map32bit: %d bit\n", pax_aslr_map32bit_len);
+	if (bootverbose) {
+		printf("[HBSD ASLR] map32bit: %d bit\n",
+		    pax_aslr_map32bit_len);
+	}
 
 	switch (pax_disallow_map32bit_status_global) {
 	case PAX_FEATURE_DISABLED:
@@ -301,8 +306,10 @@ pax_aslr_sysinit(void)
 		    pax_disallow_map32bit_status_global);
 		pax_disallow_map32bit_status_global = PAX_FEATURE_FORCE_ENABLED;
 	}
-	printf("[HBSD ASLR] disallow MAP_32BIT mode mmap: %s\n",
-	    pax_status_str[pax_disallow_map32bit_status_global]);
+	if (bootverbose) {
+		printf("[HBSD ASLR] disallow MAP_32BIT mode mmap: %s\n",
+		    pax_status_str[pax_disallow_map32bit_status_global]);
+	}
 #endif
 }
 SYSINIT(pax_aslr, SI_SUB_PAX, SI_ORDER_SECOND, pax_aslr_sysinit, NULL);
@@ -420,11 +427,18 @@ pax_compat_aslr_sysinit(void)
 		pax_aslr_compat_status = PAX_FEATURE_FORCE_ENABLED;
 		break;
 	}
-	printf("[HBSD ASLR (compat)] status: %s\n", pax_status_str[pax_aslr_compat_status]);
-	printf("[HBSD ASLR (compat)] mmap: %d bit\n", pax_aslr_compat_mmap_len);
-	printf("[HBSD ASLR (compat)] exec base: %d bit\n", pax_aslr_compat_exec_len);
-	printf("[HBSD ASLR (compat)] stack: %d bit\n", pax_aslr_compat_stack_len);
-	printf("[HBSD ASLR (compat)] vdso: %d bit\n", pax_aslr_compat_vdso_len);
+	if (bootverbose) {
+		printf("[HBSD ASLR (compat)] status: %s\n",
+		    pax_status_str[pax_aslr_compat_status]);
+		printf("[HBSD ASLR (compat)] mmap: %d bit\n",
+		    pax_aslr_compat_mmap_len);
+		printf("[HBSD ASLR (compat)] exec base: %d bit\n",
+		    pax_aslr_compat_exec_len);
+		printf("[HBSD ASLR (compat)] stack: %d bit\n",
+		    pax_aslr_compat_stack_len);
+		printf("[HBSD ASLR (compat)] vdso: %d bit\n",
+		    pax_aslr_compat_vdso_len);
+	}
 }
 SYSINIT(pax_compat_aslr, SI_SUB_PAX, SI_ORDER_SECOND, pax_compat_aslr_sysinit, NULL);
 
