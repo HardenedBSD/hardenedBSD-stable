@@ -32,7 +32,7 @@
 #ifndef	_SYS_PAX_H
 #define	_SYS_PAX_H
 
-#define	__HardenedBSD_version	1100048UL
+#define	__HardenedBSD_version	1100049UL
 
 #if defined(_KERNEL) || defined(_WANT_PRISON)
 struct hbsd_features {
@@ -107,7 +107,7 @@ uint64_t pax_get_hardenedbsd_version(void);
  */
 #define pax_elf	__CONCAT(pax_elf, __HBSD_KPI_VERSION)
 #endif
-int pax_elf(struct image_params *imgp, struct thread *td, pax_flag_t mode);
+int pax_elf(struct thread *td, struct image_params *imgp, const pax_flag_t mode);
 void pax_get_flags(struct proc *p, pax_flag_t *flags);
 void pax_get_flags_td(struct thread *td, pax_flag_t *flags);
 struct prison *pax_get_prison_td(struct thread *td);
@@ -226,7 +226,7 @@ int pax_procfs_harden(struct thread *td);
 #define	PAX_NOTE_NODISALLOWMAP32BIT	0x00000800
 
 #define	PAX_NOTE_RESERVED0	0x40000000
-#define	PAX_NOTE_FINALIZED	0x80000000
+#define	PAX_NOTE_PREFER_ACL	0x80000000
 
 #define PAX_NOTE_ALL_ENABLED	\
     (PAX_NOTE_PAGEEXEC | PAX_NOTE_MPROTECT | PAX_NOTE_SEGVGUARD | \
@@ -235,7 +235,7 @@ int pax_procfs_harden(struct thread *td);
     (PAX_NOTE_NOPAGEEXEC | PAX_NOTE_NOMPROTECT | \
     PAX_NOTE_NOSEGVGUARD | PAX_NOTE_NOASLR | PAX_NOTE_NOSHLIBRANDOM | \
     PAX_NOTE_NODISALLOWMAP32BIT)
-#define PAX_NOTE_ALL	(PAX_NOTE_ALL_ENABLED | PAX_NOTE_ALL_DISABLED | PAX_NOTE_FINALIZED)
+#define PAX_NOTE_ALL	(PAX_NOTE_ALL_ENABLED | PAX_NOTE_ALL_DISABLED | PAX_NOTE_PREFER_ACL)
 
 #endif /* _KERNEL */
 
