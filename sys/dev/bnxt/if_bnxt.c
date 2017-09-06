@@ -287,7 +287,7 @@ static driver_t bnxt_iflib_driver = {
  * iflib shared context
  */
 
-#define BNXT_DRIVER_VERSION	"1.0.0.1"
+#define BNXT_DRIVER_VERSION	"1.0.0.2"
 char bnxt_driver_version[] = BNXT_DRIVER_VERSION;
 extern struct if_txrx bnxt_txrx;
 static struct if_shared_ctx bnxt_sctx_init = {
@@ -702,6 +702,13 @@ bnxt_attach_pre(if_ctx_t ctx)
 	if (rc)
 		goto failed;
 
+	/* Get the current configuration of this function */
+	rc = bnxt_hwrm_func_qcfg(softc);
+	if (rc) {
+		device_printf(softc->dev, "attach: hwrm func qcfg failed\n");
+		goto failed;
+	}
+
 	iflib_set_mac(ctx, softc->func.mac_addr);
 
 	scctx->isc_txrx = &bnxt_txrx;
@@ -761,12 +768,16 @@ bnxt_attach_pre(if_ctx_t ctx)
 	    scctx->isc_nrxd[1];
 	scctx->isc_rxqsizes[2] = sizeof(struct rx_prod_pkt_bd) *
 	    scctx->isc_nrxd[2];
+
 	scctx->isc_nrxqsets_max = min(pci_msix_count(softc->dev)-1,
-	    softc->func.max_cp_rings - 1);
+	    softc->fn_qcfg.alloc_completion_rings - 1);
 	scctx->isc_nrxqsets_max = min(scctx->isc_nrxqsets_max,
-	    softc->func.max_rx_rings);
-	scctx->isc_ntxqsets_max = min(softc->func.max_rx_rings,
-	    softc->func.max_cp_rings - scctx->isc_nrxqsets_max - 1);
+	    softc->fn_qcfg.alloc_rx_rings);
+	scctx->isc_nrxqsets_max = min(scctx->isc_nrxqsets_max,
+	    softc->fn_qcfg.alloc_vnics);
+	scctx->isc_ntxqsets_max = min(softc->fn_qcfg.alloc_tx_rings,
+	    softc->fn_qcfg.alloc_completion_rings - scctx->isc_nrxqsets_max - 1);
+
 	scctx->isc_rss_table_size = HW_HASH_INDEX_SIZE;
 	scctx->isc_rss_table_mask = scctx->isc_rss_table_size - 1;
 
@@ -919,7 +930,7 @@ bnxt_init(if_ctx_t ctx)
 	softc->def_cp_ring.v_bit = 1;
 	bnxt_mark_cpr_invalid(&softc->def_cp_ring);
 	rc = bnxt_hwrm_ring_alloc(softc,
-	    HWRM_RING_ALLOC_INPUT_RING_TYPE_CMPL,
+	    HWRM_RING_ALLOC_INPUT_RING_TYPE_L2_CMPL,
 	    &softc->def_cp_ring.ring,
 	    (uint16_t)HWRM_NA_SIGNATURE,
 	    HWRM_NA_SIGNATURE, true);
@@ -945,7 +956,7 @@ bnxt_init(if_ctx_t ctx)
 		softc->rx_cp_rings[i].last_idx = UINT32_MAX;
 		bnxt_mark_cpr_invalid(&softc->rx_cp_rings[i]);
 		rc = bnxt_hwrm_ring_alloc(softc,
-		    HWRM_RING_ALLOC_INPUT_RING_TYPE_CMPL,
+		    HWRM_RING_ALLOC_INPUT_RING_TYPE_L2_CMPL,
 		    &softc->rx_cp_rings[i].ring, (uint16_t)HWRM_NA_SIGNATURE,
 		    HWRM_NA_SIGNATURE, true);
 		if (rc)
@@ -1043,7 +1054,7 @@ bnxt_init(if_ctx_t ctx)
 		softc->tx_cp_rings[i].v_bit = 1;
 		bnxt_mark_cpr_invalid(&softc->tx_cp_rings[i]);
 		rc = bnxt_hwrm_ring_alloc(softc,
-		    HWRM_RING_ALLOC_INPUT_RING_TYPE_CMPL,
+		    HWRM_RING_ALLOC_INPUT_RING_TYPE_L2_CMPL,
 		    &softc->tx_cp_rings[i].ring, (uint16_t)HWRM_NA_SIGNATURE,
 		    HWRM_NA_SIGNATURE, false);
 		if (rc)
@@ -1143,7 +1154,7 @@ bnxt_media_status(if_ctx_t ctx, struct ifmediareq * ifmr)
 	else
 		ifmr->ifm_status &= ~IFM_ACTIVE;
 
-	if (link_info->duplex == HWRM_PORT_PHY_QCFG_OUTPUT_DUPLEX_FULL)
+	if (link_info->duplex == HWRM_PORT_PHY_QCFG_OUTPUT_DUPLEX_CFG_FULL)
 		ifmr->ifm_active |= IFM_FDX;
 	else
 		ifmr->ifm_active |= IFM_HDX;
@@ -2277,7 +2288,7 @@ bnxt_report_link(struct bnxt_softc *softc)
 
 	if (softc->link_info.link_up) {
 		if (softc->link_info.duplex ==
-		    HWRM_PORT_PHY_QCFG_OUTPUT_DUPLEX_FULL)
+		    HWRM_PORT_PHY_QCFG_OUTPUT_DUPLEX_CFG_FULL)
 			duplex = "full duplex";
 		else
 			duplex = "half duplex";
