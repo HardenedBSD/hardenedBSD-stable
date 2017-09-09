@@ -74,7 +74,6 @@
 #define	IFAULT_IOP_OVER_TEMP_THRESHOLD_EXCEEDED	0x2810
 
 #define MPR_SCSI_RI_INVALID_FRAME	(0x00000002)
-#define MPR_STRING_LENGTH               64
 
 #define DEFAULT_SPINUP_WAIT	3	/* seconds to wait for spinup */
 
@@ -264,6 +263,26 @@ struct mpr_event_handle {
 	uint8_t				mask[16];
 };
 
+struct mpr_queue {
+	struct mpr_softc		*sc;
+	int				qnum;
+	MPI2_REPLY_DESCRIPTORS_UNION	*post_queue;
+	int				replypostindex;
+#ifdef notyet
+	ck_ring_buffer_t		*ringmem;
+	ck_ring_buffer_t		*chainmem;
+	ck_ring_t			req_ring;
+	ck_ring_t			chain_ring;
+#endif
+	bus_dma_tag_t			buffer_dmat;
+	int				io_cmds_highwater;
+	int				chain_free_lowwater;
+	int				chain_alloc_fail;
+	struct resource			*irq;
+	void				*intrhand;
+	int				irq_rid;
+};
+
 struct mpr_softc {
 	device_t			mpr_dev;
 	struct cdev			*mpr_cdev;
@@ -307,9 +326,9 @@ struct mpr_softc {
 	struct mpr_prp_page		*prps;
 	struct callout			periodic;
 	struct callout			device_check_callout;
+	struct mpr_queue		*queues;
 
 	struct mprsas_softc		*sassc;
-	char            tmp_string[MPR_STRING_LENGTH];
 	TAILQ_HEAD(, mpr_command)	req_list;
 	TAILQ_HEAD(, mpr_command)	high_priority_req_list;
 	TAILQ_HEAD(, mpr_chain)		chain_list;
@@ -338,9 +357,6 @@ struct mpr_softc {
 
 	struct mtx			mpr_mtx;
 	struct intr_config_hook		mpr_ich;
-	struct resource			*mpr_irq[MPR_MSI_COUNT];
-	void				*mpr_intrhand[MPR_MSI_COUNT];
-	int				mpr_irq_rid[MPR_MSI_COUNT];
 
 	uint8_t				*req_frames;
 	bus_addr_t			req_busaddr;
@@ -702,6 +718,7 @@ mpr_unmask_intr(struct mpr_softc *sc)
 }
 
 int mpr_pci_setup_interrupts(struct mpr_softc *sc);
+void mpr_pci_free_interrupts(struct mpr_softc *sc);
 int mpr_pci_restore(struct mpr_softc *sc);
 
 void mpr_get_tunables(struct mpr_softc *sc);
