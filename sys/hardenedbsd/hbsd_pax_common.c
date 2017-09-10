@@ -69,6 +69,7 @@ static int pax_check_conflicting_modes(const pax_flag_t mode);
 CTASSERT((sizeof((struct proc *)NULL)->p_pax) == sizeof(pax_flag_t));
 CTASSERT((sizeof((struct thread *)NULL)->td_pax) == sizeof(pax_flag_t));
 CTASSERT((sizeof((struct image_params *)NULL)->pax.req_acl_flags) == sizeof(pax_flag_t));
+CTASSERT((sizeof((struct image_params *)NULL)->pax.req_extattr_flags) == sizeof(pax_flag_t));
 
 /*
  * The PAX_HARDENING_{,NO}SHLIBRANDOM flags are
@@ -84,7 +85,7 @@ SYSCTL_NODE(_hardening, OID_AUTO, pax, CTLFLAG_RD, 0,
 SYSCTL_UQUAD(_hardening, OID_AUTO, version, CTLFLAG_RD|CTLFLAG_CAPRD,
     SYSCTL_NULL_UQUAD_PTR, __HardenedBSD_version, "HardenedBSD version");
 
-#if defined(PAX_CONTROL_ACL)
+#if defined(PAX_CONTROL_ACL) || defined(PAX_CONTROL_EXTATTR)
 SYSCTL_NODE(_hardening, OID_AUTO, control, CTLFLAG_RD, 0,
     "PaX features control subnode.");
 #endif
@@ -234,7 +235,16 @@ pax_get_requested_flags(struct image_params *imgp)
 	pax_flag_t req_flags;
 
 	req_flags = 0;
-#if defined(PAX_CONTROL_ACL)
+
+#if defined(PAX_CONTROL_ACL) && defined(PAX_CONTROL_EXTATTR)
+	req_flags = (imgp->pax.req_acl_flags & PAX_NOTE_PREFER_ACL) ?
+	    imgp->pax.req_acl_flags : imgp->pax.req_extattr_flags;
+
+	if (req_flags == 0 && imgp->pax.req_acl_flags != 0)
+		req_flags = imgp->pax.req_acl_flags;
+#elif defined(PAX_CONTROL_EXTATTR)
+	req_flags =  imgp->pax.req_extattr_flags ? imgp->pax.req_extattr_flags : 0;
+#elif defined(PAX_CONTROL_ACL)
 	req_flags = imgp->pax.req_acl_flags ? imgp->pax.req_acl_flags : 0;
 #endif
 

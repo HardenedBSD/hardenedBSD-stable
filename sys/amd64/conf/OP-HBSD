@@ -84,6 +84,7 @@ options 	RCTL			# Resource limits
 
 # HardenedBSD hardening options
 options 	PAX			# PaX framework
+options 	PAX_CONTROL_EXTATTR	# FS-EA based control framework
 options 	PAX_SYSCTLS		# sysctls for run-time options
 options 	PAX_ASLR		# Address Space Layout Randomization
 options 	PAX_NOEXEC		# Remove WX pages from user-space and enforce W^X
