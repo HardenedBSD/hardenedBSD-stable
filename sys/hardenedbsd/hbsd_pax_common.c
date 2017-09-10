@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Elad Efrat <elad@NetBSD.org>
- * Copyright (c) 2013-2016, by Oliver Pinter <oliver.pinter@hardenedbsd.org>
+ * Copyright (c) 2013-2017, by Oliver Pinter <oliver.pinter@hardenedbsd.org>
  * Copyright (c) 2014-2015, by Shawn Webb <shawn.webb@hardenedbsd.org>
  * All rights reserved.
  *
@@ -68,6 +68,7 @@ static int pax_check_conflicting_modes(const pax_flag_t mode);
 
 CTASSERT((sizeof((struct proc *)NULL)->p_pax) == sizeof(pax_flag_t));
 CTASSERT((sizeof((struct thread *)NULL)->td_pax) == sizeof(pax_flag_t));
+CTASSERT((sizeof((struct image_params *)NULL)->pax.req_acl_flags) == sizeof(pax_flag_t));
 
 /*
  * The PAX_HARDENING_{,NO}SHLIBRANDOM flags are
@@ -79,6 +80,11 @@ CTASSERT(PAX_NOTE_NOSHLIBRANDOM == PAX_HARDENING_NOSHLIBRANDOM);
 
 SYSCTL_NODE(_hardening, OID_AUTO, pax, CTLFLAG_RD, 0,
     "PaX (exploit mitigation) features.");
+
+#if defined(PAX_CONTROL_ACL)
+SYSCTL_NODE(_hardening, OID_AUTO, control, CTLFLAG_RD, 0,
+    "PaX features control subnode.");
+#endif
 
 SYSCTL_U64(_hardening, OID_AUTO, version, CTLFLAG_RD|CTLFLAG_CAPRD,
     SYSCTL_NULL_U64_PTR, __HardenedBSD_version, "HardenedBSD version");
@@ -221,19 +227,44 @@ pax_check_conflicting_modes(const pax_flag_t mode)
 	return (0);
 }
 
+static pax_flag_t
+pax_get_requested_flags(struct image_params *imgp)
+{
+	pax_flag_t req_flags;
+
+	req_flags = 0;
+#if defined(PAX_CONTROL_ACL)
+	req_flags = imgp->pax.req_acl_flags ? imgp->pax.req_acl_flags : 0;
+#endif
+
+	return (req_flags);
+}
+
 /*
  * @bried Initialize the new process PaX state
  *
+ * @param td		Pointer to the current thread.
  * @param imgp		Executable image's structure.
- * @param mode		Requested mode.
  *
  * @return		ENOEXEC on fail
  * 			0 on success
  */
 int
-pax_elf(struct thread *td, struct image_params *imgp, const pax_flag_t mode)
+pax_elf(struct thread *td, struct image_params *imgp)
 {
-	pax_flag_t flags;
+	pax_flag_t flags, mode;
+
+#ifdef PAX_CONTROL_ACL
+#ifdef PAX_CONTROL_ACL_OVERRIDE_SUPPORT
+	pax_get_flags_td(td, &flags);
+	if ((flags & PAX_NOTE_PREFER_ACL) == PAX_NOTE_PREFER_ACL)
+		return (0);
+#endif
+#endif
+
+	mode = pax_get_requested_flags(imgp);
+
+	flags = 0;
 
 	if (pax_validate_flags(mode) != 0) {
 		pax_log_internal_imgp(imgp, PAX_LOG_DEFAULT,
@@ -253,8 +284,6 @@ pax_elf(struct thread *td, struct image_params *imgp, const pax_flag_t mode)
 
 		return (ENOEXEC);
 	}
-
-	flags = 0;
 
 #ifdef PAX_ASLR
 	flags |= pax_aslr_setup_flags(imgp, td, mode);
@@ -299,6 +328,15 @@ pax_elf(struct thread *td, struct image_params *imgp, const pax_flag_t mode)
 
 		return (ENOEXEC);
 	}
+
+#ifdef PAX_CONTROL_ACL
+#ifdef PAX_CONTROL_ACL_OVERRIDE_SUPPORT
+	if ((mode & PAX_NOTE_PREFER_ACL) == PAX_NOTE_PREFER_ACL)
+		flags |= PAX_NOTE_PREFER_ACL;
+	else
+		flags &= ~PAX_NOTE_PREFER_ACL;
+#endif
+#endif
 
 	pax_set_flags(imgp->proc, td, flags);
 
