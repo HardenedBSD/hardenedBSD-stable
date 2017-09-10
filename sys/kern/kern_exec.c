@@ -382,6 +382,7 @@ do_execve(struct thread *td, struct image_args *args, struct mac *mac_p)
 	static const char fexecv_proc_title[] = "(fexecv)";
 #ifdef PAX
 	image_params.pax.req_acl_flags = 0;
+	image_params.pax.req_extattr_flags = 0;
 #endif
 
 	imgp = &image_params;
@@ -468,6 +469,12 @@ interpret:
 	error = exec_check_permissions(imgp);
 	if (error)
 		goto exec_fail_dealloc;
+
+#ifdef PAX_CONTROL_EXTATTR
+	error = pax_control_extattr_parse_flags(td, imgp);
+	if (error)
+		goto exec_fail_dealloc;
+#endif
 
 #ifdef PAX
 	error = pax_elf(td, imgp);
