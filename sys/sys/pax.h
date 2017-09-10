@@ -114,7 +114,12 @@ struct prison *pax_get_prison_td(struct thread *td);
 void pax_init_prison(struct prison *pr);
 void pax_print_hbsd_context(void);
 
+/*
+ * HardenedBSD's hbsdcontol related functions
+ */
 int pax_control_acl_set_flags(struct thread *td, struct image_params *imgp, const pax_flag_t req_flags);
+int pax_control_extattr_parse_flags(struct thread *td, struct image_params *imgp);
+
 /*
  * ASLR related functions
  */
