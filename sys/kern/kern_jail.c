@@ -2356,7 +2356,9 @@ prison_remove_one(struct prison *pr)
 	int deuref;
 
 #ifdef MAC
+#ifdef PAX_CONTROL_ACL
 	mac_prison_destroy(pr);
+#endif
 #endif
 
 	/* If the prison was persistent, it is not anymore. */
