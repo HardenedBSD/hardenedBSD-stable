@@ -380,6 +380,9 @@ do_execve(struct thread *td, struct image_args *args, struct mac *mac_p)
 	struct pmckern_procexec pe;
 #endif
 	static const char fexecv_proc_title[] = "(fexecv)";
+#ifdef PAX
+	image_params.pax.req_acl_flags = 0;
+#endif
 
 	imgp = &image_params;
 
@@ -467,7 +470,7 @@ interpret:
 		goto exec_fail_dealloc;
 
 #ifdef PAX
-	error = pax_elf(td, imgp, 0);
+	error = pax_elf(td, imgp);
 	if (error) {
 		goto exec_fail_dealloc;
 	}

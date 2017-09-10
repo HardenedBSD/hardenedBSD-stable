@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Elad Efrat <elad@NetBSD.org>
- * Copyright (c) 2013-2016, by Oliver Pinter <oliver.pinter@hardenedbsd.org>
+ * Copyright (c) 2013-2017, by Oliver Pinter <oliver.pinter@hardenedbsd.org>
  * Copyright (c) 2014-2015 by Shawn Webb <shawn.webb@hardenedbsd.org>
  * All rights reserved.
  *
@@ -107,13 +107,14 @@ uint64_t pax_get_hardenedbsd_version(void);
  */
 #define pax_elf	__CONCAT(pax_elf, __HBSD_KPI_VERSION)
 #endif
-int pax_elf(struct thread *td, struct image_params *imgp, const pax_flag_t mode);
+int pax_elf(struct thread *td, struct image_params *imgp);
 void pax_get_flags(struct proc *p, pax_flag_t *flags);
 void pax_get_flags_td(struct thread *td, pax_flag_t *flags);
 struct prison *pax_get_prison_td(struct thread *td);
 void pax_init_prison(struct prison *pr);
 void pax_print_hbsd_context(void);
 
+int pax_control_acl_set_flags(struct thread *td, struct image_params *imgp, const pax_flag_t req_flags);
 /*
  * ASLR related functions
  */
