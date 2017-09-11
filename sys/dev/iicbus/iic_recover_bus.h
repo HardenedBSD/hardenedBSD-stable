@@ -1,6 +1,8 @@
 /*-
- * Copyright (c) 2013 Ian Lepore <ian@freebsd.org>
+ * Copyright (c) 2017 Ian Lepore <ian@freebsd.org>
  * All rights reserved.
+ *
+ * Development sponsored by Microsemi, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,40 +28,30 @@
  * $FreeBSD$
  */
 
-#ifndef	IMX_MACHDEP_H
-#define	IMX_MACHDEP_H
+/*
+ * Helper code to recover a hung i2c bus by bit-banging a recovery sequence.
+ */
 
-#include <sys/types.h>
-#include <sys/sysctl.h>
+#ifndef _IICBUS_IIC_RECOVER_BUS_H_
+#define	_IICBUS_IIC_RECOVER_BUS_H_
 
-SYSCTL_DECL(_hw_imx);
-
-/* Common functions, implemented in imx_machdep.c. */
-
-void imx_wdog_cpu_reset(vm_offset_t _wdcr_phys)  __attribute__((__noreturn__));
-void imx_wdog_init_last_reset(vm_offset_t _wdsr_phys);
-
-/* From here down, routines are implemented in imxNN_machdep.c. */
+struct iicrb_pin_access {
+	void   *ctx;
+	int   (*getsda)(void *ctx);
+	void  (*setsda)(void *ctx, int value);
+	int   (*getscl)(void *ctx);
+	void  (*setscl)(void *ctx, int value);
+};
 
 /*
- * SoC identity.
- * According to the documentation, there is such a thing as an i.MX6 Dual
- * (non-lite flavor).  However, Freescale doesn't seem to have assigned it a
- * number in their code for determining the SoC type in u-boot.
+ * Drive the bus-recovery logic by manipulating the line states using the
+ * caller-provided functions.  This does not block or sleep or acquire any locks
+ * (unless the provided pin access functions do so).  It uses DELAY() to pace
+ * bits on the bus.
  *
- * To-do: put silicon revision numbers into the low-order bits somewhere.
+ * Returns 0 if the bus is functioning properly or IIC_EBUSERR if the recovery
+ * attempt failed and some slave device is still driving the bus.
  */
-#define	IMXSOC_51	0x51000000
-#define	IMXSOC_53	0x53000000
-#define	IMXSOC_6SL	0x60000000
-#define	IMXSOC_6DL	0x61000000
-#define	IMXSOC_6S	0x62000000
-#define	IMXSOC_6Q	0x63000000
-#define	IMXSOC_6UL	0x64000000
-#define	IMXSOC_FAMSHIFT	28
-
-u_int imx_soc_type(void);
-u_int imx_soc_family(void);
+int iic_recover_bus(struct iicrb_pin_access *pins);
 
 #endif
-
