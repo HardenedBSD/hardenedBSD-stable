@@ -1,6 +1,8 @@
 [20170914] TOCTOU fix, PAX_CONTROL_{ACL,EXTATTR}
 __HardenedBSD_version = 1200055
 
+	hbsdcontrol
+	-----------------------------------------------------------------------
 	The hbsdcontrol subsystem is an extattr(9) based control pane for
 	HardenedBSD's security settings.
 	
@@ -45,6 +47,41 @@ __HardenedBSD_version = 1200055
 	* hbsd.pax.aslr = 1 and hbsd.pax.noaslr = 1 -> invalid, warning message + execution error
 	
 	Attributes in user namespace are ignored.
+
+	TOCTOU fix, PAX_ACL
+	-----------------------------------------------------------------------
+	As preparation to hbsdcontrol, and to clean up the whole control logic
+	there is some new kernel knob:
+
+	* PAX_CONTROL_ACL
+	* PAX_CONTROL_ACL_OVERRIDE_SUPPORT
+	* PAX_CONTROL_EXTATTR
+
+	If you want to use the external secadm utility to manage hardenedbsd's
+	security features, then you should add 
+
+	 options PAX_CONTROL_ACL
+
+	to your kernel config.
+
+	If you want to use the extattr(9) based hbsdcontrol, you should add
+	the
+
+	 options PAX_CONTROL_EXTATTR
+
+	kernel knob.
+
+	If you want to use both hbsdcontrol and secadm, and it's nice to add
+
+	 option PAX_CONTROL_ACL_OVERRIDE_SUPPORT
+
+	too. This is nice in very special case, when you set rules both
+	from hbsdcontrol and from secadm on the _same_ file. By default
+	always the hbsdcontrol wins this situation, and what was set up
+	by hbsdcontrol gets applied as policy. To override this behavior
+	you can add a special flag in you secadm conf to override this
+	behavior. For more details consult with secadm's source code /
+	readme / man page.
 
 
 [20170914] Changed auxvector after e5ea82a50dd64a3e47767b132a16281242ff396d
