@@ -107,16 +107,11 @@ __ElfType(Auxinfo);
 #define	AT_PAGESIZESLEN	19	/* Number of pagesizes. */
 #define	AT_STACKPROT	21	/* Initial stack protection. */
 #define	AT_TIMEKEEP	22	/* Pointer to timehands. */
-<<<<<<< HEAD
-#define	AT_PAXFLAGS	23      /* PaX / HardenedBSD flags */
-
-#define	AT_COUNT	24	/* Count of defined aux entry types. */
-=======
 #define	AT_EHDRFLAGS	24	/* e_flags field from elf hdr */
 #define	AT_HWCAP	25	/* CPU feature flags. */
+#define	AT_PAXFLAGS	26      /* PaX / HardenedBSD flags */
 
-#define	AT_COUNT	26	/* Count of defined aux entry types. */
->>>>>>> origin/freebsd/current/master
+#define	AT_COUNT	27	/* Count of defined aux entry types. */
 
 /*
  * Relocation types.

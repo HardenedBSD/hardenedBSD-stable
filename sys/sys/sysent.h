@@ -130,11 +130,8 @@ struct sysentvec {
 	void		(*sv_schedtail)(struct thread *);
 	void		(*sv_thread_detach)(struct thread *);
 	int		(*sv_trap)(struct thread *);
-<<<<<<< HEAD
 	void		(* const sv_pax_aslr_init)(struct proc *p);
-=======
 	u_long		*sv_hwcap;	/* Value passed in AT_HWCAP. */
->>>>>>> origin/freebsd/current/master
 };
 
 #define	SV_ILP32	0x000100	/* 32-bit executable. */
