@@ -86,7 +86,7 @@ static void pax_log_ulog(const char *prefix, const char *fmt, va_list ap);
 		    "\035<f28>"		\
 		    "\036<f29>"		\
 		    "\037<f30>"		\
-		    "\040<f31>"
+		    "\040EXPLICIT_ACL"
 
 #define __HARDENING_LOG_TEMPLATE(MAIN, SUBJECT, prefix, name)		\
 void									\
