@@ -1,4 +1,52 @@
-[20170917] Added LibreSSL to the base
+[20171002] TOCTOU fix, PAX_CONTROL_{ACL,EXTATTR}
+__HardenedBSD_version = 1100051
+
+	The hbsdcontrol subsystem is an extattr(9) based control pane for
+	HardenedBSD's security settings.
+	
+	Currently only the system namespace supported. (The FreeBSD's extattr
+	subsystem has two namespace: system and user. The system namespace is
+	writeable only from non-jail root user, the user namespace is writeable
+	from all users.)
+	This means only the root can assign rules to specific file. The other
+	restriction is similar, only from the host is allowed to set rules to
+	specific file, and prohibited a such operation from jails, for jail's
+	root user too prohibited.
+	
+	To enable the hbsdcontrol subsystem, you should add the
+	
+	options       PAX_CONTROL_EXTATTR
+	
+	kernel knob to your kernel config.
+	
+	The hbsdcontrol subsystem use the following extended attributes:
+	
+	    hbsd.pax.aslr
+	    hbsd.pax.noaslr
+	    hbsd.pax.segvguard
+	    hbsd.pax.nosegvguard
+	    hbsd.pax.pageexec
+	    hbsd.pax.nopageexec
+	    hbsd.pax.mprotect
+	    hbsd.pax.nomprotect
+	    hbsd.pax.shlibrandom
+	    hbsd.pax.noshlibrandom
+	    hbsd.pax.disallow_map32bit
+	    hbsd.pax.nodisallow_map32bit
+	
+	Valid values are only the 0 (= disabled) and 1 (= enabled).
+	Valid settings are the following in system FS-EA namespace (with the ASLR
+	example, the same is true for the other settings):
+	
+	* no hbsd.pax.aslr, nor hbsd.pax.noaslr assigned to the file -> system default
+	* hbsd.pax.aslr = 1 and hbsd.pax.noaslr = 0 -> enabled ASLR
+	* hbsd.pax.aslr = 0 and hbsd.pax.noaslr = 1 -> disabled ASLR
+	* hbsd.pax.aslr = 0 and hbsd.pax.noaslr = 0 -> invalid, warning message + execution error
+	* hbsd.pax.aslr = 1 and hbsd.pax.noaslr = 1 -> invalid, warning message + execution error
+	
+	Attributes in user namespace are ignored.
+
+
 __HardenedBSD_version = 1100050
 
 	The LibreSSL SSL and TLS implementation
