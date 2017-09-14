@@ -1,3 +1,36 @@
+[20170914] Changed auxvector after e5ea82a50dd64a3e47767b132a16281242ff396d
+__HardenedBSD_version = 1200054
+
+	After the following commit:
+
+	> commit e5ea82a50dd64a3e47767b132a16281242ff396d
+	> Author: jhb <jhb@FreeBSD.org>
+	> Date:   Thu Sep 14 14:26:55 2017 +0000
+
+	>     Add AT_HWCAP and AT_EHDRFLAGS on all platforms.
+	>     
+	>     A new 'u_long *sv_hwcap' field is added to 'struct sysentvec'.  A
+	>     process ABI can set this field to point to a value holding a mask of
+	>     architecture-specific CPU feature flags.  If an ABI does not wish to
+	>     supply AT_HWCAP to processes the field can be left as NULL.
+	>     
+	>     The support code for AT_EHDRFLAGS was already present on all systems,
+	>     just the #define was not present.  This is a step towards unifying the
+	>     AT_* constants across platforms.
+	>     
+	>     Reviewed by:    kib
+	>     MFC after:      1 month
+	>     Differential Revision:  https://reviews.freebsd.org/D12290
+
+	> Notes:
+	>     svn path=/head/; revision=323579
+
+	the AT_PAXFLAGS has been changed from 24 to 26 position in
+	elf auxvector. This may break some functionality, especially
+	the SHLIBRAND feature, when you running on a newer kernel
+	with an older user-space.
+
+
 [20170831] Changed pax_elf API
 __HardenedBSD_version = 1200053
 
