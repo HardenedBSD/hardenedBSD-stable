@@ -1,3 +1,16 @@
+[20170917] Added LibreSSL to the base
+__HardenedBSD_version = 1100050
+
+	The LibreSSL SSL and TLS implementation
+	was added to 11-STABLE's base system as
+	an OpenSSL alternative. It is enabled by
+	default.
+	If you encounter any problem, you can
+	switch back to OpenSSL by adding the
+	WITHOUT_LIBRESSL= knob to /etc/src.conf,
+	and then do a full buildworld + installworld.
+
+
 [20170904] Changed pax_elf API
 __HardenedBSD_version = 1100049
 
