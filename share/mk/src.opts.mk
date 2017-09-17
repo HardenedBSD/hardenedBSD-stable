@@ -63,7 +63,6 @@ __DEFAULT_YES_OPTIONS = \
     BOOTPARAMD \
     BOOTPD \
     BSD_CPIO \
-    BSD_GREP_FASTMATCH \
     BSDINSTALL \
     BSNMP \
     BZIP2 \
@@ -178,7 +177,12 @@ __DEFAULT_YES_OPTIONS = \
 
 __DEFAULT_NO_OPTIONS = \
     BSD_GREP \
+<<<<<<< HEAD
     DEVD_PIE \
+=======
+    BSD_GREP_FASTMATCH \
+    CLANG_EXTRAS \
+>>>>>>> origin/freebsd/current/master
     DTRACE_TESTS \
     FREEBSD_UPDATE \
     GNU_GREP_COMPAT \
