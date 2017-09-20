@@ -87,12 +87,17 @@
  *
  */
 
+#ifndef VM_PAGE_HAVE_PGLIST
+TAILQ_HEAD(pglist, vm_page);
+#define VM_PAGE_HAVE_PGLIST
+#endif
+
 struct vm_object {
 	struct rwlock lock;
 	TAILQ_ENTRY(vm_object) object_list; /* list of all objects */
 	LIST_HEAD(, vm_object) shadow_head; /* objects that this is a shadow for */
 	LIST_ENTRY(vm_object) shadow_list; /* chain of shadow objects */
-	TAILQ_HEAD(respgs, vm_page) memq; /* list of resident pages */
+	struct pglist memq;		/* list of resident pages */
 	struct vm_radix rtree;		/* root of the resident page radix trie*/
 	vm_pindex_t size;		/* Object size */
 	int generation;			/* generation ID */
@@ -171,11 +176,11 @@ struct vm_object {
 #define	OBJ_FICTITIOUS	0x0001		/* (c) contains fictitious pages */
 #define	OBJ_UNMANAGED	0x0002		/* (c) contains unmanaged pages */
 #define	OBJ_POPULATE	0x0004		/* pager implements populate() */
-#define OBJ_DEAD	0x0008		/* dead objects (during rundown) */
+#define	OBJ_DEAD	0x0008		/* dead objects (during rundown) */
 #define	OBJ_NOSPLIT	0x0010		/* dont split this object */
 #define	OBJ_UMTXDEAD	0x0020		/* umtx pshared was terminated */
-#define OBJ_PIPWNT	0x0040		/* paging in progress wanted */
-#define OBJ_MIGHTBEDIRTY 0x0100		/* object might be dirty, only for vnode */
+#define	OBJ_PIPWNT	0x0040		/* paging in progress wanted */
+#define	OBJ_MIGHTBEDIRTY 0x0100		/* object might be dirty, only for vnode */
 #define	OBJ_TMPFS_NODE	0x0200		/* object belongs to tmpfs VREG node */
 #define	OBJ_TMPFS_DIRTY	0x0400		/* dirty tmpfs obj */
 #define	OBJ_COLORED	0x1000		/* pg_color is defined */
