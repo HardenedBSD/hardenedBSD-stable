@@ -709,8 +709,8 @@ _qlxge=		qlxge
 _qlxgb=		qlxgb
 .if ${MK_SOURCELESS_UCODE} != "no"
 _qlxgbe=	qlxgbe
-.endif
 _qlnx=		qlnx
+.endif
 _sfxge=		sfxge
 
 .if ${MK_BHYVE} != "no" || defined(ALL_MODULES)
