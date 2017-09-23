@@ -185,6 +185,7 @@ struct iflib_ctx {
 	uint16_t ifc_sysctl_ntxqs;
 	uint16_t ifc_sysctl_nrxqs;
 	uint16_t ifc_sysctl_qs_eq_override;
+	uint16_t ifc_sysctl_rx_budget;
 
 	qidx_t ifc_sysctl_ntxds[8];
 	qidx_t ifc_sysctl_nrxds[8];
@@ -2470,7 +2471,7 @@ iflib_rxeof(iflib_rxq_t rxq, qidx_t budget)
 	 * XXX early demux data packets so that if_input processing only handles
 	 * acks in interrupt context
 	 */
-	struct mbuf *m, *mh, *mt;
+	struct mbuf *m, *mh, *mt, *mf;
 
 	ifp = ctx->ifc_ifp;
 	mh = mt = NULL;
@@ -2541,8 +2542,11 @@ iflib_rxeof(iflib_rxq_t rxq, qidx_t budget)
 		__iflib_fl_refill_lt(ctx, fl, budget + 8);
 
 	lro_enabled = (if_getcapenable(ifp) & IFCAP_LRO);
+	mt = mf = NULL;
 	while (mh != NULL) {
 		m = mh;
+		if (mf == NULL)
+			mf = m;
 		mh = mh->m_nextpkt;
 		m->m_nextpkt = NULL;
 #ifndef __NO_STRICT_ALIGNMENT
@@ -2552,11 +2556,19 @@ iflib_rxeof(iflib_rxq_t rxq, qidx_t budget)
 		rx_bytes += m->m_pkthdr.len;
 		rx_pkts++;
 #if defined(INET6) || defined(INET)
-		if (lro_enabled && tcp_lro_rx(&rxq->ifr_lc, m, 0) == 0)
+		if (lro_enabled && tcp_lro_rx(&rxq->ifr_lc, m, 0) == 0) {
+			if (mf == m)
+				mf = NULL;
 			continue;
+		}
 #endif
+		if (mt != NULL)
+			mt->m_nextpkt = m;
+		mt = m;
+	}
+	if (mf != NULL) {
+		ifp->if_input(ifp, mf);
 		DBG_COUNTER_INC(rx_if_input);
-		ifp->if_input(ifp, m);
 	}
 
 	if_inc_counter(ifp, IFCOUNTER_IBYTES, rx_bytes);
@@ -2696,6 +2708,10 @@ iflib_parse_header(iflib_txq_t txq, if_pkt_info_t pi, struct mbuf **mp)
 		pi->ipi_ehdrlen = ETHER_HDR_LEN;
 	}
 
+	if (if_getmtu(txq->ift_ctx->ifc_ifp) >= pi->ipi_len) {
+		pi->ipi_csum_flags &= ~(CSUM_IP_TSO|CSUM_IP6_TSO);
+	}
+
 	switch (pi->ipi_etype) {
 #ifdef INET
 	case ETHERTYPE_IP:
@@ -2740,21 +2756,21 @@ iflib_parse_header(iflib_txq_t txq, if_pkt_info_t pi, struct mbuf **mp)
 		pi->ipi_ipproto = ip->ip_p;
 		pi->ipi_flags |= IPI_TX_IPV4;
 
-		if (pi->ipi_csum_flags & CSUM_IP)
+		if ((sctx->isc_flags & IFLIB_NEED_ZERO_CSUM) && (pi->ipi_csum_flags & CSUM_IP))
                        ip->ip_sum = 0;
 
-		if (pi->ipi_ipproto == IPPROTO_TCP) {
-			if (__predict_false(th == NULL)) {
-				txq->ift_pullups++;
-				if (__predict_false((m = m_pullup(m, (ip->ip_hl << 2) + sizeof(*th))) == NULL))
-					return (ENOMEM);
-				th = (struct tcphdr *)((caddr_t)ip + pi->ipi_ip_hlen);
-			}
-			pi->ipi_tcp_hflags = th->th_flags;
-			pi->ipi_tcp_hlen = th->th_off << 2;
-			pi->ipi_tcp_seq = th->th_seq;
-		}
 		if (IS_TSO4(pi)) {
+			if (pi->ipi_ipproto == IPPROTO_TCP) {
+				if (__predict_false(th == NULL)) {
+					txq->ift_pullups++;
+					if (__predict_false((m = m_pullup(m, (ip->ip_hl << 2) + sizeof(*th))) == NULL))
+						return (ENOMEM);
+					th = (struct tcphdr *)((caddr_t)ip + pi->ipi_ip_hlen);
+				}
+				pi->ipi_tcp_hflags = th->th_flags;
+				pi->ipi_tcp_hlen = th->th_off << 2;
+				pi->ipi_tcp_seq = th->th_seq;
+			}
 			if (__predict_false(ip->ip_p != IPPROTO_TCP))
 				return (ENXIO);
 			th->th_sum = in_pseudo(ip->ip_src.s_addr,
@@ -2785,15 +2801,15 @@ iflib_parse_header(iflib_txq_t txq, if_pkt_info_t pi, struct mbuf **mp)
 		pi->ipi_ipproto = ip6->ip6_nxt;
 		pi->ipi_flags |= IPI_TX_IPV6;
 
-		if (pi->ipi_ipproto == IPPROTO_TCP) {
-			if (__predict_false(m->m_len < pi->ipi_ehdrlen + sizeof(struct ip6_hdr) + sizeof(struct tcphdr))) {
-				if (__predict_false((m = m_pullup(m, pi->ipi_ehdrlen + sizeof(struct ip6_hdr) + sizeof(struct tcphdr))) == NULL))
-					return (ENOMEM);
-			}
-			pi->ipi_tcp_hflags = th->th_flags;
-			pi->ipi_tcp_hlen = th->th_off << 2;
-		}
 		if (IS_TSO6(pi)) {
+			if (pi->ipi_ipproto == IPPROTO_TCP) {
+				if (__predict_false(m->m_len < pi->ipi_ehdrlen + sizeof(struct ip6_hdr) + sizeof(struct tcphdr))) {
+					if (__predict_false((m = m_pullup(m, pi->ipi_ehdrlen + sizeof(struct ip6_hdr) + sizeof(struct tcphdr))) == NULL))
+						return (ENOMEM);
+				}
+				pi->ipi_tcp_hflags = th->th_flags;
+				pi->ipi_tcp_hlen = th->th_off << 2;
+			}
 
 			if (__predict_false(ip6->ip6_nxt != IPPROTO_TCP))
 				return (ENXIO);
@@ -3516,6 +3532,7 @@ _task_fn_rx(void *context)
 	if_ctx_t ctx = rxq->ifr_ctx;
 	bool more;
 	int rc;
+	uint16_t budget;
 
 #ifdef IFLIB_DIAGNOSTICS
 	rxq->ifr_cpu_exec_count[curcpu]++;
@@ -3532,7 +3549,10 @@ _task_fn_rx(void *context)
 		}
 	}
 #endif
-	if (more == false || (more = iflib_rxeof(rxq, 16 /* XXX */)) == false) {
+	budget = ctx->ifc_sysctl_rx_budget;
+	if (budget == 0)
+		budget = 16;	/* XXX */
+	if (more == false || (more = iflib_rxeof(rxq, budget)) == false) {
 		if (ctx->ifc_flags & IFC_LEGACY)
 			IFDI_INTR_ENABLE(ctx);
 		else {
@@ -5471,9 +5491,12 @@ iflib_add_device_sysctl_pre(if_ctx_t ctx)
 	SYSCTL_ADD_U16(ctx_list, oid_list, OID_AUTO, "override_qs_enable",
 		       CTLFLAG_RWTUN, &ctx->ifc_sysctl_qs_eq_override, 0,
                        "permit #txq != #rxq");
-       SYSCTL_ADD_INT(ctx_list, oid_list, OID_AUTO, "disable_msix",
+	SYSCTL_ADD_INT(ctx_list, oid_list, OID_AUTO, "disable_msix",
                       CTLFLAG_RWTUN, &ctx->ifc_softc_ctx.isc_disable_msix, 0,
                       "disable MSIX (default 0)");
+	SYSCTL_ADD_U16(ctx_list, oid_list, OID_AUTO, "rx_budget",
+		       CTLFLAG_RWTUN, &ctx->ifc_sysctl_rx_budget, 0,
+                       "set the rx budget");
 
 	/* XXX change for per-queue sizes */
 	SYSCTL_ADD_PROC(ctx_list, oid_list, OID_AUTO, "override_ntxds",
