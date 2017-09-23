@@ -499,10 +499,14 @@ _rtld(Elf_Addr *sp, func_ptr_type *exit_proc, Obj_Entry **objp)
 	close(fd);
 	if (obj_main == NULL)
 	    rtld_die();
+<<<<<<< HEAD
 	max_stack_flags = obj->stack_flags;
 	if ((max_stack_flags & PF_X) == PF_X)
 	    if ((stack_prot & PROT_EXEC) == 0)
 	        max_stack_flags &= ~(PF_X);
+=======
+	max_stack_flags = obj_main->stack_flags;
+>>>>>>> origin/freebsd/10-stable/master
     } else {				/* Main program already loaded. */
 	const Elf_Phdr *phdr;
 	int phnum;
