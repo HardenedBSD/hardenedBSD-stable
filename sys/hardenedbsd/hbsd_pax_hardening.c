@@ -156,7 +156,6 @@ pax_procfs_harden(struct thread *td)
 }
 
 
-#ifdef HARDEN_RANDOMPID
 extern int randompid;
 
 static void
@@ -175,7 +174,6 @@ pax_randomize_pids(void *dummy __unused)
 }
 SYSINIT(pax_randomize_pids, SI_SUB_KTHREAD_INIT, SI_ORDER_MIDDLE+1,
     pax_randomize_pids, NULL);
-#endif /* HARDEN_RANDOMPID */
 
 
 static void
