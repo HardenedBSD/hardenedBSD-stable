@@ -194,17 +194,12 @@ disc1: packagesystem
 # Install system
 	mkdir -p ${.TARGET}
 	cd ${WORLDDIR} && ${IMAKE} installkernel installworld distribution \
-<<<<<<< HEAD
-		DESTDIR=${.OBJDIR}/${.TARGET} WITHOUT_RESCUE=1 WITHOUT_KERNEL_SYMBOLS=1 \
-		WITHOUT_PROFILE=1 WITHOUT_SENDMAIL=1 WITHOUT_ATF=1 WITHOUT_LIB32=1 \
-		KERNCONF=${KERNCONF}
-=======
 	    DESTDIR=${.OBJDIR}/${.TARGET} WITHOUT_AMD=1 WITHOUT_AT=1 \
 	    WITHOUT_INSTALLLIB=1 WITHOUT_LIB32=1 WITHOUT_MAIL=1 \
 	    WITHOUT_NCP=1 WITHOUT_TOOLCHAIN=1 WITHOUT_PROFILE=1 \
 	    WITHOUT_RESCUE=1 WITHOUT_DICT=1 \
-	    WITHOUT_KERNEL_SYMBOLS=1
->>>>>>> origin/freebsd/10-stable/master
+	    WITHOUT_KERNEL_SYMBOLS=1 \
+	    KERNCONF=${KERNCONF}
 # Copy distfiles
 	mkdir -p ${.TARGET}/usr/freebsd-dist
 	cp *.txz MANIFEST ${.TARGET}/usr/freebsd-dist
