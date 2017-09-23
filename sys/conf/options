@@ -977,7 +977,6 @@ PAX_CONTROL_ACL		opt_pax.h
 PAX_CONTROL_ACL_OVERRIDE_SUPPORT	opt_pax.h
 PAX_CONTROL_EXTATTR	opt_pax.h
 HBSD_DEBUG	opt_pax.h
-STACK_GUARD_MAX_PAGES	opt_pax.h
 
 # ASLR overwritable defaults
 PAX_ASLR_DELTA_MMAP_DEF_LEN		opt_pax.h
@@ -991,7 +990,7 @@ PAX_ASLR_COMPAT_DELTA_VDSO_DEF_LEN	opt_pax.h
 
 # Other hardening features
 HARDEN_RANDOMPID	opt_pax.h
-STACK_GUARD_SIZE	opt_pax.h
+STACK_GUARD_MAX_PAGES	opt_pax.h
 
 # Random number generator(s)
 # Which CSPRNG hash we get.
