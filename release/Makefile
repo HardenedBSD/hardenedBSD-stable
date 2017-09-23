@@ -223,13 +223,9 @@ bootonly: packagesystem
 	    WITHOUT_GAMES=1 WITHOUT_GROFF=1 \
 	    WITHOUT_INSTALLLIB=1 WITHOUT_LIB32=1 WITHOUT_MAIL=1 \
 	    WITHOUT_NCP=1 WITHOUT_TOOLCHAIN=1 WITHOUT_PROFILE=1 \
-<<<<<<< HEAD
-	    WITHOUT_INSTALLIB=1 WITHOUT_RESCUE=1 WITHOUT_DICT=1 \
-	    WITHOUT_KERNEL_SYMBOLS=1 KERNCONF=${KERNCONF}
-=======
 	    WITHOUT_RESCUE=1 WITHOUT_DICT=1 \
-	    WITHOUT_KERNEL_SYMBOLS=1
->>>>>>> origin/freebsd/10-stable/master
+	    WITHOUT_KERNEL_SYMBOLS=1 \
+	    KERNCONF=${KERNCONF}
 # Copy manifest only (no distfiles) to get checksums
 	mkdir -p ${.TARGET}/usr/freebsd-dist
 	cp MANIFEST ${.TARGET}/usr/freebsd-dist
