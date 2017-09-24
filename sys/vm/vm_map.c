@@ -3643,9 +3643,9 @@ sysctl_stack_guard_page(SYSCTL_HANDLER_ARGS)
 		return (err);
 
 	switch (val) {
-	0:
+	case 0:
 		/* FALLTHROUGH */
-	1:
+	case 1:
 		stack_guard_page = val;
 		err = 0;
 		break;
