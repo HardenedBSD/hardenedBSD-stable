@@ -31,6 +31,7 @@
 .Nd fetch and install binary updates to HardenedBSD
 .Sh SYNOPSIS
 .Nm
+.Op Fl B
 .Op Fl b Ar BEname
 .Op Fl C
 .Op Fl c Ar config
@@ -44,6 +45,7 @@
 .Op Fl k Ar kernel
 .Op Fl n
 .Op Fl o
+.Op Fl r
 .Op Fl s
 .Op Fl t Ar tmpdir
 .Op Fl T
@@ -58,6 +60,8 @@ base system.
 .Sh OPTIONS
 The following options are supported:
 .Bl -tag -width "-v version"
+.It Fl B
+Do not update world (base.txz).
 .It Fl b Ar BEname
 Create a new ZFS Boot Environment named
 .Ar BEname ,
