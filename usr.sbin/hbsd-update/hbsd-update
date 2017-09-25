@@ -89,6 +89,7 @@ usage() {
 	debug_print "\t-K backupkern\tBackup the previous kernel to <backupkern>"
 	debug_print "\t-k kernel\tUse kernel <kernel>"
 	debug_print "\t-o\t\tDo not remove obsolete files/directories"
+	debug_print "\t-r path\tBootstrap root directory <path>"
 	debug_print "\t-s\t\tInstall sources (if present)"
 	debug_print "\t-t tmpdir\tTemporary directory"
 	debug_print "\t-U\t\tAllow unsigned updates"
@@ -460,24 +461,25 @@ check_set_validity() {
 
 apply_base() {
 	local needsresolve
+	local dirs
+	local dir
+
 	needsresolve=0
+	dirs="/bin /sbin /lib /libexec /usr/bin /usr/sbin /usr/lib"
 
 	if [ ${verbose} -gt 0 ]; then
 		debug_print "[*] Applying base"
 	fi
 
-	${CHFLAGS} -R noschg \
-		${mountpoint}/bin \
-		${mountpoint}/sbin \
-		${mountpoint}/lib \
-		${mountpoint}/libexec \
-		${mountpoint}/usr/bin \
-		${mountpoint}/usr/sbin \
-		${mountpoint}/usr/lib
-	res=${?}
-	if [ ${res} -gt 0 ]; then
-		return ${res}
-	fi
+	for dir in ${dirs}; do
+		if [ -d ${mountpoint}/${dir} ]; then
+			${CHFLAGS} -R noschg ${mountpoint}/${dir}
+			res=${?}
+			if [ ${res} -gt 0 ]; then
+				return ${res}
+			fi
+		fi
+	done
 
 	${TAR} -xpf ${tmpdir}/base.txz \
 		-X ${tmpdir}/skip.txt \
@@ -489,6 +491,7 @@ apply_base() {
 	fi
 
 	boottmp=$(env TMPDIR=${tmpdir} ${MKTEMP} -d)
+	[ ! -d ${mountpoint}/boot ] && mkdir ${mountpoint}/boot
 	${TAR} -xpf ${tmpdir}/base.txz --include ./boot -C ${boottmp}
 	${TAR} -c -C ${boottmp}/boot -f - . | \
 		(cd ${mountpoint}/boot; ${TAR} -xpf -)
@@ -864,7 +867,7 @@ main() {
 	local_kernel=""
 	no_kernel=0
 
-	while getopts 'dhinosCITUVb:c:j:K:k:t:u:v:' opt; do
+	while getopts 'dhinosCITUVb:c:j:K:k:r:t:u:v:' opt; do
 		case "${opt}" in
 			b)
 				if ! which -s ${BEADM}; then
@@ -904,6 +907,9 @@ main() {
 			o)
 				no_obsolete=1
 				;;
+			r)
+				mountpoint="${OPTARG}"
+				;;
 			s)
 				install_src=1
 				;;
@@ -941,6 +947,12 @@ main() {
 
 	if [ ! -z "${local_kernel}" ]; then
 		kernel=${local_kernel}
+	fi
+
+	if [ ! -d ${mountpoint} ]; then
+		debug_print "[-] ${mountpoint} does not exist"
+		cleanup
+		exit 1
 	fi
 
 	trap sigint_handler INT
