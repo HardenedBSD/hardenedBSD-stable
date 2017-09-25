@@ -51,6 +51,7 @@ interactive=0
 install_src=0
 keeptmp=0
 local_resolver=1
+nodownload=0
 
 update_hash=""
 
@@ -874,7 +875,7 @@ main() {
 	local_kernel=""
 	no_kernel=0
 
-	while getopts 'dhinosCITUVb:c:j:K:k:r:t:u:v:' opt; do
+	while getopts 'dhinosCDITUVb:c:j:K:k:r:t:u:v:' opt; do
 		case "${opt}" in
 			b)
 				if ! which -s ${BEADM}; then
@@ -892,6 +893,9 @@ main() {
 				;;
 			d)
 				dnssec="no"
+				;;
+			D)
+				nodownload=1
 				;;
 			i)
 				ignorever=1
@@ -984,11 +988,13 @@ main() {
 		exit 0
 	fi
 
-	fetch_update
-	res=${?}
-	if [ ${res} -gt 0 ]; then
-		cleanup
-		exit 1
+	if [ ${nodownload} -eq 0 ]; then
+		fetch_update
+		res=${?}
+		if [ ${res} -gt 0 ]; then
+			cleanup
+			exit 1
+		fi
 	fi
 
 	set_kernel_config
