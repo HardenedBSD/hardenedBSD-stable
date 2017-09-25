@@ -52,6 +52,7 @@ install_src=0
 keeptmp=0
 local_resolver=1
 nodownload=0
+nobase=0
 
 update_hash=""
 
@@ -887,10 +888,13 @@ main() {
 	local_kernel=""
 	no_kernel=0
 
-	while getopts 'dhinosCDITUVb:c:j:K:k:r:t:u:v:' opt; do
+	while getopts 'dhinosBCDITUVb:c:j:K:k:r:t:u:v:' opt; do
 		case "${opt}" in
 			b)
 				zfsbe="${OPTARG}"
+				;;
+			B)
+				nobase=1
 				;;
 			c)
 				configfile="${OPTARG}"
@@ -1050,12 +1054,14 @@ main() {
 
 	trap 'sigint_handler 1' INT
 
-	apply_base
-	res=${?}
-	if [ ${res} -gt 0 ]; then
-		cleanup
-		destroy_be
-		exit 1
+	if [ ${nobase} -eq 0 ]; then
+		apply_base
+		res=${?}
+		if [ ${res} -gt 0 ]; then
+			cleanup
+			destroy_be
+			exit 1
+		fi
 	fi
 
 	if [ ${no_kernel} -eq 0 ]; then
