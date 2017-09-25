@@ -35,6 +35,7 @@
 .Op Fl C
 .Op Fl c Ar config
 .Op Fl d
+.Op Fl D
 .Op Fl h
 .Op Fl I
 .Op Fl i
@@ -72,6 +73,11 @@ Read configuration options from
 .Ar config .
 (Default:
 .Pa /etc/hbsd-update.conf )
+.It Fl D
+Do not download the update.
+This option can be used in conjuction with the -t and -T flags for
+caching the download to use multiple times.
+This is useful when updating multiple jails or chroots.
 .It Fl d
 Do not use DNSSEC validation of DNS TXT records.
 DNSSEC validation is enabled by default.
