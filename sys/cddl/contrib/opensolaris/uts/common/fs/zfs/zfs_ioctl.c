@@ -32,6 +32,7 @@
  * Copyright (c) 2013 Steven Hartland. All rights reserved.
  * Copyright (c) 2014 Integros [integros.com]
  * Copyright 2017 RackTop Systems.
+ * Copyright (c) 2017 Datto Inc.
  */
 
 /*
@@ -1726,6 +1727,7 @@ zfs_ioc_pool_tryimport(zfs_cmd_t *zc)
  * inputs:
  * zc_name              name of the pool
  * zc_cookie            scan func (pool_scan_func_t)
+ * zc_flags             scrub pause/resume flag (pool_scrub_cmd_t)
  */
 static int
 zfs_ioc_pool_scan(zfs_cmd_t *zc)
@@ -1736,7 +1738,12 @@ zfs_ioc_pool_scan(zfs_cmd_t *zc)
 	if ((error = spa_open(zc->zc_name, &spa, FTAG)) != 0)
 		return (error);
 
-	if (zc->zc_cookie == POOL_SCAN_NONE)
+	if (zc->zc_flags >= POOL_SCRUB_FLAGS_END)
+		return (SET_ERROR(EINVAL));
+
+	if (zc->zc_flags == POOL_SCRUB_PAUSE)
+		error = spa_scrub_pause_resume(spa, POOL_SCRUB_PAUSE);
+	else if (zc->zc_cookie == POOL_SCAN_NONE)
 		error = spa_scan_stop(spa);
 	else
 		error = spa_scan(spa, zc->zc_cookie);
@@ -3041,13 +3048,11 @@ zfs_get_vfs(const char *resource)
 	mtx_lock(&mountlist_mtx);
 	TAILQ_FOREACH(vfsp, &mountlist, mnt_list) {
 		if (strcmp(refstr_value(vfsp->vfs_resource), resource) == 0) {
-			if (vfs_busy(vfsp, MBF_MNTLSTLOCK) != 0)
-				vfsp = NULL;
+			vfs_ref(vfsp);
 			break;
 		}
 	}
-	if (vfsp == NULL)
-		mtx_unlock(&mountlist_mtx);
+	mtx_unlock(&mountlist_mtx);
 	return (vfsp);
 }
 
@@ -3537,7 +3542,9 @@ zfs_unmount_snap(const char *snapname)
 {
 	vfs_t *vfsp;
 	zfsvfs_t *zfsvfs;
+#ifdef illumos
 	int err;
+#endif
 
 	if (strchr(snapname, '@') == NULL)
 		return (0);
@@ -3549,23 +3556,19 @@ zfs_unmount_snap(const char *snapname)
 	zfsvfs = vfsp->vfs_data;
 	ASSERT(!dsl_pool_config_held(dmu_objset_pool(zfsvfs->z_os)));
 
-	err = vn_vfswlock(vfsp->vfs_vnodecovered);
 #ifdef illumos
+	err = vn_vfswlock(vfsp->vfs_vnodecovered);
 	VFS_RELE(vfsp);
-#else
-	vfs_unbusy(vfsp);
-#endif
 	if (err != 0)
 		return (SET_ERROR(err));
+#endif
 
 	/*
 	 * Always force the unmount for snapshots.
 	 */
-
 #ifdef illumos
 	(void) dounmount(vfsp, MS_FORCE, kcred);
 #else
-	vfs_ref(vfsp);
 	(void) dounmount(vfsp, MS_FORCE, curthread);
 #endif
 	return (0);
