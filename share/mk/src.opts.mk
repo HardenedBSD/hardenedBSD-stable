@@ -185,6 +185,7 @@ __DEFAULT_NO_OPTIONS = \
     HESIOD \
     LIB32 \
     LIBSOFT \
+    LOADER_FORCE_LE \
     NAND \
     NTP \
     OFED \
