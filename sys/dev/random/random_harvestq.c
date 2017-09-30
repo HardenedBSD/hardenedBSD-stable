@@ -1,4 +1,4 @@
- /*2
+/*-
  * Copyright (c) 2017 Oliver Pinter
  * Copyright (c) 2017 W. Dean Freeman
  * Copyright (c) 2000-2015 Mark R V Murray
