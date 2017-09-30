@@ -90,6 +90,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/kernel.h>
 #include <sys/blist.h>
 #include <sys/malloc.h>
+#include <sys/sbuf.h>
 #include <sys/proc.h>
 #include <sys/mutex.h>
 
@@ -101,6 +102,7 @@ __FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
 #include <sys/malloc.h>
+#include <sys/sbuf.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -123,16 +125,16 @@ void panic(const char *ctl, ...);
  */
 static daddr_t	blst_leaf_alloc(blmeta_t *scan, daddr_t blk, int count,
 		    daddr_t cursor);
-static daddr_t	blst_meta_alloc(blmeta_t *scan, daddr_t blk, daddr_t count,
-		    daddr_t radix, daddr_t cursor);
+static daddr_t	blst_meta_alloc(blmeta_t *scan, daddr_t cursor, daddr_t count,
+		    u_daddr_t radix);
 static void blst_leaf_free(blmeta_t *scan, daddr_t relblk, int count);
 static void blst_meta_free(blmeta_t *scan, daddr_t freeBlk, daddr_t count,
-		    daddr_t radix, daddr_t blk);
+		    u_daddr_t radix);
 static void blst_copy(blmeta_t *scan, daddr_t blk, daddr_t radix,
 		    blist_t dest, daddr_t count);
 static daddr_t blst_leaf_fill(blmeta_t *scan, daddr_t blk, int count);
 static daddr_t blst_meta_fill(blmeta_t *scan, daddr_t allocBlk, daddr_t count,
-		    daddr_t radix, daddr_t blk);
+		    u_daddr_t radix);
 static daddr_t	blst_radix_init(blmeta_t *scan, daddr_t radix, daddr_t count);
 #ifndef _KERNEL
 static void	blst_radix_print(blmeta_t *scan, daddr_t blk, daddr_t radix,
@@ -144,6 +146,7 @@ static MALLOC_DEFINE(M_SWAP, "SWAP", "Swap space");
 #endif
 
 CTASSERT(BLIST_BMAP_RADIX % BLIST_META_RADIX == 0);
+#define	BLIST_META_MASK	(BLIST_META_RADIX - 1)
 
 /*
  * For a subtree that can represent the state of up to 'radix' blocks, the
@@ -166,7 +169,35 @@ radix_to_skip(daddr_t radix)
 {
 
 	return (radix /
-	    ((BLIST_BMAP_RADIX / BLIST_META_RADIX) * (BLIST_META_RADIX - 1)));
+	    ((BLIST_BMAP_RADIX / BLIST_META_RADIX) * BLIST_META_MASK));
+}
+
+/*
+ * Use binary search, or a faster method, to find the 1 bit in a u_daddr_t.
+ * Assumes that the argument has only one bit set.
+ */
+static inline int
+bitpos(u_daddr_t mask)
+{
+	int hi, lo, mid;
+
+	switch (sizeof(mask)) {
+#ifdef HAVE_INLINE_FFSLL
+	case sizeof(long long):
+		return (ffsll(mask) - 1);
+#endif
+	default:
+		lo = 0;
+		hi = BLIST_BMAP_RADIX;
+		while (lo + 1 < hi) {
+			mid = (lo + hi) >> 1;
+			if ((mask >> mid) != 0)
+				lo = mid;
+			else
+				hi = mid;
+		}
+		return (lo);
+	}
 }
 
 /*
@@ -247,10 +278,12 @@ blist_alloc(blist_t bl, daddr_t count)
 	 * reduce the hint, stopping further iterations.
 	 */
 	while (count <= bl->bl_root->bm_bighint) {
-		blk = blst_meta_alloc(bl->bl_root, 0, count, bl->bl_radix,
-		    bl->bl_cursor);
+		blk = blst_meta_alloc(bl->bl_root, bl->bl_cursor, count,
+		    bl->bl_radix);
 		if (blk != SWAPBLK_NONE) {
 			bl->bl_cursor = blk + count;
+			if (bl->bl_cursor == bl->bl_blocks)
+				bl->bl_cursor = 0;
 			return (blk);
 		} else if (bl->bl_cursor != 0)
 			bl->bl_cursor = 0;
@@ -280,7 +313,7 @@ void
 blist_free(blist_t bl, daddr_t blkno, daddr_t count)
 {
 
-	blst_meta_free(bl->bl_root, blkno, count, bl->bl_radix, 0);
+	blst_meta_free(bl->bl_root, blkno, count, bl->bl_radix);
 }
 
 /*
@@ -293,7 +326,7 @@ daddr_t
 blist_fill(blist_t bl, daddr_t blkno, daddr_t count)
 {
 
-	return (blst_meta_fill(bl->bl_root, blkno, count, bl->bl_radix, 0));
+	return (blst_meta_fill(bl->bl_root, blkno, count, bl->bl_radix));
 }
 
 /*
@@ -338,6 +371,192 @@ blist_print(blist_t bl)
 
 #endif
 
+static const u_daddr_t fib[] = {
+	1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584,
+	4181, 6765, 10946, 17711, 28657, 46368, 75025, 121393, 196418, 317811,
+	514229, 832040, 1346269, 2178309, 3524578,
+};
+
+/*
+ * Use 'gap' to describe a maximal range of unallocated blocks/bits.
+ */
+struct gap_stats {
+	daddr_t	start;		/* current gap start, or SWAPBLK_NONE */
+	daddr_t	num;		/* number of gaps observed */
+	daddr_t	max;		/* largest gap size */
+	daddr_t	avg;		/* average gap size */
+	daddr_t	err;		/* sum - num * avg */
+	daddr_t	histo[nitems(fib)]; /* # gaps in each size range */
+	int	max_bucket;	/* last histo elt with nonzero val */
+};
+
+/*
+ * gap_stats_counting()    - is the state 'counting 1 bits'?
+ *                           or 'skipping 0 bits'?
+ */
+static inline bool
+gap_stats_counting(const struct gap_stats *stats)
+{
+
+	return (stats->start != SWAPBLK_NONE);
+}
+
+/*
+ * init_gap_stats()    - initialize stats on gap sizes
+ */
+static inline void
+init_gap_stats(struct gap_stats *stats)
+{
+
+	bzero(stats, sizeof(*stats));
+	stats->start = SWAPBLK_NONE;
+}
+
+/*
+ * update_gap_stats()    - update stats on gap sizes
+ */
+static void
+update_gap_stats(struct gap_stats *stats, daddr_t posn)
+{
+	daddr_t size;
+	int hi, lo, mid;
+
+	if (!gap_stats_counting(stats)) {
+		stats->start = posn;
+		return;
+	}
+	size = posn - stats->start;
+	stats->start = SWAPBLK_NONE;
+	if (size > stats->max)
+		stats->max = size;
+
+	/*
+	 * Find the fibonacci range that contains size,
+	 * expecting to find it in an early range.
+	 */
+	lo = 0;
+	hi = 1;
+	while (hi < nitems(fib) && fib[hi] <= size) {
+		lo = hi;
+		hi *= 2;
+	}
+	if (hi >= nitems(fib))
+		hi = nitems(fib);
+	while (lo + 1 != hi) {
+		mid = (lo + hi) >> 1;
+		if (fib[mid] <= size)
+			lo = mid;
+		else
+			hi = mid;
+	}
+	stats->histo[lo]++;
+	if (lo > stats->max_bucket)
+		stats->max_bucket = lo;
+	stats->err += size - stats->avg;
+	stats->num++;
+	stats->avg += stats->err / stats->num;
+	stats->err %= stats->num;
+}
+
+/*
+ * dump_gap_stats()    - print stats on gap sizes
+ */
+static inline void
+dump_gap_stats(const struct gap_stats *stats, struct sbuf *s)
+{
+	int i;
+
+	sbuf_printf(s, "number of maximal free ranges: %jd\n",
+	    (intmax_t)stats->num);
+	sbuf_printf(s, "largest free range: %jd\n", (intmax_t)stats->max);
+	sbuf_printf(s, "average maximal free range size: %jd\n",
+	    (intmax_t)stats->avg);
+	sbuf_printf(s, "number of maximal free ranges of different sizes:\n");
+	sbuf_printf(s, "               count  |  size range\n");
+	sbuf_printf(s, "               -----  |  ----------\n");
+	for (i = 0; i < stats->max_bucket; i++) {
+		if (stats->histo[i] != 0) {
+			sbuf_printf(s, "%20jd  |  ",
+			    (intmax_t)stats->histo[i]);
+			if (fib[i] != fib[i + 1] - 1)
+				sbuf_printf(s, "%jd to %jd\n", (intmax_t)fib[i],
+				    (intmax_t)fib[i + 1] - 1);
+			else
+				sbuf_printf(s, "%jd\n", (intmax_t)fib[i]);
+		}
+	}
+	sbuf_printf(s, "%20jd  |  ", (intmax_t)stats->histo[i]);
+	if (stats->histo[i] > 1)
+		sbuf_printf(s, "%jd to %jd\n", (intmax_t)fib[i],
+		    (intmax_t)stats->max);
+	else
+		sbuf_printf(s, "%jd\n", (intmax_t)stats->max);
+}
+
+/*
+ * blist_stats()    - dump radix tree stats
+ */
+void
+blist_stats(blist_t bl, struct sbuf *s)
+{
+	struct gap_stats gstats;
+	struct gap_stats *stats = &gstats;
+	daddr_t i, nodes, radix;
+	u_daddr_t bit, diff, mask;
+
+	init_gap_stats(stats);
+	nodes = 0;
+	i = bl->bl_radix;
+	while (i < bl->bl_radix + bl->bl_blocks) {
+		/*
+		 * Find max size subtree starting at i.
+		 */
+		radix = BLIST_BMAP_RADIX;
+		while (((i / radix) & BLIST_META_MASK) == 0)
+			radix *= BLIST_META_RADIX;
+
+		/*
+		 * Check for skippable subtrees starting at i.
+		 */
+		while (radix > BLIST_BMAP_RADIX) {
+			if (bl->bl_root[nodes].u.bmu_avail == 0) {
+				if (gap_stats_counting(stats))
+					update_gap_stats(stats, i);
+				break;
+			}
+			if (bl->bl_root[nodes].u.bmu_avail == radix) {
+				if (!gap_stats_counting(stats))
+					update_gap_stats(stats, i);
+				break;
+			}
+
+			/*
+			 * Skip subtree root.
+			 */
+			nodes++;
+			radix /= BLIST_META_RADIX;
+		}
+		if (radix == BLIST_BMAP_RADIX) {
+			/*
+			 * Scan leaf.
+			 */
+			mask = bl->bl_root[nodes].u.bmu_bitmap;
+			diff = mask ^ (mask << 1);
+			if (gap_stats_counting(stats))
+				diff ^= 1;
+			while (diff != 0) {
+				bit = diff & -diff;
+				update_gap_stats(stats, i + bitpos(bit));
+				diff ^= bit;
+			}
+		}
+		nodes += radix_to_skip(radix);
+		i += radix;
+	}
+	update_gap_stats(stats, i);
+	dump_gap_stats(stats, s);
+}
+
 /************************************************************************
  *			  ALLOCATION SUPPORT FUNCTIONS			*
  ************************************************************************
@@ -353,13 +572,13 @@ blist_print(blist_t bl)
  *
  *	This is the core of the allocator and is optimized for the
  *	BLIST_BMAP_RADIX block allocation case.  Otherwise, execution
- *	time is proportional to log2(count) + log2(BLIST_BMAP_RADIX).
+ *	time is proportional to log2(count) + bitpos time.
  */
 static daddr_t
 blst_leaf_alloc(blmeta_t *scan, daddr_t blk, int count, daddr_t cursor)
 {
 	u_daddr_t mask;
-	int count1, hi, lo, mid, num_shifts, range1, range_ext;
+	int count1, lo, num_shifts, range1, range_ext;
 
 	if (count == BLIST_BMAP_RADIX) {
 		/*
@@ -417,17 +636,10 @@ blst_leaf_alloc(blmeta_t *scan, daddr_t blk, int count, daddr_t cursor)
 	/*
 	 * The least significant set bit in mask marks the start of the first
 	 * available range of sufficient size.  Clear all the bits but that one,
-	 * and then perform a binary search to find its position.
+	 * and then find its position.
 	 */
 	mask &= -mask;
-	hi = BLIST_BMAP_RADIX - count1;
-	while (lo + 1 < hi) {
-		mid = (lo + hi) >> 1;
-		if ((mask >> mid) != 0)
-			lo = mid;
-		else
-			hi = mid;
-	}
+	lo = bitpos(mask);
 
 	/*
 	 * Set in mask exactly the bits being allocated, and clear them from
@@ -447,13 +659,13 @@ blst_leaf_alloc(blmeta_t *scan, daddr_t blk, int count, daddr_t cursor)
  *	and we have a few optimizations strewn in as well.
  */
 static daddr_t
-blst_meta_alloc(blmeta_t *scan, daddr_t blk, daddr_t count, daddr_t radix,
-    daddr_t cursor)
+blst_meta_alloc(blmeta_t *scan, daddr_t cursor, daddr_t count, u_daddr_t radix)
 {
-	daddr_t i, next_skip, r, skip;
+	daddr_t blk, i, next_skip, r, skip;
 	int child;
 	bool scan_from_start;
 
+	blk = cursor & -radix;
 	if (radix == BLIST_BMAP_RADIX)
 		return (blst_leaf_alloc(scan, blk, count, cursor));
 	if (scan->u.bmu_avail < count) {
@@ -505,8 +717,8 @@ blst_meta_alloc(blmeta_t *scan, daddr_t blk, daddr_t count, daddr_t radix,
 			/*
 			 * The allocation might fit in the i'th subtree.
 			 */
-			r = blst_meta_alloc(&scan[i], blk, count, radix,
-			    cursor > blk ? cursor : blk);
+			r = blst_meta_alloc(&scan[i],
+			    cursor > blk ? cursor : blk, count, radix);
 			if (r != SWAPBLK_NONE) {
 				scan->u.bmu_avail -= count;
 				return (r);
@@ -574,10 +786,9 @@ blst_leaf_free(blmeta_t *scan, daddr_t blk, int count)
  *	range).
  */
 static void
-blst_meta_free(blmeta_t *scan, daddr_t freeBlk, daddr_t count, daddr_t radix,
-    daddr_t blk)
+blst_meta_free(blmeta_t *scan, daddr_t freeBlk, daddr_t count, u_daddr_t radix)
 {
-	daddr_t i, next_skip, skip, v;
+	daddr_t blk, i, next_skip, skip, v;
 	int child;
 
 	if (scan->bm_bighint == (daddr_t)-1)
@@ -628,6 +839,7 @@ blst_meta_free(blmeta_t *scan, daddr_t freeBlk, daddr_t count, daddr_t radix,
 	 * Break the free down into its components
 	 */
 
+	blk = freeBlk & -radix;
 	radix /= BLIST_META_RADIX;
 
 	child = (freeBlk - blk) / radix;
@@ -637,7 +849,7 @@ blst_meta_free(blmeta_t *scan, daddr_t freeBlk, daddr_t count, daddr_t radix,
 		v = blk + radix - freeBlk;
 		if (v > count)
 			v = count;
-		blst_meta_free(&scan[i], freeBlk, v, radix, blk);
+		blst_meta_free(&scan[i], freeBlk, v, radix);
 		if (scan->bm_bighint < scan[i].bm_bighint)
 			scan->bm_bighint = scan[i].bm_bighint;
 		count -= v;
@@ -755,10 +967,9 @@ blst_leaf_fill(blmeta_t *scan, daddr_t blk, int count)
  *	number of blocks allocated by the call.
  */
 static daddr_t
-blst_meta_fill(blmeta_t *scan, daddr_t allocBlk, daddr_t count, daddr_t radix,
-    daddr_t blk)
+blst_meta_fill(blmeta_t *scan, daddr_t allocBlk, daddr_t count, u_daddr_t radix)
 {
-	daddr_t i, nblks, next_skip, skip, v;
+	daddr_t blk, i, nblks, next_skip, skip, v;
 	int child;
 
 	if (scan->bm_bighint == (daddr_t)-1)
@@ -783,6 +994,7 @@ blst_meta_fill(blmeta_t *scan, daddr_t allocBlk, daddr_t count, daddr_t radix,
 	}
 	skip = radix_to_skip(radix);
 	next_skip = skip / BLIST_META_RADIX;
+	blk = allocBlk & -radix;
 
 	/*
 	 * An ALL-FREE meta node requires special handling before allocating
@@ -814,7 +1026,7 @@ blst_meta_fill(blmeta_t *scan, daddr_t allocBlk, daddr_t count, daddr_t radix,
 		v = blk + radix - allocBlk;
 		if (v > count)
 			v = count;
-		nblks += blst_meta_fill(&scan[i], allocBlk, v, radix, blk);
+		nblks += blst_meta_fill(&scan[i], allocBlk, v, radix);
 		count -= v;
 		allocBlk += v;
 		blk += radix;
@@ -978,6 +1190,7 @@ main(int ac, char **av)
 	int size = 1024;
 	int i;
 	blist_t bl;
+	struct sbuf *s;
 
 	for (i = 1; i < ac; ++i) {
 		const char *ptr = av[i];
@@ -1012,6 +1225,13 @@ main(int ac, char **av)
 		case 'p':
 			blist_print(bl);
 			break;
+		case 's':
+			s = sbuf_new_auto();
+			blist_stats(bl, s);
+			sbuf_finish(s);
+			printf("%s", sbuf_data(s));
+			sbuf_delete(s);
+			break;
 		case 'a':
 			if (sscanf(buf + 1, "%lld", &count) == 1) {
 				daddr_t blk = blist_alloc(bl, count);
@@ -1039,6 +1259,7 @@ main(int ac, char **av)
 		case 'h':
 			puts(
 			    "p          -print\n"
+			    "s          -stats\n"
 			    "a %d       -allocate\n"
 			    "f %x %d    -free\n"
 			    "l %x %d    -fill\n"
