@@ -355,7 +355,7 @@ pax_elf(struct thread *td, struct image_params *imgp)
 	 */
 	if (mode != 0) {
 		pax_log_internal_imgp(imgp, PAX_LOG_DEFAULT,
-		   "the process has non-default settings");
+		   "the process started with non-default hardening settings");
 	}
 
 	return (0);
