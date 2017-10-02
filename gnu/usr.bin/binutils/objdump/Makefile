@@ -1,10 +1,11 @@
 # $FreeBSD$
 
 .include "../Makefile.inc0"
+.include <src.opts.mk>
 
 .PATH: ${SRCDIR}/binutils ${SRCDIR}/binutils/doc
 
-PROG=	objdump
+PROG=	gnu-objdump
 SRCS=	objdump.c prdbg.c
 CFLAGS+= -D_GNU_SOURCE
 CFLAGS+= -I${.CURDIR}/${RELTOP}/libbinutils
@@ -15,5 +16,10 @@ DPADD+=	${RELTOP}/libopcodes/libopcodes.a
 DPADD+=	${RELTOP}/libbfd/libbfd.a
 DPADD+=	${RELTOP}/libiberty/libiberty.a
 LDADD=	${DPADD}
+MAN=	objdump.1
+
+.if ${MK_LLVM_OBJDUMP_IS_OBJDUMP} != "yes"
+SYMLINKS+=	${BINDIR}/gnu-objdump ${BINDIR}/objdump
+.endif
 
 .include <bsd.prog.mk>
