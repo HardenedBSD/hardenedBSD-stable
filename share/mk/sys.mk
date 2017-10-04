@@ -145,7 +145,7 @@ ARFLAGS		?=	-crD
 .endif
 _TEST_RANLIB=	/usr/bin/ranlib
 RANLIB		?=	ranlib
-.if !defined(%POSIX) && ${_TEST_RANLIB} != "/usr/bin/ranlib"
+.if !defined(%POSIX) && ${_TEST_RANLIB:tA} != "/usr/bin/llvm-ar"
 RANLIBFLAGS	?=	-D
 .endif
 
