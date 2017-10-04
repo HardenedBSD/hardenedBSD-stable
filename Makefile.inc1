@@ -1470,7 +1470,6 @@ _tcsh=bin/csh
 .endif
 
 build-tools: .MAKE
-
 .for _tool in \
     ${_tcsh} \
     bin/sh \
