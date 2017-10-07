@@ -19,6 +19,8 @@ NO_SHARED?=	yes
 .if ${MK_LLVM_AR_IS_AR} == "no"
 SYMLINKS=	${BINDIR}/elftc-ar ${BINDIR}/ranlib \
     ${BINDIR}/elftc-ar ${BINDIR}/ar
+.else
+SYMLINKS=	${BINDIR}/elftc-ar ${BINDIR}/elftc-ranlib
 .endif
 
 MLINKS= ar.1 ranlib.1
