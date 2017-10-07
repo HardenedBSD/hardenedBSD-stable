@@ -1,9 +1,5 @@
 /*-
-<<<<<<< HEAD
- * Copyright (c) 2017 W. Dean Freeman, CISSP CSSLP
-=======
  * Copyright (c) 2017 W. Dean Freeman
->>>>>>> origin/freebsd/current/master
  * Copyright (c) 2013-2015 Mark R V Murray
  * All rights reserved.
  *
@@ -240,14 +236,8 @@ random_fortuna_process_event(struct harvest_event *event)
 	 * during accumulation/reseeding and reading/regating.
 	 */
 	pl = event->he_destination % RANDOM_FORTUNA_NPOOLS;
-<<<<<<< HEAD
-#ifdef HBSD_RANDOM_HIGH_ENTROPY
-	/*
-	 * We toss low entropy static/counter fields towards the end of the
-=======
 	/*
 	 * We ignore low entropy static/counter fields towards the end of the
->>>>>>> origin/freebsd/current/master
 	 * he_event structure in order to increase measurable entropy when
 	 * conducting SP800-90B entropy analysis measurements of seed material
 	 * fed into PRNG.
@@ -257,40 +247,18 @@ random_fortuna_process_event(struct harvest_event *event)
 	    ("%s: event->he_size: %hhu > sizeof(event->he_entropy): %zu\n",
 	    __func__, event->he_size, sizeof(event->he_entropy)));
 	randomdev_hash_iterate(&fortuna_state.fs_pool[pl].fsp_hash,
-<<<<<<< HEAD
-	    (const void *)&event->he_somecounter, sizeof(event->he_somecounter));
-	randomdev_hash_iterate(&fortuna_state.fs_pool[pl].fsp_hash,
-	    (const void *)event->he_entropy, event->he_size);
-#else
-	randomdev_hash_iterate(&fortuna_state.fs_pool[pl].fsp_hash, event, sizeof(*event));
-#endif
-=======
 	    &event->he_somecounter, sizeof(event->he_somecounter));
 	randomdev_hash_iterate(&fortuna_state.fs_pool[pl].fsp_hash,
 	    event->he_entropy, event->he_size);
->>>>>>> origin/freebsd/current/master
 
 	/*-
 	 * Don't wrap the length.  This is a "saturating" add.
 	 * XXX: FIX!!: We don't actually need lengths for anything but fs_pool[0],
 	 * but it's been useful debugging to see them all.
 	 */
-<<<<<<< HEAD
-#ifdef HBSD_RANDOM_HIGH_ENTROPY
-	fortuna_state.fs_pool[pl].fsp_length = MIN(RANDOM_FORTUNA_MAXPOOLSIZE,
-	    fortuna_state.fs_pool[pl].fsp_length + sizeof(event->he_somecounter) +
-	    event->he_size);
-#else
-	if (RANDOM_FORTUNA_MAXPOOLSIZE - fortuna_state.fs_pool[pl].fsp_length > event->he_size)
-		fortuna_state.fs_pool[pl].fsp_length += event->he_size;
-	else
-		fortuna_state.fs_pool[pl].fsp_length = RANDOM_FORTUNA_MAXPOOLSIZE;
-#endif
-=======
 	fortuna_state.fs_pool[pl].fsp_length = MIN(RANDOM_FORTUNA_MAXPOOLSIZE,
 	    fortuna_state.fs_pool[pl].fsp_length +
 	    sizeof(event->he_somecounter) + event->he_size);
->>>>>>> origin/freebsd/current/master
 	explicit_bzero(event, sizeof(*event));
 	RANDOM_RESEED_UNLOCK();
 }
