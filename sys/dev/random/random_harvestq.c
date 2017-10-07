@@ -250,21 +250,6 @@ random_check_uint_harvestmask(SYSCTL_HANDLER_ARGS)
 
 	orig_value = value = harvest_context.hc_source_mask;
 	error = sysctl_handle_int(oidp, &value, 0, req);
-<<<<<<< HEAD
-	if (error || !req->newptr)
-		return (error);
-
-	if (flsl(value) >= ENTROPYSOURCE)
-		return (EINVAL);
-
-	/*
-	 * Set the new environmental harvest mask, regardless 
-	 * from the pure entropy sources.
-	 * We won't allow to modify the pure entropy source.
-	 */
-	harvest_context.hc_source_mask = value | (orig_value & RANDOM_HARVEST_PURE_MASK);
-
-=======
 	if (error != 0 || req->newptr == NULL)
 		return (error);
 
@@ -276,7 +261,6 @@ random_check_uint_harvestmask(SYSCTL_HANDLER_ARGS)
 	 */
 	harvest_context.hc_source_mask = (value & ~RANDOM_HARVEST_PURE_MASK) |
 	    (orig_value & RANDOM_HARVEST_PURE_MASK);
->>>>>>> origin/freebsd/current/master
 	return (0);
 }
 
@@ -298,28 +282,6 @@ random_print_harvestmask(SYSCTL_HANDLER_ARGS)
 	return (error);
 }
 
-<<<<<<< HEAD
-static const char *(random_source_descr[]) = {
-	"CACHED",
-	"ATTACH",
-	"KEYBOARD",
-	"MOUSE",
-	"NET_TUN",
-	"NET_ETHER",
-	"NET_NG",
-	"INTERRUPT",
-	"SWI",
-	"FS_ATIME",
-	"UMA", /* ENVIRONMENTAL_END */
-	"PURE_OCTEON", /* PURE_START */
-	"PURE_SAFE",
-	"PURE_GLXSB",
-	"PURE_UBSEC",
-	"PURE_HIFN",
-	"PURE_RDRAND",
-	"PURE_NEHEMIAH",
-	"PURE_RNDTEST",
-=======
 static const char *random_source_descr[ENTROPYSOURCE] = {
 	[RANDOM_CACHED] = "CACHED",
 	[RANDOM_ATTACH] = "ATTACH",
@@ -342,7 +304,6 @@ static const char *random_source_descr[ENTROPYSOURCE] = {
 	[RANDOM_PURE_RNDTEST] = "PURE_RNDTEST",
 	[RANDOM_PURE_VIRTIO] = "PURE_VIRTIO",
 	[RANDOM_PURE_BROADCOM] = "PURE_BROADCOM",
->>>>>>> origin/freebsd/current/master
 	/* "ENTROPYSOURCE" */
 };
 
@@ -353,11 +314,6 @@ random_print_harvestmask_symbolic(SYSCTL_HANDLER_ARGS)
 	struct sbuf sbuf;
 	int error, i;
 	bool first;
-<<<<<<< HEAD
-
-	first = true;
-=======
->>>>>>> origin/freebsd/current/master
 
 	first = true;
 	error = sysctl_wire_old_buffer(req, 0);
