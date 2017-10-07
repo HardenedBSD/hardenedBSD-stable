@@ -250,6 +250,7 @@ random_check_uint_harvestmask(SYSCTL_HANDLER_ARGS)
 
 	orig_value = value = harvest_context.hc_source_mask;
 	error = sysctl_handle_int(oidp, &value, 0, req);
+<<<<<<< HEAD
 	if (error || !req->newptr)
 		return (error);
 
@@ -263,6 +264,19 @@ random_check_uint_harvestmask(SYSCTL_HANDLER_ARGS)
 	 */
 	harvest_context.hc_source_mask = value | (orig_value & RANDOM_HARVEST_PURE_MASK);
 
+=======
+	if (error != 0 || req->newptr == NULL)
+		return (error);
+
+	if (flsl(value) > ENTROPYSOURCE)
+		return (EINVAL);
+
+	/*
+	 * Disallow userspace modification of pure entropy sources.
+	 */
+	harvest_context.hc_source_mask = (value & ~RANDOM_HARVEST_PURE_MASK) |
+	    (orig_value & RANDOM_HARVEST_PURE_MASK);
+>>>>>>> origin/freebsd/current/master
 	return (0);
 }
 
@@ -284,6 +298,7 @@ random_print_harvestmask(SYSCTL_HANDLER_ARGS)
 	return (error);
 }
 
+<<<<<<< HEAD
 static const char *(random_source_descr[]) = {
 	"CACHED",
 	"ATTACH",
@@ -304,6 +319,30 @@ static const char *(random_source_descr[]) = {
 	"PURE_RDRAND",
 	"PURE_NEHEMIAH",
 	"PURE_RNDTEST",
+=======
+static const char *random_source_descr[ENTROPYSOURCE] = {
+	[RANDOM_CACHED] = "CACHED",
+	[RANDOM_ATTACH] = "ATTACH",
+	[RANDOM_KEYBOARD] = "KEYBOARD",
+	[RANDOM_MOUSE] = "MOUSE",
+	[RANDOM_NET_TUN] = "NET_TUN",
+	[RANDOM_NET_ETHER] = "NET_ETHER",
+	[RANDOM_NET_NG] = "NET_NG",
+	[RANDOM_INTERRUPT] = "INTERRUPT",
+	[RANDOM_SWI] = "SWI",
+	[RANDOM_FS_ATIME] = "FS_ATIME",
+	[RANDOM_UMA] = "UMA", /* ENVIRONMENTAL_END */
+	[RANDOM_PURE_OCTEON] = "PURE_OCTEON", /* PURE_START */
+	[RANDOM_PURE_SAFE] = "PURE_SAFE",
+	[RANDOM_PURE_GLXSB] = "PURE_GLXSB",
+	[RANDOM_PURE_UBSEC] = "PURE_UBSEC",
+	[RANDOM_PURE_HIFN] = "PURE_HIFN",
+	[RANDOM_PURE_RDRAND] = "PURE_RDRAND",
+	[RANDOM_PURE_NEHEMIAH] = "PURE_NEHEMIAH",
+	[RANDOM_PURE_RNDTEST] = "PURE_RNDTEST",
+	[RANDOM_PURE_VIRTIO] = "PURE_VIRTIO",
+	[RANDOM_PURE_BROADCOM] = "PURE_BROADCOM",
+>>>>>>> origin/freebsd/current/master
 	/* "ENTROPYSOURCE" */
 };
 
@@ -314,9 +353,13 @@ random_print_harvestmask_symbolic(SYSCTL_HANDLER_ARGS)
 	struct sbuf sbuf;
 	int error, i;
 	bool first;
+<<<<<<< HEAD
 
 	first = true;
+=======
+>>>>>>> origin/freebsd/current/master
 
+	first = true;
 	error = sysctl_wire_old_buffer(req, 0);
 	if (error == 0) {
 		sbuf_new_for_sysctl(&sbuf, NULL, 128, req);
