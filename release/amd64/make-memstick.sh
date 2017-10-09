@@ -32,7 +32,11 @@ fi
 
 echo '/dev/ufs/HardenedBSD_Install / ufs ro,noatime 1 1' > ${1}/etc/fstab
 echo 'root_rw_mount="NO"' > ${1}/etc/rc.conf.local
+<<<<<<< HEAD
 makefs -B little -o label=HardenedBSD_Install,version=2 ${2}.part ${1}
+=======
+makefs -B little -o label=FreeBSD_Install -o version=2 ${2}.part ${1}
+>>>>>>> origin/freebsd/11-stable/master
 rm ${1}/etc/fstab
 rm ${1}/etc/rc.conf.local
 
