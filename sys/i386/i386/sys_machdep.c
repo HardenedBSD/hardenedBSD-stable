@@ -69,10 +69,10 @@ __FBSDID("$FreeBSD$");
 #define	NULL_LDT_BASE	((caddr_t)NULL)
 
 #ifdef SMP
-static void set_user_ldt_rv(struct vmspace *vmsp);
+static void set_user_ldt_rv(void *arg);
 #endif
 static int i386_set_ldt_data(struct thread *, int start, int num,
-	union descriptor *descs);
+    union descriptor *descs);
 static int i386_ldt_grow(struct thread *td, int len);
 
 void
@@ -405,41 +405,40 @@ done:
  * Update the GDT entry pointing to the LDT to point to the LDT of the
  * current process. Manage dt_lock holding/unholding autonomously.
  */   
+static void
+set_user_ldt_locked(struct mdproc *mdp)
+{
+	struct proc_ldt *pldt;
+	int gdt_idx;
+
+	mtx_assert(&dt_lock, MA_OWNED);
+
+	pldt = mdp->md_ldt;
+	gdt_idx = GUSERLDT_SEL;
+	gdt_idx += PCPU_GET(cpuid) * NGDT;	/* always 0 on UP */
+	gdt[gdt_idx].sd = pldt->ldt_sd;
+	lldt(GSEL(GUSERLDT_SEL, SEL_KPL));
+	PCPU_SET(currentldt, GSEL(GUSERLDT_SEL, SEL_KPL));
+}
+
 void
 set_user_ldt(struct mdproc *mdp)
 {
-	struct proc_ldt *pldt;
-	int dtlocked;
 
-	dtlocked = 0;
-	if (!mtx_owned(&dt_lock)) {
-		mtx_lock_spin(&dt_lock);
-		dtlocked = 1;
-	}
-
-	pldt = mdp->md_ldt;
-#ifdef SMP
-	gdt[PCPU_GET(cpuid) * NGDT + GUSERLDT_SEL].sd = pldt->ldt_sd;
-#else
-	gdt[GUSERLDT_SEL].sd = pldt->ldt_sd;
-#endif
-	lldt(GSEL(GUSERLDT_SEL, SEL_KPL));
-	PCPU_SET(currentldt, GSEL(GUSERLDT_SEL, SEL_KPL));
-	if (dtlocked)
-		mtx_unlock_spin(&dt_lock);
+	mtx_lock_spin(&dt_lock);
+	set_user_ldt_locked(mdp);
+	mtx_unlock_spin(&dt_lock);
 }
 
 #ifdef SMP
 static void
-set_user_ldt_rv(struct vmspace *vmsp)
+set_user_ldt_rv(void *arg)
 {
-	struct thread *td;
+	struct proc *p;
 
-	td = curthread;
-	if (vmsp != td->td_proc->p_vmspace)
-		return;
-
-	set_user_ldt(&td->td_proc->p_md);
+	p = curproc;
+	if (arg == p->p_vmspace)
+		set_user_ldt(&p->p_md);
 }
 #endif
 
@@ -535,23 +534,20 @@ i386_get_ldt(struct thread *td, struct i386_ldt_args *uap)
 	    uap->start, uap->num, (void *)uap->descs);
 #endif
 
-	if (uap->start >= MAX_LD)
-		return (EINVAL);
-	num = min(uap->num, MAX_LD - uap->start);
-	data = malloc(uap->num * sizeof(union descriptor), M_TEMP, M_WAITOK);
+	num = min(uap->num, MAX_LD);
+	data = malloc(num * sizeof(union descriptor), M_TEMP, M_WAITOK);
 	mtx_lock_spin(&dt_lock);
 	pldt = td->td_proc->p_md.md_ldt;
 	nldt = pldt != NULL ? pldt->ldt_len : nitems(ldt);
-	num = min(num, nldt);
-	if (uap->start > nldt || uap->start + num > nldt) {
-		mtx_unlock_spin(&dt_lock);
-		return (EINVAL);
+	if (uap->start >= nldt) {
+		num = 0;
+	} else {
+		num = min(num, nldt - uap->start);
+		bcopy(pldt != NULL ?
+		    &((union descriptor *)(pldt->ldt_base))[uap->start] :
+		    &ldt[uap->start], data, num * sizeof(union descriptor));
 	}
-	bcopy(pldt != NULL ?
-	    &((union descriptor *)(pldt->ldt_base))[uap->start] :
-	    &ldt[uap->start], data, num * sizeof(union descriptor));
 	mtx_unlock_spin(&dt_lock);
-
 	error = copyout(data, uap->descs, num * sizeof(union descriptor));
 	if (error == 0)
 		td->td_retval[0] = num;
@@ -796,10 +792,10 @@ i386_ldt_grow(struct thread *td, int len)
 		 * to acquire it.
 		 */
 		mtx_unlock_spin(&dt_lock);
-		smp_rendezvous(NULL, (void (*)(void *))set_user_ldt_rv,
-		    NULL, td->td_proc->p_vmspace);
+		smp_rendezvous(NULL, set_user_ldt_rv, NULL,
+		    td->td_proc->p_vmspace);
 #else
-		set_user_ldt(&td->td_proc->p_md);
+		set_user_ldt_locked(&td->td_proc->p_md);
 		mtx_unlock_spin(&dt_lock);
 #endif
 		if (old_ldt_base != NULL_LDT_BASE) {
