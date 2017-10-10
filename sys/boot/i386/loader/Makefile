@@ -28,10 +28,6 @@ CFLAGS+=	-DLOADER_ZFS_SUPPORT
 LIBZFSBOOT=	${.OBJDIR}/../../zfs/libzfsboot.a
 .endif
 
-.if defined(LOADER_NET_SUPPORT)
-CFLAGS+=	-I${.CURDIR}/../../../../lib/libstand
-.endif
-
 .if defined(LOADER_TFTP_SUPPORT)
 CFLAGS+=	-DLOADER_TFTP_SUPPORT
 .endif
@@ -90,8 +86,6 @@ LDFLAGS=	-static -Ttext 0x0
 LIBI386=	${.OBJDIR}/../libi386/libi386.a
 CFLAGS+=	-I${.CURDIR}/..
 
-LIBSTAND=	${.OBJDIR}/../../libstand32/libstand.a
-
 # BTX components
 CFLAGS+=	-I${.CURDIR}/../btx/lib
 
@@ -127,8 +121,8 @@ FILES+=	loader.rc menu.rc
 # XXX crt0.o needs to be first for pxeboot(8) to work
 OBJS=	${BTXCRT}
 
-DPADD=	${LIBFICL} ${LIBFIREWIRE} ${LIBZFSBOOT} ${LIBI386} ${LIBGELIBOOT} ${LIBSTAND}
-LDADD=	${LIBFICL} ${LIBFIREWIRE} ${LIBZFSBOOT} ${LIBI386} ${LIBGELIBOOT} ${LIBSTAND}
+DPADD=	${LIBFICL} ${LIBFIREWIRE} ${LIBZFSBOOT} ${LIBI386} ${LIBGELIBOOT} ${LIBSA32}
+LDADD=	${LIBFICL} ${LIBFIREWIRE} ${LIBZFSBOOT} ${LIBI386} ${LIBGELIBOOT} ${LIBSA32}
 
 .include <bsd.prog.mk>
 
