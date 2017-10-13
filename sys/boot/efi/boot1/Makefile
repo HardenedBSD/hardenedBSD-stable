@@ -2,15 +2,7 @@
 
 MAN=
 
-<<<<<<< HEAD
-.if ${MACHINE_CPUARCH} == "aarch64"
-NOPIE=		1
-.endif
-
-.include <src.opts.mk>
-=======
 .include "../Makefile.inc"
->>>>>>> origin/freebsd/current/master
 
 MK_SSP=		no
 
