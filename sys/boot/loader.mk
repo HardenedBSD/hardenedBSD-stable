@@ -1,6 +1,10 @@
 # $FreeBSD$
 
-.PATH: ${SRCTOP}/sys/boot/common ${SRCTOP}/sys/boot/libsa
+.include "defs.mk"
+
+.PATH: ${LDR_MI} ${BOOTDIR}/libsa
+
+CFLAGS+=-I${LDR_MI}
 
 SRCS+=	boot.c commands.c console.c devopen.c interp.c 
 SRCS+=	interp_backslash.c interp_parse.c ls.c misc.c 
@@ -25,22 +29,12 @@ SRCS+= load_elf64.c reloc_elf64.c
 SRCS+=	load_elf32.c reloc_elf32.c
 .endif
 
-.if defined(LOADER_NET_SUPPORT)
-SRCS+=	dev_net.c
+.if ${LOADER_DISK_SUPPORT:Uyes} == "yes"
+SRCS+=	disk.c part.c
 .endif
 
-.if !defined(LOADER_NO_DISK_SUPPORT)
-SRCS+=	disk.c part.c
-CFLAGS+= -DLOADER_DISK_SUPPORT
-.if !defined(LOADER_NO_GPT_SUPPORT)
-CFLAGS+= -DLOADER_GPT_SUPPORT
-.endif
-.if !defined(LOADER_NO_MBR_SUPPORT)
-CFLAGS+= -DLOADER_MBR_SUPPORT
-.endif
-.endif
-.if !defined(LOADER_NO_GELI_SUPPORT)
-CFLAGS+= -DLOADER_GELI_SUPPORT
+.if ${LOADER_NET_SUPPORT:Uno} == "yes"
+SRCS+= dev_net.c
 .endif
 
 .if defined(HAVE_BCACHE)
@@ -61,9 +55,9 @@ SRCS+=	pnp.c
 .endif
 
 # Forth interpreter
-.if defined(BOOT_FORTH)
+.if ${MK_FORTH} != "no"
 SRCS+=	interp_forth.c
-.include "${SRCTOP}/sys/boot/Makefile.ficl"
+.include "${BOOTDIR}/ficl.mk"
 .endif
 
 .if defined(BOOT_PROMPT_123)
@@ -79,6 +73,6 @@ VERSION_FILE?=	${.CURDIR}/version
 .if ${MK_REPRODUCIBLE_BUILD} != no
 REPRO_FLAG=	-r
 .endif
-vers.c: ${SRCTOP}/sys/boot/common/newvers.sh ${VERSION_FILE}
-	sh ${SRCTOP}/sys/boot/common/newvers.sh ${REPRO_FLAG} ${VERSION_FILE} \
+vers.c: ${LDR_MI}/newvers.sh ${VERSION_FILE}
+	sh ${LDR_MI}/newvers.sh ${REPRO_FLAG} ${VERSION_FILE} \
 	    ${NEWVERSWHAT}

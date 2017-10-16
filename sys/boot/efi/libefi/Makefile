@@ -3,16 +3,16 @@
 .include <src.opts.mk>
 
 .if ${MK_FORTH} != "no"
-CFLAGS+= -DBOOT_FORTH
-.include "${.CURDIR}/../../Makefile.ficl"
+.include	"../../ficl.mk"
 .endif
 
 LIB=	efi
 INTERNALLIB=
 WARNS?=	2
 
-SRCS=	delay.c devpath.c efi_console.c efichar.c efinet.c efipart.c env.c errno.c \
-	handles.c wchar.c libefi.c efi_driver_utils.c efizfs.c devicename.c
+SRCS=	delay.c devpath.c efi_console.c efichar.c efinet.c efipart.c env.c \
+        errno.c handles.c wchar.c libefi.c efi_driver_utils.c efizfs.c \
+        devicename.c efi_main.c
 
 .if ${MACHINE_CPUARCH} == "amd64" || ${MACHINE_CPUARCH} == "i386"
 SRCS+=	time.c
@@ -36,6 +36,7 @@ CFLAGS+=	-mgeneral-regs-only
 .if ${MACHINE_ARCH} == "amd64"
 CFLAGS+= -fPIC -mno-red-zone
 .endif
+CFLAGS+= -I${SYSDIR}
 CFLAGS+= -I${.CURDIR}/../include
 CFLAGS+= -I${.CURDIR}/../include/${MACHINE}
 .if ${MK_ZFS} != "no"

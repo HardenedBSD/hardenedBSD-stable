@@ -1,7 +1,7 @@
 # $FreeBSD$
 #
 
-.include	"${.CURDIR}/../Makefile.ficl"
+.include	"../ficl.mk"
 
 .if ${MACHINE_CPUARCH} == "aarch64"
 NOPIE=		1
