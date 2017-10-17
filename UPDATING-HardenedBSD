@@ -1,3 +1,44 @@
+[20171017] Changed auxvector after b8515f8f387edbf541e0be5a7b346ad69e2db1ea
+__HardenedBSD_version = 1100052
+
+	> commit b8515f8f387edbf541e0be5a7b346ad69e2db1ea
+	> Author: jhb <jhb@FreeBSD.org>
+	> Date:   Tue Oct 17 12:45:51 2017 +0000
+	> 
+	>     MFC 323579,323585: Add AT_HWCAP and AT_EHDRFLAGS on all platforms.
+	>     
+	>     To preserve KBI on stable/11, a new SV_HWCAP flag is added which
+	>     indicates if the sv_hwcap field is present and valid to avoid examining
+	>     the field in old modules.  Only sysentvec's which wish to use sv_hwcap
+	>     need to set the flag in stable/11.
+	>     
+	>     323579:
+	>     Add AT_HWCAP and AT_EHDRFLAGS on all platforms.
+	>     
+	>     A new 'u_long *sv_hwcap' field is added to 'struct sysentvec'.  A
+	>     process ABI can set this field to point to a value holding a mask of
+	>     architecture-specific CPU feature flags.  If an ABI does not wish to
+	>     supply AT_HWCAP to processes the field can be left as NULL.
+	>     
+	>     The support code for AT_EHDRFLAGS was already present on all systems,
+	>     just the #define was not present.  This is a step towards unifying the
+	>     AT_* constants across platforms.
+	>     
+	>     323585:
+	>     Add AT_EHDRFLAGS and AT_HWCAP on amd64.
+	>     
+	>     x86 has two separate (but identical) list of AT_* constants and the
+	>     earlier commit to add AT_HWCAP only updated the i386 list.
+	> 
+	> Notes:
+	>     svn path=/stable/11/; revision=324687
+
+	the AT_PAXFLAGS has been changed from 24 to 26 position in
+	elf auxvector. This may break some functionality, especially
+	the SHLIBRAND feature, when you running on a newer kernel
+	with an older user-space.
+
+
 [20171002] TOCTOU fix, PAX_CONTROL_{ACL,EXTATTR}
 __HardenedBSD_version = 1100051
 
