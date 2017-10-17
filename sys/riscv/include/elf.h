@@ -93,7 +93,7 @@ __ElfType(Auxinfo);
 
 #define	AT_EHDRFLAGS	24	/* e_flags field from elf hdr */
 #define	AT_HWCAP	25	/* CPU feature flags. */
-#define AT_PAXFLAGS	26	/* HardenedBSD PaX flags */
+#define	AT_PAXFLAGS	26	/* HardenedBSD PaX flags */
 
 #define	AT_COUNT	27	/* Count of defined aux entry types. */
 
