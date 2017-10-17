@@ -1121,11 +1121,7 @@ __elfN(freebsd_fixup)(register_t **stack_base, struct image_params *imgp)
 	AUXARGS_ENTRY(pos, AT_FLAGS, args->flags);
 	AUXARGS_ENTRY(pos, AT_ENTRY, args->entry);
 	AUXARGS_ENTRY(pos, AT_BASE, args->base);
-<<<<<<< HEAD
 	AUXARGS_ENTRY(pos, AT_PAXFLAGS, args->pax_flags);
-#ifdef AT_EHDRFLAGS
-=======
->>>>>>> origin/freebsd/11-stable/master
 	AUXARGS_ENTRY(pos, AT_EHDRFLAGS, args->hdr_eflags);
 	if (imgp->execpathp != 0)
 		AUXARGS_ENTRY(pos, AT_EXECPATH, imgp->execpathp);
