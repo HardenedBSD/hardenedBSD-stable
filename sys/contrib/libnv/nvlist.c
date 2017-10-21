@@ -281,8 +281,7 @@ nvlist_get_pararr(const nvlist_t *nvl, void **cookiep)
 		return (ret);
 	}
 
-	ret = nvlist_get_parent(nvl, cookiep);
-	return (ret);
+	return (nvlist_get_parent(nvl, cookiep));
 }
 
 bool
@@ -710,7 +709,6 @@ static int *
 nvlist_xdescriptors(const nvlist_t *nvl, int *descs)
 {
 	nvpair_t *nvp;
-	const char *name;
 	int type;
 
 	NVLIST_ASSERT(nvl);
@@ -718,7 +716,7 @@ nvlist_xdescriptors(const nvlist_t *nvl, int *descs)
 
 	nvp = NULL;
 	do {
-		while ((name = nvlist_next(nvl, &type, (void**)&nvp)) != NULL) {
+		while (nvlist_next(nvl, &type, (void *)&nvp) != NULL) {
 			switch (type) {
 			case NV_TYPE_DESCRIPTOR:
 				*descs = nvpair_get_descriptor(nvp);
@@ -757,7 +755,7 @@ nvlist_xdescriptors(const nvlist_t *nvl, int *descs)
 			    }
 			}
 		}
-	} while ((nvl = nvlist_get_pararr(nvl, (void**)&nvp)) != NULL);
+	} while ((nvl = nvlist_get_pararr(nvl, (void *)&nvp)) != NULL);
 
 	return (descs);
 }
@@ -788,7 +786,6 @@ nvlist_ndescriptors(const nvlist_t *nvl)
 {
 #ifndef _KERNEL
 	nvpair_t *nvp;
-	const char *name;
 	size_t ndescs;
 	int type;
 
@@ -798,7 +795,7 @@ nvlist_ndescriptors(const nvlist_t *nvl)
 	ndescs = 0;
 	nvp = NULL;
 	do {
-		while ((name = nvlist_next(nvl, &type, (void**)&nvp)) != NULL) {
+		while (nvlist_next(nvl, &type, (void *)&nvp) != NULL) {
 			switch (type) {
 			case NV_TYPE_DESCRIPTOR:
 				ndescs++;
@@ -831,7 +828,7 @@ nvlist_ndescriptors(const nvlist_t *nvl)
 			    }
 			}
 		}
-	} while ((nvl = nvlist_get_pararr(nvl, (void**)&nvp)) != NULL);
+	} while ((nvl = nvlist_get_pararr(nvl, (void *)&nvp)) != NULL);
 
 	return (ndescs);
 #else
@@ -1071,24 +1068,24 @@ nvlist_unpack_header(nvlist_t *nvl, const unsigned char *ptr, size_t nfds,
 	int inarrayf;
 
 	if (*leftp < sizeof(nvlhdr))
-		goto failed;
+		goto fail;
 
 	memcpy(&nvlhdr, ptr, sizeof(nvlhdr));
 
 	if (!nvlist_check_header(&nvlhdr))
-		goto failed;
+		goto fail;
 
 	if (nvlhdr.nvlh_size != *leftp - sizeof(nvlhdr))
-		goto failed;
+		goto fail;
 
 	/*
 	 * nvlh_descriptors might be smaller than nfds in embedded nvlists.
 	 */
 	if (nvlhdr.nvlh_descriptors > nfds)
-		goto failed;
+		goto fail;
 
 	if ((nvlhdr.nvlh_flags & ~NV_FLAG_ALL_MASK) != 0)
-		goto failed;
+		goto fail;
 
 	inarrayf = (nvl->nvl_flags & NV_FLAG_IN_ARRAY);
 	nvl->nvl_flags = (nvlhdr.nvlh_flags & NV_FLAG_PUBLIC_MASK) | inarrayf;
@@ -1099,7 +1096,7 @@ nvlist_unpack_header(nvlist_t *nvl, const unsigned char *ptr, size_t nfds,
 	*leftp -= sizeof(nvlhdr);
 
 	return (ptr);
-failed:
+fail:
 	ERRNO_SET(EINVAL);
 	return (NULL);
 }
@@ -1122,20 +1119,20 @@ nvlist_xunpack(const void *buf, size_t size, const int *fds, size_t nfds,
 	tmpnvl = array = NULL;
 	nvl = retnvl = nvlist_create(0);
 	if (nvl == NULL)
-		goto failed;
+		goto fail;
 
 	ptr = nvlist_unpack_header(nvl, ptr, nfds, &isbe, &left);
 	if (ptr == NULL)
-		goto failed;
+		goto fail;
 	if (nvl->nvl_flags != flags) {
 		ERRNO_SET(EILSEQ);
-		goto failed;
+		goto fail;
 	}
 
 	while (left > 0) {
 		ptr = nvpair_unpack(isbe, ptr, &left, &nvp);
 		if (ptr == NULL)
-			goto failed;
+			goto fail;
 		switch (nvpair_type(nvp)) {
 		case NV_TYPE_NULL:
 			ptr = nvpair_unpack_null(isbe, nvp, ptr, &left);
@@ -1153,7 +1150,7 @@ nvlist_xunpack(const void *buf, size_t size, const int *fds, size_t nfds,
 			ptr = nvpair_unpack_nvlist(isbe, nvp, ptr, &left, nfds,
 			    &tmpnvl);
 			if (tmpnvl == NULL || ptr == NULL)
-				goto failed;
+				goto fail;
 			nvlist_set_parent(tmpnvl, nvp);
 			break;
 #ifndef _KERNEL
@@ -1171,14 +1168,14 @@ nvlist_xunpack(const void *buf, size_t size, const int *fds, size_t nfds,
 			break;
 		case NV_TYPE_NVLIST_UP:
 			if (nvl->nvl_parent == NULL)
-				goto failed;
+				goto fail;
 			nvl = nvpair_nvlist(nvl->nvl_parent);
 			nvpair_free_structure(nvp);
 			continue;
 		case NV_TYPE_NVLIST_ARRAY_NEXT:
 			if (nvl->nvl_array_next == NULL) {
 				if (nvl->nvl_parent == NULL)
-					goto failed;
+					goto fail;
 				nvl = nvpair_nvlist(nvl->nvl_parent);
 			} else {
 				nvl = __DECONST(nvlist_t *,
@@ -1186,7 +1183,7 @@ nvlist_xunpack(const void *buf, size_t size, const int *fds, size_t nfds,
 				ptr = nvlist_unpack_header(nvl, ptr, nfds,
 				    &isbe, &left);
 				if (ptr == NULL)
-					goto failed;
+					goto fail;
 			}
 			nvpair_free_structure(nvp);
 			continue;
@@ -1203,13 +1200,14 @@ nvlist_xunpack(const void *buf, size_t size, const int *fds, size_t nfds,
 			ptr = nvpair_unpack_nvlist_array(isbe, nvp, ptr, &left,
 			    &array);
 			if (ptr == NULL)
-				goto failed;
+				goto fail;
+			PJDLOG_ASSERT(array != NULL);
 			tmpnvl = array;
-			while (array != NULL) {
+			do {
 				nvlist_set_parent(array, nvp);
 				array = __DECONST(nvlist_t *,
 				    nvlist_get_array_next(array));
-			}
+			} while (array != NULL);
 			ptr = nvlist_unpack_header(tmpnvl, ptr, nfds, &isbe,
 			    &left);
 			break;
@@ -1217,9 +1215,9 @@ nvlist_xunpack(const void *buf, size_t size, const int *fds, size_t nfds,
 			PJDLOG_ABORT("Invalid type (%d).", nvpair_type(nvp));
 		}
 		if (ptr == NULL)
-			goto failed;
+			goto fail;
 		if (!nvlist_move_nvpair(nvl, nvp))
-			goto failed;
+			goto fail;
 		if (tmpnvl != NULL) {
 			nvl = tmpnvl;
 			tmpnvl = NULL;
@@ -1227,7 +1225,7 @@ nvlist_xunpack(const void *buf, size_t size, const int *fds, size_t nfds,
 	}
 
 	return (retnvl);
-failed:
+fail:
 	nvlist_destroy(retnvl);
 	return (NULL);
 }
@@ -1259,7 +1257,6 @@ nvlist_send(int sock, const nvlist_t *nvl)
 		return (-1);
 
 	ret = -1;
-	data = NULL;
 	fdidx = 0;
 
 	data = nvlist_xpack(nvl, &fdidx, &datasize);
