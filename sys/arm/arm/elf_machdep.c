@@ -55,6 +55,7 @@ __FBSDID("$FreeBSD$");
 static boolean_t elf32_arm_abi_supported(struct image_params *);
 
 u_long elf_hwcap;
+u_long elf_hwcap2;
 
 struct sysentvec elf32_freebsd_sysvec = {
 	.sv_size	= SYS_MAXSYSCALL,
@@ -96,6 +97,7 @@ struct sysentvec elf32_freebsd_sysvec = {
 	.sv_trap	= NULL,
 	.sv_pax_aslr_init = pax_aslr_init_vmspace,
 	.sv_hwcap	= &elf_hwcap,
+	.sv_hwcap2	= &elf_hwcap2,
 };
 INIT_SYSENTVEC(elf32_sysvec, &elf32_freebsd_sysvec);
 

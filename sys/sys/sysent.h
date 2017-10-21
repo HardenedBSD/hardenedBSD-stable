@@ -132,6 +132,7 @@ struct sysentvec {
 	int		(*sv_trap)(struct thread *);
 	void		(* const sv_pax_aslr_init)(struct proc *p);
 	u_long		*sv_hwcap;	/* Value passed in AT_HWCAP. */
+	u_long		*sv_hwcap2;	/* Value passed in AT_HWCAP2. */
 };
 
 #define	SV_ILP32	0x000100	/* 32-bit executable. */
