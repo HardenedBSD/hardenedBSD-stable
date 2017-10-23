@@ -2806,14 +2806,14 @@ issignal(struct thread *td)
 	struct sigacts *ps;
 	struct sigqueue *queue;
 	sigset_t sigpending;
-	int sig, prop;
+	int prop, sig, traced;
 
 	p = td->td_proc;
 	ps = p->p_sigacts;
 	mtx_assert(&ps->ps_mtx, MA_OWNED);
 	PROC_LOCK_ASSERT(p, MA_OWNED);
 	for (;;) {
-		int traced = (p->p_flag & P_TRACED) || (p->p_stops & S_SIG);
+		traced = (p->p_flag & P_TRACED) || (p->p_stops & S_SIG);
 
 		sigpending = td->td_sigqueue.sq_signals;
 		SIGSETOR(sigpending, p->p_sigqueue.sq_signals);
@@ -3000,11 +3000,10 @@ thread_stopped(struct proc *p)
  * from the current set of pending signals.
  */
 int
-postsig(sig)
-	register int sig;
+postsig(int sig)
 {
-	struct thread *td = curthread;
-	register struct proc *p = td->td_proc;
+	struct thread *td;
+	struct proc *p;
 	struct sigacts *ps;
 	sig_t action;
 	ksiginfo_t ksi;
@@ -3012,6 +3011,8 @@ postsig(sig)
 
 	KASSERT(sig != 0, ("postsig"));
 
+	td = curthread;
+	p = td->td_proc;
 	PROC_LOCK_ASSERT(p, MA_OWNED);
 	ps = p->p_sigacts;
 	mtx_assert(&ps->ps_mtx, MA_OWNED);
@@ -3028,7 +3029,7 @@ postsig(sig)
 		ktrpsig(sig, action, td->td_pflags & TDP_OLDMASK ?
 		    &td->td_oldsigmask : &td->td_sigmask, ksi.ksi_code);
 #endif
-	if (p->p_stops & S_SIG) {
+	if ((p->p_stops & S_SIG) != 0) {
 		mtx_unlock(&ps->ps_mtx);
 		stopevent(p, S_SIG, sig);
 		mtx_lock(&ps->ps_mtx);
@@ -3046,8 +3047,10 @@ postsig(sig)
 		/*
 		 * If we get here, the signal must be caught.
 		 */
-		KASSERT(action != SIG_IGN && !SIGISMEMBER(td->td_sigmask, sig),
-		    ("postsig action"));
+		KASSERT(action != SIG_IGN, ("postsig action %p", action));
+		KASSERT(!SIGISMEMBER(td->td_sigmask, sig),
+		    ("postsig action: blocked sig %d", sig));
+
 		/*
 		 * Set the new mask value and also defer further
 		 * occurrences of this signal.
