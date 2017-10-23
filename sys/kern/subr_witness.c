@@ -139,7 +139,7 @@ extern int unprivileged_read_msgbuf;
 #define	WITNESS_COUNT 		1536
 #endif
 #define	WITNESS_HASH_SIZE	251	/* Prime, gives load factor < 2 */
-#define	WITNESS_PENDLIST	(1024 + MAXCPU)
+#define	WITNESS_PENDLIST	(2048 + MAXCPU)
 
 /* Allocate 256 KB of stack data space */
 #define	WITNESS_LO_DATA_COUNT	2048
