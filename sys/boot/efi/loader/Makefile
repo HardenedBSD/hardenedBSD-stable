@@ -26,6 +26,7 @@ SRCS=	autoload.c \
 	conf.c \
 	copy.c \
 	efi_main.c \
+	framebuffer.c \
 	main.c \
 	self_reloc.c \
 	smbios.c \
