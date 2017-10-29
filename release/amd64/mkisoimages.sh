@@ -53,11 +53,7 @@ fi
 LABEL=`echo "$1" | tr '[:lower:]' '[:upper:]'`; shift
 NAME="$1"; shift
 
-<<<<<<< HEAD
-publisher="The HardenedBSD Project.  http://www.HardenedBSD.org/"
-=======
-publisher="The FreeBSD Project.  https://www.FreeBSD.org/"
->>>>>>> origin/freebsd/current/master
+publisher="The HardenedBSD Project.  https://www.HardenedBSD.org/"
 echo "/dev/iso9660/$LABEL / cd9660 ro 0 0" > "$1/etc/fstab"
 makefs -t cd9660 $bootable -o rockridge -o label="$LABEL" -o publisher="$publisher" "$NAME" "$@"
 rm -f "$1/etc/fstab"
