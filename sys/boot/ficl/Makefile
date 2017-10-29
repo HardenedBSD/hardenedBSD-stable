@@ -1,7 +1,8 @@
 # $FreeBSD$
 #
 
-.include	"../ficl.mk"
+.include <bsd.init.mk>
+.include "${BOOTSRC}/ficl.mk"
 
 .if ${MACHINE_CPUARCH} == "aarch64"
 NOPIE=		1
