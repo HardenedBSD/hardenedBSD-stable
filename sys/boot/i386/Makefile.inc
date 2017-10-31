@@ -14,12 +14,9 @@ BTXLDR=		${BTXDIR}/btxldr/btxldr
 BTXKERN=	${BTXDIR}/btx/btx
 BTXCRT=		${BTXDIR}/lib/crt0.o
 
-<<<<<<< HEAD
 NOPIE=	yes
-=======
 BTXSRC=		${BOOTSRC}/i386/btx
 BTXLIB=		${BTXSRC}/lib
->>>>>>> origin/freebsd/current/master
 
 # compact binary with no padding between text, data, bss
 LDSCRIPT=	${BOOTSRC}/i386/boot.ldscript
