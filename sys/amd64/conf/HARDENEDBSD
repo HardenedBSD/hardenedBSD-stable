@@ -1,14 +1,14 @@
 #
-# GENERIC -- Generic kernel configuration file for FreeBSD/amd64
+# HARDENEDBSD -- Generic kernel configuration file for FreeBSD/amd64
 #
 # For more information on this file, please read the config(5) manual page,
 # and/or the handbook section on Kernel Configuration Files:
 #
-#    http://www.FreeBSD.org/doc/en_US.ISO8859-1/books/handbook/kernelconfig-config.html
+#    https://www.FreeBSD.org/doc/en_US.ISO8859-1/books/handbook/kernelconfig-config.html
 #
 # The handbook is also available locally in /usr/share/doc/handbook
 # if you've installed the doc distribution, otherwise always see the
-# FreeBSD World Wide Web server (http://www.FreeBSD.org/) for the
+# FreeBSD World Wide Web server (https://www.FreeBSD.org/) for the
 # latest information.
 #
 # An exhaustive list of options and more detailed explanations of the
@@ -30,6 +30,7 @@ options 	VIMAGE			# Subsystem virtualization, e.g. VNET
 options 	INET			# InterNETworking
 options 	INET6			# IPv6 communications protocols
 options 	IPSEC			# IP (v4/v6) security
+options 	IPSEC_SUPPORT		# Allow kldload of ipsec and tcpmd5
 options 	TCP_OFFLOAD		# TCP offload
 options 	TCP_HHOOK		# hhook(9) framework for TCP
 options 	SCTP			# Stream Control Transmission Protocol
@@ -59,7 +60,7 @@ options 	GEOM_ELI		# Disk encryption.
 #options 	COMPAT_FREEBSD5		# Compatible with FreeBSD5
 #options 	COMPAT_FREEBSD6		# Compatible with FreeBSD6
 #options 	COMPAT_FREEBSD7		# Compatible with FreeBSD7
-options 	COMPAT_FREEBSD9		# Compatible with FreeBSD9
+#options 	COMPAT_FREEBSD9		# Compatible with FreeBSD9
 options 	COMPAT_FREEBSD10	# Compatible with FreeBSD10
 options 	COMPAT_FREEBSD11	# Compatible with FreeBSD11
 options 	SCSI_DELAY=5000		# Delay (in ms) before probing SCSI
@@ -100,7 +101,9 @@ options 	HBSD_DEBUG
 options 	KDB			# Enable kernel debugger support.
 options 	KDB_TRACE		# Print a stack trace for a panic.
 # For full debugger support use (turn off in stable branch):
+options 	BUF_TRACKING		# Track buffer history
 options 	DDB			# Support DDB.
+options 	FULL_BUF_TRACKING	# Track more buffer history
 options 	GDB			# Support remote GDB.
 options 	DEADLKRES		# Enable the deadlock resolver
 options 	INVARIANTS		# Enable calls of extra sanity checking
