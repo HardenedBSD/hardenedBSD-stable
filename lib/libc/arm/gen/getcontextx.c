@@ -1,5 +1,5 @@
-/*-
- * Copyright (c) 2005 David Xu <davidxu@freebsd.org>.
+/*
+ * Copyright (c) 2017 Michal Meloun <mmel@FreeBSD.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -22,66 +22,78 @@
  * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * $FreeBSD$
  */
 
-/*
- * Machine-dependent thread prototypes/definitions.
- */
-#ifndef _PTHREAD_MD_H_
-#define	_PTHREAD_MD_H_
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
+#include <sys/ucontext.h>
+#include <errno.h>
+#include <stdlib.h>
 #include <machine/sysarch.h>
-#include <stddef.h>
 
-#define	CPU_SPINWAIT
-#define	DTV_OFFSET		offsetof(struct tcb, tcb_dtv)
-
-/*
- * Variant I tcb. The structure layout is fixed, don't blindly
- * change it.
- */
-struct tcb {
-	void			*tcb_dtv;	/* required by rtld */
-	struct pthread		*tcb_thread;	/* our hook */
+struct ucontextx {
+	ucontext_t	ucontext;
+	mcontext_vfp_t	mcontext_vfp;
 };
 
-/* Called from the thread to set its private data. */
-static __inline void
-_tcb_set(struct tcb *tcb)
+int
+__getcontextx_size(void)
 {
-#ifdef ARM_TP_ADDRESS
-	*((struct tcb **)ARM_TP_ADDRESS) = tcb;	/* avoids a system call */
-#else
-	sysarch(ARM_SET_TP, tcb);
-#endif
+
+	return (sizeof(struct ucontextx));
 }
 
-/*
- * Get the current tcb.
- */
-static __inline struct tcb *
-_tcb_get(void)
+int
+__fillcontextx2(char *ctx)
 {
-#ifdef ARM_TP_ADDRESS
-	return (*((struct tcb **)ARM_TP_ADDRESS));
-#else
-	struct tcb *tcb;
+	struct ucontextx *ucxp;
+	ucontext_t	 *ucp;
+	mcontext_vfp_t	 *mvp;
+	struct arm_get_vfpstate_args vfp_arg;
 
-	__asm __volatile("mrc  p15, 0, %0, c13, c0, 3"		\
-	   		 : "=r" (tcb));
-	return (tcb);
-#endif
+	ucxp = (struct ucontextx *)ctx;
+	ucp = &ucxp->ucontext;
+	mvp = &ucxp->mcontext_vfp;
+
+	vfp_arg.mc_vfp_size = sizeof(mcontext_vfp_t);
+	vfp_arg.mc_vfp = mvp;
+	if (sysarch(ARM_GET_VFPSTATE, &vfp_arg) == -1)
+			return (-1);
+	ucp->uc_mcontext.mc_vfp_size = sizeof(mcontext_vfp_t);
+	ucp->uc_mcontext.mc_vfp_ptr = mvp;
+	return (0);
 }
 
-static __inline struct pthread *
-_get_curthread(void)
+int
+__fillcontextx(char *ctx)
 {
-	if (_thr_initial)
-		return (_tcb_get()->tcb_thread);
-	return (NULL);
+	struct ucontextx *ucxp;
+
+	ucxp = (struct ucontextx *)ctx;
+	if (getcontext(&ucxp->ucontext) == -1)
+		return (-1);
+	__fillcontextx2(ctx);
+	return (0);
 }
 
-#endif /* _PTHREAD_MD_H_ */
+__weak_reference(__getcontextx, getcontextx);
+
+ucontext_t *
+__getcontextx(void)
+{
+	char *ctx;
+	int error;
+
+	ctx = malloc(__getcontextx_size());
+	if (ctx == NULL)
+		return (NULL);
+	if (__fillcontextx(ctx) == -1) {
+		error = errno;
+		free(ctx);
+		errno = error;
+		return (NULL);
+	}
+	return ((ucontext_t *)ctx);
+}
