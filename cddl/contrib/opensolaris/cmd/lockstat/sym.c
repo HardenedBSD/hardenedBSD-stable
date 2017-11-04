@@ -48,7 +48,6 @@
 #include <kstat.h>
 #else
 #include <sys/elf.h>
-#include <sys/ksyms.h>
 #endif
 #include <sys/cpuvar.h>
 
