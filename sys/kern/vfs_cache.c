@@ -984,6 +984,28 @@ out:
 }
 
 static int
+cache_zap_wlocked_bucket(struct namecache *ncp, struct rwlock *blp)
+{
+	struct mtx *dvlp, *vlp;
+
+	cache_assert_bucket_locked(ncp, RA_WLOCKED);
+
+	dvlp = VP2VNODELOCK(ncp->nc_dvp);
+	vlp = NULL;
+	if (!(ncp->nc_flag & NCF_NEGATIVE))
+		vlp = VP2VNODELOCK(ncp->nc_vp);
+	if (cache_trylock_vnodes(dvlp, vlp) == 0) {
+		cache_zap_locked(ncp, false);
+		rw_wunlock(blp);
+		cache_unlock_vnodes(dvlp, vlp);
+		return (0);
+	}
+
+	rw_wunlock(blp);
+	return (EAGAIN);
+}
+
+static int
 cache_zap_rlocked_bucket(struct namecache *ncp, struct rwlock *blp)
 {
 	struct mtx *dvlp, *vlp;
@@ -1163,7 +1185,10 @@ retry_dotdot:
 	hash = cache_get_hash(cnp->cn_nameptr, cnp->cn_namelen, dvp);
 	blp = HASH2BUCKETLOCK(hash);
 retry:
-	rw_rlock(blp);
+	if (LIST_EMPTY(NCHHASH(hash)))
+		goto out_no_entry;
+
+	rw_wlock(blp);
 
 	LIST_FOREACH(ncp, (NCHHASH(hash)), nc_hash) {
 		counter_u64_add(numchecks, 1);
@@ -1174,22 +1199,23 @@ retry:
 
 	/* We failed to find an entry */
 	if (ncp == NULL) {
-		rw_runlock(blp);
-		SDT_PROBE3(vfs, namecache, lookup, miss, dvp, cnp->cn_nameptr,
-		    NULL);
-		counter_u64_add(nummisszap, 1);
-		return (0);
+		rw_wunlock(blp);
+		goto out_no_entry;
 	}
 
 	counter_u64_add(numposzaps, 1);
 
-	error = cache_zap_rlocked_bucket(ncp, blp);
+	error = cache_zap_wlocked_bucket(ncp, blp);
 	if (error != 0) {
 		zap_and_exit_bucket_fail++;
 		cache_maybe_yield();
 		goto retry;
 	}
 	cache_free(ncp);
+	return (0);
+out_no_entry:
+	SDT_PROBE3(vfs, namecache, lookup, miss, dvp, cnp->cn_nameptr, NULL);
+	counter_u64_add(nummisszap, 1);
 	return (0);
 }
 
@@ -1580,6 +1606,7 @@ cache_enter_time(struct vnode *dvp, struct vnode *vp, struct componentname *cnp,
 	int flag;
 	int len;
 	bool neg_locked;
+	int lnumcache;
 
 	CTR3(KTR_VFS, "cache_enter(%p, %p, %s)", dvp, vp, cnp->cn_nameptr);
 	VNASSERT(vp == NULL || (vp->v_iflag & VI_DOOMED) == 0, vp,
@@ -1719,7 +1746,6 @@ cache_enter_time(struct vnode *dvp, struct vnode *vp, struct componentname *cnp,
 		dvp->v_cache_dd = ncp;
 	}
 
-	atomic_add_rel_long(&numcache, 1);
 	if (vp != NULL) {
 		if (vp->v_type == VDIR) {
 			if (flag != NCF_ISDOTDOT) {
@@ -1772,7 +1798,8 @@ cache_enter_time(struct vnode *dvp, struct vnode *vp, struct componentname *cnp,
 		    ncp->nc_name);
 	}
 	cache_enter_unlock(&cel);
-	if (numneg * ncnegfactor > numcache)
+	lnumcache = atomic_fetchadd_long(&numcache, 1) + 1;
+	if (numneg * ncnegfactor > lnumcache)
 		cache_negative_zap_one();
 	cache_free(ndd);
 	return;
