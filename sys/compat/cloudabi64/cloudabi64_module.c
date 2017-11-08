@@ -128,12 +128,8 @@ cloudabi64_fixup(register_t **stack_base, struct image_params *imgp)
 		VAL(CLOUDABI_AT_PHNUM, args->phnum),
 		PTR(CLOUDABI_AT_PID, pid),
 		PTR(CLOUDABI_AT_SYSINFO_EHDR,
-<<<<<<< HEAD
 		    imgp->proc->p_shared_page_base),
-=======
-		    imgp->proc->p_sysent->sv_shared_page_base),
 		VAL(CLOUDABI_AT_TID, td->td_tid),
->>>>>>> origin/freebsd/current/master
 #undef VAL
 #undef PTR
 		{ .a_type = CLOUDABI_AT_NULL },
