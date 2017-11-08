@@ -278,6 +278,15 @@ prep_release() {
 		return ${res}
 	fi
 
+	RELEASEDIR="/usr/obj/usr/src/release"
+	if [ ! -d ${CHROOTDIR}${RELEASEDIR} ]; then
+		RELEASEDIR="/usr/obj/usr/src/${TARGET}.${TARGET_ARCH}/release"
+		if [ ! -d ${CHROOTDIR}${RELEASEDIR} ]; then
+			debug_print "[-] Unable to find the release directory."
+			res=1
+		fi
+	fi
+
 	return ${res}
 }
 
@@ -294,7 +303,7 @@ build_base_archive() {
 		return ${res}
 	fi
 
-	mv ${CHROOTDIR}/usr/obj/usr/src/release/base.txz ${STAGEDIR}
+	mv ${CHROOTDIR}${RELEASEDIR}/base.txz ${STAGEDIR}
 	res=${?}
 	if [ ${res} -gt 0 ]; then
 		return ${res}
@@ -335,7 +344,7 @@ build_kernel_archives() {
 			return ${res}
 		fi
 
-		mv ${CHROOTDIR}/usr/obj/usr/src/release/kernel.txz \
+		mv ${CHROOTDIR}${RELEASEDIR}/kernel.txz \
 			${STAGEDIR}/kernel-${kernel}.txz
 		res=${?}
 		if [ ${res} -gt 0 ]; then
@@ -405,7 +414,7 @@ EOF
 			return ${res}
 		fi
 
-		cp ${CHROOTDIR}/usr/obj/usr/src/release/src.txz \
+		cp ${CHROOTDIR}${RELEASEDIR}/src.txz \
 			${STAGEDIR}
 	fi
 
