@@ -506,6 +506,7 @@ ptrace_lwpinfo_to32(const struct ptrace_lwpinfo *pl,
     struct ptrace_lwpinfo32 *pl32)
 {
 
+	bzero(pl32, sizeof(*pl32));
 	pl32->pl_lwpid = pl->pl_lwpid;
 	pl32->pl_event = pl->pl_event;
 	pl32->pl_flags = pl->pl_flags;
@@ -1318,6 +1319,7 @@ kern_ptrace(struct thread *td, int req, pid_t pid, void *addr, int data)
 		} else
 #endif
 		pl = addr;
+		bzero(pl, sizeof(*pl));
 		pl->pl_lwpid = td2->td_tid;
 		pl->pl_event = PL_EVENT_NONE;
 		pl->pl_flags = 0;
@@ -1338,8 +1340,6 @@ kern_ptrace(struct thread *td, int req, pid_t pid, void *addr, int data)
 				pl->pl_siginfo = td2->td_si;
 			}
 		}
-		if ((pl->pl_flags & PL_FLAG_SI) == 0)
-			bzero(&pl->pl_siginfo, sizeof(pl->pl_siginfo));
 		if (td2->td_dbgflags & TDB_SCE)
 			pl->pl_flags |= PL_FLAG_SCE;
 		else if (td2->td_dbgflags & TDB_SCX)
