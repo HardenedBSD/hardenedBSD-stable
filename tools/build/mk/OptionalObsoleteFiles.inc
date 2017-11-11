@@ -4695,6 +4695,26 @@ OLD_FILES+=usr/share/openssl/man/man3/tls_peer_cert_issuer.3.gz
 OLD_FILES+=usr/share/openssl/man/man3/tls_peer_cert_provided.3.gz
 OLD_FILES+=usr/share/openssl/man/man3/tls_peer_cert_subject.3.gz
 OLD_FILES+=usr/share/openssl/man/man3/x509.3.gz
+# 20171111 Removed in LibreSSL 2.6
+OLD_LIBS+=lib/libcrypto.so.41
+OLD_LIBS+=usr/lib/libssl.so.44
+OLD_LIBS+=usr/lib/libtls.so.15
+OLD_LIBS+=usr/lib32/libcrypto.so.41
+OLD_LIBS+=usr/lib32/libssl.so.44
+OLD_LIBS+=usr/lib32/libtls.so.15
+OLD_FILES+=man/man3/EVP_PKEY_CTX_set_rsa_rsa_keygen_bits.3.gz
+OLD_FILES+=usr/share/openssl/man/man3/EVP_aead_chacha20_poly1305_ietf.3.gz
+OLD_FILES+=man/man3/RSA_padding_add_SSLv23.3.gz
+OLD_FILES+=man/man3/RSA_padding_check_SSLv23.3.gz
+OLD_FILES+=man/man3/SSL_add_session.3.gz
+OLD_FILES+=man/man3/SSL_flush_sessions.3.gz
+OLD_FILES+=man/man3/SSL_remove_session.3.gz
+OLD_FILES+=man/man3/d2i_ASN1_TIME_new.3.gz
+OLD_FILES+=man/man3/i2d_ASN1_TIME_new.3.gz
+OLD_FILES+=man/man3/i2d_ECPKPrivateKey_fp.3.gz
+OLD_FILES+=man/man3/i2d_ECPK_PUBKEY_fp.3.gz
+OLD_FILES+=man/man3/tls_config_set_ecdhecurve.3.gz
+OLD_FILES+=man/man3/tmp_rsa_callback.3.gz
 .else
 OLD_FILES+=usr/sbin/ocspcheck
 OLD_FILES+=usr/share/openssl/man/man3/ASN1_OBJECT_new.3
