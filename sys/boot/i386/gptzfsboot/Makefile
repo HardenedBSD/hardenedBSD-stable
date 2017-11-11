@@ -1,5 +1,7 @@
 # $FreeBSD$
 
+HAVE_GPT=	yes
+
 .include <bsd.init.mk>
 
 .PATH:		${BOOTSRC}/i386/boot2 ${BOOTSRC}/i386/gptboot \
@@ -29,9 +31,8 @@ CFLAGS+=-DBOOTPROG=\"gptzfsboot\" \
 	-I${BOOTSRC}/i386/common \
 	-I${ZFSSRC} \
 	-I${SYSDIR}/cddl/boot/zfs \
-	-I${BOOTSRC}/i386/btx/lib -I. \
+	-I${BOOTSRC}/i386/btx/lib \
 	-I${BOOTSRC}/i386/boot2 \
-	-I${SYSDIR} \
 	-Wall -Waggregate-return -Wbad-function-cast \
 	-Wmissing-declarations -Wmissing-prototypes -Wnested-externs \
 	-Wpointer-arith -Wshadow -Wstrict-prototypes -Wwrite-strings \
@@ -50,19 +51,11 @@ LIBZFSBOOT=${BOOTOBJ}/zfs32/libzfsboot.a
 LIBZFSBOOT=${BOOTOBJ}/zfs/libzfsboot.a
 .endif
 
-.if ${LOADER_GELI_SUPPORT:Uyes} == "yes"
-CFLAGS+=	-DLOADER_GELI_SUPPORT
-CFLAGS+=	-I${BOOTSRC}/geli
-LIBGELIBOOT=	${BOOTOBJ}/geli/libgeliboot.a
-.PATH:		${SYSDIR}/opencrypto
-OPENCRYPTO_XTS=	xform_aes_xts.o
-.endif
-
 CFLAGS.gcc+=	--param max-inline-insns-single=100
 
 LD_FLAGS+=${LD_FLAGS_BIN}
 
-CLEANFILES=	gptzfsboot
+CLEANFILES+=	gptzfsboot
 
 gptzfsboot: gptldr.bin gptzfsboot.bin ${BTXKERN}
 	btxld -v -E ${ORG2} -f bin -b ${BTXKERN} -l gptldr.bin \

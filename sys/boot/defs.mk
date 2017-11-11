@@ -85,10 +85,26 @@ CFLAGS+= -DLOADER_GPT_SUPPORT
 .if ${LOADER_MBR_SUPPORT:Uyes} == "yes"
 CFLAGS+= -DLOADER_MBR_SUPPORT
 .endif
-.if ${LOADER_GELI_SUPPORT:Uyes} == "yes"
-CFLAGS+= -DLOADER_GELI_SUPPORT
+
+# GELI Support, with backward compat hooks
+.if defined(HAVE_GELI)
+.if defined(LOADER_NO_GELI_SUPPORT)
+MK_LOADER_GELI=no
+.warning "Please move from LOADER_NO_GELI_SUPPORT to WITHOUT_LOADER_GELI"
+.endif
+.if defined(LOADER_GELI_SUPPORT)
+MK_LOADER_GELI=yes
+.warning "Please move from LOADER_GELI_SUPPORT to WITH_LOADER_GELI"
+.endif
+.if ${MK_LOADER_GELI} == "yes"
+CFLAGS+=	-DLOADER_GELI_SUPPORT
+CFLAGS+=	-I${BOOTSRC}/geli
+LIBGELIBOOT=	${BOOTOBJ}/geli/libgeliboot.a
 .endif
 .endif
+.endif
+
+CFLAGS+=	-I${SYSDIR}
 
 # All PowerPC builds are 32 bit. We have no 64-bit loaders on powerpc
 # or powerpc64.
@@ -105,6 +121,9 @@ CFLAGS+=	-m32 -mcpu=i386
 LD_FLAGS+=	-m elf_i386_fbsd
 AFLAGS+=	--32
 .endif
+
+# Make sure we use the machine link we're about to create
+CFLAGS+=-I.
 
 _ILINKS=machine
 .if ${MACHINE} != ${MACHINE_CPUARCH} && ${MACHINE} != "arm64"
@@ -144,5 +163,9 @@ ${_ILINKS}:
 	path=`(cd $$path && /bin/pwd)` ; \
 	${ECHO} ${.TARGET:T} "->" $$path ; \
 	ln -fhs $$path ${.TARGET:T}
+
+# For loader implementations, we generate a loader.help file. This can be suppressed by
+# setting HELP_FILES to nothing.
+HELP_FILES=	${LDRSRC}/help.common
 
 .endif # __BOOT_DEFS_MK__

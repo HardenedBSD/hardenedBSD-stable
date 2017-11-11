@@ -1,6 +1,6 @@
 # $FreeBSD$
 
-LOADER_GELI_SUPPORT=no
+HAVE_GELI=yes
 
 .include <bsd.init.mk>
 
@@ -30,7 +30,7 @@ CFLAGS+=-DBOOTPROG=\"zfsboot\" \
 	-I${BOOTSRC}/i386 \
 	-I${ZFSSRC} \
 	-I${SYSDIR}/cddl/boot/zfs \
-	-I${BTXLIB} -I. \
+	-I${BTXLIB} \
 	-I${BOOTSRC}/i386/boot2 \
 	-Wall -Waggregate-return -Wbad-function-cast -Wno-cast-align \
 	-Wmissing-declarations -Wmissing-prototypes -Wnested-externs \
@@ -46,7 +46,7 @@ LIBZFSBOOT=${BOOTOBJ}/zfs/libzfsboot.a
 
 LD_FLAGS+=${LD_FLAGS_BIN}
 
-CLEANFILES=	zfsboot
+CLEANFILES+=	zfsboot
 
 zfsboot: zfsboot1 zfsboot2
 	cat zfsboot1 zfsboot2 > zfsboot
@@ -60,7 +60,7 @@ zfsldr.out: zfsldr.o
 	${LD} ${LD_FLAGS} -e start -Ttext ${ORG1} -o ${.TARGET} zfsldr.o
 
 CLEANFILES+=	zfsboot2 zfsboot.ld zfsboot.ldr zfsboot.bin zfsboot.out \
-		zfsboot.o zfsboot.s zfsboot.s.tmp sio.o cons.o drv.o util.o
+		zfsboot.o zfsboot.s zfsboot.s.tmp sio.o cons.o drv.o
 
 # We currently allow 128k bytes for zfsboot - in practice it could be
 # any size up to 3.5Mb but keeping it fixed size simplifies zfsldr.
@@ -82,8 +82,8 @@ zfsboot.ldr:
 zfsboot.bin: zfsboot.out
 	${OBJCOPY} -S -O binary zfsboot.out ${.TARGET}
 
-zfsboot.out: ${BTXCRT} zfsboot.o sio.o drv.o cons.o util.o
-	${LD} ${LD_FLAGS} -Ttext ${ORG2} -o ${.TARGET} ${.ALLSRC} ${LIBZFSBOOT} ${LIBSA32}
+zfsboot.out: ${BTXCRT} zfsboot.o sio.o drv.o cons.o
+	${LD} ${LD_FLAGS} -Ttext ${ORG2} -o ${.TARGET} ${.ALLSRC} ${LIBZFSBOOT} ${LIBGELIBOOT} ${LIBSA32}
 
 SRCS=	zfsboot.c
 

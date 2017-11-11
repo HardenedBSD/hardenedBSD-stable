@@ -17,21 +17,10 @@ CFLAGS+=	-ffreestanding -msoft-float
 SRCS+= disk.c
 .endif
 
-.if ${MK_FDT} != "no"
-LOADER_FDT_SUPPORT=	yes
-.else
-LOADER_FDT_SUPPORT=	no
-.endif
-
-.if ${LOADER_FDT_SUPPORT} == "yes"
-CFLAGS+= -DLOADER_FDT_SUPPORT -I${FDTSRC}
-.endif
-
-# Pick up FDT includes
-CFLAGS+=	-I${SYSDIR}/contrib/libfdt/
+.include	"${BOOTSRC}/fdt.mk"
 
 # Pick up the bootstrap header for some interface items
-CFLAGS+=	-I${LDRSRC} -I${SYSDIR} -I.
+CFLAGS+=	-I${LDRSRC}
 
 .ifdef(BOOT_DISK_DEBUG)
 # Make the disk code more talkative

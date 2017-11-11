@@ -1,5 +1,8 @@
 # $FreeBSD$
 
+HAVE_GPT=		yes
+HAVE_GELI=		yes
+
 .include <bsd.init.mk>
 
 LIB=			i386
@@ -25,12 +28,6 @@ CFLAGS+=	-DCOMSPEED=${BOOT_COMCONSOLE_SPEED}
 CFLAGS+= -DDISK_DEBUG
 .endif
 
-.if ${LOADER_GELI_SUPPORT:Uyes} == "yes"
-# Decrypt encrypted drives
-CFLAGS+= -DLOADER_GELI_SUPPORT
-CFLAGS+= -I${BOOTSRC}/geli
-.endif
-
 .if !defined(BOOT_HIDE_SERIAL_NUMBERS)
 # Export serial numbers, UUID, and asset tag from loader.
 CFLAGS+= -DSMBIOS_SERIAL_NUMBERS
@@ -52,8 +49,7 @@ CFLAGS+= -Dalloca=__builtin_alloca
 CFLAGS+=	-I${BOOTSRC}/ficl -I${BOOTSRC}/ficl/i386 \
 		-I${LDRSRC} -I${BOOTSRC}/i386/common \
 		-I${BTXLIB} \
-		-I${SYSDIR}/contrib/dev/acpica/include \
-		-I${SYSDIR} -I.
+		-I${SYSDIR}/contrib/dev/acpica/include
 
 # Handle FreeBSD specific %b and %D printf format specifiers
 CFLAGS+= ${FORMAT_EXTENSIONS}

@@ -1,6 +1,7 @@
 # $FreeBSD$
 
-LOADER_FDT_SUPPORT=yes
+HAVE_FDT=yes
+
 SRCS+=	exec.c \
 	start.S
 
@@ -9,6 +10,7 @@ CFLAGS+=-I${BOOTSRC}/arm64/libarm64
 SRCS+=	cache.c
 
 CFLAGS+=	-mgeneral-regs-only
+<<<<<<< HEAD
 
 CLEANFILES+=	loader.help
 
@@ -24,3 +26,5 @@ FILES+=	loader.rc
 .endif
 
 NOPIE=	1
+=======
+>>>>>>> origin/freebsd/current/master

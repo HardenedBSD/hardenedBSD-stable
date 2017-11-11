@@ -8,7 +8,6 @@ LOADER_NET_SUPPORT?=	yes
 LOADER_NFS_SUPPORT?=	yes
 LOADER_TFTP_SUPPORT?=	no
 LOADER_GZIP_SUPPORT?=	yes
-LOADER_FDT_SUPPORT=	yes
 LOADER_BZIP2_SUPPORT?=	no
 
 .include <bsd.init.mk>
@@ -24,22 +23,14 @@ SRCS=		conf.c metadata.c vers.c main.c ppc64_elf_freebsd.c
 SRCS+=		host_syscall.S hostcons.c hostdisk.c kerneltramp.S kbootfdt.c
 SRCS+=		ucmpdi2.c
 
-.if ${LOADER_FDT_SUPPORT} == "yes"
-CFLAGS+=	-I${FDTSRC}
-CFLAGS+=	-I${SYSDIR}/contrib/libfdt
-CFLAGS+=	-DLOADER_FDT_SUPPORT
-LIBFDT=		${BOOTOBJ}/fdt/libfdt.a
-.endif
+.include	"${BOOTSRC}/fdt.mk"
 
 CFLAGS+=	-mcpu=powerpc64
 
 # Always add MI sources
+HELP_FILES=	# Disable
 .include	"${BOOTSRC}/loader.mk"
 .PATH:		${SYSDIR}/libkern
-CFLAGS+=	-I${SYSDIR}
-CFLAGS+=	-I.
-
-CLEANFILES+=	loader.help
 
 CFLAGS+=	-Wall -ffreestanding -msoft-float -DAIM
 # load address. set in linker script
@@ -54,13 +45,6 @@ CFLAGS+= -Wa,-mppc64bridge
 DPADD=		${LIBFICL} ${LIBOFW} ${LIBFDT} ${LIBSA}
 LDADD=		${LIBFICL} ${LIBOFW} ${LIBFDT} ${LIBSA}
 
-loader.help: help.common help.kboot ${FDTSRC}/help.fdt
-	cat ${.ALLSRC} | \
-	    awk -f ${LDRSRC}/merge_help.awk > ${.TARGET}
-
-.PATH: ${BOOTSRC}/forth
-.include	"${BOOTSRC}/forth/Makefile.inc"
-
-FILES+= loader.rc menu.rc
+HELP_FILES+=	${FDTSRC}/help.fdt
 
 .include <bsd.prog.mk>
