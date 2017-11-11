@@ -352,10 +352,6 @@ set(
 	ec/ecp_mont.c
 	ec/ecp_nist.c
 	ec/ecp_oct.c
-	ec/ecp_nistp224.c
-	ec/ecp_nistp256.c
-	ec/ecp_nistp521.c
-	ec/ecp_nistputil.c
 	ec/ecp_smpl.c
 	ecdh/ech_err.c
 	ecdh/ech_key.c
@@ -463,6 +459,7 @@ set(
 	gost/gostr341001_pmeth.c
 	gost/gostr341194.c
 	gost/streebog.c
+	hkdf/hkdf.c
 	hmac/hm_ameth.c
 	hmac/hm_pmeth.c
 	hmac/hmac.c
@@ -562,7 +559,6 @@ set(
 	rsa/rsa_pss.c
 	rsa/rsa_saos.c
 	rsa/rsa_sign.c
-	rsa/rsa_ssl.c
 	rsa/rsa_x931.c
 	sha/sha1_one.c
 	sha/sha1dgst.c
@@ -679,6 +675,11 @@ if(NOT HAVE_ASPRINTF)
 	set(CRYPTO_SRC ${CRYPTO_SRC} compat/bsd-asprintf.c)
 	set(EXTRA_EXPORT ${EXTRA_EXPORT} asprintf)
 	set(EXTRA_EXPORT ${EXTRA_EXPORT} vasprintf)
+endif()
+
+if(NOT HAVE_FREEZERO)
+	set(CRYPTO_SRC ${CRYPTO_SRC} compat/freezero.c)
+	set(EXTRA_EXPORT ${EXTRA_EXPORT} freezero)
 endif()
 
 if(NOT HAVE_GETPAGESIZE)
@@ -823,9 +824,13 @@ if (BUILD_SHARED)
 		ARCHIVE_OUTPUT_NAME crypto${CRYPTO_POSTFIX})
 	set_target_properties(crypto-shared PROPERTIES VERSION
 		${CRYPTO_VERSION} SOVERSION ${CRYPTO_MAJOR_VERSION})
-	install(TARGETS crypto crypto-shared DESTINATION ${CMAKE_INSTALL_LIBDIR})
+	if(ENABLE_LIBRESSL_INSTALL)
+		install(TARGETS crypto crypto-shared DESTINATION ${CMAKE_INSTALL_LIBDIR})
+	endif(ENABLE_LIBRESSL_INSTALL)
 else()
 	add_library(crypto STATIC ${CRYPTO_SRC})
-	install(TARGETS crypto DESTINATION ${CMAKE_INSTALL_LIBDIR})
+	if(ENABLE_LIBRESSL_INSTALL)
+		install(TARGETS crypto DESTINATION ${CMAKE_INSTALL_LIBDIR})
+	endif(ENABLE_LIBRESSL_INSTALL)
 endif()
 

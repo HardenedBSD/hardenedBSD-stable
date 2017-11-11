@@ -35,7 +35,9 @@
 #include "http.h"
 #include <tls.h>
 
+#ifndef DEFAULT_CA_FILE
 #define DEFAULT_CA_FILE "/etc/ssl/cert.pem"
+#endif
 
 /*
  * A buffer for transferring HTTP/S data.

@@ -131,6 +131,7 @@ ASN1_TIME_new
 ASN1_TIME_print
 ASN1_TIME_set
 ASN1_TIME_set_string
+ASN1_TIME_set_tm
 ASN1_TIME_to_generalizedtime
 ASN1_TYPE_cmp
 ASN1_TYPE_free
@@ -213,6 +214,7 @@ ASN1_template_free
 ASN1_template_i2d
 ASN1_template_new
 ASN1_time_parse
+ASN1_time_tm_clamp_notafter
 ASN1_time_tm_cmp
 ASN1_unpack_string
 AUTHORITY_INFO_ACCESS_free
@@ -1399,7 +1401,6 @@ EVP_add_digest
 EVP_aead_aes_128_gcm
 EVP_aead_aes_256_gcm
 EVP_aead_chacha20_poly1305
-EVP_aead_chacha20_poly1305_old
 EVP_aes_128_cbc
 EVP_aes_128_cbc_hmac_sha1
 EVP_aes_128_ccm
@@ -1580,6 +1581,9 @@ Gost2814789_ecb_encrypt
 Gost2814789_set_key
 Gost2814789_set_sbox
 Gost28147_TestParamSet
+HKDF
+HKDF_expand
+HKDF_extract
 HMAC
 HMAC_CTX_cleanup
 HMAC_CTX_copy
@@ -2187,13 +2191,11 @@ RSA_padding_add_PKCS1_PSS
 RSA_padding_add_PKCS1_PSS_mgf1
 RSA_padding_add_PKCS1_type_1
 RSA_padding_add_PKCS1_type_2
-RSA_padding_add_SSLv23
 RSA_padding_add_X931
 RSA_padding_add_none
 RSA_padding_check_PKCS1_OAEP
 RSA_padding_check_PKCS1_type_1
 RSA_padding_check_PKCS1_type_2
-RSA_padding_check_SSLv23
 RSA_padding_check_X931
 RSA_padding_check_none
 RSA_print

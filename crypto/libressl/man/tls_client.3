@@ -1,4 +1,4 @@
-.\" $OpenBSD: tls_client.3,v 1.2 2017/01/28 00:59:36 schwarze Exp $
+.\" $OpenBSD: tls_client.3,v 1.4 2017/08/12 03:41:48 jsing Exp $
 .\"
 .\" Copyright (c) 2014 Ted Unangst <tedu@openbsd.org>
 .\"
@@ -14,13 +14,14 @@
 .\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.Dd $Mdocdate: January 28 2017 $
+.Dd $Mdocdate: August 12 2017 $
 .Dt TLS_CLIENT 3
 .Os
 .Sh NAME
 .Nm tls_client ,
 .Nm tls_server ,
 .Nm tls_configure ,
+.Nm tls_reset ,
 .Nm tls_free
 .Nd configure a TLS connection
 .Sh SYNOPSIS
@@ -36,6 +37,8 @@
 .Fc
 .Ft void
 .Fn tls_free "struct tls *ctx"
+.Ft void
+.Fn tls_reset "struct tls *ctx"
 .Sh DESCRIPTION
 A TLS connection is represented as a
 .Vt struct tls
@@ -70,6 +73,19 @@ After use, a TLS context should be closed with
 .Xr tls_close 3 ,
 and then freed by calling
 .Fn tls_free .
+If
+.Fn tls_free
+is called with an argument of
+.Dv NULL ,
+no action occurs.
+.Pp
+A TLS context can be reset by calling
+.Fn tls_reset ,
+allowing for it to be reused.
+This is essentially equivalent to calling
+.Fn tls_free ,
+followed by a call to the same function that was used to originally allocate
+the TLS context.
 .Sh RETURN VALUES
 .Fn tls_client
 and

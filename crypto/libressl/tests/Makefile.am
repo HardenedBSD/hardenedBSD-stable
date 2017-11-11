@@ -174,6 +174,12 @@ check_PROGRAMS += exptest
 exptest_CPPFLAGS = $(AM_CPPFLAGS) -ULIBRESSL_INTERNAL
 exptest_SOURCES = exptest.c
 
+# freenull
+TESTS += freenull
+check_PROGRAMS += freenull
+freenull_CPPFLAGS = $(AM_CPPFLAGS) -ULIBRESSL_INTERNAL
+freenull_SOURCES = freenull.c
+
 # gcm128test
 TESTS += gcm128test
 check_PROGRAMS += gcm128test
@@ -183,6 +189,11 @@ gcm128test_SOURCES = gcm128test.c
 TESTS += gost2814789t
 check_PROGRAMS += gost2814789t
 gost2814789t_SOURCES = gost2814789t.c
+
+# hkdf_test
+TESTS += hkdftest
+check_PROGRAMS += hkdftest
+hkdftest_SOURCES = hkdf_test.c
 
 # hmactest
 TESTS += hmactest
@@ -344,6 +355,12 @@ EXTRA_DIST += testrsa.sh testrsa.bat
 TESTS += timingsafe
 check_PROGRAMS += timingsafe
 timingsafe_SOURCES = timingsafe.c
+
+# tlsexttest
+TESTS += tlsexttest
+check_PROGRAMS += tlsexttest
+tlsexttest_CPPFLAGS = $(AM_CPPFLAGS) -ULIBRESSL_INTERNAL
+tlsexttest_SOURCES = tlsexttest.c
 
 # tlstest
 TESTS += tlstest.sh

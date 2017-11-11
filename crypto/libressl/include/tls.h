@@ -1,4 +1,4 @@
-/* $OpenBSD: tls.h,v 1.47 2017/01/31 16:18:57 beck Exp $ */
+/* $OpenBSD: tls.h,v 1.51 2017/08/10 18:18:30 jsing Exp $ */
 /*
  * Copyright (c) 2014 Joel Sing <jsing@openbsd.org>
  *
@@ -112,8 +112,12 @@ int tls_config_set_cert_file(struct tls_config *_config,
 int tls_config_set_cert_mem(struct tls_config *_config, const uint8_t *_cert,
     size_t _len);
 int tls_config_set_ciphers(struct tls_config *_config, const char *_ciphers);
+int tls_config_set_crl_file(struct tls_config *_config, const char *_crl_file);
+int tls_config_set_crl_mem(struct tls_config *_config, const uint8_t *_crl,
+    size_t _len);
 int tls_config_set_dheparams(struct tls_config *_config, const char *_params);
-int tls_config_set_ecdhecurve(struct tls_config *_config, const char *_name);
+int tls_config_set_ecdhecurve(struct tls_config *_config, const char *_curve);
+int tls_config_set_ecdhecurves(struct tls_config *_config, const char *_curves);
 int tls_config_set_key_file(struct tls_config *_config, const char *_key_file);
 int tls_config_set_key_mem(struct tls_config *_config, const uint8_t *_key,
     size_t _len);
@@ -186,6 +190,7 @@ const char *tls_peer_cert_issuer(struct tls *_ctx);
 const char *tls_peer_cert_subject(struct tls *_ctx);
 time_t	tls_peer_cert_notbefore(struct tls *_ctx);
 time_t	tls_peer_cert_notafter(struct tls *_ctx);
+const uint8_t *tls_peer_cert_chain_pem(struct tls *_ctx, size_t *_len);
 
 const char *tls_conn_alpn_selected(struct tls *_ctx);
 const char *tls_conn_cipher(struct tls *_ctx);
@@ -193,6 +198,7 @@ const char *tls_conn_servername(struct tls *_ctx);
 const char *tls_conn_version(struct tls *_ctx);
 
 uint8_t *tls_load_file(const char *_file, size_t *_len, char *_password);
+void tls_unload_file(uint8_t *_buf, size_t len);
 
 int tls_ocsp_process_response(struct tls *_ctx, const unsigned char *_response,
     size_t _size);

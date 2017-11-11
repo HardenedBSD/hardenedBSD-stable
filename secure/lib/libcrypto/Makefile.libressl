@@ -5,7 +5,7 @@ SHLIBDIR?=      /lib
 .include <bsd.own.mk>
 
 LIB=            crypto
-SHLIB_MAJOR=    41
+SHLIB_MAJOR=    42
 
 NO_LINT=
 
@@ -21,20 +21,25 @@ CFLAGS+= -Wall -Wundef -Werror
 PICFLAG=-fPIC
 .endif
 
-INCS+=	crypto.h opensslv.h ossl_typ.h
-INCS+=  aes.h asn1.h asn1_mac.h asn1t.h
-INCS+=  blowfish.h bio.h bn.h buffer.h 
-INCS+=  camellia.h cast.h chacha.h cmac.h comp.h conf.h conf_api.h curve25519.h
-INCS+=  des.h dh.h dsa.h dso.h 
-INCS+=  ec.h ecdh.h ecdsa.h engine.h err.h evp.h 
-INCS+=  gost.h hmac.h idea.h lhash.h 
-INCS+=  md4.h md5.h modes.h 
-INCS+=  obj_mac.h objects.h ocsp.h opensslconf.h opensslfeatures.h opensslv.h ossl_typ.h 
-INCS+=  pem.h pem2.h pkcs12.h pkcs7.h poly1305.h 
-INCS+=  rand.h rc2.h rc4.h ripemd.h rsa.h 
-INCS+=  sha.h safestack.h stack.h 
-INCS+=  ts.h txt_db.h ui.h ui_compat.h 
-INCS+=  whrlpool.h x509.h x509_vfy.h x509v3.h
+INCS+=	aes.h asn1.h asn1_mac.h asn1t.h \
+	blowfish.h bio.h bn.h buffer.h \
+	camellia.h cast.h chacha.h cmac.h comp.h conf.h conf_api.h crypto.h curve25519.h \
+	des.h dh.h dsa.h dso.h \
+	ec.h ecdh.h ecdsa.h engine.h err.h evp.h \
+	gost.h hkdf.h hmac.h \
+	idea.h \
+	lhash.h \
+	md4.h md5.h modes.h \
+	obj_dat.h obj_mac.h objects.h ocsp.h opensslconf.h opensslfeatures.h opensslv.h ossl_typ.h \
+	pem.h pem2.h pkcs12.h pkcs7.h poly1305.h \
+	rand.h rc2.h rc4.h ripemd.h rsa.h \
+	sha.h safestack.h stack.h \
+	ts.h txt_db.h \
+	ui.h ui_compat.h \
+	whrlpool.h \
+	x509.h \
+	x509_vfy.h x509v3.h
+
 INCSDIR=	${INCLUDEDIR}/openssl
 
 # Hardware engines
@@ -48,7 +53,7 @@ CFLAGS+= -I${LCRYPTO_SRC}/modes
 CFLAGS+= -DHAVE_EXPLICIT_BZERO=1 -DHAVE_REALLOCARRAY=1
 
 # compat/
-SRCS+=	getentropy_freebsd.c recallocarray.c
+SRCS+=	freezero.c getentropy_freebsd.c recallocarray.c
 SRCS+=	timingsafe_bcmp.c timingsafe_memcmp.c
 
 ### This is copied straight from the original Makefile
@@ -146,7 +151,7 @@ SRCS+= dso_openssl.c
 SRCS+= ec_lib.c ecp_smpl.c ecp_mont.c ecp_nist.c ec_cvt.c ec_mult.c
 SRCS+= ec_err.c ec_curve.c ec_check.c ec_print.c ec_asn1.c ec_key.c
 SRCS+= ec2_smpl.c ec2_mult.c ec_ameth.c ec_pmeth.c eck_prn.c
-#SRCS+= ecp_nistp224.c ecp_nistp256.c ecp_nistp521.c ecp_nistputil.c
+SRCS+= ecp_nist.c
 SRCS+= ecp_oct.c ec2_oct.c ec_oct.c
 
 # ecdh/
@@ -189,6 +194,9 @@ SRCS+= gost2814789.c gost89_keywrap.c gost89_params.c gost89imit_ameth.c
 SRCS+= gost89imit_pmeth.c gost_asn1.c gost_err.c gostr341001.c
 SRCS+= gostr341001_ameth.c gostr341001_key.c gostr341001_params.c
 SRCS+= gostr341001_pmeth.c gostr341194.c streebog.c
+
+# hkdf/
+SRCS+= hkdf.c
 
 # hmac/
 SRCS+= hmac.c hm_ameth.c hm_pmeth.c
@@ -242,7 +250,7 @@ SRCS+= rmd_dgst.c rmd_one.c
 
 # rsa/
 SRCS+= rsa_eay.c rsa_gen.c rsa_lib.c rsa_sign.c rsa_saos.c rsa_err.c
-SRCS+= rsa_pk1.c rsa_ssl.c rsa_none.c rsa_oaep.c rsa_chk.c
+SRCS+= rsa_pk1.c rsa_none.c rsa_oaep.c rsa_chk.c
 SRCS+= rsa_pss.c rsa_x931.c rsa_asn1.c rsa_depr.c rsa_ameth.c rsa_prn.c
 SRCS+= rsa_pmeth.c rsa_crpt.c
 
@@ -280,6 +288,8 @@ SRCS+= v3_prn.c v3_utl.c v3err.c v3_genn.c v3_alt.c v3_skey.c v3_akey.c v3_pku.c
 SRCS+= v3_int.c v3_enum.c v3_sxnet.c v3_cpols.c v3_crld.c v3_purp.c v3_info.c
 SRCS+= v3_ocsp.c v3_akeya.c v3_pmaps.c v3_pcons.c v3_ncons.c v3_pcia.c v3_pci.c
 SRCS+= pcy_cache.c pcy_node.c pcy_data.c pcy_map.c pcy_tree.c pcy_lib.c
+
+### end of OpenBSD src/lib/libcrypto/crypto/Makefile import
 
 .if ${MACHINE_CPUARCH} == "amd64"
 # aes
@@ -338,7 +348,6 @@ SRCS+= wp_block.c
 	${LCRYPTO_SRC}/cast \
 	${LCRYPTO_SRC}/chacha \
 	${LCRYPTO_SRC}/cmac \
-	${LCRYPTO_SRC}/cms \
 	${LCRYPTO_SRC}/comp \
 	${LCRYPTO_SRC}/compat \
 	${LCRYPTO_SRC}/conf \
@@ -354,11 +363,13 @@ SRCS+= wp_block.c
 	${LCRYPTO_SRC}/err \
 	${LCRYPTO_SRC}/evp \
 	${LCRYPTO_SRC}/gost \
+	${LCRYPTO_SRC}/hkdf \
 	${LCRYPTO_SRC}/hmac \
 	${LCRYPTO_SRC}/idea \
 	${LIBRESSL_SRC}/include/openssl \
 	${LIBRESSL_SRC}/include/compat \
 	${LCRYPTO_SRC}/lhash \
+	${LIBRESSL_SRC}/man \
 	${LCRYPTO_SRC}/md4 \
 	${LCRYPTO_SRC}/md5 \
 	${LCRYPTO_SRC}/modes \
@@ -374,7 +385,6 @@ SRCS+= wp_block.c
 	${LCRYPTO_SRC}/rc4 \
 	${LCRYPTO_SRC}/ripemd \
 	${LCRYPTO_SRC}/rsa \
-	${.CURDIR}/arch/${MACHINE_CPU} \
 	${LCRYPTO_SRC}/sha \
 	${LCRYPTO_SRC}/stack \
 	${LCRYPTO_SRC}/threads \
@@ -383,8 +393,7 @@ SRCS+= wp_block.c
 	${LCRYPTO_SRC}/ui \
 	${LCRYPTO_SRC}/whrlpool \
 	${LCRYPTO_SRC}/x509 \
-	${LCRYPTO_SRC}/x509v3 \
-	${LIBRESSL_SRC}/man
+	${LCRYPTO_SRC}/x509v3
 
 # generated
 CFLAGS+= -I${.OBJDIR}
