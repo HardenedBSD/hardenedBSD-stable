@@ -186,13 +186,10 @@ __DEFAULT_NO_OPTIONS = \
     HESIOD \
     LIB32 \
     LIBSOFT \
-<<<<<<< HEAD
     LLVM_AR_IS_AR \
     LLVM_NM_IS_NM \
     LLVM_OBJDUMP_IS_OBJDUMP \
-=======
     LOADER_FIREWIRE \
->>>>>>> origin/freebsd/current/master
     LOADER_FORCE_LE \
     NAND \
     NTP \

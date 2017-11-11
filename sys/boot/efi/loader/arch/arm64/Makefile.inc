@@ -10,21 +10,5 @@ CFLAGS+=-I${BOOTSRC}/arm64/libarm64
 SRCS+=	cache.c
 
 CFLAGS+=	-mgeneral-regs-only
-<<<<<<< HEAD
-
-CLEANFILES+=	loader.help
-
-loader.help: help.common
-	cat ${.ALLSRC} | \
-	    awk -f ${LDRSRC}/merge_help.awk > ${.TARGET}
-
-.if !defined(LOADER_ONLY)
-.PATH: ${BOOTSRC}/forth
-.include	"${BOOTSRC}/forth/Makefile.inc"
-
-FILES+=	loader.rc
-.endif
 
 NOPIE=	1
-=======
->>>>>>> origin/freebsd/current/master
