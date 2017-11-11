@@ -28,18 +28,151 @@ history is also available from Git.
 
 LibreSSL Portable Release Notes:
 
+2.6.3 - OpenBSD 6.2 Release
+
+	* No core changes from LibreSSL 2.6.2
+
+	* Minor compatibility fixes in portable version.
+
+2.6.2 - Bug fixes
+
+	* Provide a useful error with libtls if there are no OCSP URLs in a
+	  peer certificate.
+
+	* Keep track of which keypair is in use by a TLS context, fixing a bug
+	  where a TLS server with SNI would only return the OCSP staple for the
+	  default keypair. Issue reported by William Graeber and confirmed by
+	  Andreas Bartelt.
+
+	* Fixed various issues in the OCSP extension parsing code.
+	  The original code incorrectly passes the pointer allocated via
+	  CBS_stow() (using malloc()) to a d2i_*() function and then calls
+	  free() on the now incremented pointer, most likely resulting in a
+	  crash. This issue was reported by Robert Swiecki who found the issue
+	  using honggfuzz.
+
+	* If tls_config_parse_protocols() is called with a NULL pointer,
+	  return the default protocols instead of crashing - this makes the
+	  behaviour more useful and mirrors what we already do in
+	  tls_config_set_ciphers() et al.
+
+2.6.1 - Code removal, rewrites
+
+	* Added a "-T tlscompat" option to nc(1), which enables the use of all
+	  TLS protocols and "compat" ciphers. This allows for TLS connections
+	  to TLS servers that are using less than ideal cipher suites, without
+	  having to resort to "-T tlsall" which enables all known cipher
+	  suites.  Diff from Kyle J. McKay.
+
+	* Added a new TLS extension handling framework, somewhat analogous to
+	  BoringSSL, and converted all TLS extensions to use it. Added new TLS
+	  extension regression tests.
+
+	* Improved and added many new manpages. Updated *check_private_key
+	  manpages with additional cautions regarding their use.
+
+	* Cleaned up the EC key/curve configuration handling.
+
+	* Added tls_config_set_ecdhecurves() to libtls, which allows the names
+	  of the eliptical curves that may be used during client and server
+	  key exchange to be specified.
+
+	* Converted more code paths to use CBB/CBS.
+
+	* Removed support for DSS/DSA, since we removed the cipher suites a
+	  while back.
+
+	* Removed NPN support. NPN was never standardised and the last draft
+	  expired in October 2012. ALPN was standardised in July 2014 and has
+	  been supported in LibreSSL since December 2014. NPN has also been
+	  removed from Chromium in May 2016.
+
+	* Removed SSL_OP_CRYPTOPRO_TLSEXT_BUG workaround for old/broken
+	  CryptoPro clients.
+
+	* Removed support for the TLS padding extension, which was added as a
+	  workaround for an old bug in F5's TLS termination.
+
+	* Worked around another bug in F5's TLS termination handling of the
+	  elliptical curves extension. RFC 4492 only defines elliptic_curves
+	  for ClientHello. However, F5 is sending it in ServerHello.  We need
+	  to skip over it since our TLS extension parsing code is now more
+	  strict. Thanks to Armin Wolfermann and WJ Liu for reporting.
+
+	* Added ability to clamp notafter valies in certificates for systems
+	  with 32-bit time_t. This is necessary to conform to RFC 5280
+	  4.1.2.5.
+
+	* Implemented the SSL_CTX_set_min_proto_version(3) API.
+
+	* Removed the original (pre-IETF) chacha20-poly1305 cipher suites.
+
+	* Reclassified ECDHE-RSA-DES-CBC3-SHA from HIGH to MEDIUM.
+
+2.6.0 - New APIs, bug fixes and improvements
+
+	* Added support for providing CRLs to libtls. Once a CRL is provided we
+	  enable CRL checking for the full certificate chain. Based on a diff
+	  from Jack Burton
+
+	* Allow non-compliant clients using IP literal addresses with SNI
+	  to connect to a server using libtls.
+
+	* Avoid a potential NULL pointer dereference in d2i_ECPrivateKey().
+	  Reported by Robert Swiecki, who found the issue using honggfuzz.
+
+	* Added definitions for three OIDs used in EV certificates.
+	  From Kyle J. McKay
+
+	* Added tls_peer_cert_chain_pem to libtls, useful in private
+	  certificate validation callbacks such as those in relayd.
+
+	* Converted explicit clear/free sequences to use freezero(3).
+
+	* Reworked TLS certificate name verification code to more strictly
+	  follow RFC 6125.
+
+	* Cleaned up and simplified server key exchange EC point handling.
+
+	* Added tls_keypair_clear_key for clearing key material.
+
+	* Removed inconsistent IPv6 handling from BIO_get_accept_socket,
+	  simplified BIO_get_host_ip and BIO_accept.
+
+	* Fixed the openssl(1) ca command so that is generates certificates
+	  with RFC 5280-conformant time. Problem noticed by Harald Dunkel.
+
+	* Added ASN1_TIME_set_tm to set an asn1 from a struct tm *
+
+	* Added SSL{,_CTX}_set_{min,max}_proto_version() functions.
+
+	* Added HKDF (HMAC Key Derivation Function) from BoringSSL
+
+	* Provided a tls_unload_file() function that frees the memory returned
+	  from a tls_load_file() call, ensuring that it the contents become
+	  inaccessible. This is specifically needed on platforms where the
+	  library allocators may be different from the application allocator.
+
+	* Perform reference counting for tls_config. This allows
+	  tls_config_free() to be called as soon as it has been passed to the
+	  final tls_configure() call, simplifying lifetime tracking for the
+	  application.
+
+	* Moved internal state of SSL and other structures to be opaque.
+
+	* Dropped cipher suites with DSS authentication.
+
+	* nc(1) improvements, including:
+	   nc -W to terminate nc after receiving a number of packets
+	   nc -Z for saving the peer certificate and chain in a pem file
+
 2.5.5 - Bug fixes
+
 	* Distinguish between self-issued certificates and self-signed
 	  certificates. The certificate verification code has special cases
 	  for self-signed certificates and without this change, self-issued
 	  certificates (which it seems are common place with
 	  openvpn/easyrsa) were also being included in this category.
-
-	* Fix a bug caused by the return value being set early to signal
-	  successful DTLS cookie validation. This can mask a later failure and
-	  result in a positive return value being returned from
-	  ssl3_get_client_hello(), when it should return a negative value to
-	  propagate the error.
 
 	* Added getpagesize fallback, needed for Android bionic libc.
 

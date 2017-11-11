@@ -27,11 +27,17 @@ string(STRIP ${TLS_VERSION} TLS_VERSION)
 string(REPLACE ":" "." TLS_VERSION ${TLS_VERSION})
 string(REGEX REPLACE "\\..*" "" TLS_MAJOR_VERSION ${TLS_VERSION})
 
+option(LIBRESSL_SKIP_INSTALL "Skip installation" ${LIBRESSL_SKIP_INSTALL})
 option(ENABLE_ASM "Enable assembly" ON)
 option(ENABLE_EXTRATESTS "Enable extra tests that may be unreliable on some platforms" OFF)
 option(ENABLE_NC "Enable installing TLS-enabled nc(1)" OFF)
 option(ENABLE_VSTEST "Enable test on Visual Studio" OFF)
 set(OPENSSLDIR ${OPENSSLDIR} CACHE PATH "Set the default openssl directory" FORCE)
+
+if(NOT LIBRESSL_SKIP_INSTALL)
+	set( ENABLE_LIBRESSL_INSTALL ON )
+endif(NOT LIBRESSL_SKIP_INSTALL)
+
 
 set(BUILD_NC true)
 
@@ -103,14 +109,20 @@ if(MSVC)
 		set(MSVC_DISABLED_WARNINGS_LIST
 			"C4057" # C4057: 'initializing' : 'unsigned char *' differs in
 		        	# indirection to slightly different base types from 'char [2]'
+			"C4018" # '>=': signed/unsigned mismatch
 			"C4100" # 'exarg' : unreferenced formal parameter
 			"C4127" # conditional expression is constant
+			"C4146" # unary minus operator applied to unsigned
+			        # type, result still unsigned
 			"C4242" # 'function' : conversion from 'int' to 'uint8_t',
 			        # possible loss of data
 			"C4244" # 'function' : conversion from 'int' to 'uint8_t',
 			        # possible loss of data
+			"C4245" # 'initializing': conversion from 'long' to
+			        # 'unsigned long', signed/unsigned mismatch
 			"C4267" # conversion from 'size_t' to 'some type that is almost
 				# certainly safe to convert a size_t to'.
+			"C4389" # '!=': signed/unsigned mismatch
 			"C4706" # assignment within conditional expression
 			"C4820" # 'bytes' bytes padding added after construct 'member_name'
 			"C4996" # 'read': The POSIX name for this item is deprecated. Instead,
@@ -294,6 +306,7 @@ endif()
 check_type_size(time_t SIZEOF_TIME_T)
 if(SIZEOF_TIME_T STREQUAL "4")
 	set(SMALL_TIME_T true)
+	add_definitions(-DSMALL_TIME_T)
 	message(WARNING " ** Warning, this system is unable to represent times past 2038\n"
 	                " ** It will behave incorrectly when handling valid RFC5280 dates")
 endif()
@@ -309,6 +322,23 @@ if(NOT MSVC)
 endif()
 if(NOT MSVC OR ENABLE_VSTEST)
 	add_subdirectory(tests)
+endif()
+
+if(NOT MSVC)
+	# Create pkgconfig files.
+	set(prefix      ${CMAKE_INSTALL_PREFIX})
+	set(exec_prefix \${prefix})
+	set(libdir      \${exec_prefix}/${CMAKE_INSTALL_LIBDIR})
+	set(includedir  \${prefix}/include)
+	file(STRINGS    "VERSION" VERSION LIMIT_COUNT 1)
+	file(GLOB       OPENSSL_PKGCONFIGS "*.pc.in")
+	foreach(file ${OPENSSL_PKGCONFIGS})
+		get_filename_component(filename ${file} NAME)
+		string(REPLACE ".in" "" new_file "${filename}")
+		configure_file(${filename} pkgconfig/${new_file} @ONLY)
+	endforeach()
+	install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/pkgconfig
+		DESTINATION ${CMAKE_INSTALL_LIBDIR})
 endif()
 
 configure_file(

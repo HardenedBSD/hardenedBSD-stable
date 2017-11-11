@@ -1,4 +1,4 @@
-/* $OpenBSD: ssl_pkt.c,v 1.10 2017/02/07 02:08:38 beck Exp $ */
+/* $OpenBSD: ssl_pkt.c,v 1.12 2017/05/07 04:22:24 beck Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -728,7 +728,7 @@ do_ssl3_write(SSL *s, int type, const unsigned char *buf,
 	/* Some servers hang if iniatial client hello is larger than 256
 	 * bytes and record version number > TLS 1.0
 	 */
-	if (s->internal->state == SSL3_ST_CW_CLNT_HELLO_B && !s->internal->renegotiate &&
+	if (S3I(s)->hs.state == SSL3_ST_CW_CLNT_HELLO_B && !s->internal->renegotiate &&
 	    TLS1_get_version(s) > TLS1_VERSION)
 		*(p++) = 0x1;
 	else
@@ -1235,7 +1235,7 @@ start:
 		}
 
 		/* Check we have a cipher to change to */
-		if (S3I(s)->tmp.new_cipher == NULL) {
+		if (S3I(s)->hs.new_cipher == NULL) {
 			al = SSL_AD_UNEXPECTED_MESSAGE;
 			SSLerror(s, SSL_R_CCS_RECEIVED_EARLY);
 			goto f_err;
@@ -1266,9 +1266,9 @@ start:
 
 	/* Unexpected handshake message (Client Hello, or protocol violation) */
 	if ((S3I(s)->handshake_fragment_len >= 4) && !s->internal->in_handshake) {
-		if (((s->internal->state&SSL_ST_MASK) == SSL_ST_OK) &&
+		if (((S3I(s)->hs.state&SSL_ST_MASK) == SSL_ST_OK) &&
 		    !(s->s3->flags & SSL3_FLAGS_NO_RENEGOTIATE_CIPHERS)) {
-			s->internal->state = s->server ? SSL_ST_ACCEPT : SSL_ST_CONNECT;
+			S3I(s)->hs.state = s->server ? SSL_ST_ACCEPT : SSL_ST_CONNECT;
 			s->internal->renegotiate = 1;
 			s->internal->new_session = 1;
 		}
@@ -1326,12 +1326,12 @@ start:
 		 */
 		if (S3I(s)->in_read_app_data &&
 		    (S3I(s)->total_renegotiations != 0) &&
-		    (((s->internal->state & SSL_ST_CONNECT) &&
-		    (s->internal->state >= SSL3_ST_CW_CLNT_HELLO_A) &&
-		    (s->internal->state <= SSL3_ST_CR_SRVR_HELLO_A)) ||
-		    ((s->internal->state & SSL_ST_ACCEPT) &&
-		    (s->internal->state <= SSL3_ST_SW_HELLO_REQ_A) &&
-		    (s->internal->state >= SSL3_ST_SR_CLNT_HELLO_A)))) {
+		    (((S3I(s)->hs.state & SSL_ST_CONNECT) &&
+		    (S3I(s)->hs.state >= SSL3_ST_CW_CLNT_HELLO_A) &&
+		    (S3I(s)->hs.state <= SSL3_ST_CR_SRVR_HELLO_A)) ||
+		    ((S3I(s)->hs.state & SSL_ST_ACCEPT) &&
+		    (S3I(s)->hs.state <= SSL3_ST_SW_HELLO_REQ_A) &&
+		    (S3I(s)->hs.state >= SSL3_ST_SR_CLNT_HELLO_A)))) {
 			S3I(s)->in_read_app_data = 2;
 			return (-1);
 		} else {
@@ -1355,19 +1355,19 @@ ssl3_do_change_cipher_spec(SSL *s)
 	const char *sender;
 	int slen;
 
-	if (s->internal->state & SSL_ST_ACCEPT)
+	if (S3I(s)->hs.state & SSL_ST_ACCEPT)
 		i = SSL3_CHANGE_CIPHER_SERVER_READ;
 	else
 		i = SSL3_CHANGE_CIPHER_CLIENT_READ;
 
-	if (S3I(s)->tmp.key_block == NULL) {
+	if (S3I(s)->hs.key_block == NULL) {
 		if (s->session == NULL || s->session->master_key_length == 0) {
 			/* might happen if dtls1_read_bytes() calls this */
 			SSLerror(s, SSL_R_CCS_RECEIVED_EARLY);
 			return (0);
 		}
 
-		s->session->cipher = S3I(s)->tmp.new_cipher;
+		s->session->cipher = S3I(s)->hs.new_cipher;
 		if (!tls1_setup_key_block(s))
 			return (0);
 	}
@@ -1378,7 +1378,7 @@ ssl3_do_change_cipher_spec(SSL *s)
 	/* we have to record the message digest at
 	 * this point so we can get it before we read
 	 * the finished message */
-	if (s->internal->state & SSL_ST_CONNECT) {
+	if (S3I(s)->hs.state & SSL_ST_CONNECT) {
 		sender = TLS_MD_SERVER_FINISH_CONST;
 		slen = TLS_MD_SERVER_FINISH_CONST_SIZE;
 	} else {

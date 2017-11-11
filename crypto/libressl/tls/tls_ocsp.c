@@ -46,6 +46,8 @@ tls_ocsp_free(struct tls_ocsp *ocsp)
 	if (ocsp == NULL)
 		return;
 
+	X509_free(ocsp->main_cert);
+	ocsp->main_cert = NULL;
 	free(ocsp->ocsp_result);
 	ocsp->ocsp_result = NULL;
 	free(ocsp->ocsp_url);
@@ -171,8 +173,11 @@ tls_ocsp_setup_from_peer(struct tls *ctx)
 	}
 
 	ocsp_urls = X509_get1_ocsp(ocsp->main_cert);
-	if (ocsp_urls == NULL)
+	if (ocsp_urls == NULL) {
+		tls_set_errorx(ctx, "no OCSP URLs in peer certificate");
 		goto failed;
+	}
+
 	ocsp->ocsp_url = strdup(sk_OPENSSL_STRING_value(ocsp_urls, 0));
 	if (ocsp->ocsp_url == NULL) {
 		tls_set_errorx(ctx, "out of memory");
@@ -310,12 +315,13 @@ tls_ocsp_verify_cb(SSL *ssl, void *arg)
 	}
 
 	tls_ocsp_free(ctx->ocsp);
-	ctx->ocsp = tls_ocsp_setup_from_peer(ctx);
-	if (ctx->ocsp != NULL) {
-		if (ctx->config->verify_cert == 0 || ctx->config->verify_time == 0)
-			return 1;
-		res = tls_ocsp_process_response_internal(ctx, raw, size);
-	}
+	if ((ctx->ocsp = tls_ocsp_setup_from_peer(ctx)) == NULL)
+		return 0;
+
+	if (ctx->config->verify_cert == 0 || ctx->config->verify_time == 0)
+		return 1;
+
+	res = tls_ocsp_process_response_internal(ctx, raw, size);
 
 	return (res == 0) ? 1 : 0;
 }
@@ -325,32 +331,32 @@ tls_ocsp_verify_cb(SSL *ssl, void *arg)
 int
 tls_ocsp_stapling_cb(SSL *ssl, void *arg)
 {
-	struct tls *ctx;
-	unsigned char *ocsp_staple = NULL;
 	int ret = SSL_TLSEXT_ERR_ALERT_FATAL;
+	unsigned char *ocsp_staple = NULL;
+	struct tls *ctx;
 
 	if ((ctx = SSL_get_app_data(ssl)) == NULL)
 		goto err;
 
-	if (ctx->config->keypair == NULL ||
-	    ctx->config->keypair->ocsp_staple == NULL ||
-	    ctx->config->keypair->ocsp_staple_len == 0)
+	if (ctx->keypair == NULL || ctx->keypair->ocsp_staple == NULL ||
+	    ctx->keypair->ocsp_staple_len == 0)
 		return SSL_TLSEXT_ERR_NOACK;
 
-	if ((ocsp_staple = malloc(ctx->config->keypair->ocsp_staple_len)) ==
-	    NULL)
+	if ((ocsp_staple = malloc(ctx->keypair->ocsp_staple_len)) == NULL)
 		goto err;
 
-	memcpy(ocsp_staple, ctx->config->keypair->ocsp_staple,
-	    ctx->config->keypair->ocsp_staple_len);
+	memcpy(ocsp_staple, ctx->keypair->ocsp_staple,
+	    ctx->keypair->ocsp_staple_len);
+
 	if (SSL_set_tlsext_status_ocsp_resp(ctx->ssl_conn, ocsp_staple,
-		ctx->config->keypair->ocsp_staple_len) != 1)
+	    ctx->keypair->ocsp_staple_len) != 1)
 		goto err;
 
 	ret = SSL_TLSEXT_ERR_OK;
  err:
 	if (ret != SSL_TLSEXT_ERR_OK)
 		free(ocsp_staple);
+
 	return ret;
 }
 
@@ -358,7 +364,7 @@ tls_ocsp_stapling_cb(SSL *ssl, void *arg)
  * Public API
  */
 
-/* Retrieve OCSP URL from peer certificate, if present */
+/* Retrieve OCSP URL from peer certificate, if present. */
 const char *
 tls_peer_ocsp_url(struct tls *ctx)
 {

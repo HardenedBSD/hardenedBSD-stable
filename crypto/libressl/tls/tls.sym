@@ -26,8 +26,11 @@ tls_config_set_ca_path
 tls_config_set_cert_file
 tls_config_set_cert_mem
 tls_config_set_ciphers
+tls_config_set_crl_file
+tls_config_set_crl_mem
 tls_config_set_dheparams
 tls_config_set_ecdhecurve
+tls_config_set_ecdhecurves
 tls_config_set_key_file
 tls_config_set_key_mem
 tls_config_set_keypair_file
@@ -40,6 +43,7 @@ tls_config_set_protocols
 tls_config_set_session_id
 tls_config_set_session_lifetime
 tls_config_set_verify_depth
+tls_config_skip_private_key_check
 tls_config_verify
 tls_config_verify_client
 tls_config_verify_client_optional
@@ -59,6 +63,7 @@ tls_handshake
 tls_init
 tls_load_file
 tls_ocsp_process_response
+tls_peer_cert_chain_pem
 tls_peer_cert_contains_name
 tls_peer_cert_hash
 tls_peer_cert_issuer
@@ -77,4 +82,5 @@ tls_peer_ocsp_url
 tls_read
 tls_reset
 tls_server
+tls_unload_file
 tls_write

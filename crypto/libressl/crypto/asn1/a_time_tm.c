@@ -1,4 +1,4 @@
-/* $OpenBSD: a_time_tm.c,v 1.11 2017/01/29 17:49:22 beck Exp $ */
+/* $OpenBSD: a_time_tm.c,v 1.14 2017/08/28 17:42:47 jsing Exp $ */
 /*
  * Copyright (c) 2015 Bob Beck <beck@openbsd.org>
  *
@@ -30,7 +30,8 @@
 #define UTCTIME_LENGTH 13
 
 int
-ASN1_time_tm_cmp(struct tm *tm1, struct tm *tm2) {
+ASN1_time_tm_cmp(struct tm *tm1, struct tm *tm2)
+{
 	if (tm1->tm_year < tm2->tm_year)
 		return (-1);
 	if (tm1->tm_year > tm2->tm_year)
@@ -56,6 +57,22 @@ ASN1_time_tm_cmp(struct tm *tm1, struct tm *tm2) {
 	if (tm1->tm_sec > tm2->tm_sec)
 		return (1);
 	return 0;
+}
+
+int
+ASN1_time_tm_clamp_notafter(struct tm *tm)
+{
+#ifdef SMALL_TIME_T
+	struct tm broken_os_epoch_tm;
+	time_t broken_os_epoch_time = INT_MAX;
+
+	if (gmtime_r(&broken_os_epoch_time, &broken_os_epoch_tm) == NULL)
+		return 0;
+
+	if (ASN1_time_tm_cmp(tm, &broken_os_epoch_tm) == 1)
+		memcpy(tm, &broken_os_epoch_tm, sizeof(*tm));
+#endif
+	return 1;
 }
 
 /* Format a time as an RFC 5280 format Generalized time */
@@ -300,6 +317,16 @@ ASN1_TIME_adj_internal(ASN1_TIME *s, time_t t, int offset_day, long offset_sec,
 ASN1_TIME *
 ASN1_TIME_set(ASN1_TIME *s, time_t t)
 {
+	return (ASN1_TIME_adj(s, t, 0, 0));
+}
+
+ASN1_TIME *
+ASN1_TIME_set_tm(ASN1_TIME *s, struct tm *tm)
+{
+	time_t t;
+
+	if ((t = timegm(tm)) == -1)
+		return NULL;
 	return (ASN1_TIME_adj(s, t, 0, 0));
 }
 

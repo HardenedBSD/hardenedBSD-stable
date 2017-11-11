@@ -2549,6 +2549,20 @@
 #define NID_dcObject		390
 #define OBJ_dcObject		OBJ_Enterprises,1466L,344L
 
+#define OBJ_extendedValidation		OBJ_Enterprises,311L,60L
+
+#define LN_jurisdictionLocalityName		"jurisdictionLocalityName"
+#define NID_jurisdictionLocalityName		956
+#define OBJ_jurisdictionLocalityName		OBJ_extendedValidation,2L,1L,1L
+
+#define LN_jurisdictionStateOrProvinceName		"jurisdictionStateOrProvinceName"
+#define NID_jurisdictionStateOrProvinceName		957
+#define OBJ_jurisdictionStateOrProvinceName		OBJ_extendedValidation,2L,1L,2L
+
+#define LN_jurisdictionCountryName		"jurisdictionCountryName"
+#define NID_jurisdictionCountryName		958
+#define OBJ_jurisdictionCountryName		OBJ_extendedValidation,2L,1L,3L
+
 #define SN_mime_mhs		"mime-mhs"
 #define LN_mime_mhs		"MIME MHS"
 #define NID_mime_mhs		504

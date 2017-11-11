@@ -1,4 +1,4 @@
-/* $OpenBSD: tls_server.c,v 1.35 2017/01/31 15:57:43 jsing Exp $ */
+/* $OpenBSD: tls_server.c,v 1.42 2017/09/20 17:05:17 jsing Exp $ */
 /*
  * Copyright (c) 2014 Joel Sing <jsing@openbsd.org>
  *
@@ -48,7 +48,11 @@ tls_server_conn(struct tls *ctx)
 		return (NULL);
 
 	conn_ctx->flags |= TLS_SERVER_CONN;
+
+	ctx->config->refcount++;
+
 	conn_ctx->config = ctx->config;
+	conn_ctx->keypair = ctx->config->keypair;
 
 	return (conn_ctx);
 }
@@ -75,11 +79,13 @@ tls_servername_cb(SSL *ssl, int *al, void *arg)
 	union tls_addr addrbuf;
 	struct tls *conn_ctx;
 	const char *name;
+	int match;
 
 	if ((conn_ctx = SSL_get_app_data(ssl)) == NULL)
 		goto err;
 
-	if ((name = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name)) == NULL) {
+	if ((name = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name)) ==
+	    NULL) {
 		/*
 		 * The servername callback gets called even when there is no
 		 * TLS servername extension provided by the client. Sigh!
@@ -87,10 +93,16 @@ tls_servername_cb(SSL *ssl, int *al, void *arg)
 		return (SSL_TLSEXT_ERR_NOACK);
 	}
 
-	/* Per RFC 6066 section 3: ensure that name is not an IP literal. */
+	/*
+	 * Per RFC 6066 section 3: ensure that name is not an IP literal.
+	 *
+	 * While we should treat this as an error, a number of clients
+	 * (Python, Ruby and Safari) are not RFC compliant. To avoid handshake
+	 * failures, pretend that we did not receive the extension.
+	 */
 	if (inet_pton(AF_INET, name, &addrbuf) == 1 ||
             inet_pton(AF_INET6, name, &addrbuf) == 1)
-		goto err;
+		return (SSL_TLSEXT_ERR_NOACK);
 
 	free((char *)conn_ctx->servername);
 	if ((conn_ctx->servername = strdup(name)) == NULL)
@@ -98,7 +110,11 @@ tls_servername_cb(SSL *ssl, int *al, void *arg)
 
 	/* Find appropriate SSL context for requested servername. */
 	for (sni_ctx = ctx->sni_ctx; sni_ctx != NULL; sni_ctx = sni_ctx->next) {
-		if (tls_check_name(ctx, sni_ctx->ssl_cert, name) == 0) {
+		if (tls_check_name(ctx, sni_ctx->ssl_cert, name,
+		    &match) == -1)
+			goto err;
+		if (match) {
+			conn_ctx->keypair = sni_ctx->keypair;
 			SSL_set_SSL_CTX(conn_ctx->ssl_conn, sni_ctx->ssl_ctx);
 			return (SSL_TLSEXT_ERR_OK);
 		}
@@ -194,6 +210,7 @@ tls_keypair_load_cert(struct tls_keypair *keypair, struct tls_error *error,
 	char *errstr = "unknown";
 	BIO *cert_bio = NULL;
 	int ssl_err;
+	int rv = -1;
 
 	X509_free(*cert);
 	*cert = NULL;
@@ -207,29 +224,26 @@ tls_keypair_load_cert(struct tls_keypair *keypair, struct tls_error *error,
 		tls_error_set(error, "failed to create certificate bio");
 		goto err;
 	}
-	if ((*cert = PEM_read_bio_X509(cert_bio, NULL, NULL, NULL)) == NULL) {
+	if ((*cert = PEM_read_bio_X509(cert_bio, NULL, tls_password_cb,
+	    NULL)) == NULL) {
 		if ((ssl_err = ERR_peek_error()) != 0)
 		    errstr = ERR_error_string(ssl_err, NULL);
 		tls_error_set(error, "failed to load certificate: %s", errstr);
 		goto err;
 	}
 
-	BIO_free(cert_bio);
-
-	return (0);
+	rv = 0;
 
  err:
 	BIO_free(cert_bio);
 
-	return (-1);
+	return (rv);
 }
 
 static int
 tls_configure_server_ssl(struct tls *ctx, SSL_CTX **ssl_ctx,
     struct tls_keypair *keypair)
 {
-	EC_KEY *ecdh_key;
-
 	SSL_CTX_free(*ssl_ctx);
 
 	if ((*ssl_ctx = SSL_CTX_new(SSLv23_server_method())) == NULL) {
@@ -270,17 +284,13 @@ tls_configure_server_ssl(struct tls *ctx, SSL_CTX **ssl_ctx,
 	else if (ctx->config->dheparams == 1024)
 		SSL_CTX_set_dh_auto(*ssl_ctx, 2);
 
-	if (ctx->config->ecdhecurve == -1) {
+	if (ctx->config->ecdhecurves != NULL) {
 		SSL_CTX_set_ecdh_auto(*ssl_ctx, 1);
-	} else if (ctx->config->ecdhecurve != NID_undef) {
-		if ((ecdh_key = EC_KEY_new_by_curve_name(
-		    ctx->config->ecdhecurve)) == NULL) {
-			tls_set_errorx(ctx, "failed to set ECDHE curve");
+		if (SSL_CTX_set1_groups(*ssl_ctx, ctx->config->ecdhecurves,
+		    ctx->config->ecdhecurves_len) != 1) {
+			tls_set_errorx(ctx, "failed to set ecdhe curves");
 			goto err;
 		}
-		SSL_CTX_set_options(*ssl_ctx, SSL_OP_SINGLE_ECDH_USE);
-		SSL_CTX_set_tmp_ecdh(*ssl_ctx, ecdh_key);
-		EC_KEY_free(ecdh_key);
 	}
 
 	if (ctx->config->ciphers_server == 1)
@@ -334,6 +344,7 @@ tls_configure_server_sni(struct tls *ctx)
 			tls_set_errorx(ctx, "out of memory");
 			goto err;
 		}
+		(*sni_ctx)->keypair = kp;
 		if (tls_configure_server_ssl(ctx, &(*sni_ctx)->ssl_ctx, kp) == -1)
 			goto err;
 		if (tls_keypair_load_cert(kp, &ctx->error,

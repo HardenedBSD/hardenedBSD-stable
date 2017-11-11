@@ -1,4 +1,4 @@
-/* $OpenBSD: ssl_err.c,v 1.33 2017/02/07 02:08:38 beck Exp $ */
+/* $OpenBSD: ssl_err.c,v 1.35 2017/08/28 17:36:58 jsing Exp $ */
 /* ====================================================================
  * Copyright (c) 1999-2011 The OpenSSL Project.  All rights reserved.
  *
@@ -63,6 +63,8 @@
 #include <openssl/err.h>
 #include <openssl/ssl.h>
 
+#include "ssl_locl.h"
+
 /* BEGIN ERROR CODES */
 #ifndef OPENSSL_NO_ERR
 
@@ -94,8 +96,6 @@ static ERR_STRING_DATA SSL_str_functs[]= {
 	{ERR_FUNC(21),  "CONNECT_CW_CERT_VRFY"},
 	{ERR_FUNC(22),  "CONNECT_CW_CHANGE"},
 	{ERR_FUNC(23),  "CONNECT_CW_CHANGE"},
-	{ERR_FUNC(24),  "CONNECT_CW_NEXT_PROTO"},
-	{ERR_FUNC(25),  "CONNECT_CW_NEXT_PROTO"},
 	{ERR_FUNC(26),  "CONNECT_CW_FINISHED"},
 	{ERR_FUNC(27),  "CONNECT_CW_FINISHED"},
 	{ERR_FUNC(28),  "CONNECT_CR_CHANGE"},
@@ -131,8 +131,6 @@ static ERR_STRING_DATA SSL_str_functs[]= {
 	{ERR_FUNC(58),  "ACCEPT_SR_CERT_VRFY"},
 	{ERR_FUNC(59),  "ACCEPT_SR_CHANGE"},
 	{ERR_FUNC(60),  "ACCEPT_SR_CHANGE"},
-	{ERR_FUNC(61),  "ACCEPT_SR_NEXT_PROTO"},
-	{ERR_FUNC(62),  "ACCEPT_SR_NEXT_PROTO"},
 	{ERR_FUNC(63),  "ACCEPT_SR_FINISHED"},
 	{ERR_FUNC(64),  "ACCEPT_SR_FINISHED"},
 	{ERR_FUNC(65),  "ACCEPT_SW_CHANGE"},
@@ -538,10 +536,6 @@ SSL_state_func_code(int state) {
 		return 22;
 	case SSL3_ST_CW_CHANGE_B:
 		return 23;
-	case SSL3_ST_CW_NEXT_PROTO_A:
-		return 24;
-	case SSL3_ST_CW_NEXT_PROTO_B:
-		return 25;
 	case SSL3_ST_CW_FINISHED_A:
 		return 26;
 	case SSL3_ST_CW_FINISHED_B:
@@ -612,10 +606,6 @@ SSL_state_func_code(int state) {
 		return 59;
 	case SSL3_ST_SR_CHANGE_B:
 		return 60;
-	case SSL3_ST_SR_NEXT_PROTO_A:
-		return 61;
-	case SSL3_ST_SR_NEXT_PROTO_B:
-		return 62;
 	case SSL3_ST_SR_FINISHED_A:
 		return 63;
 	case SSL3_ST_SR_FINISHED_B:
@@ -666,4 +656,11 @@ SSL_state_func_code(int state) {
 		break;
 	}
 	return 0xfff;
+}
+
+void
+SSL_error_internal(const SSL *s, int r, char *f, int l)
+{
+	ERR_PUT_error(ERR_LIB_SSL,
+	    (SSL_state_func_code(S3I(s)->hs.state)), r, f, l);
 }

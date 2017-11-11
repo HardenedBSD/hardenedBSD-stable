@@ -20,7 +20,7 @@ else()
         set(OCSPCHECK_SRC ${OCSPCHECK_SRC} compat/inet_ntop.c)
 endif()
 
-check_function_exists(inet_ntop HAVE_MEMMEM)
+check_function_exists(memmem HAVE_MEMMEM)
 if(HAVE_MEMMEM)
         add_definitions(-DHAVE_MEMMEM)
 else()
@@ -36,7 +36,10 @@ endif()
 add_executable(ocspcheck ${OCSPCHECK_SRC})
 target_link_libraries(ocspcheck tls ${OPENSSL_LIBS})
 
-install(TARGETS ocspcheck DESTINATION ${CMAKE_INSTALL_BINDIR})
-install(FILES ocspcheck.8 DESTINATION ${CMAKE_INSTALL_MANDIR}/man8)
+if(ENABLE_LIBRESSL_INSTALL)
+	install(TARGETS ocspcheck DESTINATION ${CMAKE_INSTALL_BINDIR})
+	install(FILES ocspcheck.8 DESTINATION ${CMAKE_INSTALL_MANDIR}/man8)
+
+endif(ENABLE_LIBRESSL_INSTALL)
 
 endif()

@@ -35,6 +35,7 @@ set(
 	ssl_sess.c
 	ssl_srvr.c
 	ssl_stat.c
+	ssl_tlsext.c
 	ssl_txt.c
 	ssl_versions.c
 	t1_clnt.c
@@ -42,7 +43,6 @@ set(
 	t1_hash.c
 	t1_lib.c
 	t1_meth.c
-	t1_reneg.c
 	t1_srvr.c
 )
 
@@ -51,8 +51,9 @@ if (BUILD_SHARED)
 	add_library(ssl STATIC $<TARGET_OBJECTS:ssl-objects>)
 	add_library(ssl-shared SHARED $<TARGET_OBJECTS:ssl-objects>)
 	export_symbol(ssl-shared ${CMAKE_CURRENT_SOURCE_DIR}/ssl.sym)
+	target_link_libraries(ssl-shared crypto-shared)
 	if (WIN32)
-		target_link_libraries(ssl-shared crypto-shared Ws2_32.lib)
+		target_link_libraries(ssl-shared Ws2_32.lib)
 		set(SSL_POSTFIX -${SSL_MAJOR_VERSION})
 	endif()
 	set_target_properties(ssl-shared PROPERTIES
@@ -60,8 +61,12 @@ if (BUILD_SHARED)
 		ARCHIVE_OUTPUT_NAME ssl${SSL_POSTFIX})
 	set_target_properties(ssl-shared PROPERTIES VERSION ${SSL_VERSION}
 		SOVERSION ${SSL_MAJOR_VERSION})
-	install(TARGETS ssl ssl-shared DESTINATION ${CMAKE_INSTALL_LIBDIR})
+	if(ENABLE_LIBRESSL_INSTALL)
+		install(TARGETS ssl ssl-shared DESTINATION ${CMAKE_INSTALL_LIBDIR})
+	endif(ENABLE_LIBRESSL_INSTALL)
 else()
 	add_library(ssl STATIC ${SSL_SRC})
-	install(TARGETS ssl DESTINATION ${CMAKE_INSTALL_LIBDIR})
+	if(ENABLE_LIBRESSL_INSTALL)
+		install(TARGETS ssl DESTINATION ${CMAKE_INSTALL_LIBDIR})
+	endif(ENABLE_LIBRESSL_INSTALL)
 endif()

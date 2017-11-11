@@ -18,6 +18,80 @@ EXTRA_DIST += compat/strcasecmp.c
 BUILT_SOURCES = crypto_portable.sym
 CLEANFILES = crypto_portable.sym
 
+crypto_portable.sym:
+	-echo "generating crypto_portable.sym ..."
+	-cp $(top_srcdir)/crypto/crypto.sym crypto_portable.sym
+	-chmod u+w crypto_portable.sym
+if !HAVE_ARC4RANDOM_BUF
+	-echo arc4random >> crypto_portable.sym
+	-echo arc4random_buf >> crypto_portable.sym
+	-echo arc4random_uniform >> crypto_portable.sym
+if !HAVE_GETENTROPY
+	-echo getentropy >> crypto_portable.sym
+endif
+endif
+if !HAVE_ASPRINTF
+	-echo asprintf >> crypto_portable.sym
+	-echo vasprintf >> crypto_portable.sym
+endif
+if !HAVE_EXPLICIT_BZERO
+	-echo explicit_bzero >> crypto_portable.sym
+endif
+if !HAVE_FREEZERO
+	-echo freezero >> crypto_portable.sym
+endif
+if !HAVE_INET_PTON
+	-echo inet_pton >> crypto_portable.sym
+endif
+if !HAVE_REALLOCARRAY
+	-echo reallocarray >> crypto_portable.sym
+endif
+if !HAVE_RECALLOCARRAY
+	-echo recallocarray >> crypto_portable.sym
+endif
+if !HAVE_STRLCAT
+	-echo strlcat >> crypto_portable.sym
+endif
+if !HAVE_STRLCPY
+	-echo strlcpy >> crypto_portable.sym
+endif
+if !HAVE_STRNDUP
+	-echo strndup >> crypto_portable.sym
+endif
+if !HAVE_STRNLEN
+	-echo strnlen >> crypto_portable.sym
+endif
+if !HAVE_STRSEP
+	-echo strsep >> crypto_portable.sym
+endif
+if !HAVE_TIMEGM
+	-echo timegm >> crypto_portable.sym
+endif
+if !HAVE_TIMINGSAFE_BCMP
+	-echo timingsafe_bcmp >> crypto_portable.sym
+endif
+if !HAVE_TIMINGSAFE_MEMCMP
+	-echo timingsafe_memcmp >> crypto_portable.sym
+endif
+if HOST_CPU_IS_INTEL
+	-echo OPENSSL_ia32cap_P >> crypto_portable.sym
+endif
+if HOST_WIN
+	-echo posix_perror >> crypto_portable.sym
+	-echo posix_fopen >> crypto_portable.sym
+	-echo posix_fgets >> crypto_portable.sym
+	-echo posix_open >> crypto_portable.sym
+	-echo posix_rename >> crypto_portable.sym
+	-echo posix_connect >> crypto_portable.sym
+	-echo posix_close >> crypto_portable.sym
+	-echo posix_read >> crypto_portable.sym
+	-echo posix_write >> crypto_portable.sym
+	-echo posix_getsockopt >> crypto_portable.sym
+	-echo posix_setsockopt >> crypto_portable.sym
+	-grep -v BIO_s_log crypto_portable.sym > crypto_portable.sym.tmp
+	-mv crypto_portable.sym.tmp crypto_portable.sym
+endif
+
 libcrypto_la_LDFLAGS = -version-info @LIBCRYPTO_VERSION@ -no-undefined -export-symbols crypto_portable.sym
 libcrypto_la_LIBADD = libcompat.la
 if !HAVE_EXPLICIT_BZERO
@@ -82,6 +156,10 @@ endif
 
 if !HAVE_ASPRINTF
 libcompat_la_SOURCES += compat/bsd-asprintf.c
+endif
+
+if !HAVE_FREEZERO
+libcompat_la_SOURCES += compat/freezero.c
 endif
 
 if !HAVE_GETPAGESIZE
@@ -446,10 +524,6 @@ libcrypto_la_SOURCES += ec/ec_print.c
 libcrypto_la_SOURCES += ec/eck_prn.c
 libcrypto_la_SOURCES += ec/ecp_mont.c
 libcrypto_la_SOURCES += ec/ecp_nist.c
-libcrypto_la_SOURCES += ec/ecp_nistp224.c
-libcrypto_la_SOURCES += ec/ecp_nistp256.c
-libcrypto_la_SOURCES += ec/ecp_nistp521.c
-libcrypto_la_SOURCES += ec/ecp_nistputil.c
 libcrypto_la_SOURCES += ec/ecp_oct.c
 libcrypto_la_SOURCES += ec/ecp_smpl.c
 noinst_HEADERS += ec/ec_lcl.h
@@ -578,6 +652,9 @@ libcrypto_la_SOURCES += gost/streebog.c
 noinst_HEADERS += gost/gost.h
 noinst_HEADERS += gost/gost_asn1.h
 noinst_HEADERS += gost/gost_locl.h
+
+# hkdf
+libcrypto_la_SOURCES += hkdf/hkdf.c
 
 # hmac
 libcrypto_la_SOURCES += hmac/hm_ameth.c
@@ -722,7 +799,6 @@ libcrypto_la_SOURCES += rsa/rsa_prn.c
 libcrypto_la_SOURCES += rsa/rsa_pss.c
 libcrypto_la_SOURCES += rsa/rsa_saos.c
 libcrypto_la_SOURCES += rsa/rsa_sign.c
-libcrypto_la_SOURCES += rsa/rsa_ssl.c
 libcrypto_la_SOURCES += rsa/rsa_x931.c
 noinst_HEADERS += rsa/rsa_locl.h
 

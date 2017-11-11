@@ -1,4 +1,4 @@
-/* $OpenBSD: tlstest.c,v 1.2 2017/01/17 13:19:36 jsing Exp $ */
+/* $OpenBSD: tlstest.c,v 1.9 2017/05/07 03:25:26 jsing Exp $ */
 /*
  * Copyright (c) 2017 Joel Sing <jsing@openbsd.org>
  *
@@ -32,6 +32,8 @@ unsigned char *client_readptr, *client_writeptr;
 
 unsigned char server_buffer[CIRCULAR_BUFFER_SIZE];
 unsigned char *server_readptr, *server_writeptr;
+
+char *cafile, *certfile, *keyfile;
 
 int debug = 0;
 
@@ -149,7 +151,8 @@ do_tls_close(char *name, struct tls *ctx)
 }
 
 static int
-do_client_server_test(char *desc, struct tls *client, struct tls *server_cctx)
+do_client_server_handshake(char *desc, struct tls *client,
+    struct tls *server_cctx)
 {
 	int i, client_done, server_done;
 
@@ -165,9 +168,14 @@ do_client_server_test(char *desc, struct tls *client, struct tls *server_cctx)
 		printf("FAIL: %s TLS handshake did not complete\n", desc);
 		return (1);
 	}
-	printf("INFO: %s TLS handshake completed successfully\n", desc);
 
-	/* XXX - Do some reads and writes... */
+	return (0);
+}
+
+static int
+do_client_server_close(char *desc, struct tls *client, struct tls *server_cctx)
+{
+	int i, client_done, server_done;
 
 	i = client_done = server_done = 0;
 	do {
@@ -181,6 +189,23 @@ do_client_server_test(char *desc, struct tls *client, struct tls *server_cctx)
 		printf("FAIL: %s TLS close did not complete\n", desc);
 		return (1);
 	}
+
+	return (0);
+}
+
+static int
+do_client_server_test(char *desc, struct tls *client, struct tls *server_cctx)
+{
+	if (do_client_server_handshake(desc, client, server_cctx) != 0)
+		return (1);
+
+	printf("INFO: %s TLS handshake completed successfully\n", desc);
+
+	/* XXX - Do some reads and writes... */
+
+	if (do_client_server_close(desc, client, server_cctx) != 0)
+		return (1);
+
 	printf("INFO: %s TLS close completed successfully\n", desc);
 
 	return (0);
@@ -266,35 +291,26 @@ test_tls_socket(struct tls *client, struct tls *server)
 	return (failure);
 }
 
-int
-main(int argc, char **argv)
+static int
+do_tls_tests(void)
 {
 	struct tls_config *client_cfg, *server_cfg;
 	struct tls *client, *server;
 	int failure = 0;
-
-	if (argc != 4) {
-		fprintf(stderr, "usage: %s keyfile certfile cafile\n",
-		    argv[0]);
-		return (1);
-	}
-
-	if (tls_init() == -1)
-		errx(1, "failed to initialise tls");
 
 	if ((client = tls_client()) == NULL)
 		errx(1, "failed to create tls client");
 	if ((client_cfg = tls_config_new()) == NULL)
 		errx(1, "failed to create tls client config");
 	tls_config_insecure_noverifyname(client_cfg);
-	if (tls_config_set_ca_file(client_cfg, argv[3]) == -1)
+	if (tls_config_set_ca_file(client_cfg, cafile) == -1)
 		errx(1, "failed to set ca: %s", tls_config_error(client_cfg));
 
 	if ((server = tls_server()) == NULL)
 		errx(1, "failed to create tls server");
 	if ((server_cfg = tls_config_new()) == NULL)
 		errx(1, "failed to create tls server config");
-	if (tls_config_set_keypair_file(server_cfg, argv[1], argv[2]) == -1)
+	if (tls_config_set_keypair_file(server_cfg, certfile, keyfile) == -1)
 		errx(1, "failed to set keypair: %s",
 		    tls_config_error(server_cfg));
 
@@ -323,13 +339,115 @@ main(int argc, char **argv)
 	if (tls_configure(server, server_cfg) == -1)
 		errx(1, "failed to configure server: %s", tls_error(server));
 
+	tls_config_free(client_cfg);
+	tls_config_free(server_cfg);
+
 	failure |= test_tls_socket(client, server);
 
 	tls_free(client);
 	tls_free(server);
 
+	return (failure);
+}
+
+static int
+do_tls_ordering_tests(void)
+{
+	struct tls *client = NULL, *server = NULL, *server_cctx = NULL;
+	struct tls_config *client_cfg, *server_cfg;
+	int failure = 0;
+
+	circular_init();
+
+	if ((client = tls_client()) == NULL)
+		errx(1, "failed to create tls client");
+	if ((client_cfg = tls_config_new()) == NULL)
+		errx(1, "failed to create tls client config");
+	tls_config_insecure_noverifyname(client_cfg);
+	if (tls_config_set_ca_file(client_cfg, cafile) == -1)
+		errx(1, "failed to set ca: %s", tls_config_error(client_cfg));
+
+	if ((server = tls_server()) == NULL)
+		errx(1, "failed to create tls server");
+	if ((server_cfg = tls_config_new()) == NULL)
+		errx(1, "failed to create tls server config");
+	if (tls_config_set_keypair_file(server_cfg, certfile, keyfile) == -1)
+		errx(1, "failed to set keypair: %s",
+		    tls_config_error(server_cfg));
+
+	if (tls_configure(client, client_cfg) == -1)
+		errx(1, "failed to configure client: %s", tls_error(client));
+	if (tls_configure(server, server_cfg) == -1)
+		errx(1, "failed to configure server: %s", tls_error(server));
+
 	tls_config_free(client_cfg);
 	tls_config_free(server_cfg);
+
+	if (tls_handshake(client) != -1) {
+		printf("FAIL: TLS handshake succeeded on unconnnected "
+		    "client context\n");
+		failure = 1;
+		goto done;
+	}
+
+	if (tls_accept_cbs(server, &server_cctx, server_read, server_write,
+	    NULL) == -1)
+		errx(1, "failed to accept: %s", tls_error(server));
+
+	if (tls_connect_cbs(client, client_read, client_write, NULL,
+	    "test") == -1)
+		errx(1, "failed to connect: %s", tls_error(client));
+
+	if (do_client_server_handshake("ordering", client, server_cctx) != 0) {
+		failure = 1;
+		goto done;
+	}
+
+	if (tls_handshake(client) != -1) {
+		printf("FAIL: TLS handshake succeeded twice\n");
+		failure = 1;
+		goto done;
+	}
+
+	if (tls_handshake(server_cctx) != -1) {
+		printf("FAIL: TLS handshake succeeded twice\n");
+		failure = 1;
+		goto done;
+	}
+
+	if (do_client_server_close("ordering", client, server_cctx) != 0) {
+		failure = 1;
+		goto done;
+	}
+
+ done:
+	tls_free(client);
+	tls_free(server);
+	tls_free(server_cctx);
+
+	return (failure);
+}
+
+int
+main(int argc, char **argv)
+{
+	int failure = 0;
+
+	if (argc != 4) {
+		fprintf(stderr, "usage: %s cafile certfile keyfile\n",
+		    argv[0]);
+		return (1);
+	}
+
+	cafile = argv[1];
+	certfile = argv[2];
+	keyfile = argv[3];
+
+	if (tls_init() == -1)
+		errx(1, "failed to initialise tls");
+
+	failure |= do_tls_tests();
+	failure |= do_tls_ordering_tests();
 
 	return (failure);
 }

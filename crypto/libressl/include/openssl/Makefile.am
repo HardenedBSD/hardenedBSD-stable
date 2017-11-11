@@ -32,6 +32,7 @@ opensslinclude_HEADERS += engine.h
 opensslinclude_HEADERS += err.h
 opensslinclude_HEADERS += evp.h
 opensslinclude_HEADERS += gost.h
+opensslinclude_HEADERS += hkdf.h
 opensslinclude_HEADERS += hmac.h
 opensslinclude_HEADERS += idea.h
 opensslinclude_HEADERS += lhash.h

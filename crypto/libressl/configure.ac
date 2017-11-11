@@ -54,8 +54,6 @@ CHECK_CRYPTO_COMPAT
 CHECK_VA_COPY
 CHECK_B64_NTOP
 
-GENERATE_CRYPTO_PORTABLE_SYM
-
 AC_ARG_WITH([openssldir],
 	AS_HELP_STRING([--with-openssldir],
 		       [Set the default openssl directory]),
@@ -80,19 +78,15 @@ AC_TRY_COMPILE([#include "$srcdir/crypto/modes/modes_lcl.h"],
 	       BSWAP4=no)
 CFLAGS="$old_cflags"
 
-case $host_cpu in
-	*sparc*)
-		CPPFLAGS="$CPPFLAGS -D__STRICT_ALIGNMENT"
-		;;
-	*arm*)
-		AS_IF([test "x$BSWAP4" = "xyes"],,
-		    CPPFLAGS="$CPPFLAGS -D__STRICT_ALIGNMENT")
-		;;
-	*amd64*)
-		host_cpu=x86_64
-		;;
-
-esac
+AS_CASE([$host_cpu],
+	[*sparc*], [CPPFLAGS="$CPPFLAGS -D__STRICT_ALIGNMENT"],
+	[*arm*], AS_IF([test "x$BSWAP4" = "xyes"],,
+		    CPPFLAGS="$CPPFLAGS -D__STRICT_ALIGNMENT"),
+	[*amd64*], [host_cpu=x86_64, HOSTARCH=intel],
+	[i?86], [HOSTARCH=intel],
+	[x86_64], [HOSTARCH=intel]
+)
+AM_CONDITIONAL([HOST_CPU_IS_INTEL], [test "x$HOSTARCH" = "xintel"])
 
 AC_MSG_CHECKING([if .gnu.warning accepts long strings])
 AC_LINK_IFELSE([AC_LANG_SOURCE([[
@@ -140,6 +134,7 @@ AC_CONFIG_FILES([
 
 AM_CONDITIONAL([SMALL_TIME_T], [test "$ac_cv_sizeof_time_t" = "4"])
 if test "$ac_cv_sizeof_time_t" = "4"; then
+    AC_DEFINE([SMALL_TIME_T])
     echo " ** Warning, this system is unable to represent times past 2038"
     echo " ** It will behave incorrectly when handling valid RFC5280 dates"
 

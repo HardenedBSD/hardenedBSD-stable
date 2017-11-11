@@ -1,4 +1,4 @@
-/* $OpenBSD: tls_util.c,v 1.5 2016/11/04 15:59:16 jsing Exp $ */
+/* $OpenBSD: tls_util.c,v 1.9 2017/06/22 18:03:57 jsing Exp $ */
 /*
  * Copyright (c) 2014 Joel Sing <jsing@openbsd.org>
  * Copyright (c) 2015 Reyk Floeter <reyk@openbsd.org>
@@ -86,7 +86,7 @@ tls_host_port(const char *hostport, char **host, char **port)
 	return (rv);
 }
 
-static int
+int
 tls_password_cb(char *buf, int size, int rwflag, void *u)
 {
 	size_t len;
@@ -114,7 +114,7 @@ tls_load_file(const char *name, size_t *len, char *password)
 	char *data;
 	uint8_t *buf = NULL;
 	struct stat st;
-	size_t size;
+	size_t size = 0;
 	int fd = -1;
 	ssize_t n;
 
@@ -156,7 +156,7 @@ tls_load_file(const char *name, size_t *len, char *password)
 		goto fail;
 	if ((size = BIO_get_mem_data(bio, &data)) <= 0)
 		goto fail;
-	if ((buf = calloc(1, size)) == NULL)
+	if ((buf = malloc(size)) == NULL)
 		goto fail;
 	memcpy(buf, data, size);
 
@@ -168,13 +168,17 @@ tls_load_file(const char *name, size_t *len, char *password)
 	return (buf);
 
  fail:
-	free(buf);
 	if (fd != -1)
 		close(fd);
-	if (bio != NULL)
-		BIO_free_all(bio);
-	if (key != NULL)
-		EVP_PKEY_free(key);
+	freezero(buf, size);
+	BIO_free_all(bio);
+	EVP_PKEY_free(key);
 
 	return (NULL);
+}
+
+void
+tls_unload_file(uint8_t *buf, size_t len)
+{
+	freezero(buf, len);
 }

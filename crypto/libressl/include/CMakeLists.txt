@@ -1,5 +1,8 @@
-install(DIRECTORY .
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-        PATTERN "CMakeLists.txt" EXCLUDE
-        PATTERN "compat" EXCLUDE
-        PATTERN "Makefile*" EXCLUDE)
+if(ENABLE_LIBRESSL_INSTALL)
+	install(DIRECTORY .
+	        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+	        PATTERN "CMakeLists.txt" EXCLUDE
+	        PATTERN "compat" EXCLUDE
+	        PATTERN "pqueue.h" EXCLUDE
+	        PATTERN "Makefile*" EXCLUDE)
+endif(ENABLE_LIBRESSL_INSTALL)
