@@ -5071,6 +5071,27 @@ OLD_LIBS+=lib/libcrypto.so.8
 OLD_LIBS+=usr/lib/libssl.so.8
 OLD_LIBS+=usr/lib32/libcrypto.so.8
 OLD_LIBS+=usr/lib32/libssl.so.8
+# 2017-11-11 LibreSSL 2.5 libs
+OLD_LIBS+=lib/libcrypto.so.41
+OLD_LIBS+=usr/lib/libssl.so.43
+OLD_LIBS+=usr/lib/libtls.so.11
+OLD_LIBS+=usr/lib32/libcrypto.so.41
+OLD_LIBS+=usr/lib32/libssl.so.43
+OLD_LIBS+=usr/lib32/libtls.so.11
+# 2017-11-11 LibreSSL 2.5 obsolete files
+OLD_FILES+=usr/share/openssl/man/man3/EVP_PKEY_CTX_set_rsa_rsa_keygen_bits.3.gz
+OLD_FILES+=usr/share/openssl/man/man3/EVP_aead_chacha20_poly1305_ietf.3.gz
+OLD_FILES+=usr/share/openssl/man/man3/RSA_padding_add_SSLv23.3.gz
+OLD_FILES+=usr/share/openssl/man/man3/RSA_padding_check_SSLv23.3.gz
+OLD_FILES+=usr/share/openssl/man/man3/SSL_add_session.3.gz
+OLD_FILES+=usr/share/openssl/man/man3/SSL_flush_sessions.3.gz
+OLD_FILES+=usr/share/openssl/man/man3/SSL_remove_session.3.gz
+OLD_FILES+=usr/share/openssl/man/man3/d2i_ASN1_TIME_new.3.gz
+OLD_FILES+=usr/share/openssl/man/man3/i2d_ASN1_TIME_new.3.gz
+OLD_FILES+=usr/share/openssl/man/man3/i2d_ECPKPrivateKey_fp.3.gz
+OLD_FILES+=usr/share/openssl/man/man3/i2d_ECPK_PUBKEY_fp.3.gz
+OLD_FILES+=usr/share/openssl/man/man3/tls_config_set_ecdhecurve.3.gz
+OLD_FILES+=usr/share/openssl/man/man3/tmp_rsa_callback.3.gz
 .else
 OLD_FILES+=usr/share/openssl/man/man3/ASN1_OBJECT_new.3
 OLD_FILES+=usr/share/openssl/man/man3/ASN1_STRING_length.3
@@ -5273,12 +5294,19 @@ OLD_FILES+=usr/share/openssl/man/man3/engine.3
 OLD_FILES+=usr/share/openssl/man/man3/evp.3
 OLD_FILES+=usr/share/openssl/man/man3/i2d_PKCS7_bio_stream.3
 # LibreSSL 2.5 libs
-OLD_LIBS+=usr/lib/libcrypto.so.41
+OLD_LIBS+=lib/libcrypto.so.41
 OLD_LIBS+=usr/lib/libssl.so.43
 OLD_LIBS+=usr/lib/libtls.so.11
 OLD_LIBS+=usr/lib32/libcrypto.so.41
 OLD_LIBS+=usr/lib32/libssl.so.43
 OLD_LIBS+=usr/lib32/libtls.so.11
+# LibreSSL 2.6 libs
+OLD_LIBS+=lib/libcrypto.so.42
+OLD_LIBS+=usr/lib/libssl.so.44
+OLD_LIBS+=usr/lib/libtls.so.16
+OLD_LIBS+=usr/lib32/libcrypto.so.42
+OLD_LIBS+=usr/lib32/libssl.so.44
+OLD_LIBS+=usr/lib32/libtls.so.16
 .endif
 
 .if ${MK_LIBTHR} == no
