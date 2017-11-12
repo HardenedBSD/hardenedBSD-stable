@@ -1,3 +1,9 @@
+[20171112] LibreSSL 2.6.3
+__HardenedBSD_version = 1100053
+
+	LibreSSL has been updated to 2.6.3.
+
+
 [20171017] Changed auxvector after b8515f8f387edbf541e0be5a7b346ad69e2db1ea
 __HardenedBSD_version = 1100052
 
@@ -125,6 +131,7 @@ __HardenedBSD_version = 1100051
 	readme / man page.
 
 
+[20170917] Added LibreSSL to the base
 __HardenedBSD_version = 1100050
 
 	The LibreSSL SSL and TLS implementation
