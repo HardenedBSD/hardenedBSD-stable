@@ -1241,8 +1241,6 @@ sys_kldstat(struct thread *td, struct kldstat_args *uap)
 	struct kld_file_stat *stat;
 	int error, version;
 
-	memset(&stat, 0, sizeof(stat));
-
 	/*
 	 * Check the version of the user's structure.
 	 */
