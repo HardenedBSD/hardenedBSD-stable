@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 1995 Bruce D. Evans.
+ * Copyright (c) 2017 John Baldwin <jhb@FreeBSD.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -10,9 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. Neither the name of the author nor the names of contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -26,53 +23,41 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *	from: FreeBSD: src/sys/i386/include/md_var.h,v 1.40 2001/07/12
- * $FreeBSD$
  */
 
-#ifndef	_MACHINE_MD_VAR_H_
-#define	_MACHINE_MD_VAR_H_
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
-extern long Maxmem;
-extern char sigcode[];
-extern int szsigcode;
-extern uint32_t *vm_page_dump;
-extern int vm_page_dump_size;
-extern u_long elf_hwcap;
-extern u_long elf_hwcap2;
+#include <sys/types.h>
+#include <sys/proc.h>
+#include <sys/ptrace.h>
+#ifdef VFP
+#include <machine/vfp.h>
+#endif
 
-extern int (*_arm_memcpy)(void *, void *, int, int);
-extern int (*_arm_bzero)(void *, int, int);
+int
+cpu_ptrace(struct thread *td, int req, void *addr, int data)
+{
+#ifdef VFP
+	mcontext_vfp_t vfp;
+#endif
+	int error;
 
-extern int _min_memcpy_size;
-extern int _min_bzero_size;
+	switch (req) {
+#ifdef VFP
+	case PT_GETVFPREGS:
+		get_vfpcontext(td, &vfp);
+		error = copyout(&vfp, addr, sizeof(vfp));
+		break;
+	case PT_SETVFPREGS:
+		error = copyin(addr, &vfp, sizeof(vfp));
+		if (error == 0)
+			set_vfpcontext(td, &vfp);
+		break;
+#endif
+	default:
+		error = EINVAL;
+	}
 
-#define DST_IS_USER	0x1
-#define SRC_IS_USER	0x2
-#define IS_PHYSICAL	0x4
-
-enum cpu_class {
-	CPU_CLASS_NONE,
-	CPU_CLASS_ARM9TDMI,
-	CPU_CLASS_ARM9ES,
-	CPU_CLASS_ARM9EJS,
-	CPU_CLASS_ARM10E,
-	CPU_CLASS_ARM10EJ,
-	CPU_CLASS_CORTEXA,
-	CPU_CLASS_KRAIT,
-	CPU_CLASS_XSCALE,
-	CPU_CLASS_ARM11J,
-	CPU_CLASS_MARVELL
-};
-extern enum cpu_class cpu_class;
-
-struct dumperinfo;
-extern int busdma_swi_pending;
-void busdma_swi(void);
-void dump_add_page(vm_paddr_t);
-void dump_drop_page(vm_paddr_t);
-int minidumpsys(struct dumperinfo *);
-
-extern uint32_t initial_fpscr;
-
-#endif /* !_MACHINE_MD_VAR_H_ */
+	return (error);
+}
