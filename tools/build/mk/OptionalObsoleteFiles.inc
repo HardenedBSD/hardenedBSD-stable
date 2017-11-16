@@ -4697,10 +4697,8 @@ OLD_FILES+=usr/share/openssl/man/man3/tls_peer_cert_subject.3.gz
 OLD_FILES+=usr/share/openssl/man/man3/x509.3.gz
 # 20171111 Removed in LibreSSL 2.6
 OLD_LIBS+=lib/libcrypto.so.41
-OLD_LIBS+=usr/lib/libssl.so.44
 OLD_LIBS+=usr/lib/libtls.so.15
 OLD_LIBS+=usr/lib32/libcrypto.so.41
-OLD_LIBS+=usr/lib32/libssl.so.44
 OLD_LIBS+=usr/lib32/libtls.so.15
 OLD_FILES+=man/man3/EVP_PKEY_CTX_set_rsa_rsa_keygen_bits.3.gz
 OLD_FILES+=usr/share/openssl/man/man3/EVP_aead_chacha20_poly1305_ietf.3.gz
