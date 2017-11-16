@@ -1,3 +1,14 @@
+[20171116] Changed AT_PAXFLAGS auxevector
+__HardenedBSD_version = 1100054
+
+	After the recent upstream commit which pulls in a new AUX vector
+	entry (namely the AT_HWCAP2) the AT_PAXFLAGS aux entry moved to
+	other position. This breaks our rtld, and that's why this bump
+	required to reflect the need of update.
+	For more information see the fea694b75ea6704d14c7867ee98e4acb949ca6fc
+	and 4c04e4a613679510cd16bb13d7974c18e3f54460 commits.
+
+
 [20171112] LibreSSL 2.6.3
 __HardenedBSD_version = 1100053
 
