@@ -142,7 +142,7 @@ NO_META_IGNORE_HOST_HEADERS=	1
 .if defined(%POSIX)
 .SUFFIXES:	.o .c .y .l .a .sh .f
 .else
-.SUFFIXES:	.out .a .ln .o .bco .llo .c .cc .cpp .cxx .C .m .F .f .e .r .y .l .S .asm .s .cl .p .h .sh
+.SUFFIXES:	.out .a .o .bco .llo .c .cc .cpp .cxx .C .m .F .f .e .r .y .l .S .asm .s .cl .p .h .sh
 .endif
 
 _TEST_AR=	/usr/bin/ar
@@ -248,13 +248,6 @@ LFLAGS		?=
 LD		?=	ld
 LDFLAGS		?=
 _LDFLAGS	=	${LDFLAGS:S/-Wl,//g:N-mabi=*:N-fuse-ld=*}
-
-LINT		?=	lint
-LINTFLAGS	?=	-cghapbx
-LINTKERNFLAGS	?=	${LINTFLAGS}
-LINTOBJFLAGS	?=	-cghapbxu -i
-LINTOBJKERNFLAGS?=	${LINTOBJFLAGS}
-LINTLIBFLAGS	?=	-cghapbxu -C ${LIB}
 
 MAKE		?=	make
 
