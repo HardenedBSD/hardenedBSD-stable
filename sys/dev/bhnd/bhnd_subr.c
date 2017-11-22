@@ -738,6 +738,9 @@ bhnd_chip_matches(const struct bhnd_chipid *chip,
 	    !bhnd_hwrev_matches(chip->chip_rev, &desc->chip_rev))
 		return (false);
 
+	if (desc->m.match.chip_type && chip->chip_type != desc->chip_type)
+		return (false);
+
 	return (true);
 }
 
@@ -2101,6 +2104,27 @@ bhnd_bus_generic_get_chipid(device_t dev, device_t child)
 	panic("missing BHND_BUS_GET_CHIPID()");
 }
 
+/**
+ * Helper function for implementing BHND_BUS_GET_DMA_TRANSLATION().
+ * 
+ * If a parent device is available, this implementation delegates the
+ * request to the BHND_BUS_GET_DMA_TRANSLATION() method on the parent of @p dev.
+ *
+ * If no parent device is available, this implementation will panic.
+ */
+int
+bhnd_bus_generic_get_dma_translation(device_t dev, device_t child, u_int width,
+    uint32_t flags, bus_dma_tag_t *dmat,
+    struct bhnd_dma_translation *translation)
+{
+	if (device_get_parent(dev) != NULL) {
+		return (BHND_BUS_GET_DMA_TRANSLATION(device_get_parent(dev),
+		    child, width, flags, dmat, translation));
+	}
+
+	panic("missing BHND_BUS_GET_DMA_TRANSLATION()");
+}
+
 /* nvram board_info population macros for bhnd_bus_generic_read_board_info() */
 #define	BHND_GV(_dest, _name)	\
 	bhnd_nvram_getvar_uint(child, BHND_NVAR_ ## _name, &_dest,	\
@@ -2317,3 +2341,14 @@ bhnd_bus_generic_deactivate_resource(device_t dev, device_t child,
 	return (EINVAL);
 }
 
+/**
+ * Helper function for implementing BHND_BUS_GET_INTR_DOMAIN().
+ * 
+ * This implementation simply returns the address of nearest bhnd(4) bus,
+ * which may be @p dev; this behavior may be incompatible with FDT/OFW targets.
+ */
+uintptr_t
+bhnd_bus_generic_get_intr_domain(device_t dev, device_t child, bool self)
+{
+	return ((uintptr_t)dev);
+}
