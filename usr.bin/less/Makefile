@@ -17,5 +17,7 @@ LINKS=	${BINDIR}/less ${BINDIR}/more \
 MLINKS=	less.1 more.1
 CLEANFILES= less.1
 
+CFI_OVERRIDE=-fno-sanitize=cfi-icall
+
 .include "Makefile.common"
 .include <bsd.prog.mk>
