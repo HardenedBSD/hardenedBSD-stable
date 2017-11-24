@@ -118,11 +118,7 @@ vncpassword=""
 fbsize="w=1024,h=768"
 tablet=""
 
-<<<<<<< HEAD
-while getopts ac:C:d:e:Ef:F:g:hH:iI:l:m:p:P:s:t:Tuvw c ; do
-=======
-while getopts aAc:C:d:e:Ef:F:g:hH:iI:l:m:p:P:t:Tuvw c ; do
->>>>>>> origin/freebsd/current/master
+while getopts aAc:C:d:e:Ef:F:g:hH:iI:l:m:p:P:s:t:Tuvw c ; do
 	case $c in
 	a)
 		bhyverun_opt="${bhyverun_opt} -a"
