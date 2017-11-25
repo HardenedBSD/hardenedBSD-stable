@@ -30,11 +30,8 @@ __FBSDID("$FreeBSD$");
 #include "opt_compat.h"
 #include "opt_inet.h"
 #include "opt_inet6.h"
-<<<<<<< HEAD
-#include "opt_pax.h"
-=======
 #include "opt_ktrace.h"
->>>>>>> origin/freebsd/current/master
+#include "opt_pax.h"
 
 #define __ELF_WORD_SIZE 32
 
