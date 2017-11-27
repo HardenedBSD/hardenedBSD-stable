@@ -1,15 +1,8 @@
-<<<<<<< HEAD:crypto/libressl/apps/nc/atomicio.h
 /* $OpenBSD: atomicio.h,v 1.2 2007/09/07 14:50:44 tobias Exp $ */
 
 /*
  * Copyright (c) 2006 Damien Miller.  All rights reserved.
  * Copyright (c) 1995,1999 Theo de Raadt.  All rights reserved.
-=======
-/*-
- * SPDX-License-Identifier: BSD-4-Clause
- *
- * Copyright (c) 1995 Scott Bartram
->>>>>>> origin/freebsd/current/master:sys/i386/ibcs2/ibcs2_utime.h
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

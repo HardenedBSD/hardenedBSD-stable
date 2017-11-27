@@ -1,18 +1,8 @@
-<<<<<<< HEAD:crypto/libressl/apps/nc/atomicio.c
 /* $OpenBSD: atomicio.c,v 1.11 2012/12/04 02:24:47 deraadt Exp $ */
 /*
  * Copyright (c) 2006 Damien Miller. All rights reserved.
  * Copyright (c) 2005 Anil Madhavapeddy. All rights reserved.
  * Copyright (c) 1995,1999 Theo de Raadt.  All rights reserved.
-=======
-/*	$NetBSD: ibcs2_time.h,v 1.2 1994/10/26 02:53:08 cgd Exp $	*/
-/* $FreeBSD$ */
-
-/*-
- * SPDX-License-Identifier: BSD-4-Clause
- *
- * Copyright (c) 1994 Scott Bartram
->>>>>>> origin/freebsd/current/master:sys/i386/ibcs2/ibcs2_time.h
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
