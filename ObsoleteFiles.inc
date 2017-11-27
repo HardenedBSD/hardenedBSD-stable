@@ -46,7 +46,6 @@ OLD_FILES+=etc/casper/system.random
 OLD_FILES+=etc/casper/system.sysctl
 OLD_DIRS+=etc/casper
 # 20171116: lint(1) removal
-OLD_FILES+=usr/bin/lint
 OLD_FILES+=usr/libexec/lint1
 OLD_FILES+=usr/libexec/lint2
 OLD_FILES+=usr/libdata/lint/llib-lposix.ln
