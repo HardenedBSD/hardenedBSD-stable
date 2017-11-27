@@ -270,7 +270,7 @@ struct bhnd_dma_translation {
 	bhnd_addr_t	addrext_mask;
 
 	/**
-	 * Translation flags (see bhnd_dma_translation_flags)
+	 * Translation flags (see bhnd_dma_translation_flags).
 	 */
 	uint32_t	flags;
 };
@@ -818,23 +818,27 @@ bhnd_is_hw_suspended(device_t dev)
 }
 
 /**
- * Place the bhnd(4) device's hardware into a reset state, and then bring the
- * hardware out of reset with BHND_IOCTL_CLK_EN and @p ioctl flags set.
+ * Place the bhnd(4) device's hardware into a low-power RESET state with
+ * the @p reset_ioctl I/O control flags set, and then bring the hardware out of
+ * RESET with the @p ioctl I/O control flags set.
  * 
- * Any clock or resource PMU requests previously made by @p dev will be
+ * Any clock or resource PMU requests previously made by @p child will be
  * invalidated.
  *
  * @param dev The device to be reset.
- * @param ioctl Device-specific core ioctl flags to be supplied on reset
- * (see BHND_IOCTL_*).
+ * @param ioctl Device-specific I/O control flags to be set when bringing
+ * the core out of its RESET state (see BHND_IOCTL_*).
+ * @param reset_ioctl Device-specific I/O control flags to be set when placing
+ * the core into its RESET state.
  *
  * @retval 0 success
  * @retval non-zero error
  */
 static inline int
-bhnd_reset_hw(device_t dev, uint16_t ioctl)
+bhnd_reset_hw(device_t dev, uint16_t ioctl, uint16_t reset_ioctl)
 {
-	return (BHND_BUS_RESET_HW(device_get_parent(dev), dev, ioctl));
+	return (BHND_BUS_RESET_HW(device_get_parent(dev), dev, ioctl,
+	    reset_ioctl));
 }
 
 /**
@@ -851,9 +855,9 @@ bhnd_reset_hw(device_t dev, uint16_t ioctl)
  * @retval non-zero error
  */
 static inline int
-bhnd_suspend_hw(device_t dev)
+bhnd_suspend_hw(device_t dev, uint16_t ioctl)
 {
-	return (BHND_BUS_SUSPEND_HW(device_get_parent(dev), dev));
+	return (BHND_BUS_SUSPEND_HW(device_get_parent(dev), dev, ioctl));
 }
 
 /**
@@ -909,8 +913,7 @@ bhnd_get_dma_translation(device_t dev, u_int width, uint32_t flags,
  * This relies on NVRAM access, and will fail if a valid NVRAM device cannot
  * be found, or is not yet attached.
  *
- * @param dev The parent of @p child.
- * @param child The bhnd device requesting board info.
+ * @param dev The bhnd device requesting board info.
  * @param[out] info On success, will be populated with the bhnd(4) device's
  * board information.
  *
@@ -986,8 +989,7 @@ bhnd_map_intr(device_t dev, u_int intr, rman_res_t *irq)
  * Unmap an bus interrupt previously mapped via bhnd_map_intr().
  * 
  * @param dev The requesting device.
- * @param intr The interrupt number being unmapped. This is equivalent to the
- * bus resource ID for the interrupt.
+ * @param irq The interrupt value being unmapped.
  */
 static inline void
 bhnd_unmap_intr(device_t dev, rman_res_t irq)
@@ -1374,15 +1376,15 @@ bhnd_release_resource(device_t dev, int type, int rid,
  *
  * @param dev A bhnd bus child device.
  * @param type The port type being queried.
- * @param port_num The port number being queried.
- * @param region_num The region number being queried.
+ * @param port The port number being queried.
+ * @param region The region number being queried.
  */
 static inline bool
-bhnd_is_region_valid(device_t dev, bhnd_port_type type, u_int port_num,
-    u_int region_num)
+bhnd_is_region_valid(device_t dev, bhnd_port_type type, u_int port,
+    u_int region)
 {
 	return (BHND_BUS_IS_REGION_VALID(device_get_parent(dev), dev, type,
-	    port_num, region_num));
+	    port, region));
 }
 
 /**
