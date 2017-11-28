@@ -1,6 +1,5 @@
-#!/bin/sh -
 #
-# Copyright (c) 2001  The FreeBSD Project
+# Copyright 2017 Shivansh Rai
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -27,35 +26,38 @@
 # $FreeBSD$
 #
 
-# If there is a global system configuration file, suck it in.
-#
-if [ -r /etc/defaults/periodic.conf ]
-then
-    . /etc/defaults/periodic.conf
-    source_periodic_confs
-fi
+usage_output='usage: chflags'
 
-security_daily_compat_var security_status_neggrpperm_enable
+atf_test_case invalid_usage
+invalid_usage_head()
+{
+	atf_set "descr" "Verify that an invalid usage with a supported option produces a valid error message"
+}
 
-rc=0
+invalid_usage_body()
+{
+	atf_check -s not-exit:0 -e match:"$usage_output" chflags -f
+	atf_check -s not-exit:0 -e match:"$usage_output" chflags -H
+	atf_check -s not-exit:0 -e match:"$usage_output" chflags -h
+	atf_check -s not-exit:0 -e match:"$usage_output" chflags -L
+	atf_check -s not-exit:0 -e match:"$usage_output" chflags -P
+	atf_check -s not-exit:0 -e match:"$usage_output" chflags -R
+	atf_check -s not-exit:0 -e match:"$usage_output" chflags -v
+}
 
-if check_yesno_period security_status_neggrpperm_enable
-then
-	echo ""
-	echo 'Checking negative group permissions:'
-	IFS=$'\n'	# Don't split mount points with spaces or tabs
-	MP=`mount -t ufs,zfs | awk '
-		$0 !~ /no(suid|exec)/ {
-			sub(/^.* on \//, "/");
-			sub(/ \(.*\)/, "");
-			print $0
-		}'`
-	n=$(find -sx $MP /dev/null \( ! -fstype local \) -prune -o -type f \
-	    \( \( ! -perm +010 -and -perm +001 \) -or \
-	    \( ! -perm +020 -and -perm +002 \) -or \
-	    \( ! -perm +040 -and -perm +004 \) \) \
-	    -exec ls -liTd \{\} \+ | tee /dev/stderr | wc -l)
-	[ $n -gt 0 ] && rc=1 || rc=0
-fi
+atf_test_case no_arguments
+no_arguments_head()
+{
+	atf_set "descr" "Verify that chflags(1) fails and generates a valid usage message when no arguments are supplied"
+}
 
-exit $rc
+no_arguments_body()
+{
+	atf_check -s not-exit:0 -e match:"$usage_output" chflags
+}
+
+atf_init_test_cases()
+{
+	atf_add_test_case invalid_usage
+	atf_add_test_case no_arguments
+}
