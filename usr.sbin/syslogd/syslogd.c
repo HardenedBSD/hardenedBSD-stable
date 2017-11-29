@@ -792,14 +792,13 @@ socklist_recv_sock(struct socklist *sl)
 	} else {
 		hname = cvthname(sa);
 		unmapped(sa);
-		if (validate(sa, hname) == 0)
-			hname = NULL;
+		if (validate(sa, hname) == 0) {
+			dprintf("Message from %s was ignored.", hname);
+			return (-1);
+		}
 		date = RemoteAddDate ? ADDDATE : 0;
 	}
-	if (hname != NULL)
-		printline(hname, line, date);
-	else
-		dprintf("Invalid msg from %s was ignored.", hname);
+	printline(hname, line, date);
 
 	return (0);
 }
@@ -1036,7 +1035,7 @@ static void
 logmsg(int pri, const char *msg, const char *from, int flags)
 {
 	struct filed *f;
-	int i, j, fac, msglen, prilev;
+	int i, fac, msglen, prilev;
 	const char *timestamp;
  	char prog[NAME_MAX+1];
 	char buf[MAXLINE+1];
@@ -1078,19 +1077,6 @@ logmsg(int pri, const char *msg, const char *from, int flags)
 		return;
 
 	prilev = LOG_PRI(pri);
-
-	/* skip hostname, see RFC 3164 */
-	for (i = 0, j = 0; i < NAME_MAX; i++) {
-		if (isspace(msg[i])) {
-			j = i + 1;
-		}
-		if (msg[i] == ':')
-			break;
-	}
-	if (j <= msglen) {
-		msg += j;
-		msglen -= j;
-	}
 
 	/* extract program name */
 	for (i = 0; i < NAME_MAX; i++) {
