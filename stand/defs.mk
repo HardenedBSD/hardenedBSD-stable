@@ -24,6 +24,9 @@ BOOTOBJ=	${OBJTOP}/stand
 # BINDIR is where we install
 BINDIR?=	/boot
 
+MK_SAFESTACK=	no
+MK_CFI=		no
+
 # NB: The makefiles depend on these being empty when we don't build forth.
 .if ${MK_FORTH} != "no"
 LIBFICL=	${BOOTOBJ}/ficl/libficl.a
