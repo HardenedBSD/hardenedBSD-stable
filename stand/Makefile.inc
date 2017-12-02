@@ -1,6 +1,7 @@
 # $FreeBSD$
 
 .include "defs.mk"
+<<<<<<< HEAD
 
 .if !defined(__BOOT_MAKEFILE_INC__)
 __BOOT_MAKEFILE_INC__=${MFILE}
@@ -54,3 +55,5 @@ CFLAGS+=	-mlittle-endian
 .endif
 
 .endif
+=======
+>>>>>>> origin/freebsd/current/master
