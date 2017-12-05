@@ -86,48 +86,34 @@ SRCS+=	_setjmp.S
 # loader(8) with LOADER_BZIP2_SUPPORT defined
 .PATH: ${SRCTOP}/contrib/bzip2
 CFLAGS+= -DBZ_NO_STDIO -DBZ_NO_COMPRESS
-SRCS+=	libsa_bzlib_private.h
 
-.for file in bzlib.c crctable.c decompress.c huffman.c randtable.c
-SRCS+=	_${file}
-CLEANFILES+=	_${file}
-
-_${file}: ${file}
-	sed "s|bzlib_private\.h|libsa_bzlib_private.h|" \
-	    ${.ALLSRC} > ${.TARGET}
-.endfor
-
-CLEANFILES+= libsa_bzlib_private.h
-libsa_bzlib_private.h: bzlib_private.h
-	sed -e 's|<stdlib.h>|"stand.h"|' \
-		${.ALLSRC} > ${.TARGET}
+SRCS+=bzlib.c crctable.c decompress.c huffman.c randtable.c
 
 # decompression functionality from zlib
 .PATH: ${SRCTOP}/contrib/zlib
 CFLAGS+=-DHAVE_MEMCPY -I${SRCTOP}/contrib/zlib
-SRCS+=	adler32.c crc32.c libsa_zutil.h libsa_gzguts.h
+SRCS+=	adler32.c crc32.c
+SRCS+=	infback.c inffast.c inflate.c inftrees.c zutil.c
 
-.for file in infback.c inffast.c inflate.c inftrees.c zutil.c
-SRCS+=	_${file}
-CLEANFILES+=	_${file}
-
-_${file}: ${file}
-	sed -e "s|zutil\.h|libsa_zutil.h|" \
-	    -e "s|gzguts\.h|libsa_gzguts.h|" \
-	    ${.ALLSRC} > ${.TARGET}
-.endfor
-
-# depend on stand.h being able to be included multiple times
-.for file in zutil.h gzguts.h
-CLEANFILES+= libsa_${file}
-libsa_${file}: ${file}
-	sed -e 's|<fcntl.h>|"stand.h"|' \
-	    -e 's|<stddef.h>|"stand.h"|' \
-	    -e 's|<string.h>|"stand.h"|' \
-	    -e 's|<stdio.h>|"stand.h"|' \
-	    -e 's|<stdlib.h>|"stand.h"|' \
-	    ${.ALLSRC} > ${.TARGET}
-.endfor
+# Create a subset of includes that are safe, as well as adjusting those that aren't
+# The lists may drive people nuts, but they are explicitly opt-in
+beforedepend:
+	echo beforedepend; \
+	mkdir -p xlocale arpa; \
+	for i in a.out.h assert.h elf.h limits.h nlist.h setjmp.h stddef.h stdbool.h string.h strings.h time.h unistd.h uuid.h; do \
+		ln -sf ${SRCTOP}/include/$$i $$i; \
+	done; \
+	ln -sf ${SYSDIR}/${MACHINE}/include/stdarg.h stdarg.h; \
+	ln -sf ${SYSDIR}/sys/errno.h errno.h; \
+	ln -sf ${SYSDIR}/sys/stdint.h stdint.h; \
+	ln -sf ${SRCTOP}/include/arpa/inet.h arpa/inet.h; \
+	ln -sf ${SRCTOP}/include/arpa/tftp.h arpa/tftp.h; \
+	for i in _time.h _strings.h _string.h; do \
+		[ -f xlocale/$$i ] || cp /dev/null xlocale/$$i; \
+	done; \
+	for i in ctype.h fcntl.h stdio.h stdlib.h; do \
+		ln -sf ${SASRC}/stand.h $$i; \
+	done
 
 # io routines
 SRCS+=	closeall.c dev.c ioctl.c nullfs.c stat.c \
@@ -147,6 +133,8 @@ SRCS+=	pkgfs.c
 .if ${MK_NAND} != "no"
 SRCS+=	nandfs.c
 .endif
+
+CFLAGS.bzipfs.c+= -I${SRCTOP}/contrib/bzip2
 
 # explicit_bzero
 .PATH: ${SYSDIR}/libkern

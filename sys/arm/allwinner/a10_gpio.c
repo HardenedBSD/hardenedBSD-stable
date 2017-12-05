@@ -113,7 +113,7 @@ extern const struct allwinner_padconf a33_padconf;
 #endif
 
 /* Defined in h3_padconf.c */
-#ifdef SOC_ALLWINNER_H3
+#if defined(SOC_ALLWINNER_H3) || defined(SOC_ALLWINNER_H5)
 extern const struct allwinner_padconf h3_padconf;
 extern const struct allwinner_padconf h3_r_padconf;
 #endif
@@ -156,8 +156,9 @@ static struct ofw_compat_data compat_data[] = {
 	{"allwinner,sun8i-a83t-pinctrl",	(uintptr_t)&a83t_padconf},
 	{"allwinner,sun8i-a83t-r-pinctrl",	(uintptr_t)&a83t_r_padconf},
 #endif
-#ifdef SOC_ALLWINNER_H3
+#if defined(SOC_ALLWINNER_H3) || defined(SOC_ALLWINNER_H5)
 	{"allwinner,sun8i-h3-pinctrl",		(uintptr_t)&h3_padconf},
+	{"allwinner,sun50i-h5-pinctrl",		(uintptr_t)&h3_padconf},
 	{"allwinner,sun8i-h3-r-pinctrl",	(uintptr_t)&h3_r_padconf},
 #endif
 #ifdef SOC_ALLWINNER_A64
@@ -352,7 +353,8 @@ a10_gpio_pin_configure(struct a10_gpio_softc *sc, uint32_t pin, uint32_t flags)
 	/* Manage input/output. */
 	if (flags & GPIO_PIN_INPUT) {
 		err = a10_gpio_set_function(sc, pin, A10_GPIO_INPUT);
-	} else if (flags & GPIO_PIN_OUTPUT) {
+	} else if ((flags & GPIO_PIN_OUTPUT) &&
+	    a10_gpio_get_function(sc, pin) != A10_GPIO_OUTPUT) {
 		if (flags & GPIO_PIN_PRESET_LOW) {
 			a10_gpio_pin_set_locked(sc, pin, 0);
 		} else if (flags & GPIO_PIN_PRESET_HIGH) {
