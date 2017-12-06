@@ -40,6 +40,7 @@ kernel=""
 # hbsd-update.conf(5).
 dnssec="yes"
 dnssec_key="/usr/share/keys/hbsd-update/trusted/dnssec.key"
+revoke_dir="/usr/share/keys/hbsd-update/revoked"
 
 ignorever=0
 unsigned=0
@@ -365,9 +366,23 @@ fetch_update() {
 }
 
 check_pubkey_validity() {
+	local updatehash
+	local filehash
+	local f
+
 	if [ ${verbose} -gt 0 ]; then
 		debug_print "[*] Checking validity of the public key"
 	fi
+
+	updatehash=$(${SHA256} -q ${tmpdir}/pubkey.pem)
+
+	for f in $(${FIND} ${mountpoint}/usr/share/keys/hbsd-update/revoked -type f); do
+		filehash=$(${SHA256} -q ${f})
+		if [ "${filehash}" = "${updatehash}" ]; then
+			echo "[-] This update has been signed with a revoked key." >&2
+			return 1
+		fi
+	done
 
 	caopt="-CApath"
 	if [ -f ${capath} ]; then
