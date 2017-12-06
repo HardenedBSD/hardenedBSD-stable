@@ -1171,8 +1171,10 @@ cam_periph_runccb(union ccb *ccb,
 	 * If the user has supplied a stats structure, and if we understand
 	 * this particular type of ccb, record the transaction start.
 	 */
-	if ((ds != NULL) && (ccb->ccb_h.func_code == XPT_SCSI_IO ||
-	    ccb->ccb_h.func_code == XPT_ATA_IO)) {
+	if (ds != NULL &&
+	    (ccb->ccb_h.func_code == XPT_SCSI_IO ||
+	    ccb->ccb_h.func_code == XPT_ATA_IO ||
+	    ccb->ccb_h.func_code == XPT_NVME_IO)) {
 		starttime = &ltime;
 		binuptime(starttime);
 		devstat_start_transaction(ds, starttime);
@@ -1203,25 +1205,27 @@ cam_periph_runccb(union ccb *ccb,
 	}
 
 	if (ds != NULL) {
+		uint32_t bytes;
+		devstat_tag_type tag;
+		bool valid = true;
+
 		if (ccb->ccb_h.func_code == XPT_SCSI_IO) {
-			devstat_end_transaction(ds,
-					ccb->csio.dxfer_len - ccb->csio.resid,
-					ccb->csio.tag_action & 0x3,
-					((ccb->ccb_h.flags & CAM_DIR_MASK) ==
-					CAM_DIR_NONE) ?  DEVSTAT_NO_DATA : 
-					(ccb->ccb_h.flags & CAM_DIR_OUT) ?
-					DEVSTAT_WRITE : 
-					DEVSTAT_READ, NULL, starttime);
+			bytes = ccb->csio.dxfer_len - ccb->csio.resid;
+			tag = (devstat_tag_type)(ccb->csio.tag_action & 0x3);
 		} else if (ccb->ccb_h.func_code == XPT_ATA_IO) {
-			devstat_end_transaction(ds,
-					ccb->ataio.dxfer_len - ccb->ataio.resid,
-					0, /* Not used in ATA */
-					((ccb->ccb_h.flags & CAM_DIR_MASK) ==
-					CAM_DIR_NONE) ?  DEVSTAT_NO_DATA : 
-					(ccb->ccb_h.flags & CAM_DIR_OUT) ?
-					DEVSTAT_WRITE : 
-					DEVSTAT_READ, NULL, starttime);
+			bytes = ccb->ataio.dxfer_len - ccb->ataio.resid;
+			tag = (devstat_tag_type)0;
+		} else if (ccb->ccb_h.func_code == XPT_NVME_IO) {
+			bytes = ccb->nvmeio.dxfer_len; /* NB: resid no possible */
+			tag = (devstat_tag_type)0;
+		} else {
+			valid = false;
 		}
+		if (valid)
+			devstat_end_transaction(ds, bytes, tag,
+			    ((ccb->ccb_h.flags & CAM_DIR_MASK) == CAM_DIR_NONE) ?
+			    DEVSTAT_NO_DATA : (ccb->ccb_h.flags & CAM_DIR_OUT) ?
+			    DEVSTAT_WRITE : DEVSTAT_READ, NULL, starttime);
 	}
 
 	return(error);
@@ -1298,7 +1302,7 @@ camperiphdone(struct cam_periph *periph, union ccb *done_ccb)
 			}
 		}
 		if (cam_periph_error(done_ccb,
-		    0, SF_RETRY_UA | SF_NO_PRINT, NULL) == ERESTART)
+		    0, SF_RETRY_UA | SF_NO_PRINT) == ERESTART)
 			goto out;
 		if (done_ccb->ccb_h.status & CAM_DEV_QFRZN) {
 			cam_release_devq(done_ccb->ccb_h.path, 0, 0, 0, 0);
@@ -1712,7 +1716,7 @@ sense_error_done:
  */
 int
 cam_periph_error(union ccb *ccb, cam_flags camflags,
-		 u_int32_t sense_flags, union ccb *save_ccb)
+		 u_int32_t sense_flags)
 {
 	struct cam_path *newpath;
 	union ccb  *orig_ccb, *scan_ccb;
