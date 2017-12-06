@@ -97,7 +97,7 @@ main(int argc, char *argv[])
 	time_t now;
 	int ch, logflags, pri;
 	char *tag, *host, buf[1024], *timestamp, tbuf[26],
-	    *hostname, hbuf[MAXHOSTNAMELEN];
+	    *hostname, hbuf[MAXHOSTNAMELEN], *dotp;
 	const char *svcname, *src;
 
 	tag = NULL;
@@ -182,8 +182,11 @@ main(int argc, char *argv[])
 
 	if (hostname == NULL) {
 		hostname = hbuf;
+		memset(hbuf, 0, sizeof(hbuf));
 		(void )gethostname(hbuf, MAXHOSTNAMELEN);
-		*strchr(hostname, '.') = '\0';
+		dotp = strchr(hostname, '.');
+		if (dotp != NULL)
+			*dotp = '\0';
 	}
 
 	/* log input line if appropriate */
