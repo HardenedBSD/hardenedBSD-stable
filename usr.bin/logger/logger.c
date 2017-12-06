@@ -182,17 +182,12 @@ main(int argc, char *argv[])
 
 	if (hostname == NULL) {
 		hostname = hbuf;
-<<<<<<< HEAD
 		memset(hbuf, 0, sizeof(hbuf));
 		if (gethostname(hbuf, MAXHOSTNAMELEN))
 			hostname[0] = '\0';
 		dotp = strchr(hostname, '.');
 		if (dotp != NULL)
 			*dotp = '\0';
-=======
-		(void )gethostname(hbuf, MAXHOSTNAMELEN);
-		*strchrnul(hostname, '.') = '\0';
->>>>>>> origin/freebsd/current/master
 	}
 
 	/* log input line if appropriate */
