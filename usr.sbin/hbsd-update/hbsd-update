@@ -67,13 +67,13 @@ JLS="/usr/sbin/jls"
 KLDXREF="/usr/sbin/kldxref"
 MKTEMP="/usr/bin/mktemp"
 OPENSSL="/usr/bin/openssl"
+PWD_MKDB="/usr/sbin/pwd_mkdb"
 SED="/usr/bin/sed"
-TAR="/usr/bin/tar"
 SHA256="/sbin/sha256"
 SHA512="/sbin/sha512"
 TAIL="/usr/bin/tail"
+TAR="/usr/bin/tar"
 UNBOUND_HOST="/usr/sbin/unbound-host"
-PWD_MKDB="/usr/sbin/pwd_mkdb"
 
 debug_print() {
 	echo -e "${1}" >&2
