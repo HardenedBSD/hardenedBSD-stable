@@ -62,6 +62,7 @@ CHFLAGS="/bin/chflags"
 DRILL="/usr/bin/drill"
 ETCUPDATE="/usr/sbin/etcupdate"
 FETCH="/usr/bin/fetch"
+FIND="/usr/bin/find"
 GREP="/usr/bin/grep"
 JLS="/usr/sbin/jls"
 KLDXREF="/usr/sbin/kldxref"
@@ -472,6 +473,7 @@ apply_base() {
 	local needsresolve
 	local dirs
 	local dir
+	local d
 
 	needsresolve=0
 	dirs="/bin /sbin /lib /libexec /usr/bin /usr/sbin /usr/lib"
@@ -516,6 +518,22 @@ apply_base() {
 			if [ ${verbose} -gt 0 ]; then
 				debug_print "[*] Installing sources"
 			fi
+
+			${FIND} ${mountpoint}/usr/src -type f -delete
+			res=${}
+			if [ ${res} -gt 0 ]; then
+				echo "[-] Removing source files failed." >&2
+				return 1
+			fi
+
+			for d in $(${FIND} ${mountpoint}/usr/src -type d | sed 1d); do
+				rmdir ${d}
+				res=${?}
+				if [ ${res} -gt 0 ]; then
+					echo "[-] Removing source directories failed" >&2
+					return 1
+				fi
+			done
 
 			${TAR} -xpf ${tmpdir}/src.txz \
 				-C ${mountpoint}
