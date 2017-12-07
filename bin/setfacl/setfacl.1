@@ -114,10 +114,15 @@ is
 the input is taken from stdin.
 .It Fl n
 Do not recalculate the permissions associated with the ACL
+<<<<<<< HEAD
 mask entry.  This option is not applicable to NFSv4 ACLs.
 .It Fl R
 Recurse the specified directories. NFSv4 inheritance flags that
 are meant for directories are removed for files.
+=======
+mask entry.
+This option is not applicable to NFSv4 ACLs.
+>>>>>>> origin/freebsd/current/master
 .It Fl x Ar entries | position
 If
 .Ar entries
@@ -294,7 +299,8 @@ specifying the access granted to the owner of the file;
 .Dq Li group@
 specifying the access granted to the file owning group;
 .Dq Li everyone@
-specifying everyone.  Note that
+specifying everyone.
+Note that
 .Dq Li everyone@
 is not the same as traditional Unix
 .Dq Li other
@@ -304,8 +310,8 @@ literally, everyone, including file owner and owning group.
 The ACL qualifier field describes the user or group associated with
 the ACL entry.
 It may consist of one of the following: uid or
-user name, or gid or group name.  In entries whose tag type is
-one of
+user name, or gid or group name.
+In entries whose tag type is one of
 .Dq Li owner@ ,
 .Dq Li group@ ,
 or
