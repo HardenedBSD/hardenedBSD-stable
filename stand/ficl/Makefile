@@ -4,9 +4,13 @@
 .include <bsd.init.mk>
 .include "${BOOTSRC}/ficl.mk"
 
+<<<<<<< HEAD
 .if ${MACHINE_CPUARCH} == "aarch64"
 NOPIE=		1
 .endif
+=======
+.PATH: ${FICLSRC} ${FICLSRC}/${FICL_CPUARCH}
+>>>>>>> origin/freebsd/current/master
 
 BASE_SRCS=	dict.c ficl.c fileaccess.c float.c loader.c math64.c \
 		prefix.c search.c stack.c tools.c vm.c words.c

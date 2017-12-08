@@ -477,7 +477,7 @@ dos_boot_part ( ) (
 )
 
 if [ -n "$NANO_BOOT_PKG" ]; then
-	local d=/usr/local/share/u-boot/${NANO_BOOT_PKG}
+	d=/usr/local/share/u-boot/${NANO_BOOT_PKG}
 	if [ ! -d ${d} ]; then
 		echo ${NANO_BOOT_PKG} not installed. Sadly, it must be.
 		exit 1
@@ -669,5 +669,5 @@ create_diskimage ( ) (
 
 # Set the path to the same path we use for buldworld to use latest mkimg
 NANO_TARGET=$(cd ${NANO_SRC}; ${NANO_MAKE} TARGET_ARCH=${NANO_ARCH} -V _TARGET)
-NANO_TMPPATH=$(cd ${NANO_SRC}; ${NANO_MAKE} TARGET=${NANO_TARGET} TARGET_ARCH=${NANO_ARCH} -f Makefile.inc1 buildenv -V TMPPATH)
+NANO_TMPPATH=$(cd ${NANO_SRC}; ${NANO_MAKE} MK_AUTO_OBJ=no TARGET=${NANO_TARGET} TARGET_ARCH=${NANO_ARCH} -f Makefile.inc1 buildenv -V TMPPATH)
 export PATH="${NANO_TMPPATH}"

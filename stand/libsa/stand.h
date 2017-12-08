@@ -72,10 +72,7 @@
 #define CHK(fmt, args...)	printf("%s(%d): " fmt "\n", __func__, __LINE__ , ##args)
 #define PCHK(fmt, args...)	{printf("%s(%d): " fmt "\n", __func__, __LINE__ , ##args); getchar();}
 
-/* Avoid unwanted userlandish components */
-#define _KERNEL
 #include <sys/errno.h>
-#undef _KERNEL
 
 /* special stand error codes */
 #define	EADAPT	(ELAST+1)	/* bad adaptor */
@@ -87,6 +84,9 @@
 #define	EUNLAB	(ELAST+7)	/* unlabeled disk */
 #define	EOFFSET	(ELAST+8)	/* relative seek not supported */
 #define	ESALAST	(ELAST+8)	/* */
+
+/* Partial signal emulation for sig_atomic_t */
+#include <machine/signal.h>
 
 struct open_file;
 
@@ -233,6 +233,22 @@ static __inline int isalpha(int c)
 static __inline int isalnum(int c)
 {
     return isalpha(c) || isdigit(c);
+}
+
+static __inline int iscntrl(int c)
+{
+	return (c >= 0 && c < ' ') || c == 127;
+}
+
+static __inline int isgraph(int c)
+{
+	return c >= '!' && c <= '~';
+}
+
+static __inline int ispunct(int c)
+{
+	return (c >= '!' && c <= '/') || (c >= ':' && c <= '@') ||
+	    (c >= '[' && c <= '`') || (c >= '{' && c <= '~');
 }
 
 static __inline int toupper(int c)
