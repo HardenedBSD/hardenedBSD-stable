@@ -192,6 +192,7 @@ __DEFAULT_NO_OPTIONS = \
     HESIOD \
     LIB32 \
     LIBSOFT \
+    LINT \
     NAND \
     OFED \
     OPENLDAP \
