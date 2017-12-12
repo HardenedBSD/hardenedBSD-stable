@@ -361,6 +361,7 @@ set_boot_order(char *order)
 	free(cp);
 	if (set_bootvar("BootOrder", (uint8_t*)new_data, size) < 0)
 		err(1, "Unabke to set BootOrder to %s", order);
+	free(new_data);
 }
 
 static void
@@ -649,8 +650,14 @@ make_boot_var(const char *label, const char *loader, const char *kernel, const c
 		kerneldp = NULL;
 	}
 	llen = efidp_size(loaderdp);
+	if (llen > MAX_DP_LEN)
+		errx(1, "Loader path too long.");
 	klen = efidp_size(kerneldp);
+	if (klen > MAX_DP_LEN)
+		errx(1, "Kernel path too long.");
 	dp = malloc(llen + klen);
+	if (dp == NULL)
+		errx(1, "Can't allocate memory for new device paths");
 	memcpy(dp, loaderdp, llen);
 	if (kerneldp != NULL)
 		memcpy((char *)dp + llen, kerneldp, klen);
@@ -683,8 +690,9 @@ make_boot_var(const char *label, const char *loader, const char *kernel, const c
 	new_ent->name = bootvar;
 	new_ent->guid = EFI_GLOBAL_GUID;
 	LIST_INSERT_HEAD(&efivars, new_ent, entries);
-
+	free(load_opt_buf);
 	free(dp);
+
 	return 0;
 }
 
@@ -782,9 +790,10 @@ print_boot_vars(bool verbose)
 	 * as a command epilogue
 	 */
 	struct entry *v;
-	uint32_t attrs, load_attrs;
 	uint8_t *data;
+	char *d;
 	size_t size;
+	uint32_t attrs, load_attrs;
 	int ret;
 
 	ret = efi_get_variable(EFI_GLOBAL_GUID, "BootNext", &data, &size, &attrs);
@@ -811,9 +820,10 @@ print_boot_vars(bool verbose)
 		if (ret < 0)
 			continue; /* we must have deleted it */
 		load_attrs = le32dec(data);
+		d = get_descr(data);
 		printf("%s%c %s", v->name,
-		    ((load_attrs & LOAD_OPTION_ACTIVE) ? '*': ' '),
-		    get_descr(data));
+		    ((load_attrs & LOAD_OPTION_ACTIVE) ? '*': ' '), d);
+		free(d);
 		if (verbose)
 			print_loadopt_str(data, size);
 		else
@@ -835,7 +845,8 @@ handle_timeout(int to)
 	uint16_t timeout;
 
 	le16enc(&timeout, to);
-	set_bootvar("Timeout", (uint8_t *)&timeout, sizeof(timeout));
+	if (set_bootvar("Timeout", (uint8_t *)&timeout, sizeof(timeout)) < 0)
+		errx(1, "Can't set Timeout for booting.");
 }
 
 int
