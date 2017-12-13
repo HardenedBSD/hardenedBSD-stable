@@ -147,13 +147,20 @@ NO_META_IGNORE_HOST_HEADERS=	1
 
 _TEST_AR=	/usr/bin/ar
 AR		?=	ar
+.if ${_TEST_AR:tA} == "/usr/bin/llvm-ar"
+.if defined(%POSIX)
+ARFLAGS		?=	rv
+.else
+ARFLAGS		?=	rcv
+.endif
+.else
 .if defined(%POSIX)
 ARFLAGS		?=	-rv
-.elif ${_TEST_AR:tA} == "/usr/bin/llvm-ar"
-ARFLAGS		?=	crD
 .else
 ARFLAGS		?=	-crD
 .endif
+.endif
+
 _TEST_RANLIB=	/usr/bin/ranlib
 RANLIB		?=	ranlib
 .if !defined(%POSIX) && ${_TEST_RANLIB:tA} != "/usr/bin/llvm-ar"
