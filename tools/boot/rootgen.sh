@@ -94,6 +94,7 @@ opensolaris_load=YES
 EOF
     cp /boot/kernel/zfs.ko ${mntpt}/boot/kernel/zfs.ko
     cp /boot/kernel/opensolaris.ko ${mntpt}/boot/kernel/opensolaris.ko
+    ls -las ${mntpt}/boot
     # end tweaks
     zfs umount -f ${pool}/ROOT
     zfs set mountpoint=none ${pool}/ROOT
@@ -182,7 +183,7 @@ rm -rf ${DESTDIR}
 mkdir -p ${DESTDIR}/boot/defaults
 mkdir -p ${DESTDIR}/boot/kernel
 cp /boot/kernel/kernel ${DESTDIR}/boot/kernel
-echo -D -S115200 > ${DESTDIR}/boot.config
+echo -h -D -S115200 > ${DESTDIR}/boot.config
 # XXX
 cp /boot/device.hints ${DESTDIR}/boot/device.hints
 # Assume we're already built
