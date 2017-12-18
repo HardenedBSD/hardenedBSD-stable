@@ -24,6 +24,7 @@ BOOTOBJ=	${OBJTOP}/stand
 # BINDIR is where we install
 BINDIR?=	/boot
 
+<<<<<<< HEAD
 MK_SAFESTACK=	no
 MK_CFI=		no
 
@@ -36,6 +37,8 @@ LIBFICL32=	${LIBFICL}
 LIBFICL32=	${BOOTOBJ}/ficl32/libficl.a
 .endif
 .endif
+=======
+>>>>>>> origin/freebsd/current/master
 LIBSA=		${BOOTOBJ}/libsa/libsa.a
 .if ${MACHINE} == "i386"
 LIBSA32=	${LIBSA}
@@ -172,9 +175,5 @@ ${_ILINKS}:
 	path=`(cd $$path && /bin/pwd)` ; \
 	${ECHO} ${.TARGET:T} "->" $$path ; \
 	ln -fhs $$path ${.TARGET:T}
-
-# For loader implementations, we generate a loader.help file. This can be suppressed by
-# setting HELP_FILES to nothing.
-HELP_FILES=	${LDRSRC}/help.common
 
 .endif # __BOOT_DEFS_MK__
