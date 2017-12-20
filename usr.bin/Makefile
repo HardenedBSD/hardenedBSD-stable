@@ -148,6 +148,7 @@ SUBDIR=	alias \
 	split \
 	stat \
 	stdbuf \
+	strings \
 	su \
 	systat \
 	tabs \
@@ -287,8 +288,12 @@ SUBDIR.${MK_TOOLCHAIN}+=	readelf
 SUBDIR.${MK_TOOLCHAIN}+=	rpcgen
 SUBDIR.${MK_TOOLCHAIN}+=	unifdef
 SUBDIR.${MK_TOOLCHAIN}+=	size
+<<<<<<< HEAD
 SUBDIR.${MK_TOOLCHAIN}+=	strings
 .if ${MK_LINT} != "no"
+=======
+.if ${MACHINE_ARCH} != "aarch64" # ARM64TODO xlint does not build
+>>>>>>> origin/freebsd/11-stable/master
 SUBDIR.${MK_TOOLCHAIN}+=	xlint
 .endif
 SUBDIR.${MK_TOOLCHAIN}+=	xstr
