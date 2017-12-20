@@ -314,6 +314,21 @@ pax_aslr_sysinit(void)
 }
 SYSINIT(pax_aslr, SI_SUB_PAX, SI_ORDER_SECOND, pax_aslr_sysinit, NULL);
 
+int
+pax_aslr_validate_flags(int flags)
+{
+
+	switch (flags) {
+	case PAX_FEATURE_DISABLED:
+	case PAX_FEATURE_OPTIN:
+	case PAX_FEATURE_OPTOUT:
+	case PAX_FEATURE_FORCE_ENABLED:
+		return (flags);
+	default:
+		return (PAX_FEATURE_FORCE_ENABLED);
+	}
+}
+
 bool
 pax_aslr_active(struct proc *p)
 {

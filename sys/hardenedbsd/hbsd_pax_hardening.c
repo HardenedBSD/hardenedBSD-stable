@@ -123,6 +123,19 @@ pax_hardening_sysinit(void)
 }
 SYSINIT(pax_hardening, SI_SUB_PAX, SI_ORDER_SECOND, pax_hardening_sysinit, NULL);
 
+int
+pax_procfs_harden_validate_flags(int flags)
+{
+
+	switch (flags) {
+	case PAX_FEATURE_SIMPLE_DISABLED:
+	case PAX_FEATURE_SIMPLE_ENABLED:
+		return (flags);
+	default:
+		return (PAX_FEATURE_SIMPLE_ENABLED);
+	}
+}
+
 void
 pax_hardening_init_prison(struct prison *pr)
 {
