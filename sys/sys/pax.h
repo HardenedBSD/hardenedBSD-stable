@@ -81,6 +81,7 @@ struct vnode;
 struct vm_offset_t;
 
 typedef	uint32_t	pax_flag_t;
+typedef	uint32_t	pax_state_t;
 
 /*
  * used in sysctl handler
@@ -113,6 +114,8 @@ void pax_get_flags_td(struct thread *td, pax_flag_t *flags);
 struct prison *pax_get_prison_td(struct thread *td);
 void pax_init_prison(struct prison *pr);
 void pax_print_hbsd_context(void);
+bool pax_feature_validate_state(pax_state_t *state);
+bool pax_feature_simple_validate_state(pax_state_t *state);
 
 /*
  * HardenedBSD's hbsdcontol related functions
