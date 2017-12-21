@@ -80,42 +80,29 @@ SYSCTL_HBSD_2STATE(pax_procfs_harden_global, pr_hbsd.hardening.procfs_harden,
 static void
 pax_hardening_sysinit(void)
 {
+	pax_state_t old_state;
 
-	switch (pax_procfs_harden_global) {
-	case PAX_FEATURE_SIMPLE_DISABLED:
-	case PAX_FEATURE_SIMPLE_ENABLED:
-		break;
-	default:
+	old_state = pax_procfs_harden_global;
+	if (!pax_feature_simple_validate_state(&pax_procfs_harden_global)) {
 		printf("[HBSD HARDENING] WARNING, invalid settings in loader.conf!"
-		    " (hardening.procfs_harden = %d)\n", pax_procfs_harden_global);
-		pax_procfs_harden_global = PAX_FEATURE_SIMPLE_ENABLED;
+		    " (hardening.procfs_harden = %d)\n", old_state);
 	}
 	if (bootverbose) {
 		printf("[HBSD HARDENING] procfs hardening: %s\n",
 		    pax_status_simple_str[pax_procfs_harden_global]);
 	}
 
-	switch (pax_randomize_pids_global) {
-	case PAX_FEATURE_SIMPLE_DISABLED:
-	case PAX_FEATURE_SIMPLE_ENABLED:
-		break;
-	default:
+	old_state = pax_randomize_pids_global;
+	if (!pax_feature_simple_validate_state(&pax_randomize_pids_global)) {
 		printf("[HBSD HARDENING] WARNING, invalid settings in loader.conf!"
-		    " (hardening.randomize_pids = %d)\n", pax_randomize_pids_global);
-		pax_randomize_pids_global = PAX_FEATURE_SIMPLE_ENABLED;
+		    " (hardening.randomize_pids = %d)\n", old_state);
 	}
 	if (bootverbose) {
 		printf("[HBSD HARDENING] randomize pids: %s\n",
 		    pax_status_simple_str[pax_randomize_pids_global]);
 	}
 
-	switch (pax_init_hardening_global) {
-	case PAX_FEATURE_SIMPLE_DISABLED:
-	case PAX_FEATURE_SIMPLE_ENABLED:
-		break;
-	default:
-		pax_init_hardening_global = PAX_FEATURE_SIMPLE_ENABLED;
-	}
+	(void)pax_feature_simple_validate_state(&pax_init_hardening_global);
 	if (bootverbose) {
 		printf("[HBSD HARDENING] unset insecure init variables: %s\n",
 		    pax_status_simple_str[pax_init_hardening_global]);

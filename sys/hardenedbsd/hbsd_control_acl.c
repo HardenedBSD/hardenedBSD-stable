@@ -95,17 +95,14 @@ pax_control_acl_active(void)
 static void
 pax_control_acl_sysinit(void)
 {
+	pax_state_t old_state;
 
-	switch (pax_control_acl_status) {
-	case PAX_FEATURE_SIMPLE_DISABLED:
-	case PAX_FEATURE_SIMPLE_ENABLED:
-		break;
-	default:
+	old_state = pax_control_acl_status;
+	if (!pax_feature_simple_validate_state(&pax_control_acl_status)) {
 		printf("[HBSD CONTROL / ACL] WARNING, invalid settings in loader.conf!"
-		    " (pax_hbsdcontrol_status = %d)\n", pax_control_acl_status);
-		pax_control_acl_status = PAX_FEATURE_SIMPLE_ENABLED;
-		break;
+		    " (pax_hbsdcontrol_status = %d)\n", old_state);
 	}
+
 	if (bootverbose) {
 		printf("[HBSD CONTROL / ACL] status: %s\n",
 		    pax_status_simple_str[pax_control_acl_status]);
