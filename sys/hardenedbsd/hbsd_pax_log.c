@@ -173,19 +173,6 @@ hardening_log_sysinit(void)
 }
 SYSINIT(hardening_log, SI_SUB_PAX, SI_ORDER_SECOND, hardening_log_sysinit, NULL);
 
-int
-pax_log_validate_flags(int flags)
-{
-
-	switch (flags) {
-	case PAX_FEATURE_SIMPLE_DISABLED:
-	case PAX_FEATURE_SIMPLE_ENABLED:
-		return (flags);
-	default:
-		return (PAX_FEATURE_SIMPLE_ENABLED);
-	}
-}
-
 void
 pax_log_init_prison(struct prison *pr)
 {

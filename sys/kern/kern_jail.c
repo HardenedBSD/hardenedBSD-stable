@@ -528,7 +528,6 @@ kern_jail_set(struct thread *td, struct uio *optuio, int flags)
 	uint64_t pr_allow, ch_allow, pr_flags, ch_flags;
 	unsigned tallow;
 	char numbuf[12];
-	int pax_flag;
 
 	error = priv_check(td, PRIV_JAIL_SET);
 	if (!error && (flags & JAIL_ATTACH))
@@ -1304,64 +1303,7 @@ kern_jail_set(struct thread *td, struct uio *optuio, int flags)
 		}
 
 #ifdef PAX
-		/*
-		 * Initialize HardenedBSD settings. Allow for explicit
-		 * overriding after initialization.
-		 */
 		pax_init_prison(pr);
-#ifdef PAX_ASLR
-		error = vfs_copyopt(opts, "aslr", &pax_flag,
-		    sizeof(pax_flag));
-		if (error != ENOENT)
-			pr->pr_hbsd.aslr.status =
-			    pax_aslr_validate_flags(pax_flag);
-		error = vfs_copyopt(opts, "aslrcompat", &pax_flag,
-		    sizeof(pax_flag));
-		if (error != ENOENT)
-			pr->pr_hbsd.aslr.compat_status = 
-			    pax_aslr_validate_flags(pax_flag);
-		error = vfs_copyopt(opts, "disallowmap32bit", &pax_flag,
-		    sizeof(pax_flag));
-		if (error != ENOENT)
-			pr->pr_hbsd.aslr.disallow_map32bit_status =
-			    pax_aslr_validate_flags(pax_flag);
-#endif
-#ifdef PAX_NOEXEC
-		error = vfs_copyopt(opts, "pageexec", &pax_flag,
-		    sizeof(pax_flag));
-		if (error != ENOENT)
-			pr->pr_hbsd.noexec.pageexec_status =
-			    pax_noexec_validate_flags(pax_flag);
-		error = vfs_copyopt(opts, "mprotect", &pax_flag,
-		    sizeof(pax_flag));
-		if (error != ENOENT)
-			pr->pr_hbsd.noexec.mprotect_status =
-			    pax_noexec_validate_flags(pax_flag);
-#endif
-#ifdef PAX_SEGVGUARD
-		error = vfs_copyopt(opts, "segvguard", &pax_flag,
-		    sizeof(pax_flag));
-		if (error != ENOENT)
-			pr->pr_hbsd.segvguard.status =
-			    pax_segvguard_validate_flags(pax_flag);
-#endif
-#ifdef PAX_HARDENING
-		error = vfs_copyopt(opts, "procfsharden", &pax_flag,
-		    sizeof(pax_flag));
-		if (error != ENOENT)
-			pr->pr_hbsd.hardening.procfs_harden =
-			    pax_procfs_harden_validate_flags(pax_flag);
-#endif
-		error = vfs_copyopt(opts, "hbsdlog", &pax_flag,
-		    sizeof(pax_flag));
-		if (error != ENOENT)
-			pr->pr_hbsd.log.log =
-			    pax_log_validate_flags(pax_flag);
-		error = vfs_copyopt(opts, "hbsdulog", &pax_flag,
-		    sizeof(pax_flag));
-		if (error != ENOENT)
-			pr->pr_hbsd.log.ulog =
-			    pax_log_validate_flags(pax_flag);
 #endif
 
 		mtx_lock(&pr->pr_mtx);
@@ -3821,30 +3763,6 @@ SYSCTL_JAIL_PARAM(, vnet, CTLTYPE_INT | CTLFLAG_RDTUN,
 #endif
 SYSCTL_JAIL_PARAM(, dying, CTLTYPE_INT | CTLFLAG_RD,
     "B", "Jail is in the process of shutting down");
-
-/*
- * We set CTLFLAG_SKIP on the hardening/PaX flags here because jail
- * parameters default to 0. Having hardening.pax.aslr.status=2 and
- * security.jail.param.aslr=0 would confuse users.
- */
-SYSCTL_JAIL_PARAM(, aslr, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_SKIP,
-    "I", "PaX ASLR at jail bootup");
-SYSCTL_JAIL_PARAM(, aslrcompat, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_SKIP,
-    "I", "PaX ASLR 32-bit compat at jail bootup");
-SYSCTL_JAIL_PARAM(, disallowmap32bit, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_SKIP,
-    "I", "Disallow mmap(map32bit) at jail bootup");
-SYSCTL_JAIL_PARAM(, pageexec, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_SKIP,
-    "I", "PaX PAGEEXEC at jail bootup");
-SYSCTL_JAIL_PARAM(, mprotect, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_SKIP,
-    "I", "PaX MPROTECT at jail bootup");
-SYSCTL_JAIL_PARAM(, segvguard, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_SKIP,
-    "I", "PaX SEGVGUARD at jail bootup");
-SYSCTL_JAIL_PARAM(, procfsharden, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_SKIP,
-    "I", "Harden procfs at jail bootup");
-SYSCTL_JAIL_PARAM(, hbsdlog, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_SKIP,
-    "I", "PaX log at jail bootup");
-SYSCTL_JAIL_PARAM(, hbsdulog, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_SKIP,
-    "I", "PaX ulog at jail bootup");
 
 SYSCTL_JAIL_PARAM_NODE(children, "Number of child jails");
 SYSCTL_JAIL_PARAM(_children, cur, CTLTYPE_INT | CTLFLAG_RD,

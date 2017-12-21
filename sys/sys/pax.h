@@ -146,7 +146,6 @@ void pax_aslr_stack_with_gap(struct proc *p, vm_offset_t *addr);
 void pax_aslr_vdso(struct proc *p, vm_offset_t *addr);
 pax_flag_t pax_disallow_map32bit_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_t mode);
 bool pax_disallow_map32bit_active(struct thread *td, int mmap_flags);
-int pax_aslr_validate_flags(int flags);
 
 /*
  * Log related functions
@@ -178,7 +177,6 @@ void pax_log_mprotect(struct proc *, pax_log_settings_t flags, const char *fmt, 
 void pax_ulog_mprotect(const char *fmt, ...) __printflike(1, 2);
 void pax_log_segvguard(struct proc *, pax_log_settings_t flags, const char *fmt, ...) __printflike(3, 4);
 void pax_ulog_segvguard(const char *fmt, ...) __printflike(1, 2);
-int pax_log_validate_flags(int flags);
 
 /*
  * SegvGuard related functions
@@ -192,7 +190,6 @@ int pax_segvguard_check(struct thread *, struct vnode *, const char *);
 int pax_segvguard_segfault(struct thread *, const char *);
 void pax_segvguard_remove(struct thread *td, struct vnode *vn);
 pax_flag_t pax_segvguard_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_t mode);
-int pax_segvguard_validate_flags(int flags);
 
 /*
  * PAX PAGEEXEC and MPROTECT hardening
@@ -210,7 +207,6 @@ bool pax_mprotect_active(struct proc *p);
 void pax_pageexec(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot);
 void pax_mprotect(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot);
 int pax_mprotect_enforce(struct proc *p, vm_map_t map, vm_prot_t old_prot, vm_prot_t new_prot);
-int pax_noexec_validate_flags(int flags);
 
 /*
  * Hardening related functions
@@ -221,7 +217,6 @@ void pax_hardening_init_prison(struct prison *pr);
 #define	pax_hardening_init_prison(pr)	do {} while (0)
 #endif
 int pax_procfs_harden(struct thread *td);
-int pax_procfs_harden_validate_flags(int flags);
 
 #define	PAX_NOTE_PAGEEXEC	0x00000001
 #define	PAX_NOTE_NOPAGEEXEC	0x00000002
