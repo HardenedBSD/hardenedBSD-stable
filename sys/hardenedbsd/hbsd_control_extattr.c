@@ -286,16 +286,12 @@ pax_control_extattr_active(void)
 static void
 pax_control_extattr_sysinit(void)
 {
+	pax_state_t old_state;
 
-	switch (pax_control_extattr_status) {
-	case PAX_FEATURE_SIMPLE_DISABLED:
-	case PAX_FEATURE_SIMPLE_ENABLED:
-		break;
-	default:
+	old_state = pax_control_extattr_status;
+	if (!pax_feature_simple_validate_state(&pax_control_extattr_status)) {
 		printf("[HBSD CONTROL / EXTATTR] WARNING, invalid settings in loader.conf!"
-		    " (pax_hbsdcontrol_status = %d)\n", pax_control_extattr_status);
-		pax_control_extattr_status = PAX_FEATURE_SIMPLE_ENABLED;
-		break;
+		    " (pax_hbsdcontrol_status = %d)\n", old_state);
 	}
 	if (bootverbose) {
 		printf("[HBSD CONTROL / EXTATTR] status: %s\n",

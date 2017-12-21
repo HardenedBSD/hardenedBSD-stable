@@ -97,35 +97,22 @@ SYSCTL_HBSD_4STATE(pax_mprotect_status, pr_hbsd.noexec.mprotect_status,
 static void
 pax_noexec_sysinit(void)
 {
+	pax_state_t old_state;
 
-	switch (pax_pageexec_status) {
-	case PAX_FEATURE_DISABLED:
-	case PAX_FEATURE_OPTIN:
-	case PAX_FEATURE_OPTOUT:
-	case PAX_FEATURE_FORCE_ENABLED:
-		break;
-	default:
+	old_state = pax_pageexec_status;
+	if (!pax_feature_validate_state(&pax_pageexec_status)) {
 		printf("[HBSD PAGEEXEC] WARNING, invalid PAX settings in loader.conf!"
-		    " (hardening.pax.pageexec.status = %d)\n", pax_pageexec_status);
-		pax_pageexec_status = PAX_FEATURE_FORCE_ENABLED;
-		break;
+		    " (hardening.pax.pageexec.status = %d)\n", old_state);
 	}
 	if (bootverbose) {
 		printf("[HBSD PAGEEXEC] status: %s\n",
 		    pax_status_str[pax_pageexec_status]);
 	}
 
-	switch (pax_mprotect_status) {
-	case PAX_FEATURE_DISABLED:
-	case PAX_FEATURE_OPTIN:
-	case PAX_FEATURE_OPTOUT:
-	case PAX_FEATURE_FORCE_ENABLED:
-		break;
-	default:
+	old_state = pax_mprotect_status;
+	if (!pax_feature_validate_state(&pax_mprotect_status)) {
 		printf("[HBSD MPROTECT] WARNING, invalid PAX settings in loader.conf!"
-		    " (hardening.pax.mprotect.status = %d)\n", pax_mprotect_status);
-		pax_mprotect_status = PAX_FEATURE_FORCE_ENABLED;
-		break;
+		    " (hardening.pax.mprotect.status = %d)\n", old_state);
 	}
 	if (bootverbose) {
 		printf("[HBSD MPROTECT] status: %s\n",

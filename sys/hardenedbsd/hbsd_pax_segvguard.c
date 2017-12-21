@@ -534,19 +534,13 @@ pax_segvguard_check(struct thread *td, struct vnode *v, const char *name)
 static void
 pax_segvguard_sysinit(void)
 {
+	pax_state_t old_state;
 	int i;
 
-	switch (pax_segvguard_status) {
-	case PAX_FEATURE_DISABLED:
-	case PAX_FEATURE_OPTIN:
-	case PAX_FEATURE_OPTOUT:
-	case PAX_FEATURE_FORCE_ENABLED:
-		break;
-	default:
+	old_state = pax_segvguard_status;
+	if (!pax_feature_validate_state(&pax_segvguard_status)) {
 		printf("[HBSD SEGVGUARD] WARNING, invalid PAX settings in loader.conf!"
-		    " (hardening.pax.segvguard.status = %d)\n", pax_segvguard_status);
-		pax_segvguard_status = PAX_FEATURE_FORCE_ENABLED;
-		break;
+		    " (hardening.pax.segvguard.status = %d)\n", old_state);
 	}
 	if (bootverbose) {
 		printf("[HBSD SEGVGUARD] status: %s\n",

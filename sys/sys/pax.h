@@ -35,28 +35,30 @@
 #define	__HardenedBSD_version	1200055UL
 
 #if defined(_KERNEL) || defined(_WANT_PRISON)
+typedef	uint32_t	pax_state_t;
+
 struct hbsd_features {
 	struct hbsd_aslr {
-		int	 status;	/* (p) PaX ASLR enabled */
-		int	 compat_status;	/* (p) PaX ASLR enabled (compat32) */
-		int	 disallow_map32bit_status; /* (p) MAP_32BIT protection (__LP64__ only) */
+		pax_state_t	 status;	/* (p) PaX ASLR enabled */
+		pax_state_t	 compat_status;	/* (p) PaX ASLR enabled (compat32) */
+		pax_state_t	 disallow_map32bit_status; /* (p) MAP_32BIT protection (__LP64__ only) */
 	} aslr;
 	struct hbsd_segvguard {
-		int	 status;       /* (p) PaX segvguard enabled */
-		int	 expiry;       /* (p) num of seconds to expire an entry */
-		int	 suspension;   /* (p) num of seconds to suspend an application */
-		int	 maxcrashes;   /* (p) Maximum number of crashes before suspending application */
+		pax_state_t	 status;       /* (p) PaX segvguard enabled */
+		pax_state_t	 expiry;       /* (p) num of seconds to expire an entry */
+		pax_state_t	 suspension;   /* (p) num of seconds to suspend an application */
+		pax_state_t	 maxcrashes;   /* (p) Maximum number of crashes before suspending application */
 	} segvguard;
 	struct hbsd_noexec {
-		int	 pageexec_status;	/* (p) Remove WX pages from user-space */
-		int	 mprotect_status;	/* (p) Enforce W^X mappings */
+		pax_state_t	 pageexec_status;	/* (p) Remove WX pages from user-space */
+		pax_state_t	 mprotect_status;	/* (p) Enforce W^X mappings */
 	} noexec;
 	struct hbsd_hardening {
-		int	 procfs_harden;		/* (p) Harden procfs */
+		pax_state_t	 procfs_harden;		/* (p) Harden procfs */
 	} hardening;
 	struct hbsd_log {
-		int	log;		/* (p) Per-jail logging status */
-		int	ulog;		/* (p) Per-jail user visible logging status */
+		pax_state_t	log;		/* (p) Per-jail logging status */
+		pax_state_t	ulog;		/* (p) Per-jail user visible logging status */
 	} log;
 };
 #endif
@@ -81,7 +83,6 @@ struct vnode;
 struct vm_offset_t;
 
 typedef	uint32_t	pax_flag_t;
-typedef	uint32_t	pax_state_t;
 
 /*
  * used in sysctl handler

@@ -143,28 +143,22 @@ SYSCTL_HBSD_2STATE(hardening_log_ulog, pr_hbsd.log.ulog, _hardening_log, ulog,
 static void
 hardening_log_sysinit(void)
 {
-	switch (hardening_log_log) {
-	case PAX_FEATURE_SIMPLE_DISABLED:
-	case PAX_FEATURE_SIMPLE_ENABLED:
-		break;
-	default:
+	pax_state_t old_state;
+
+	old_state = hardening_log_log;
+	if (!pax_feature_simple_validate_state(&hardening_log_log)) {
 		printf("[HBSD LOG] WARNING, invalid settings in loader.conf!"
-		    " (hardening.log.log = %d)\n", hardening_log_log);
-		hardening_log_log = PAX_FEATURE_SIMPLE_ENABLED;
+		    " (hardening.log.log = %d)\n", old_state);
 	}
 	if (bootverbose) {
 		printf("[HBSD LOG] logging to system: %s\n",
 		    pax_status_simple_str[hardening_log_log]);
 	}
 
-	switch (hardening_log_ulog) {
-	case PAX_FEATURE_SIMPLE_DISABLED:
-	case PAX_FEATURE_SIMPLE_ENABLED:
-		break;
-	default:
+	old_state = hardening_log_ulog;
+	if (!pax_feature_simple_validate_state(&hardening_log_ulog)) {
 		printf("[HBSD LOG] WARNING, invalid settings in loader.conf!"
-		    " (hardening.log.ulog = %d)\n", hardening_log_ulog);
-		hardening_log_ulog = PAX_FEATURE_SIMPLE_ENABLED;
+		    " (hardening.log.ulog = %d)\n", old_state);
 	}
 	if (bootverbose) {
 		printf("[HBSD LOG] logging to user: %s\n",

@@ -72,20 +72,17 @@ SYSCTL_HBSD_4STATE(pax_SKEL_statusx, pr_hbsd.SKEL.status, _hardening_pax_SKEL, s
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_SECURE);
 #endif
 
-TUNABLE_INT("hardening.SKEL.state", &pax_SKEL_state);
+TUNABLE_INT("hardening.SKEL.state", &pax_SKEL_status);
 
 static void
 pax_SKEL_sysinit(void)
 {
+	pax_state_t old_state;
 
-	switch (pax_SKEL_status) {
-	case PAX_FEATURE_SIMPLE_DISABLED:
-	case PAX_FEATURE_SIMPLE_ENABLED:
-		break;
-	default:
+	old_state = pax_SKEL_status;
+	if (!pax_feature_simple_validate_state(&pax_SKEL_status)) {
 		printf("[HBSD SKEL] WARNING, invalid settings in loader.conf!"
-		    " (hardening.SKEL.status = %d)\n", pax_SKEL_status);
-		pax_SKEL_status = PAX_FEATURE_SIMPLE_ENABLED;
+		    " (hardening.SKEL.status = %d)\n", old_state);
 	}
 	if (bootverbose) {
 		printf("[HBSD SKEL] skel status: %s\n",

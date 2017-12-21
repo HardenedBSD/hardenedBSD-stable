@@ -268,18 +268,12 @@ SYSCTL_HBSD_4STATE(pax_disallow_map32bit_status_global, pr_hbsd.aslr.disallow_ma
 static void
 pax_aslr_sysinit(void)
 {
+	pax_status_t old_state;
 
-	switch (pax_aslr_status) {
-	case PAX_FEATURE_DISABLED:
-	case PAX_FEATURE_OPTIN:
-	case PAX_FEATURE_OPTOUT:
-	case PAX_FEATURE_FORCE_ENABLED:
-		break;
-	default:
+	old_state = pax_aslr_status;
+	if (!pax_feature_validate_state(&pax_aslr_status)) {
 		printf("[HBSD ASLR] WARNING, invalid PAX settings in loader.conf!"
-		    " (hardening.pax.aslr.status = %d)\n", pax_aslr_status);
-		pax_aslr_status = PAX_FEATURE_FORCE_ENABLED;
-		break;
+		    " (hardening.pax.aslr.status = %d)\n", old_state);
 	}
 	if (bootverbose) {
 		printf("[HBSD ASLR] status: %s\n", pax_status_str[pax_aslr_status]);
@@ -294,17 +288,11 @@ pax_aslr_sysinit(void)
 		    pax_aslr_map32bit_len);
 	}
 
-	switch (pax_disallow_map32bit_status_global) {
-	case PAX_FEATURE_DISABLED:
-	case PAX_FEATURE_OPTIN:
-	case PAX_FEATURE_OPTOUT:
-	case PAX_FEATURE_FORCE_ENABLED:
-		break;
-	default:
+	old_state = pax_disallow_map32bit_status_global;
+	if (!pax_feature_validate_state(&pax_disallow_map32bit_status_global)) {
 		printf("[HBSD ASLR] WARNING, invalid settings in loader.conf!"
 		    " (hardening.pax.disallow_map32bit.status = %d)\n",
-		    pax_disallow_map32bit_status_global);
-		pax_disallow_map32bit_status_global = PAX_FEATURE_FORCE_ENABLED;
+		    old_state);
 	}
 	if (bootverbose) {
 		printf("[HBSD ASLR] disallow MAP_32BIT mode mmap: %s\n",
@@ -414,18 +402,12 @@ try_again:
 static void
 pax_compat_aslr_sysinit(void)
 {
+	pax_state_t old_state;
 
-	switch (pax_aslr_compat_status) {
-	case PAX_FEATURE_DISABLED:
-	case PAX_FEATURE_OPTIN:
-	case PAX_FEATURE_OPTOUT:
-	case PAX_FEATURE_FORCE_ENABLED:
-		break;
-	default:
+	old_state = pax_aslr_compat_status;
+	if (!pax_feature_validate_state(&pax_aslr_compat_status)) {
 		printf("[HBSD ASLR (compat)] WARNING, invalid PAX settings in loader.conf! "
-		    "(hardening.pax.aslr.compat.status = %d)\n", pax_aslr_compat_status);
-		pax_aslr_compat_status = PAX_FEATURE_FORCE_ENABLED;
-		break;
+		    "(hardening.pax.aslr.compat.status = %d)\n", old_state);
 	}
 	if (bootverbose) {
 		printf("[HBSD ASLR (compat)] status: %s\n",
