@@ -415,3 +415,47 @@ pax_print_hbsd_context(void)
 	    (uint64_t)__HardenedBSD_version, (uint64_t)__FreeBSD_version);
 	printf("version = %s", version);
 }
+
+/*
+ * Function to validate PaX feature states.
+ * Always returns a proper state in state parameter.
+ * Additionally return "true" when the validation passed,
+ * but return "false" when a the validation failed.
+ */
+bool
+pax_feature_validate_state(pax_state_t *state)
+{
+
+	switch (*state) {
+	case PAX_FEATURE_DISABLED:
+	case PAX_FEATURE_OPTIN:
+	case PAX_FEATURE_OPTOUT:
+	case PAX_FEATURE_FORCE_ENABLED:
+		return (true);
+	default:
+		*state = PAX_FEATURE_FORCE_ENABLED;
+	}
+
+	return (false);
+}
+
+/*
+ * Function to validate PaX simple feature states.
+ * Always returns a proper state in state parameter.
+ * Additionally return "true" when the validation passed,
+ * but return "false" when a the validation failed.
+ */
+bool
+pax_feature_simple_validate_state(pax_state_t *state)
+{
+
+	switch (*state) {
+	case PAX_FEATURE_SIMPLE_DISABLED:
+	case PAX_FEATURE_SIMPLE_ENABLED:
+		return (true);
+	default:
+		*state = PAX_FEATURE_SIMPLE_ENABLED;
+	}
+
+	return (false);
+}
