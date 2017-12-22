@@ -247,7 +247,7 @@ SYSCTL_NODE(_hardening_pax_aslr, OID_AUTO, compat, CTLFLAG_RD, 0,
     "Settings for COMPAT_FREEBSD32 and linuxulator.");
 SYSCTL_HBSD_4STATE(pax_aslr_compat_status, pr_hbsd.aslr.compat_status,
     _hardening_pax_aslr_compat, status,
-    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON);
+    CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_PRISON|CTLFLAG_SECURE);
 #endif /* COMPAT_FREEBSD32 */
 
 #ifdef MAP_32BIT
