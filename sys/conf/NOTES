@@ -3081,6 +3081,7 @@ options 	PAX_HARDENING	# Other hardening features
 options 	PAX_NOEXEC	# Remove WX pages from user-space and enforce W^X
 options 	PAX_SEGVGUARD	# Track and ban failing process
 options 	PAX_SYSCTLS	# Run-time settings for PAX and Hardening
+options 	PAX_JAIL_SUPPORT	# Allow to override PAX settings per jail
 options 	PAX_INSECURE_MODE	# Allow to override INVARIANTS enforcements
 options 	HBSD_DEBUG
 

@@ -82,6 +82,11 @@ CTASSERT(PAX_NOTE_NOSHLIBRANDOM == PAX_HARDENING_NOSHLIBRANDOM);
 SYSCTL_NODE(_hardening, OID_AUTO, pax, CTLFLAG_RD, 0,
     "PaX (exploit mitigation) features.");
 
+#ifdef PAX_JAIL_SUPPORT
+SYSCTL_JAIL_PARAM_NODE(hardening, "HardenedBSD features.");
+SYSCTL_JAIL_PARAM_SUBNODE(hardening, pax, "PaX (exploit mitigation) features");
+#endif
+
 #if defined(PAX_CONTROL_ACL) || defined(PAX_CONTROL_EXTATTR)
 SYSCTL_NODE(_hardening, OID_AUTO, control, CTLFLAG_RD, 0,
     "PaX features control subnode.");
@@ -388,20 +393,20 @@ SYSINIT(pax, SI_SUB_PAX, SI_ORDER_FIRST, pax_sysinit, NULL);
  * @return		none
  */
 void
-pax_init_prison(struct prison *pr)
+pax_init_prison(struct prison *pr, struct vfsoptlist *opts)
 {
 
 	CTR2(KTR_PAX, "%s: Setting prison %s PaX variables\n",
 	    __func__, pr->pr_name);
 
-	pax_aslr_init_prison(pr);
-	pax_hardening_init_prison(pr);
-	pax_noexec_init_prison(pr);
-	pax_segvguard_init_prison(pr);
+	pax_aslr_init_prison(pr, opts);
+	pax_hardening_init_prison(pr, opts);
+	pax_noexec_init_prison(pr, opts);
+	pax_segvguard_init_prison(pr, opts);
 #ifdef COMPAT_FREEBSD32
-	pax_aslr_init_prison32(pr);
+	pax_aslr_init_prison32(pr, opts);
 #endif
-	pax_log_init_prison(pr);
+	pax_log_init_prison(pr, opts);
 }
 
 /*

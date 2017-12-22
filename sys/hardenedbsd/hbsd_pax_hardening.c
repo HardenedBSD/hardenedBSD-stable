@@ -43,10 +43,11 @@ __FBSDID("$FreeBSD$");
 #include <sys/ktr.h>
 #include <sys/libkern.h>
 #include <sys/lock.h>
-#include <sys/sx.h>
+#include <sys/mount.h>
 #include <sys/pax.h>
 #include <sys/proc.h>
 #include <sys/stat.h>
+#include <sys/sx.h>
 #include <sys/sysctl.h>
 
 #include "hbsd_pax_internal.h"
@@ -75,6 +76,14 @@ SYSCTL_HBSD_2STATE(pax_procfs_harden_global, pr_hbsd.hardening.procfs_harden,
     _hardening, procfs_harden,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_SECURE,
     "Harden procfs, disabling write of /proc/pid/mem");
+#endif
+
+#if 0
+#ifdef PAX_JAIL_SUPPORT
+SYSCTL_JAIL_PARAM(hardening, procfs_harden,
+    CTLTYPE_INT | CTLFLAG_RD, "I",
+    "disabling write of /proc/pid/mem");
+#endif
 #endif
 
 static void
@@ -111,9 +120,14 @@ pax_hardening_sysinit(void)
 SYSINIT(pax_hardening, SI_SUB_PAX, SI_ORDER_SECOND, pax_hardening_sysinit, NULL);
 
 void
-pax_hardening_init_prison(struct prison *pr)
+pax_hardening_init_prison(struct prison *pr, struct vfsoptlist *opts)
 {
 	struct prison *pr_p;
+#if 0
+#ifdef PAX_JAIL_SUPPORT
+	pax_state_t new_state;
+#endif
+#endif
 
 	CTR2(KTR_PAX, "%s: Setting prison %s PaX variables\n",
 	    __func__, pr->pr_name);
@@ -129,6 +143,16 @@ pax_hardening_init_prison(struct prison *pr)
 
 		pr->pr_hbsd.hardening.procfs_harden =
 		    pr_p->pr_hbsd.hardening.procfs_harden;
+#if 0
+#ifdef PAX_JAIL_SUPPORT
+		if (vfs_copyopt(opts, "hardening.procfs_harden",
+		    &new_state, sizeof(new_state)) != ENOENT) {
+			if (pax_feature_simple_validate_state(&new_state)) {
+				pr->pr_hbsd.hardening.procfs_harden = new_state;
+			}
+		}
+#endif /* PAX_JAIL_SUPPORT */
+#endif
 	}
 }
 

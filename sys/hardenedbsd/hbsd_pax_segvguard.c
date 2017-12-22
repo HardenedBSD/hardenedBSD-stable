@@ -151,6 +151,15 @@ SYSCTL_PROC(_hardening_pax_segvguard, OID_AUTO, max_crashes,
     "Max number of crashes before expiry.");
 #endif
 
+#ifdef PAX_JAIL_SUPPORT
+SYSCTL_DECL(_security_jail_param_hardening_pax);
+
+SYSCTL_JAIL_PARAM_SUBNODE(hardening_pax, segvguard, "PaX segvguard");
+SYSCTL_JAIL_PARAM(_hardening_pax_segvguard, status,
+    CTLTYPE_INT | CTLFLAG_RD, "I",
+    "segvguard status");
+#endif
+
 #ifdef PAX_SYSCTLS
 static int
 sysctl_pax_segvguard_expiry(SYSCTL_HANDLER_ARGS)
@@ -220,9 +229,12 @@ sysctl_pax_segvguard_maxcrashes(SYSCTL_HANDLER_ARGS)
 #endif
 
 void
-pax_segvguard_init_prison(struct prison *pr)
+pax_segvguard_init_prison(struct prison *pr, struct vfsoptlist *opts)
 {
 	struct prison *pr_p;
+#ifdef PAX_JAIL_SUPPORT
+	pax_state_t new_state;
+#endif
 
 	if (pr == &prison0) {
 		/* prison0 has no parent, use globals */
@@ -241,6 +253,15 @@ pax_segvguard_init_prison(struct prison *pr)
 
 		pr->pr_hbsd.segvguard.status =
 		    pr_p->pr_hbsd.segvguard.status;
+#ifdef PAX_JAIL_SUPPORT
+		if (vfs_copyopt(opts, "hardening.pax.segvguard.status",
+		    &new_state, sizeof(new_state)) != ENOENT) {
+			if (pax_feature_validate_state(&new_state)) {
+				pr->pr_hbsd.segvguard.status = new_state;
+			}
+		}
+#endif /* PAX_JAIL_SUPPORT */
+
 		pr->pr_hbsd.segvguard.expiry =
 		    pr_p->pr_hbsd.segvguard.expiry;
 		pr->pr_hbsd.segvguard.suspension =

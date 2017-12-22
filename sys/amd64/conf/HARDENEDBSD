@@ -86,6 +86,7 @@ options 	PAX			# PaX framework
 options 	PAX_CONTROL_ACL		# PaX MAC framework, required for secadm
 options 	PAX_CONTROL_ACL_OVERRIDE_SUPPORT # Allow to override hbsdcontrol settings with ACLs
 options 	PAX_CONTROL_EXTATTR	# extattr based control framework for hbsdcontrol
+options 	PAX_JAIL_SUPPORT	# Allow to override PAX settings per jail
 options 	PAX_SYSCTLS		# sysctls for run-time options
 options 	PAX_ASLR		# Address Space Layout Randomization
 options 	PAX_NOEXEC		# Remove WX pages from user-space and enforce W^X

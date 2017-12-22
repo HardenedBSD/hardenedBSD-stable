@@ -35,12 +35,13 @@
 #include <sys/systm.h>
 #include <sys/types.h>
 #include <sys/kernel.h>
-#include <sys/ktr.h>
 #include <sys/imgact.h>
+#include <sys/jail.h>
+#include <sys/ktr.h>
+#include <sys/mount.h>
 #include <sys/pax.h>
 #include <sys/proc.h>
 #include <sys/sbuf.h>
-#include <sys/jail.h>
 #include <machine/stdarg.h>
 
 #ifdef DDB
@@ -139,6 +140,18 @@ SYSCTL_HBSD_2STATE(hardening_log_ulog, pr_hbsd.log.ulog, _hardening_log, ulog,
     "log to syslog ");
 #endif
 
+#ifdef PAX_JAIL_SUPPORT
+SYSCTL_DECL(_security_jail_param_hardening);
+
+SYSCTL_JAIL_PARAM_SUBNODE(hardening, log, "Hardening related logging");
+SYSCTL_JAIL_PARAM(_hardening_log, log,
+    CTLTYPE_INT | CTLFLAG_RD, "I",
+   "log to syslog");
+SYSCTL_JAIL_PARAM(_hardening_log, ulog,
+    CTLTYPE_INT | CTLFLAG_RD, "I",
+   "log to syslog");
+#endif
+
 
 static void
 hardening_log_sysinit(void)
@@ -168,9 +181,12 @@ hardening_log_sysinit(void)
 SYSINIT(hardening_log, SI_SUB_PAX, SI_ORDER_SECOND, hardening_log_sysinit, NULL);
 
 void
-pax_log_init_prison(struct prison *pr)
+pax_log_init_prison(struct prison *pr, struct vfsoptlist *opts)
 {
 	struct prison *pr_p;
+#ifdef PAX_JAIL_SUPPORT
+	pax_state_t new_state;
+#endif
 
 	CTR2(KTR_PAX, "%s: Setting prison %s PaX variables\n",
 	    __func__, pr->pr_name);
@@ -185,7 +201,24 @@ pax_log_init_prison(struct prison *pr)
 		pr_p = pr->pr_parent;
 
 		pr->pr_hbsd.log.log = pr_p->pr_hbsd.log.log;
+#ifdef PAX_JAIL_SUPPORT
+		if (vfs_copyopt(opts, "hardening.log.log",
+		    &new_state, sizeof(new_state)) != ENOENT) {
+			if (pax_feature_validate_state(&new_state)) {
+				pr->pr_hbsd.log.log = new_state;
+			}
+		}
+#endif /* PAX_JAIL_SUPPORT */
+
 		pr->pr_hbsd.log.ulog = pr_p->pr_hbsd.log.ulog;
+#ifdef PAX_JAIL_SUPPORT
+		if (vfs_copyopt(opts, "hardening.log.ulog",
+		    &new_state, sizeof(new_state)) != ENOENT) {
+			if (pax_feature_validate_state(&new_state)) {
+				pr->pr_hbsd.log.ulog = new_state;
+			}
+		}
+#endif /* PAX_JAIL_SUPPORT */
 	}
 }
 
