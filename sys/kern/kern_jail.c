@@ -250,7 +250,7 @@ prison0_init(void)
 	strlcpy(prison0.pr_osrelease, osrelease, sizeof(prison0.pr_osrelease));
 
 #ifdef PAX
-	pax_init_prison(&prison0);
+	pax_init_prison(&prison0, NULL);
 #endif
 }
 
@@ -1303,7 +1303,7 @@ kern_jail_set(struct thread *td, struct uio *optuio, int flags)
 		}
 
 #ifdef PAX
-		pax_init_prison(pr);
+		pax_init_prison(pr, opts);
 #endif
 
 		mtx_lock(&pr->pr_mtx);

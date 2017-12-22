@@ -46,6 +46,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/ktr.h>
 #include <sys/libkern.h>
 #include <sys/mman.h>
+#include <sys/mount.h>
 #include <sys/pax.h>
 #include <sys/proc.h>
 #include <sys/sysctl.h>
@@ -260,6 +261,27 @@ SYSCTL_HBSD_4STATE(pax_disallow_map32bit_status_global, pr_hbsd.aslr.disallow_ma
 
 #endif /* PAX_SYSCTLS */
 
+#ifdef PAX_JAIL_SUPPORT
+SYSCTL_DECL(_security_jail_param_hardening_pax);
+
+SYSCTL_JAIL_PARAM_SUBNODE(hardening_pax, aslr, "ASLR");
+SYSCTL_JAIL_PARAM(_hardening_pax_aslr, status,
+    CTLTYPE_INT | CTLFLAG_RD, "I",
+    "ASLR status");
+#ifdef COMPAT_FREEBSD32
+SYSCTL_JAIL_PARAM_SUBNODE(hardening_pax_aslr, compat, "ASLR (compat)");
+SYSCTL_JAIL_PARAM(_hardening_pax_aslr_compat, status,
+    CTLTYPE_INT | CTLFLAG_RD, "I",
+    "ASLR (compat) status");
+#endif /* COMPAT_FREEBSD32 */
+#ifdef MAP_32BIT
+SYSCTL_JAIL_PARAM_SUBNODE(hardening_pax, disallow_map32bit, "MAP_32BIT");
+SYSCTL_JAIL_PARAM(_hardening_pax_disallow_map32bit, status,
+    CTLTYPE_INT | CTLFLAG_RD, "I",
+    "MAP_32BIT status");
+#endif /* MAP_32BIT */
+#endif /* PAX_JAIL_SUPPORT */
+
 
 /*
  * ASLR functions
@@ -268,7 +290,7 @@ SYSCTL_HBSD_4STATE(pax_disallow_map32bit_status_global, pr_hbsd.aslr.disallow_ma
 static void
 pax_aslr_sysinit(void)
 {
-	pax_status_t old_state;
+	pax_state_t old_state;
 
 	old_state = pax_aslr_status;
 	if (!pax_feature_validate_state(&pax_aslr_status)) {
@@ -472,9 +494,12 @@ pax_aslr_init(struct image_params *imgp)
 }
 
 void
-pax_aslr_init_prison(struct prison *pr)
+pax_aslr_init_prison(struct prison *pr, struct vfsoptlist *opts)
 {
 	struct prison *pr_p;
+#ifdef PAX_JAIL_SUPPORT
+	pax_state_t new_state;
+#endif
 
 	CTR2(KTR_PAX, "%s: Setting prison %s PaX variables\n",
 	    __func__, pr->pr_name);
@@ -492,18 +517,37 @@ pax_aslr_init_prison(struct prison *pr)
 		pr_p = pr->pr_parent;
 
 		pr->pr_hbsd.aslr.status = pr_p->pr_hbsd.aslr.status;
+#ifdef PAX_JAIL_SUPPORT
+		if (vfs_copyopt(opts, "hardening.pax.aslr.status",
+		    &new_state, sizeof(new_state)) != ENOENT) {
+			if (pax_feature_validate_state(&new_state)) {
+				pr->pr_hbsd.aslr.status = new_state;
+			}
+		}
+#endif /* PAX_JAIL_SUPPORT */
 #ifdef MAP_32BIT
 		pr->pr_hbsd.aslr.disallow_map32bit_status =
 		    pr_p->pr_hbsd.aslr.disallow_map32bit_status;
-#endif
+#ifdef PAX_JAIL_SUPPORT
+		if (vfs_copyopt(opts, "hardening.pax.disallow_map32bit.status",
+		    &new_state, sizeof(new_state)) != ENOENT) {
+			if (pax_feature_validate_state(&new_state)) {
+				pr->pr_hbsd.aslr.disallow_map32bit_status = new_state;
+			}
+		}
+#endif /* PAX_JAIL_SUPPORT */
+#endif /* MAP_32BIT */
 	}
 }
 
 #ifdef COMPAT_FREEBSD32
 void
-pax_aslr_init_prison32(struct prison *pr)
+pax_aslr_init_prison32(struct prison *pr, struct vfsoptlist *opts)
 {
 	struct prison *pr_p;
+#ifdef PAX_JAIL_SUPPORT
+	pax_state_t new_state;
+#endif
 
 	CTR2(KTR_PAX, "%s: Setting prison %s PaX variables\n",
 	    __func__, pr->pr_name);
@@ -518,6 +562,14 @@ pax_aslr_init_prison32(struct prison *pr)
 		pr_p = pr->pr_parent;
 
 		pr->pr_hbsd.aslr.compat_status = pr_p->pr_hbsd.aslr.compat_status;
+#ifdef PAX_JAIL_SUPPORT
+		if (vfs_copyopt(opts, "hardening.pax.aslr.compat.status",
+		    &new_state, sizeof(new_state)) != ENOENT) {
+			if (pax_feature_validate_state(&new_state)) {
+				pr->pr_hbsd.aslr.compat_status = new_state;
+			}
+		}
+#endif
 	}
 }
 #endif /* COMPAT_FREEBSD32 */

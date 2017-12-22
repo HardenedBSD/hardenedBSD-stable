@@ -68,11 +68,18 @@ static int sysctl_pax_SKEL(SYSCTL_HANDLER_ARGS);
 SYSCTL_NODE(_hardening_pax, OID_AUTO, SKEL, CTLFLAG_RD, 0,
     "SKEL feature.");
 
-SYSCTL_HBSD_4STATE(pax_SKEL_statusx, pr_hbsd.SKEL.status, _hardening_pax_SKEL, status,
+SYSCTL_HBSD_4STATE(pax_SKEL_status, pr_hbsd.SKEL.status, _hardening_pax_SKEL, status,
     CTLTYPE_INT|CTLFLAG_RWTUN|CTLFLAG_SECURE);
 #endif
 
 TUNABLE_INT("hardening.SKEL.state", &pax_SKEL_status);
+
+#ifdef PAX_JAIL_SUPPORT
+SYSCTL_JAIL_PARAM_SUBNODE(hardening, SKEL, "SKEL");
+SYSCTL_JAIL_PARAM(_hardening_SKEL, status,
+    CTLTYPE_INT | CTLFLAG_RD, "I",
+    "SKEL status");
+#endif
 
 static void
 pax_SKEL_sysinit(void)
@@ -92,9 +99,12 @@ pax_SKEL_sysinit(void)
 SYSINIT(pax_SKEL, SI_SUB_PAX, SI_ORDER_SECOND, pax_SKEL_sysinit, NULL);
 
 void
-pax_SKEL_init_prison(struct prison *pr)
+pax_SKEL_init_prison(struct prison *pr, struct vfsoptlist *opts)
 {
 	struct prison *pr_p;
+#ifdef PAX_JAIL_SUPPORT
+	pax_state_t new_state;
+#endif
 
 	CTR2(KTR_PAX, "%s: Setting prison %s PaX variables\n",
 	    __func__, pr->pr_name);
@@ -108,6 +118,14 @@ pax_SKEL_init_prison(struct prison *pr)
 		pr_p = pr->pr_parent;
 
 		pr->pr_hbsd.SKEL.status = pr_p->pr_hbsd.SKEL.status;
+#ifdef PAX_JAIL_SUPPORT
+		if (vfs_copyopt(opts, "hardening.pax.SKEL.status",
+		    &new_state, sizeof(new_state)) != ENOENT) {
+			if (pax_feature_validate_state(&new_state)) {
+				pr->pr_hbsd.SKEL.status = new_state;
+			}
+		}
+#endif /* PAX_JAIL_SUPPORT */
 	}
 }
 

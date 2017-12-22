@@ -974,6 +974,7 @@ PAX_INSECURE_MODE	opt_pax.h
 PAX_CONTROL_ACL		opt_pax.h
 PAX_CONTROL_ACL_OVERRIDE_SUPPORT	opt_pax.h
 PAX_CONTROL_EXTATTR	opt_pax.h
+PAX_JAIL_SUPPORT	opt_pax.h
 HBSD_DEBUG	opt_pax.h
 
 # ASLR overwritable defaults
