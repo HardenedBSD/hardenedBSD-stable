@@ -542,7 +542,7 @@ apply_base() {
 			fi
 
 			${FIND} ${mountpoint}/usr/src -type f -delete
-			res=${}
+			res=${?}
 			if [ ${res} -gt 0 ]; then
 				echo "[-] Removing source files failed." >&2
 				return 1
