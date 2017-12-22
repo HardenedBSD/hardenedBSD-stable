@@ -975,7 +975,6 @@ PAX_CONTROL_ACL		opt_pax.h
 PAX_CONTROL_ACL_OVERRIDE_SUPPORT	opt_pax.h
 PAX_CONTROL_EXTATTR	opt_pax.h
 HBSD_DEBUG	opt_pax.h
-HBSD_RANDOM_HIGH_ENTROPY	opt_pax.h
 
 # ASLR overwritable defaults
 PAX_ASLR_DELTA_MMAP_DEF_LEN		opt_pax.h
