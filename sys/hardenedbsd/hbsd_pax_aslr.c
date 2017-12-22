@@ -277,7 +277,7 @@ pax_aslr_sysinit(void)
 		break;
 	default:
 		printf("[HBSD ASLR] WARNING, invalid PAX settings in loader.conf!"
-		    " (pax_aslr_status = %d)\n", pax_aslr_status);
+		    " (hardening.pax.aslr.status = %d)\n", pax_aslr_status);
 		pax_aslr_status = PAX_FEATURE_FORCE_ENABLED;
 		break;
 	}
@@ -423,7 +423,7 @@ pax_compat_aslr_sysinit(void)
 		break;
 	default:
 		printf("[HBSD ASLR (compat)] WARNING, invalid PAX settings in loader.conf! "
-		    "(pax_aslr_compat_status = %d)\n", pax_aslr_compat_status);
+		    "(hardening.pax.aslr.compat.status = %d)\n", pax_aslr_compat_status);
 		pax_aslr_compat_status = PAX_FEATURE_FORCE_ENABLED;
 		break;
 	}

@@ -544,7 +544,7 @@ pax_segvguard_sysinit(void)
 		break;
 	default:
 		printf("[HBSD SEGVGUARD] WARNING, invalid PAX settings in loader.conf!"
-		    " (pax_segvguard_status = %d)\n", pax_segvguard_status);
+		    " (hardening.pax.segvguard.status = %d)\n", pax_segvguard_status);
 		pax_segvguard_status = PAX_FEATURE_FORCE_ENABLED;
 		break;
 	}
