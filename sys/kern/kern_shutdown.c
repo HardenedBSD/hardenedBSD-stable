@@ -538,7 +538,6 @@ shutdown_halt(void *junk, int howto)
 			cpu_halt();
 			/* NOTREACHED */
 		default:
-			howto &= ~RB_HALT;
 			break;
 		}
 	}
