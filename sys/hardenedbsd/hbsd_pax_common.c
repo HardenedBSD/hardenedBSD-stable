@@ -45,6 +45,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/ktr.h>
 #include <sys/libkern.h>
 #include <sys/mman.h>
+#include <sys/mount.h>
 #include <sys/pax.h>
 #include <sys/proc.h>
 #include <sys/stat.h>
@@ -389,24 +390,58 @@ SYSINIT(pax, SI_SUB_PAX, SI_ORDER_FIRST, pax_sysinit, NULL);
  * The child prisons state initialized with it's parent's state.
  *
  * @param pr		Initializable prison's pointer.
+ * @param opts		Jail parameter list.
  *
- * @return		none
+ * @return		true if initialization finished.
  */
-void
+bool
 pax_init_prison(struct prison *pr, struct vfsoptlist *opts)
 {
+	bool ret;
 
 	CTR2(KTR_PAX, "%s: Setting prison %s PaX variables\n",
 	    __func__, pr->pr_name);
 
-	pax_aslr_init_prison(pr, opts);
-	pax_hardening_init_prison(pr, opts);
-	pax_noexec_init_prison(pr, opts);
-	pax_segvguard_init_prison(pr, opts);
+	if (pax_aslr_init_prison(pr, opts) != 0) {
+		ret = false;
+		goto out;
+	}
+
+	if (pax_hardening_init_prison(pr, opts) != 0) {
+		ret = false;
+		goto out;
+	}
+
+	if (pax_noexec_init_prison(pr, opts) != 0) {
+		ret = false;
+		goto out;
+	}
+
+	if (pax_segvguard_init_prison(pr, opts) != 0) {
+		ret = false;
+		goto out;
+	}
+
 #ifdef COMPAT_FREEBSD32
-	pax_aslr_init_prison32(pr, opts);
+	if (pax_aslr_init_prison32(pr, opts) != 0) {
+		ret = false;
+		goto out;
+	}
 #endif
-	pax_log_init_prison(pr, opts);
+
+	if (pax_log_init_prison(pr, opts) != 0) {
+		ret = false;
+		goto out;
+	}
+
+	/* Every initialization finished w/o error. */
+	ret = true;
+
+out:
+	KASSERT((pr == &prison0 && ret == true) || pr != &prison0,
+	    ("Unexpected error during prison0 initialization."));
+
+	return (ret);
 }
 
 /*
@@ -463,4 +498,28 @@ pax_feature_simple_validate_state(pax_state_t *state)
 	}
 
 	return (false);
+}
+
+int
+pax_handle_prison_param(struct vfsoptlist *opts, const char *mib, pax_state_t *status)
+{
+#ifdef PAX_JAIL_SUPPORT
+	pax_state_t new_state;
+	int error;
+
+	error = vfs_copyopt(opts, mib, &new_state, sizeof(new_state));
+	switch (error) {
+		case ENOENT:
+			/* use system default */
+			break;
+		case 0:
+			if (pax_feature_validate_state(&new_state))
+				*status = new_state;
+			break;
+		default:
+			return (error);
+	}
+#endif /* PAX_JAIL_SUPPORT */
+
+	return (0);
 }

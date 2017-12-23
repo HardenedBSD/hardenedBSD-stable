@@ -43,7 +43,6 @@
 #include <sys/libkern.h>
 #include <sys/libkern.h>
 #include <sys/mman.h>
-#include <sys/mount.h>
 #include <sys/pax.h>
 #include <sys/proc.h>
 #include <sys/stat.h>
@@ -135,13 +134,11 @@ pax_noexec_sysinit(void)
 }
 SYSINIT(pax_noexec, SI_SUB_PAX, SI_ORDER_SECOND, pax_noexec_sysinit, NULL);
 
-void
+int
 pax_noexec_init_prison(struct prison *pr, struct vfsoptlist *opts)
 {
 	struct prison *pr_p;
-#ifdef PAX_JAIL_SUPPORT
-	pax_state_t new_state;
-#endif
+	int error;
 
 	CTR2(KTR_PAX, "%s: Setting prison %s PaX variables\n",
 	    __func__, pr->pr_name);
@@ -157,26 +154,20 @@ pax_noexec_init_prison(struct prison *pr, struct vfsoptlist *opts)
 
 		pr->pr_hbsd.noexec.pageexec_status =
 		    pr_p->pr_hbsd.noexec.pageexec_status;
-#ifdef PAX_JAIL_SUPPORT
-		if (vfs_copyopt(opts, "hardening.pax.pageexec.status",
-		    &new_state, sizeof(new_state)) != ENOENT) {
-			if (pax_feature_validate_state(&new_state)) {
-				pr->pr_hbsd.noexec.pageexec_status = new_state;
-			}
-		}
-#endif /* PAX_JAIL_SUPPORT */
+		error = pax_handle_prison_param(opts, "hardening.pax.pageexec.status",
+		    &pr->pr_hbsd.noexec.pageexec_status);
+		if (error != 0)
+			return (error);
 
 		pr->pr_hbsd.noexec.mprotect_status =
 		    pr_p->pr_hbsd.noexec.mprotect_status;
-#ifdef PAX_JAIL_SUPPORT
-		if (vfs_copyopt(opts, "hardening.pax.mprotect.status",
-		    &new_state, sizeof(new_state)) != ENOENT) {
-			if (pax_feature_validate_state(&new_state)) {
-				pr->pr_hbsd.noexec.mprotect_status = new_state;
-			}
-		}
-#endif /* PAX_JAIL_SUPPORT */
+		error = pax_handle_prison_param(opts, "hardening.pax.mprotect.status",
+		    &pr->pr_hbsd.noexec.mprotect_status);
+		if (error != 0)
+			return (error);
 	}
+
+	return (0);
 }
 
 static pax_flag_t

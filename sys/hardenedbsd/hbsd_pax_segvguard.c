@@ -228,13 +228,11 @@ sysctl_pax_segvguard_maxcrashes(SYSCTL_HANDLER_ARGS)
 }
 #endif
 
-void
+int
 pax_segvguard_init_prison(struct prison *pr, struct vfsoptlist *opts)
 {
 	struct prison *pr_p;
-#ifdef PAX_JAIL_SUPPORT
-	pax_state_t new_state;
-#endif
+	int error;
 
 	if (pr == &prison0) {
 		/* prison0 has no parent, use globals */
@@ -253,14 +251,10 @@ pax_segvguard_init_prison(struct prison *pr, struct vfsoptlist *opts)
 
 		pr->pr_hbsd.segvguard.status =
 		    pr_p->pr_hbsd.segvguard.status;
-#ifdef PAX_JAIL_SUPPORT
-		if (vfs_copyopt(opts, "hardening.pax.segvguard.status",
-		    &new_state, sizeof(new_state)) != ENOENT) {
-			if (pax_feature_validate_state(&new_state)) {
-				pr->pr_hbsd.segvguard.status = new_state;
-			}
-		}
-#endif /* PAX_JAIL_SUPPORT */
+		error = pax_handle_prison_param(opts, "hardening.pax.segvguard.status",
+		    &pr->pr_hbsd.segvguard.status);
+		if (error != 0)
+			return (error);
 
 		pr->pr_hbsd.segvguard.expiry =
 		    pr_p->pr_hbsd.segvguard.expiry;
@@ -269,6 +263,8 @@ pax_segvguard_init_prison(struct prison *pr, struct vfsoptlist *opts)
 		pr->pr_hbsd.segvguard.maxcrashes =
 		    pr_p->pr_hbsd.segvguard.maxcrashes;
 	}
+
+	return (0);
 }
 
 pax_flag_t

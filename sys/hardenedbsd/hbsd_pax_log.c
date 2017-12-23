@@ -38,7 +38,6 @@
 #include <sys/imgact.h>
 #include <sys/jail.h>
 #include <sys/ktr.h>
-#include <sys/mount.h>
 #include <sys/pax.h>
 #include <sys/proc.h>
 #include <sys/sbuf.h>
@@ -180,13 +179,11 @@ hardening_log_sysinit(void)
 }
 SYSINIT(hardening_log, SI_SUB_PAX, SI_ORDER_SECOND, hardening_log_sysinit, NULL);
 
-void
+int
 pax_log_init_prison(struct prison *pr, struct vfsoptlist *opts)
 {
 	struct prison *pr_p;
-#ifdef PAX_JAIL_SUPPORT
-	pax_state_t new_state;
-#endif
+	int error;
 
 	CTR2(KTR_PAX, "%s: Setting prison %s PaX variables\n",
 	    __func__, pr->pr_name);
@@ -201,25 +198,19 @@ pax_log_init_prison(struct prison *pr, struct vfsoptlist *opts)
 		pr_p = pr->pr_parent;
 
 		pr->pr_hbsd.log.log = pr_p->pr_hbsd.log.log;
-#ifdef PAX_JAIL_SUPPORT
-		if (vfs_copyopt(opts, "hardening.log.log",
-		    &new_state, sizeof(new_state)) != ENOENT) {
-			if (pax_feature_validate_state(&new_state)) {
-				pr->pr_hbsd.log.log = new_state;
-			}
-		}
-#endif /* PAX_JAIL_SUPPORT */
+		error = pax_handle_prison_param(opts, "hardening.log.log",
+		    &pr->pr_hbsd.log.log);
+		if (error != 0)
+			return (error);
 
 		pr->pr_hbsd.log.ulog = pr_p->pr_hbsd.log.ulog;
-#ifdef PAX_JAIL_SUPPORT
-		if (vfs_copyopt(opts, "hardening.log.ulog",
-		    &new_state, sizeof(new_state)) != ENOENT) {
-			if (pax_feature_validate_state(&new_state)) {
-				pr->pr_hbsd.log.ulog = new_state;
-			}
-		}
-#endif /* PAX_JAIL_SUPPORT */
+		error = pax_handle_prison_param(opts, "hardening.log.ulog",
+		    &pr->pr_hbsd.log.ulog);
+		if (error != 0)
+			return (error);
 	}
+
+	return (0);
 }
 
 static void
