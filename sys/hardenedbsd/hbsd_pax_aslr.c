@@ -46,7 +46,6 @@ __FBSDID("$FreeBSD$");
 #include <sys/ktr.h>
 #include <sys/libkern.h>
 #include <sys/mman.h>
-#include <sys/mount.h>
 #include <sys/pax.h>
 #include <sys/proc.h>
 #include <sys/sysctl.h>
@@ -493,13 +492,11 @@ pax_aslr_init(struct image_params *imgp)
 		imgp->sysent->sv_pax_aslr_init(p);
 }
 
-void
+int
 pax_aslr_init_prison(struct prison *pr, struct vfsoptlist *opts)
 {
 	struct prison *pr_p;
-#ifdef PAX_JAIL_SUPPORT
-	pax_state_t new_state;
-#endif
+	int error;
 
 	CTR2(KTR_PAX, "%s: Setting prison %s PaX variables\n",
 	    __func__, pr->pr_name);
@@ -517,37 +514,29 @@ pax_aslr_init_prison(struct prison *pr, struct vfsoptlist *opts)
 		pr_p = pr->pr_parent;
 
 		pr->pr_hbsd.aslr.status = pr_p->pr_hbsd.aslr.status;
-#ifdef PAX_JAIL_SUPPORT
-		if (vfs_copyopt(opts, "hardening.pax.aslr.status",
-		    &new_state, sizeof(new_state)) != ENOENT) {
-			if (pax_feature_validate_state(&new_state)) {
-				pr->pr_hbsd.aslr.status = new_state;
-			}
-		}
-#endif /* PAX_JAIL_SUPPORT */
+		error = pax_handle_prison_param(opts, "hardening.pax.aslr.status",
+		    &pr->pr_hbsd.aslr.status);
+		if (error != 0)
+			return (error);
 #ifdef MAP_32BIT
 		pr->pr_hbsd.aslr.disallow_map32bit_status =
 		    pr_p->pr_hbsd.aslr.disallow_map32bit_status;
-#ifdef PAX_JAIL_SUPPORT
-		if (vfs_copyopt(opts, "hardening.pax.disallow_map32bit.status",
-		    &new_state, sizeof(new_state)) != ENOENT) {
-			if (pax_feature_validate_state(&new_state)) {
-				pr->pr_hbsd.aslr.disallow_map32bit_status = new_state;
-			}
-		}
-#endif /* PAX_JAIL_SUPPORT */
+		error = pax_handle_prison_param(opts, "hardening.pax.disallow_map32bit.status",
+		    &pr->pr_hbsd.aslr.disallow_map32bit_status);
+		if (error != 0)
+			return (error);
 #endif /* MAP_32BIT */
 	}
+
+	return (0);
 }
 
 #ifdef COMPAT_FREEBSD32
-void
+int
 pax_aslr_init_prison32(struct prison *pr, struct vfsoptlist *opts)
 {
 	struct prison *pr_p;
-#ifdef PAX_JAIL_SUPPORT
-	pax_state_t new_state;
-#endif
+	int error;
 
 	CTR2(KTR_PAX, "%s: Setting prison %s PaX variables\n",
 	    __func__, pr->pr_name);
@@ -562,15 +551,13 @@ pax_aslr_init_prison32(struct prison *pr, struct vfsoptlist *opts)
 		pr_p = pr->pr_parent;
 
 		pr->pr_hbsd.aslr.compat_status = pr_p->pr_hbsd.aslr.compat_status;
-#ifdef PAX_JAIL_SUPPORT
-		if (vfs_copyopt(opts, "hardening.pax.aslr.compat.status",
-		    &new_state, sizeof(new_state)) != ENOENT) {
-			if (pax_feature_validate_state(&new_state)) {
-				pr->pr_hbsd.aslr.compat_status = new_state;
-			}
-		}
-#endif
+		error = pax_handle_prison_param(opts, "hardening.pax.aslr.compat.status",
+		    &pr->pr_hbsd.aslr.compat_status);
+		if (error != 0)
+			return (error);
 	}
+
+	return (0);
 }
 #endif /* COMPAT_FREEBSD32 */
 

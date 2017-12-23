@@ -114,7 +114,8 @@ int pax_elf(struct thread *td, struct image_params *imgp);
 void pax_get_flags(struct proc *p, pax_flag_t *flags);
 void pax_get_flags_td(struct thread *td, pax_flag_t *flags);
 struct prison *pax_get_prison_td(struct thread *td);
-void pax_init_prison(struct prison *pr, struct vfsoptlist *opts);
+bool pax_init_prison(struct prison *pr, struct vfsoptlist *opts);
+int pax_handle_prison_param(struct vfsoptlist *opts, const char *mib, pax_state_t *status);
 void pax_print_hbsd_context(void);
 bool pax_feature_validate_state(pax_state_t *state);
 bool pax_feature_simple_validate_state(pax_state_t *state);
@@ -130,13 +131,13 @@ int pax_control_extattr_parse_flags(struct thread *td, struct image_params *imgp
  */
 bool pax_aslr_active(struct proc *p);
 #ifdef PAX_ASLR
-void pax_aslr_init_prison(struct prison *pr, struct vfsoptlist *opts);
-void pax_aslr_init_prison32(struct prison *pr, struct vfsoptlist *opts);
+int pax_aslr_init_prison(struct prison *pr, struct vfsoptlist *opts);
+int pax_aslr_init_prison32(struct prison *pr, struct vfsoptlist *opts);
 void pax_aslr_init_vmspace(struct proc *p);
 void pax_aslr_init_vmspace32(struct proc *p);
 #else
-#define	pax_aslr_init_prison(pr, opts)	do {} while (0)
-#define	pax_aslr_init_prison32(pr, opts)	do {} while (0)
+#define	pax_aslr_init_prison(pr, opts)	({ 0; })
+#define	pax_aslr_init_prison32(pr, opts)	({ 0; })
 #define	pax_aslr_init_vmspace		NULL
 #define	pax_aslr_init_vmspace32		NULL
 #endif
@@ -165,7 +166,7 @@ typedef	uint64_t	pax_log_settings_t;
 #define	PAX_LOG_NO_P_PAX	0x00000008
 #define	PAX_LOG_NO_INDENT	0x00000010
 
-void pax_log_init_prison(struct prison *pr, struct vfsoptlist *opts);
+int pax_log_init_prison(struct prison *pr, struct vfsoptlist *opts);
 void pax_printf_flags(struct proc *p, pax_log_settings_t flags);
 void pax_printf_flags_td(struct thread *td, pax_log_settings_t flags);
 void pax_db_printf_flags(struct proc *p, pax_log_settings_t flags);
@@ -187,9 +188,9 @@ void pax_ulog_segvguard(const char *fmt, ...) __printflike(1, 2);
  * SegvGuard related functions
  */
 #ifdef PAX_SEGVGUARD
-void pax_segvguard_init_prison(struct prison *pr, struct vfsoptlist *opts);
+int pax_segvguard_init_prison(struct prison *pr, struct vfsoptlist *opts);
 #else
-#define	pax_segvguard_init_prison(pr, opts)	do {} while (0)
+#define	pax_segvguard_init_prison(pr, opts)	({ 0; })
 #endif
 int pax_segvguard_check(struct thread *, struct vnode *, const char *);
 int pax_segvguard_segfault(struct thread *, const char *);
@@ -200,9 +201,9 @@ pax_flag_t pax_segvguard_setup_flags(struct image_params *imgp, struct thread *t
  * PAX PAGEEXEC and MPROTECT hardening
  */
 #ifdef PAX_NOEXEC
-void pax_noexec_init_prison(struct prison *pr, struct vfsoptlist *opts);
+int pax_noexec_init_prison(struct prison *pr, struct vfsoptlist *opts);
 #else
-#define	pax_noexec_init_prison(pr, opts)	do {} while (0)
+#define	pax_noexec_init_prison(pr, opts)	({ 0; })
 #endif
 pax_flag_t pax_noexec_setup_flags(struct image_params *imgp, struct thread *td, pax_flag_t mode);
 void pax_noexec_nw(struct proc *p, vm_prot_t *prot, vm_prot_t *maxprot);
@@ -217,9 +218,9 @@ int pax_mprotect_enforce(struct proc *p, vm_map_t map, vm_prot_t old_prot, vm_pr
  * Hardening related functions
  */
 #ifdef PAX_HARDENING
-void pax_hardening_init_prison(struct prison *pr, struct vfsoptlist *opts);
+int pax_hardening_init_prison(struct prison *pr, struct vfsoptlist *opts);
 #else
-#define	pax_hardening_init_prison(pr, opts)	do {} while (0)
+#define	pax_hardening_init_prison(pr, opts)	({ 0; })
 #endif
 int pax_procfs_harden(struct thread *td);
 

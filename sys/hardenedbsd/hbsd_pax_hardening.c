@@ -43,7 +43,6 @@ __FBSDID("$FreeBSD$");
 #include <sys/ktr.h>
 #include <sys/libkern.h>
 #include <sys/lock.h>
-#include <sys/mount.h>
 #include <sys/pax.h>
 #include <sys/proc.h>
 #include <sys/stat.h>
@@ -119,14 +118,12 @@ pax_hardening_sysinit(void)
 }
 SYSINIT(pax_hardening, SI_SUB_PAX, SI_ORDER_SECOND, pax_hardening_sysinit, NULL);
 
-void
+int
 pax_hardening_init_prison(struct prison *pr, struct vfsoptlist *opts)
 {
 	struct prison *pr_p;
 #if 0
-#ifdef PAX_JAIL_SUPPORT
-	pax_state_t new_state;
-#endif
+	int error;
 #endif
 
 	CTR2(KTR_PAX, "%s: Setting prison %s PaX variables\n",
@@ -144,16 +141,14 @@ pax_hardening_init_prison(struct prison *pr, struct vfsoptlist *opts)
 		pr->pr_hbsd.hardening.procfs_harden =
 		    pr_p->pr_hbsd.hardening.procfs_harden;
 #if 0
-#ifdef PAX_JAIL_SUPPORT
-		if (vfs_copyopt(opts, "hardening.procfs_harden",
-		    &new_state, sizeof(new_state)) != ENOENT) {
-			if (pax_feature_simple_validate_state(&new_state)) {
-				pr->pr_hbsd.hardening.procfs_harden = new_state;
-			}
-		}
-#endif /* PAX_JAIL_SUPPORT */
+		error = pax_handle_prison_param(opts, "hardening.procfs_harden",
+		    &pr->pr_hbsd.hardening.procfs_harden);
+		if (error != 0)
+			return (error);
 #endif
 	}
+
+	return (0);
 }
 
 int
