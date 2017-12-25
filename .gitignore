@@ -1,7 +1,5 @@
-<<<<<<< HEAD
 .clang_complete
 .snap
-=======
 _.tinderbox.*
 _.amd64.*
 _.arm.*
@@ -20,4 +18,3 @@ GTAGS
 ID
 cscope.out
 ?cscope.out
->>>>>>> origin/freebsd/current/master
