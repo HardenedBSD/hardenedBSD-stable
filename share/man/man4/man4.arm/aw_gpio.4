@@ -26,37 +26,77 @@
 .\" $FreeBSD$
 .\"
 .Dd Dec 25, 2017
-.Dt AW_RTC 4
+.Dt AW_GPIO 4
 .Os
 .Sh NAME
-.Nm aw_rtc
-.Nd driver for the RTC controller in Allwinner SoC.
+.Nm aw_gpio
+.Nd driver for the GPIO and pin muxing functionalities on Allwinner SoC
+.Sh SYNOPSIS
+.Cd "device gpio"
+.Cd "options SOC_ALLWINNER_A10"
+.Cd "options SOC_ALLWINNER_A13"
+.Cd "options SOC_ALLWINNER_A20"
+.Cd "options SOC_ALLWINNER_A31"
+.Cd "options SOC_ALLWINNER_A31S"
+.Cd "options SOC_ALLWINNER_A33"
+.Cd "options SOC_ALLWINNER_A83T"
+.Cd "options SOC_ALLWINNER_H2PLUS"
+.Cd "options SOC_ALLWINNER_H3"
+.Cd "options SOC_ALLWINNER_A64"
+.Cd "options SOC_ALLWINNER_H5"
 .Sh DESCRIPTION
 The
 .Nm
-device driver provides support for the Allwinner RTC controller.
+device driver provides support for the Allwinner pin muxing and GPIO on
+Allwinner SoCs.
 .Sh HARDWARE
 The current version of the
 .Nm
-driver supports the RTC controller with one of the following compatible
-strings :
+driver supports the GPIO/pinmuxing controller with one of the following
+compatible strings :
 .Pp
 .Bl -bullet -compact
 .It
-allwinner,sun4i-a10-rtc
+allwinner,sun4i-a10-pinctrl
 .It
-allwinner,sun7i-a20-rtc
+allwinner,sun5i-a13-pinctrl
 .It
-allwinner,sun6i-a31-rtc
+allwinner,sun7i-a20-pinctrl
+.It
+allwinner,sun6i-a31-pinctrl
+.It
+allwinner,sun6i-a31s-pinctrl
+.It
+allwinner,sun6i-a31-r-pinctrl
+.It
+allwinner,sun6i-a33-pinctrl
+.It
+allwinner,sun8i-a83t-pinctrl
+.It
+allwinner,sun8i-a83t-r-pinctrl
+.It
+allwinner,sun8i-h3-pinctrl
+.It
+allwinner,sun50i-h5-pinctrl
+.It
+allwinner,sun8i-h3-r-pinctrl
+.It
+allwinner,sun50i-a64-pinctrl
+.It
+allwinner,sun50i-a64-r-pinctrl
+.El
+.Sh SEE ALSO
+.Xr fdt 4 ,
+.Xr gpio 4
 .Sh HISTORY
 The
 .Nm
 device driver first appeared in
-.Fx 11.0 .
+.Fx 10.0 .
 .Sh AUTHORS
 The
 .Nm
-device driver was written by
-.An Vladimir Belian Aq Mt fate10@gmail.com .
+device driver was originally written by
+.An Ganbold Tsagaankhuu Aq Mt ganbold@freebsd.org .
 This manual page was written by
 .An Emmanuel Vadot Aq Mt manu@freebsd.org .
