@@ -120,7 +120,7 @@ vncpassword=""
 fbsize="w=1024,h=768"
 tablet=""
 
-while getopts aAc:C:d:e:Ef:F:g:hH:iI:l:m:p:P:s:t:Tuvw c ; do
+while getopts aAc:C:d:e:Ef:F:g:hH:iI:l:L:m:p:P:s:t:Tuvw c ; do
 	case $c in
 	a)
 		bhyverun_opt="${bhyverun_opt} -a"
