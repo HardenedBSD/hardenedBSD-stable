@@ -113,7 +113,6 @@ SUBDIR=	\
 	dummynet \
 	${_ed} \
 	${_efirt} \
-	${_elink} \
 	${_em} \
 	${_ena} \
 	${_ep} \
@@ -737,7 +736,6 @@ _ce=		ce
 .if ${MK_SOURCELESS_UCODE} != "no"
 _cp=		cp
 .endif
-_elink=		elink
 _glxiic=	glxiic
 _glxsb=		glxsb
 _mse=		mse

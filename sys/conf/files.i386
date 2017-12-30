@@ -206,6 +206,7 @@ dev/ed/if_ed_isa.c		optional ed isa
 dev/ed/if_ed_wd80x3.c		optional ed isa
 dev/ed/if_ed_hpp.c		optional ed isa ed_hpp
 dev/ed/if_ed_sic.c		optional ed isa ed_sic
+dev/ep/elink.c			optional ep
 dev/fb/fb.c			optional fb | vga
 dev/fb/s3_pci.c			optional s3pci
 dev/fb/vesa.c			optional vga vesa
@@ -494,6 +495,7 @@ i386/i386/minidump_machdep.c	standard
 i386/i386/mp_clock.c		optional smp
 i386/i386/mp_machdep.c		optional smp
 i386/i386/mpboot.s		optional smp
+i386/i386/npx.c			standard
 i386/i386/perfmon.c		optional perfmon
 i386/i386/pmap.c		standard
 i386/i386/ptrace_machdep.c	standard
@@ -504,7 +506,29 @@ i386/i386/trap.c		standard
 i386/i386/uio_machdep.c		standard
 i386/i386/vm86.c		standard
 i386/i386/vm_machdep.c		standard
+<<<<<<< HEAD
 i386/isa/npx.c			standard
+=======
+i386/ibcs2/ibcs2_errno.c	optional ibcs2
+i386/ibcs2/ibcs2_fcntl.c	optional ibcs2
+i386/ibcs2/ibcs2_ioctl.c	optional ibcs2
+i386/ibcs2/ibcs2_ipc.c		optional ibcs2
+i386/ibcs2/ibcs2_isc.c		optional ibcs2
+i386/ibcs2/ibcs2_isc_sysent.c	optional ibcs2
+i386/ibcs2/ibcs2_misc.c		optional ibcs2
+i386/ibcs2/ibcs2_msg.c		optional ibcs2
+i386/ibcs2/ibcs2_other.c	optional ibcs2
+i386/ibcs2/ibcs2_signal.c	optional ibcs2
+i386/ibcs2/ibcs2_socksys.c	optional ibcs2
+i386/ibcs2/ibcs2_stat.c		optional ibcs2
+i386/ibcs2/ibcs2_sysent.c	optional ibcs2
+i386/ibcs2/ibcs2_sysi86.c	optional ibcs2
+i386/ibcs2/ibcs2_sysvec.c	optional ibcs2
+i386/ibcs2/ibcs2_util.c		optional ibcs2
+i386/ibcs2/ibcs2_xenix.c	optional ibcs2
+i386/ibcs2/ibcs2_xenix_sysent.c	optional ibcs2
+i386/ibcs2/imgact_coff.c	optional ibcs2
+>>>>>>> origin/freebsd/current/master
 i386/isa/pmtimer.c		optional pmtimer
 i386/isa/prof_machdep.c		optional profiling-routine
 i386/linux/imgact_linux.c	optional compat_linux
