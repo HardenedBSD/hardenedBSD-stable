@@ -1503,7 +1503,7 @@ set_common_sockopts(int s, int af)
 			err(1, "set IPv6 traffic class");
 #else
 		else if (af == AF_INET6) {
-			errno = ENOPROTOOPT
+			errno = ENOPROTOOPT;
 			err(1, "set IPv6 traffic class not supported");
 		}
 #endif
