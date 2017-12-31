@@ -222,6 +222,8 @@ mi_startup(void)
 	int verbose;
 #endif
 
+	TSENTER();
+
 	if (boothowto & RB_VERBOSE)
 		bootverbose++;
 
@@ -314,6 +316,8 @@ restart:
 			goto restart;
 		}
 	}
+
+	TSEXIT();	/* Here so we don't overlap with start_init. */
 
 	mtx_assert(&Giant, MA_OWNED | MA_NOTRECURSED);
 	mtx_unlock(&Giant);
@@ -717,6 +721,8 @@ start_init(void *dummy)
 
 	GIANT_REQUIRED;
 
+	TSENTER();	/* Here so we don't overlap with mi_startup. */
+
 	td = curthread;
 	p = td->td_proc;
 
@@ -810,6 +816,7 @@ start_init(void *dummy)
 		 */
 		if ((error = sys_execve(td, &args)) == EJUSTRETURN) {
 			mtx_unlock(&Giant);
+			TSEXIT();
 			return;
 		}
 		if (error != ENOENT)
