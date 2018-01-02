@@ -1,6 +1,6 @@
 #!/bin/sh
 #-
-# Copyright (c) 2011 Nathan Whitehorn
+# Copyright (c) 2017 Nathan Whitehorn
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -26,12 +26,15 @@
 #
 # $FreeBSD$
 
-clear
-echo "HardenedBSD Installer"
-echo "========================"
-echo
+if [ `uname -m` == powerpc ]; then
+	platform=`sysctl -n hw.platform`
+	if [ "$platform" == ps3 -o "$platform" == powernv ]; then
+		rootpart=$(awk '{ if($2 == "/") printf("%s:%s\n", $3, $1); }' $PATH_FSTAB)
+		mkdir -p $BSDINSTALL_CHROOT/boot/etc/
+		echo FreeBSD=\'/kernel/kernel vfs.root.mountfrom=${rootpart}\' > $BSDINSTALL_CHROOT/boot/etc/kboot.conf
+	fi
+fi
 
-echo "Please select a password for the system management account (root):"
-echo "Typed characters will not be visible."
+# For new-style EFI booting, add code here
+# Add boot0cfg for MBR BIOS booting?
 
-chroot $BSDINSTALL_CHROOT passwd root 2>&1

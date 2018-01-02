@@ -53,15 +53,15 @@
 #include <netconfig.h>
 #include <errno.h>
 #include <syslog.h>
-#include <unistd.h>
 #include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
 #ifdef PORTMAP
 #include <netinet/in.h>
 #include <rpc/rpc_com.h>
 #include <rpc/pmap_prot.h>
 #endif /* PORTMAP */
-#include <string.h>
-#include <stdlib.h>
 
 #include "rpcbind.h"
 
@@ -1137,6 +1137,16 @@ my_svc_run(void)
 			 * that it was set by the signal handlers (or any
 			 * other outside event) and not caused by poll().
 			 */
+			if (doterminate != 0) {
+				close(rpcbindlockfd);
+#ifdef WARMSTART
+				syslog(LOG_ERR,
+				    "rpcbind terminating on signal %d. Restart with \"rpcbind -w\"",
+				    (int)doterminate);
+				write_warmstart();	/* Dump yourself */
+#endif
+				exit(2);
+			}
 		case 0:
 			cleanfds = svc_fdset;
 			__svc_clean_idle(&cleanfds, 30, FALSE);
