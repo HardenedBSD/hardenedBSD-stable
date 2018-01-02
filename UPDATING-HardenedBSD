@@ -1,3 +1,33 @@
+[20180103] PAX_JAIL_SUPPORT
+__HardenedBSD_version = 1200056
+
+	Added infrastructure to change hardening settings at
+	jail creating time. You can use the same "mibs" as
+	jail params, which exists under the hardening sysctl
+	leaf. See the example jail.conf sniplet:
+
+	  exec.start = "/bin/sh /etc/rc";
+	  exec.stop = "/bin/sh /etc/rc.shutdown";
+	  exec.clean;
+	  mount.devfs;
+	  
+	  path = "/usr/jails/$name";
+	  host.hostname = "$name";
+	  
+	  hbsdnx {
+	          hardening.pax.segvguard.status = 3;
+	          hardening.pax.mprotect.status = 3;
+	          hardening.pax.pageexec.status = 3;
+	          hardening.pax.aslr.status = 3;
+	          persist;
+	  }
+
+	In the current implementation the settings are still
+	modifiable via sysctls inside from the jail, but this
+	will change in the future. The same is true for the
+	nested jails.
+
+
 [20170914] TOCTOU fix, PAX_CONTROL_{ACL,EXTATTR}
 __HardenedBSD_version = 1200055
 
