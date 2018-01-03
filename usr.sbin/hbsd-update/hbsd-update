@@ -548,8 +548,8 @@ apply_base() {
 				return 1
 			fi
 
-			for d in $(${FIND} ${mountpoint}/usr/src -type d | sed 1d); do
-				rmdir ${d}
+			for d in $(${FIND} ${mountpoint}/usr/src -type d -depth 1); do
+				rm -rf ${d}
 				res=${?}
 				if [ ${res} -gt 0 ]; then
 					echo "[-] Removing source directories failed" >&2
