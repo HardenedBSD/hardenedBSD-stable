@@ -150,6 +150,11 @@ static int num_buf_aio = 0;
 SYSCTL_INT(_vfs_aio, OID_AUTO, num_buf_aio, CTLFLAG_RD, &num_buf_aio, 0,
     "Number of aio requests presently handled by the buf subsystem");
 
+static int num_unmapped_aio = 0;
+SYSCTL_INT(_vfs_aio, OID_AUTO, num_unmapped_aio, CTLFLAG_RD, &num_unmapped_aio,
+    0,
+    "Number of aio requests presently handled by unmapped I/O buffers");
+
 /* Number of async I/O processes in the process of being started */
 /* XXX This should be local to aio_aqueue() */
 static int num_aio_resv_start = 0;
@@ -1223,6 +1228,9 @@ aio_qphysio(struct proc *p, struct kaiocb *job)
 	cb = &job->uaiocb;
 	fp = job->fd_file;
 
+	if (!(cb->aio_lio_opcode == LIO_WRITE ||
+	    cb->aio_lio_opcode == LIO_READ))
+		return (-1);
 	if (fp == NULL || fp->f_type != DTYPE_VNODE)
 		return (-1);
 
@@ -1263,7 +1271,7 @@ aio_qphysio(struct proc *p, struct kaiocb *job)
 			goto unref;
 		}
 		if (ki->kaio_buffer_count >= ki->kaio_ballowed_count) {
-			error = -1;
+			error = EAGAIN;
 			goto unref;
 		}
 
@@ -1305,6 +1313,7 @@ aio_qphysio(struct proc *p, struct kaiocb *job)
 		bp->bio_ma_offset = poff;
 		bp->bio_data = unmapped_buf;
 		bp->bio_flags |= BIO_UNMAPPED;
+		atomic_add_int(&num_unmapped_aio, 1);
 	}
 
 	/* Perform transfer. */
@@ -1694,27 +1703,13 @@ aio_queue_file(struct file *fp, struct kaiocb *job)
 	struct kaiocb *job2;
 	struct vnode *vp;
 	struct mount *mp;
-	int error, opcode;
+	int error;
 	bool safe;
 
 	ki = job->userproc->p_aioinfo;
-	opcode = job->uaiocb.aio_lio_opcode;
-	if (opcode == LIO_SYNC)
-		goto queueit;
-
-	if ((error = aio_qphysio(job->userproc, job)) == 0)
-		goto done;
-#if 0
-	/*
-	 * XXX: This means qphysio() failed with EFAULT.  The current
-	 * behavior is to retry the operation via fo_read/fo_write.
-	 * Wouldn't it be better to just complete the request with an
-	 * error here?
-	 */
-	if (error > 0)
-		goto done;
-#endif
-queueit:
+	error = aio_qphysio(job->userproc, job);
+	if (error >= 0)
+		return (error);
 	safe = false;
 	if (fp->f_type == DTYPE_VNODE) {
 		vp = fp->f_vnode;
@@ -1730,7 +1725,13 @@ queueit:
 		return (EOPNOTSUPP);
 	}
 
-	if (opcode == LIO_SYNC) {
+	switch (job->uaiocb.aio_lio_opcode) {
+	case LIO_READ:
+	case LIO_WRITE:
+		aio_schedule(job, aio_process_rw);
+		error = 0;
+		break;
+	case LIO_SYNC:
 		AIO_LOCK(ki);
 		TAILQ_FOREACH(job2, &ki->kaio_jobqueue, plist) {
 			if (job2->fd_file == job->fd_file &&
@@ -1752,22 +1753,12 @@ queueit:
 			return (0);
 		}
 		AIO_UNLOCK(ki);
-	}
-
-	switch (opcode) {
-	case LIO_READ:
-	case LIO_WRITE:
-		aio_schedule(job, aio_process_rw);
-		error = 0;
-		break;
-	case LIO_SYNC:
 		aio_schedule(job, aio_process_sync);
 		error = 0;
 		break;
 	default:
 		error = EINVAL;
 	}
-done:
 	return (error);
 }
 
@@ -2365,7 +2356,8 @@ aio_physwakeup(struct bio *bp)
 		AIO_LOCK(ki);
 		ki->kaio_buffer_count--;
 		AIO_UNLOCK(ki);
-	}
+	} else
+		atomic_subtract_int(&num_unmapped_aio, 1);
 	vm_page_unhold_pages(job->pages, job->npages);
 
 	bp = job->bp;
