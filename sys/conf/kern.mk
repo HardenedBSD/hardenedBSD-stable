@@ -214,6 +214,10 @@ CFLAGS+=	-fwrapv
 CFLAGS+=	-fstack-protector
 .endif
 
+.if defined(MK_RETPOLINE) && ${MK_RETPOLINE} != "no"
+CFLAGS+=	-mretpoline
+.endif
+
 #
 # Add -gdwarf-2 when compiling -g. The default starting in clang v3.4
 # and gcc 4.8 is to generate DWARF version 4. However, our tools don't
