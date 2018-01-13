@@ -1,7 +1,7 @@
 /*-
  * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
  *
- * Copyright (c) 2017 Kyle Evans <kevans@FreeBSD.org>
+ * Copyright (c) 2018 Kyle Evans <kevans@FreeBSD.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,53 +27,16 @@
  * $FreeBSD$
  */
 
-#ifndef DEV_SYSCON_H
-#define DEV_SYSCON_H
+#ifndef DEV_SYSCON_GENERIC_H
+#define DEV_SYSCON_GENERIC_H
 
-#include "opt_platform.h"
-
-#include <sys/types.h>
-#include <sys/kobj.h>
-#ifdef FDT
-#include <dev/ofw/ofw_bus.h>
-#endif
-
-struct syscon {
-	KOBJ_FIELDS;
-
-	TAILQ_ENTRY(syscon)	syscon_link;   /* Global list entry */
-
-	device_t		pdev;		/* provider device */
-#ifdef FDT
-	phandle_t		ofw_node;	/* OFW node for syscon */
-#endif
-	void			*softc;		/* provider softc */
+struct syscon_generic_softc {
+	device_t		dev;
+	struct syscon		*syscon;
+	struct resource		*mem_res;
+	struct mtx		mtx;
 };
 
-/*
- * Shorthands for constructing method tables.
- */
-#define	SYSCONMETHOD		KOBJMETHOD
-#define	SYSCONMETHOD_END	KOBJMETHOD_END
-#define	syscon_method_t		kobj_method_t
-#define	syscon_class_t		kobj_class_t
-DECLARE_CLASS(syscon_class);
+DECLARE_CLASS(syscon_generic_driver);
 
-void *syscon_get_softc(struct syscon *syscon);
-
-/*
- * Provider interface
- */
-struct syscon *syscon_create(device_t pdev, syscon_class_t syscon_class);
-struct syscon *syscon_register(struct syscon *syscon);
-int syscon_unregister(struct syscon *syscon);
-
-#ifdef FDT
-struct syscon *syscon_create_ofw_node(device_t pdev,
-    syscon_class_t syscon_class, phandle_t node);
-phandle_t syscon_get_ofw_node(struct syscon *syscon);
-int syscon_get_by_ofw_property(device_t consumer, phandle_t node, char *name,
-    struct syscon **syscon);
-#endif
-
-#endif /* DEV_SYSCON_H */
+#endif /* DEV_SYSCON_GENERIC_H */

@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+ *
  * Copyright (c) 2018 Justin Hibbits
  * All rights reserved.
  *
@@ -30,21 +32,12 @@
 __FBSDID("$FreeBSD$");
 
 #include <sys/param.h>
-#include <sys/systm.h>
-#include <sys/conf.h>
 #include <sys/bus.h>
 #include <sys/kernel.h>
 #include <sys/module.h>
-#include <sys/lock.h>
-#include <sys/mutex.h>
-#include <sys/resource.h>
-#include <sys/rman.h>
 
 #include <machine/bus.h>
-#include <machine/resource.h>
-#include <machine/stdarg.h>
 
-#include <dev/fdt/fdt_common.h>
 #include <dev/ofw/ofw_bus.h>
 #include <dev/ofw/ofw_bus_subr.h>
 
