@@ -1,1 +1,8 @@
+<<<<<<< HEAD
 Set to build and install lint(1).
+=======
+.\" $FreeBSD$
+Set to build the lint binaries and library.
+.\" $FreeBSD$
+Set to build the lint binaries and library.
+>>>>>>> origin/freebsd/11-stable/master
