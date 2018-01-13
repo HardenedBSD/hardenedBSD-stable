@@ -471,6 +471,7 @@ MK_SAFESTACK:=	no
 
 .if ${MK_LLD_IS_LD} == "no" || ${MK_LLD_BOOTSTRAP} == "no"
 MK_CFI:=	no
+MK_RETPOLINE:=	no
 .endif
 
 .if ${MK_LIBRESSL} == "no"
