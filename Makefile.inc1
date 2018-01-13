@@ -537,12 +537,8 @@ BSARGS= 	DESTDIR= \
 		-DNO_CPU_CFLAGS MK_WARNS=no MK_CTF=no \
 		MK_CLANG_EXTRAS=yes MK_CLANG_FULL=no \
 		MK_LLDB=no MK_TESTS=no \
-<<<<<<< HEAD
-		MK_INCLUDES=yes MK_CFI=no
-=======
 		MK_LLD=${MK_LLD_BOOTSTRAP} \
-		MK_INCLUDES=yes
->>>>>>> origin/freebsd/current/master
+		MK_INCLUDES=yes MK_CFI=no
 
 BMAKE=		\
 		${BMAKEENV} ${MAKE} ${WORLD_FLAGS} -f Makefile.inc1 \
