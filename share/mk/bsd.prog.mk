@@ -100,6 +100,14 @@ LDFLAGS+=	-fsanitize=cfi -fvisibility=hidden -flto ${CFI_OVERRIDE}
 .endif
 .endif
 
+.if defined(MK_RETPOLINE) && ${MK_RETPOLINE} != "no"
+CFLAGS+=	-mretpoline
+CXXFLAGS+=	-mretpoline
+.if !defined(NOPIE)
+LDFLAGS+=	-Wl,-z,retpolineplt
+.endif
+.endif
+
 .if defined(MK_RELRO)
 .if ${MK_RELRO} != "no"
 LDFLAGS+=	-Wl,-z,relro
