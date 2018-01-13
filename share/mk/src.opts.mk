@@ -258,13 +258,7 @@ __DEFAULT_YES_OPTIONS+=LLVM_LIBUNWIND
 .else
 __DEFAULT_NO_OPTIONS+=LLVM_LIBUNWIND
 .endif
-<<<<<<< HEAD
-.if ${__T} == "aarch64" || ${__T} == "amd64" || ${__T} == "i386"
-=======
-.if ${__T} == "aarch64"
-__DEFAULT_YES_OPTIONS+=LLD_BOOTSTRAP LLD_IS_LD
-.elif ${__T} == "amd64"
->>>>>>> origin/freebsd/current/master
+.if ${__T} == "aarch64" || ${__T} == "amd64"
 __DEFAULT_YES_OPTIONS+=LLD_BOOTSTRAP
 .else
 __DEFAULT_NO_OPTIONS+=LLD_BOOTSTRAP
