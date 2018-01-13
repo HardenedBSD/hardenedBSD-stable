@@ -233,12 +233,8 @@ sysctl_kern_randompid(SYSCTL_HANDLER_ARGS)
 }
 
 SYSCTL_PROC(_kern, OID_AUTO, randompid, CTLTYPE_INT|CTLFLAG_RW,
-<<<<<<< HEAD
-    0, 0, sysctl_kern_randompid, "I", "Random PID modulus");
-#endif
-=======
     0, 0, sysctl_kern_randompid, "I", "Random PID modulus. Special values: 0: disable, 1: choose random value");
->>>>>>> origin/freebsd/11-stable/master
+#endif
 
 static int
 fork_findpid(int flags)
