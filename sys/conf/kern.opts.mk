@@ -85,6 +85,12 @@ BROKEN_OPTIONS+= FORMAT_EXTENSIONS
 BROKEN_OPTIONS+= OFED
 .endif
 
+.if ${MACHINE_CPUARCH} == "amd64"
+__DEFAULT_YES_OPTIONS+=	RETPOLINE
+.else
+__DEFAULT_NO_OPTIONS+=	RETPOLINE
+.endif
+
 # expanded inline from bsd.mkopt.mk to avoid share/mk dependency
 
 # Those that default to yes

@@ -142,6 +142,11 @@ CFLAGS+=	-fno-omit-frame-pointer -mno-omit-leaf-frame-pointer
 CFLAGS+=	-fPIC
 .endif
 
+.if defined(MK_RETPOLINE) && ${MK_RETPOLINE} != "no"
+CFLAGS+=	-mretpoline
+LDFLAGS+=	-Wl,-z,retpoline
+.endif
+
 # Temporary workaround for PR 196407, which contains the fascinating details.
 # Don't allow clang to use fpu instructions or registers in kernel modules.
 .if ${MACHINE_CPUARCH} == arm
