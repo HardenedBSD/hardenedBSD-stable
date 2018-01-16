@@ -387,13 +387,13 @@ static struct syscall decoded_syscalls[] = {
 	  .args = { { Name, 0 }, { Quotactlcmd, 1 }, { Int, 2 }, { Ptr, 3 } } },
 	{ .name = "read", .ret_type = 1, .nargs = 3,
 	  .args = { { Int, 0 }, { BinString | OUT, 1 }, { Sizet, 2 } } },
-	{ .name = "readv", .ret_type = 1, .nargs = 3,
-	  .args = { { Int, 0 }, { Iovec | OUT, 1 }, { Int, 2 } } },
 	{ .name = "readlink", .ret_type = 1, .nargs = 3,
 	  .args = { { Name, 0 }, { Readlinkres | OUT, 1 }, { Sizet, 2 } } },
 	{ .name = "readlinkat", .ret_type = 1, .nargs = 4,
 	  .args = { { Atfd, 0 }, { Name, 1 }, { Readlinkres | OUT, 2 },
 		    { Sizet, 3 } } },
+	{ .name = "readv", .ret_type = 1, .nargs = 3,
+	  .args = { { Int, 0 }, { Iovec | OUT, 1 }, { Int, 2 } } },
 	{ .name = "reboot", .ret_type = 1, .nargs = 1,
 	  .args = { { Reboothowto, 0 } } },
 	{ .name = "recvfrom", .ret_type = 1, .nargs = 6,
@@ -1308,20 +1308,20 @@ print_sctp_initmsg(FILE *fp, struct sctp_initmsg *init)
 }
 
 static void
-print_sctp_sndrcvinfo(FILE *fp, bool recv, struct sctp_sndrcvinfo *info)
+print_sctp_sndrcvinfo(FILE *fp, bool receive, struct sctp_sndrcvinfo *info)
 {
 	fprintf(fp, "{sid=%u,", info->sinfo_stream);
-	if (recv) {
+	if (receive) {
 		fprintf(fp, "ssn=%u,", info->sinfo_ssn);
 	}
 	fputs("flgs=", fp);
 	sysdecode_sctp_sinfo_flags(fp, info->sinfo_flags);
 	fprintf(fp, ",ppid=%u,", ntohl(info->sinfo_ppid));
-	if (!recv) {
+	if (!receive) {
 		fprintf(fp, "ctx=%u,", info->sinfo_context);
 		fprintf(fp, "ttl=%u,", info->sinfo_timetolive);
 	}
-	if (recv) {
+	if (receive) {
 		fprintf(fp, "tsn=%u,", info->sinfo_tsn);
 		fprintf(fp, "cumtsn=%u,", info->sinfo_cumtsn);
 	}
@@ -1405,7 +1405,7 @@ print_sctp_ipv6_addr(FILE *fp, struct in6_addr *addr)
 }
 
 static void
-print_sctp_cmsg(FILE *fp, bool recv, struct cmsghdr *cmsghdr)
+print_sctp_cmsg(FILE *fp, bool receive, struct cmsghdr *cmsghdr)
 {
 	void *data;
 	socklen_t len;
@@ -1421,7 +1421,7 @@ print_sctp_cmsg(FILE *fp, bool recv, struct cmsghdr *cmsghdr)
 		break;
 	case SCTP_SNDRCV:
 		if (len == CMSG_LEN(sizeof(struct sctp_sndrcvinfo)))
-			print_sctp_sndrcvinfo(fp, recv,
+			print_sctp_sndrcvinfo(fp, receive,
 			    (struct sctp_sndrcvinfo *)data);
 		else
 			print_gen_cmsg(fp, cmsghdr);
@@ -1483,7 +1483,7 @@ print_sctp_cmsg(FILE *fp, bool recv, struct cmsghdr *cmsghdr)
 }
 
 static void
-print_cmsgs(FILE *fp, pid_t pid, bool recv, struct msghdr *msghdr)
+print_cmsgs(FILE *fp, pid_t pid, bool receive, struct msghdr *msghdr)
 {
 	struct cmsghdr *cmsghdr;
 	char *cmsgbuf;
@@ -1519,7 +1519,7 @@ print_cmsgs(FILE *fp, pid_t pid, bool recv, struct msghdr *msghdr)
 		fputs(",data=", fp);
 		switch (level) {
 		case IPPROTO_SCTP:
-			print_sctp_cmsg(fp, recv, cmsghdr);
+			print_sctp_cmsg(fp, receive, cmsghdr);
 			break;
 		default:
 			print_gen_cmsg(fp, cmsghdr);
