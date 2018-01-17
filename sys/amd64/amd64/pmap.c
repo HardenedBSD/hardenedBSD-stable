@@ -108,6 +108,7 @@ __FBSDID("$FreeBSD$");
  *	and to when physical maps must be made correct.
  */
 
+#include "opt_pax.h"
 #include "opt_pmap.h"
 #include "opt_vm.h"
 
@@ -414,7 +415,11 @@ int invpcid_works = 0;
 SYSCTL_INT(_vm_pmap, OID_AUTO, invpcid_works, CTLFLAG_RD, &invpcid_works, 0,
     "Is the invpcid instruction available ?");
 
+#ifdef PAX
+int pti = 1;
+#else
 int pti = 0;
+#endif
 SYSCTL_INT(_vm_pmap, OID_AUTO, pti, CTLFLAG_RDTUN | CTLFLAG_NOFETCH,
     &pti, 0,
     "Page Table Isolation enabled");
