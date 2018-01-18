@@ -571,11 +571,11 @@ nmi_fromuserspace:
 	cmpq	$~0,%rax
 	je	1f
 	movq	%rax,%cr3
-	movq	PCPU(CURPCB),%rdi
+1:	movq	PCPU(CURPCB),%rdi
 	testq	%rdi,%rdi
 	jz	3f
 	orl	$PCB_FULL_IRET,PCB_FLAGS(%rdi)
-1:	testb	$CPUID_STDEXT_FSGSBASE,cpu_stdext_feature(%rip)
+	testb	$CPUID_STDEXT_FSGSBASE,cpu_stdext_feature(%rip)
 	jz	3f
 	cmpw	$KUF32SEL,TF_FS(%rsp)
 	jne	2f
@@ -663,9 +663,8 @@ outofnmi:
 	cli
 nocallchain:
 #endif
-	testl	%ebx,%ebx
+	testl	%ebx,%ebx	/* %ebx == 0 => return to userland */
 	jnz	doreti_exit
-nmi_kernelexit:
 	/*
 	 * Put back the preserved MSR_GSBASE value.
 	 */
@@ -675,7 +674,6 @@ nmi_kernelexit:
 	shrq	$32,%rdx
 	wrmsr
 	movq	%r13,%cr3
-nmi_restoreregs:
 	RESTORE_REGS
 	addq	$TF_RIP,%rsp
 	jmp	doreti_iret
