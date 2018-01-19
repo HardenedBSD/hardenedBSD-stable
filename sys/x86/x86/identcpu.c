@@ -42,6 +42,7 @@
 __FBSDID("$FreeBSD$");
 
 #include "opt_cpu.h"
+#include "opt_pax.h"
 
 #include <sys/param.h>
 #include <sys/bus.h>
@@ -1612,10 +1613,14 @@ int
 pti_get_default(void)
 {
 
+#ifdef PAX
+	return (1);
+#else
 	if (strcmp(cpu_vendor, AMD_VENDOR_ID) == 0)
 		return (0);
 
 	return (1);
+#endif
 }
 
 static u_int
