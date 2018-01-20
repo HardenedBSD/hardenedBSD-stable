@@ -322,6 +322,7 @@ public:
   void addPostRegAlloc() override;
   void addPreEmitPass() override;
   void addPreSched2() override;
+  void addEmitPass() override;
 };
 
 class X86ExecutionDepsFix : public ExecutionDepsFix {
@@ -350,6 +351,11 @@ void X86PassConfig::addIRPasses() {
 
   if (TM->getOptLevel() != CodeGenOpt::None)
     addPass(createInterleavedAccessPass());
+
+  // Add passes that handle indirect branch removal and insertion of a retpoline
+  // thunk. These will be a no-op unless a function subtarget has the retpoline
+  // feature enabled.
+  addPass(createIndirectBrExpandPass());
 }
 
 bool X86PassConfig::addInstSelector() {
@@ -436,3 +442,5 @@ void X86PassConfig::addPreEmitPass() {
     addPass(createX86EvexToVexInsts());
   }
 }
+
+void X86PassConfig::addEmitPass() { addPass(createX86RetpolineThunksPass()); }
