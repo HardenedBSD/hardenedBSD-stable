@@ -49,6 +49,7 @@
 #include <sys/mnttab.h>
 #include <sys/mntent.h>
 #include <sys/types.h>
+#include <sys/sysctl.h>
 #include <libcmdutils.h>
 
 #include <libzfs.h>
@@ -593,9 +594,18 @@ static int
 libzfs_load(void)
 {
 	int error;
-
 #ifdef HARDENEDBSD
-	if (getuid() == 0) {
+	int jailed;
+	size_t sz;
+
+	sz = sizeof(jailed);
+	jailed = 0;
+	/*
+	 * XXX sysctlbyname(3) can fail, but we don't care.
+	 * Autoloading the module here is purely for convenience.
+	 */
+	sysctlbyname("security.jail.jailed", &jailed, &sz, NULL, 0);
+	if (getuid() == 0 && jailed == 0) {
 #endif
 		if (modfind("zfs") < 0) {
 			/* Not present in kernel, try loading it. */
