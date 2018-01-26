@@ -19,7 +19,7 @@ LIB?=		sa
 NO_PIC=
 
 # standalone components and stuff we have modified locally
-SRCS+=	gzguts.h zutil.h __main.c assert.c bcd.c environment.c getopt.c gets.c \
+SRCS+=	gzguts.h zutil.h __main.c abort.c assert.c bcd.c environment.c getopt.c gets.c \
 	globals.c pager.c panic.c printf.c strdup.c strerror.c strtol.c strtoul.c \
 	random.c sbrk.c twiddle.c zalloc.c zalloc_malloc.c
 
@@ -37,6 +37,11 @@ SRCS+=	bcmp.c bcopy.c bzero.c ffs.c fls.c \
 	qdivrem.c strcat.c strchr.c strcmp.c strcpy.c stpcpy.c stpncpy.c \
 	strcspn.c strlcat.c strlcpy.c strlen.c strncat.c strncmp.c strncpy.c \
 	strnlen.c strpbrk.c strrchr.c strsep.c strspn.c strstr.c strtok.c swab.c
+
+# stdlib functions from libc
+.PATH: ${LIBC_SRC}/stdlib
+SRCS+=	abs.c
+
 .if ${MACHINE_CPUARCH} == "arm"
 .PATH: ${LIBC_SRC}/arm/gen
 
