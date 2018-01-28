@@ -30,7 +30,11 @@ __FBSDID("$FreeBSD$");
 #include "opt_compat.h"
 #include "opt_inet.h"
 #include "opt_inet6.h"
+<<<<<<< HEAD
 #include "opt_pax.h"
+=======
+#include "opt_ktrace.h"
+>>>>>>> origin/freebsd/11-stable/master
 
 #define __ELF_WORD_SIZE 32
 
@@ -85,6 +89,9 @@ __FBSDID("$FreeBSD$");
 #include <sys/msg.h>
 #include <sys/sem.h>
 #include <sys/shm.h>
+#ifdef KTRACE
+#include <sys/ktrace.h>
+#endif
 
 #ifdef INET
 #include <netinet/in.h>
@@ -647,6 +654,9 @@ freebsd32_kevent(struct thread *td, struct freebsd32_kevent_args *uap)
 		.k_copyout = freebsd32_kevent_copyout,
 		.k_copyin = freebsd32_kevent_copyin,
 	};
+#ifdef KTRACE
+	struct kevent32 *eventlist = uap->eventlist;
+#endif
 	int error;
 
 
@@ -659,8 +669,18 @@ freebsd32_kevent(struct thread *td, struct freebsd32_kevent_args *uap)
 		tsp = &ts;
 	} else
 		tsp = NULL;
+#ifdef KTRACE
+	if (KTRPOINT(td, KTR_STRUCT_ARRAY))
+		ktrstructarray("kevent32", UIO_USERSPACE, uap->changelist,
+		    uap->nchanges, sizeof(struct kevent32));
+#endif
 	error = kern_kevent(td, uap->fd, uap->nchanges, uap->nevents,
 	    &k_ops, tsp);
+#ifdef KTRACE
+	if (error == 0 && KTRPOINT(td, KTR_STRUCT_ARRAY))
+		ktrstructarray("kevent32", UIO_USERSPACE, eventlist,
+		    td->td_retval[0], sizeof(struct kevent32));
+#endif
 	return (error);
 }
 
