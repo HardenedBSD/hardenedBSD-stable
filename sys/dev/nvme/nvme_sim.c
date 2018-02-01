@@ -44,6 +44,9 @@ __FBSDID("$FreeBSD$");
 #include <cam/cam_xpt_internal.h>	// Yes, this is wrong.
 #include <cam/cam_debug.h>
 
+#include <dev/pci/pcivar.h>
+#include <dev/pci/pcireg.h>
+
 #include "nvme_private.h"
 
 #define ccb_accb_ptr spriv_ptr0
@@ -73,11 +76,13 @@ nvme_sim_nvmeio_done(void *ccb_arg, const struct nvme_completion *cpl)
 	 * it means. Make our best guess, though for the status code.
 	 */
 	memcpy(&ccb->nvmeio.cpl, cpl, sizeof(*cpl));
-	if (nvme_completion_is_error(cpl))
+	if (nvme_completion_is_error(cpl)) {
 		ccb->ccb_h.status = CAM_REQ_CMP_ERR;
-	else
+		xpt_done(ccb);
+	} else {
 		ccb->ccb_h.status = CAM_REQ_CMP;
-	xpt_done(ccb);
+		xpt_done_direct(ccb);
+	}
 }
 
 static void
@@ -96,6 +101,8 @@ nvme_sim_nvmeio(struct cam_sim *sim, union ccb *ccb)
 	if ((nvmeio->ccb_h.flags & CAM_DATA_MASK) == CAM_DATA_BIO)
 		req = nvme_allocate_request_bio((struct bio *)payload,
 		    nvme_sim_nvmeio_done, ccb);
+	else if ((nvmeio->ccb_h.flags & CAM_DATA_SG) == CAM_DATA_SG)
+		req = nvme_allocate_request_ccb(ccb, nvme_sim_nvmeio_done, ccb);
 	else if (payload == NULL)
 		req = nvme_allocate_request_null(nvme_sim_nvmeio_done, ccb);
 	else
@@ -165,7 +172,8 @@ nvme_sim_action(struct cam_sim *sim, union ccb *ccb)
 		break;
 	case XPT_PATH_INQ:		/* Path routing inquiry */
 	{
-		struct ccb_pathinq *cpi = &ccb->cpi;
+		struct ccb_pathinq	*cpi = &ccb->cpi;
+		device_t		dev = ctrlr->dev;
 
 		/*
 		 * NVMe may have multiple LUNs on the same path. Current generation
@@ -193,6 +201,11 @@ nvme_sim_action(struct cam_sim *sim, union ccb *ccb)
                 cpi->protocol = PROTO_NVME;
                 cpi->protocol_version = NVME_REV_1;	/* Groks all 1.x NVMe cards */
 		cpi->xport_specific.nvme.nsid = ns->id;
+		cpi->xport_specific.nvme.domain = pci_get_domain(dev);
+		cpi->xport_specific.nvme.bus = pci_get_bus(dev);
+		cpi->xport_specific.nvme.slot = pci_get_slot(dev);
+		cpi->xport_specific.nvme.function = pci_get_function(dev);
+		cpi->xport_specific.nvme.extra = 0;
 		cpi->ccb_h.status = CAM_REQ_CMP;
 		break;
 	}
@@ -250,7 +263,7 @@ static void
 nvme_sim_poll(struct cam_sim *sim)
 {
 
-	nvme_ctrlr_intx_handler(sim2ctrlr(sim));
+	nvme_ctrlr_poll(sim2ctrlr(sim));
 }
 
 static void *
@@ -261,7 +274,7 @@ nvme_sim_new_controller(struct nvme_controller *ctrlr)
 	int unit;
 	struct nvme_sim_softc *sc = NULL;
 
-	max_trans = 256;/* XXX not so simple -- must match queues */
+	max_trans = ctrlr->max_hw_pend_io;
 	unit = device_get_unit(ctrlr->dev);
 	devq = cam_simq_alloc(max_trans);
 	if (devq == NULL)

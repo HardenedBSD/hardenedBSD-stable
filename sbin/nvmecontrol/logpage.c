@@ -53,8 +53,7 @@ __FBSDID("$FreeBSD$");
 #define DEFAULT_SIZE	(4096)
 #define MAX_FW_SLOTS	(7)
 
-typedef void (*print_fn_t)(void *buf, uint32_t size);
-
+typedef void (*print_fn_t)(const struct nvme_controller_data *cdata, void *buf, uint32_t size);
 
 struct kv_name
 {
@@ -75,35 +74,18 @@ kv_lookup(const struct kv_name *kv, size_t kv_count, uint32_t key)
 	return bad;
 }
 
-/*
- * 128-bit integer augments to standard values
- */
-#define UINT128_DIG	39
-typedef __uint128_t uint128_t;
-
-static inline uint128_t
-to128(void *p)
+static void
+print_log_hex(const struct nvme_controller_data *cdata __unused, void *data, uint32_t length)
 {
-	return *(uint128_t *)p;
+
+	print_hex(data, length);
 }
 
-static char *
-uint128_to_str(uint128_t u, char *buf, size_t buflen)
+static void
+print_bin(const struct nvme_controller_data *cdata __unused, void *data, uint32_t length)
 {
-	char *end = buf + buflen - 1;
 
-	*end-- = '\0';
-	if (u == 0)
-		*end-- = '0';
-	while (u && end >= buf) {
-		*end-- = u % 10 + '0';
-		u /= 10;
-	}
-	end++;
-	if (u != 0)
-		return NULL;
-
-	return end;
+	write(STDOUT_FILENO, data, length);
 }
 
 static void *
@@ -141,7 +123,7 @@ read_logpage(int fd, uint8_t log_page, int nsid, void *payload,
 }
 
 static void
-print_log_error(void *buf, uint32_t size)
+print_log_error(const struct nvme_controller_data *cdata __unused, void *buf, uint32_t size)
 {
 	int					i, nentries;
 	struct nvme_error_information_entry	*entry = buf;
@@ -188,7 +170,7 @@ print_temp(uint16_t t)
 
 
 static void
-print_log_health(void *buf, uint32_t size __unused)
+print_log_health(const struct nvme_controller_data *cdata __unused, void *buf, uint32_t size __unused)
 {
 	struct nvme_health_information_page *health = buf;
 	char cbuf[UINT128_DIG + 1];
@@ -250,16 +232,21 @@ print_log_health(void *buf, uint32_t size __unused)
 }
 
 static void
-print_log_firmware(void *buf, uint32_t size __unused)
+print_log_firmware(const struct nvme_controller_data *cdata __unused, void *buf, uint32_t size __unused)
 {
-	int				i;
+	int				i, slots;
 	const char			*status;
 	struct nvme_firmware_page	*fw = buf;
 
 	printf("Firmware Slot Log\n");
 	printf("=================\n");
 
-	for (i = 0; i < MAX_FW_SLOTS; i++) {
+	if (cdata->oacs.firmware == 0)
+		slots = 1;
+	else
+		slots = MIN(cdata->frmw.num_slots, MAX_FW_SLOTS);
+
+	for (i = 0; i < slots; i++) {
 		printf("Slot %d: ", i + 1);
 		if (fw->afi.slot == i + 1)
 			status = "  Active";
@@ -278,8 +265,15 @@ print_log_firmware(void *buf, uint32_t size __unused)
 	}
 }
 
+/*
+ * Intel specific log pages from
+ * http://www.intel.com/content/dam/www/public/us/en/documents/product-specifications/ssd-dc-p3700-spec.pdf
+ *
+ * Though the version as of this date has a typo for the size of log page 0xca,
+ * offset 147: it is only 1 byte, not 6.
+ */
 static void
-print_intel_temp_stats(void *buf, uint32_t size __unused)
+print_intel_temp_stats(const struct nvme_controller_data *cdata __unused, void *buf, uint32_t size __unused)
 {
 	struct intel_log_temp_stats	*temp = buf;
 
@@ -299,6 +293,109 @@ print_intel_temp_stats(void *buf, uint32_t size __unused)
 	printf("Min Operating Temperature       ");
 	print_temp(temp->min_oper_temp);
 	printf("Estimated Temperature Offset:   %ju C/K\n", (uintmax_t)temp->est_offset);
+}
+
+/*
+ * Format from Table 22, section 5.7 IO Command Latency Statistics.
+ * Read and write stats pages have identical encoding.
+ */
+static void
+print_intel_read_write_lat_log(const struct nvme_controller_data *cdata __unused, void *buf, uint32_t size __unused)
+{
+	const char *walker = buf;
+	int i;
+
+	printf("Major:                         %d\n", le16dec(walker + 0));
+	printf("Minor:                         %d\n", le16dec(walker + 2));
+	for (i = 0; i < 32; i++)
+		printf("%4dus-%4dus:                 %ju\n", i * 32, (i + 1) * 32, (uintmax_t)le32dec(walker + 4 + i * 4));
+	for (i = 1; i < 32; i++)
+		printf("%4dms-%4dms:                 %ju\n", i, i + 1, (uintmax_t)le32dec(walker + 132 + i * 4));
+	for (i = 1; i < 32; i++)
+		printf("%4dms-%4dms:                 %ju\n", i * 32, (i + 1) * 32, (uintmax_t)le32dec(walker + 256 + i * 4));
+}
+
+static void
+print_intel_read_lat_log(const struct nvme_controller_data *cdata __unused, void *buf, uint32_t size)
+{
+
+	printf("Intel Read Latency Log\n");
+	printf("======================\n");
+	print_intel_read_write_lat_log(cdata, buf, size);
+}
+
+static void
+print_intel_write_lat_log(const struct nvme_controller_data *cdata __unused, void *buf, uint32_t size)
+{
+
+	printf("Intel Write Latency Log\n");
+	printf("=======================\n");
+	print_intel_read_write_lat_log(cdata, buf, size);
+}
+
+/*
+ * Table 19. 5.4 SMART Attributes. Samsung also implements this and some extra data not documented.
+ */
+static void
+print_intel_add_smart(const struct nvme_controller_data *cdata __unused, void *buf, uint32_t size __unused)
+{
+	uint8_t *walker = buf;
+	uint8_t *end = walker + 150;
+	const char *name;
+	uint64_t raw;
+	uint8_t normalized;
+
+	static struct kv_name kv[] =
+	{
+		{ 0xab, "Program Fail Count" },
+		{ 0xac, "Erase Fail Count" },
+		{ 0xad, "Wear Leveling Count" },
+		{ 0xb8, "End to End Error Count" },
+		{ 0xc7, "CRC Error Count" },
+		{ 0xe2, "Timed: Media Wear" },
+		{ 0xe3, "Timed: Host Read %" },
+		{ 0xe4, "Timed: Elapsed Time" },
+		{ 0xea, "Thermal Throttle Status" },
+		{ 0xf0, "Retry Buffer Overflows" },
+		{ 0xf3, "PLL Lock Loss Count" },
+		{ 0xf4, "NAND Bytes Written" },
+		{ 0xf5, "Host Bytes Written" },
+	};
+
+	printf("Additional SMART Data Log\n");
+	printf("=========================\n");
+	/*
+	 * walker[0] = Key
+	 * walker[1,2] = reserved
+	 * walker[3] = Normalized Value
+	 * walker[4] = reserved
+	 * walker[5..10] = Little Endian Raw value
+	 *	(or other represenations)
+	 * walker[11] = reserved
+	 */
+	while (walker < end) {
+		name = kv_lookup(kv, nitems(kv), *walker);
+		normalized = walker[3];
+		raw = le48dec(walker + 5);
+		switch (*walker){
+		case 0:
+			break;
+		case 0xad:
+			printf("%-32s: %3d min: %u max: %u ave: %u\n", name, normalized,
+			    le16dec(walker + 5), le16dec(walker + 7), le16dec(walker + 9));
+			break;
+		case 0xe2:
+			printf("%-32s: %3d %.3f%%\n", name, normalized, raw / 1024.0);
+			break;
+		case 0xea:
+			printf("%-32s: %3d %d%% %d times\n", name, normalized, walker[5], le32dec(walker+6));
+			break;
+		default:
+			printf("%-32s: %3d %ju\n", name, normalized, (uintmax_t)raw);
+			break;
+		}
+		walker += 12;
+	}
 }
 
 /*
@@ -582,13 +679,13 @@ print_hgst_info_temp_history(void *buf, uint16_t subtype __unused, uint8_t res _
 	printf("  %-30s: %d C\n", "Minimum Temperature", *walker++);
 	min = le32dec(walker);
 	walker += 4;
-	printf("  %-30s: %d:%02d:00\n", "Max Temperture Time", min / 60, min % 60);
+	printf("  %-30s: %d:%02d:00\n", "Max Temperature Time", min / 60, min % 60);
 	min = le32dec(walker);
 	walker += 4;
-	printf("  %-30s: %d:%02d:00\n", "Over Temperture Duration", min / 60, min % 60);
+	printf("  %-30s: %d:%02d:00\n", "Over Temperature Duration", min / 60, min % 60);
 	min = le32dec(walker);
 	walker += 4;
-	printf("  %-30s: %d:%02d:00\n", "Min Temperture Time", min / 60, min % 60);
+	printf("  %-30s: %d:%02d:00\n", "Min Temperature Time", min / 60, min % 60);
 }
 
 static void
@@ -669,7 +766,7 @@ kv_indirect(void *buf, uint32_t subtype, uint8_t res, uint32_t size, struct subp
 }
 
 static void
-print_hgst_info_log(void *buf, uint32_t size __unused)
+print_hgst_info_log(const struct nvme_controller_data *cdata __unused, void *buf, uint32_t size __unused)
 {
 	uint8_t	*walker, *end, *subpage;
 	int pages;
@@ -703,26 +800,39 @@ print_hgst_info_log(void *buf, uint32_t size __unused)
 /*
  * Table of log page printer / sizing.
  *
- * This includes Intel specific pages that are widely implemented. Not
- * sure how best to switch between different vendors.
+ * This includes Intel specific pages that are widely implemented.
+ * Make sure you keep all the pages of one vendor together so -v help
+ * lists all the vendors pages.
  */
 static struct logpage_function {
 	uint8_t		log_page;
+	const char     *vendor;
+	const char     *name;
 	print_fn_t	print_fn;
 	size_t		size;
 } logfuncs[] = {
-	{NVME_LOG_ERROR,		print_log_error,
-	 0},
-	{NVME_LOG_HEALTH_INFORMATION,	print_log_health,
-	 sizeof(struct nvme_health_information_page)},
-	{NVME_LOG_FIRMWARE_SLOT,	print_log_firmware,
-	 sizeof(struct nvme_firmware_page)},
-	{INTEL_LOG_TEMP_STATS,		print_intel_temp_stats,
-	 sizeof(struct intel_log_temp_stats)},
-	{HGST_INFO_LOG,			print_hgst_info_log,
-	 DEFAULT_SIZE},
-	{0,				NULL,
-	 0},
+	{NVME_LOG_ERROR,		NULL,	"Drive Error Log",
+	 print_log_error,		0},
+	{NVME_LOG_HEALTH_INFORMATION,	NULL,	"Health/SMART Data",
+	 print_log_health,		sizeof(struct nvme_health_information_page)},
+	{NVME_LOG_FIRMWARE_SLOT,	NULL,	"Firmware Information",
+	 print_log_firmware,		sizeof(struct nvme_firmware_page)},
+	{HGST_INFO_LOG,			"hgst",	"Detailed Health/SMART",
+	 print_hgst_info_log,		DEFAULT_SIZE},
+	{HGST_INFO_LOG,			"wds",	"Detailed Health/SMART",
+	 print_hgst_info_log,		DEFAULT_SIZE},
+	{INTEL_LOG_TEMP_STATS,		"intel", "Temperature Stats",
+	 print_intel_temp_stats,	sizeof(struct intel_log_temp_stats)},
+	{INTEL_LOG_READ_LAT_LOG,	"intel", "Read Latencies",
+	 print_intel_read_lat_log,	DEFAULT_SIZE},
+	{INTEL_LOG_WRITE_LAT_LOG,	"intel", "Write Latencies",
+	 print_intel_write_lat_log,	DEFAULT_SIZE},
+	{INTEL_LOG_ADD_SMART,		"intel", "Extra Health/SMART Data",
+	 print_intel_add_smart,		DEFAULT_SIZE},
+	{INTEL_LOG_ADD_SMART,		"samsung", "Extra Health/SMART Data",
+	 print_intel_add_smart,		DEFAULT_SIZE},
+
+	{0, NULL, NULL, NULL, 0},
 };
 
 static void
@@ -733,34 +843,50 @@ logpage_usage(void)
 	exit(1);
 }
 
+static void
+logpage_help(void)
+{
+	struct logpage_function		*f;
+	const char 			*v;
+
+	fprintf(stderr, "\n");
+	fprintf(stderr, "%-8s %-10s %s\n", "Page", "Vendor","Page Name");
+	fprintf(stderr, "-------- ---------- ----------\n");
+	for (f = logfuncs; f->log_page > 0; f++) {
+		v = f->vendor == NULL ? "-" : f->vendor;
+		fprintf(stderr, "0x%02x     %-10s %s\n", f->log_page, v, f->name);
+	}
+
+	exit(1);
+}
+
 void
 logpage(int argc, char *argv[])
 {
 	int				fd, nsid;
 	int				log_page = 0, pageflag = false;
-	int				hexflag = false, ns_specified;
+	int				binflag = false, hexflag = false, ns_specified;
 	char				ch, *p;
 	char				cname[64];
 	uint32_t			size;
 	void				*buf;
+	const char			*vendor = NULL;
 	struct logpage_function		*f;
 	struct nvme_controller_data	cdata;
 	print_fn_t			print_fn;
 
-	while ((ch = getopt(argc, argv, "p:x")) != -1) {
+	while ((ch = getopt(argc, argv, "bp:xv:")) != -1) {
 		switch (ch) {
+		case 'b':
+			binflag = true;
+			break;
 		case 'p':
+			if (strcmp(optarg, "help") == 0)
+				logpage_help();
+
 			/* TODO: Add human-readable ASCII page IDs */
 			log_page = strtol(optarg, &p, 0);
 			if (p != NULL && *p != '\0') {
-				fprintf(stderr,
-				    "\"%s\" not valid log page id.\n",
-				    optarg);
-				logpage_usage();
-			/* TODO: Define valid log page id ranges in nvme.h? */
-			} else if (log_page == 0 ||
-				   (log_page >= 0x04 && log_page <= 0x7F) ||
-				   (log_page >= 0x80 && log_page <= 0xBF)) {
 				fprintf(stderr,
 				    "\"%s\" not valid log page id.\n",
 				    optarg);
@@ -770,6 +896,11 @@ logpage(int argc, char *argv[])
 			break;
 		case 'x':
 			hexflag = true;
+			break;
+		case 'v':
+			if (strcmp(optarg, "help") == 0)
+				logpage_help();
+			vendor = optarg;
 			break;
 		}
 	}
@@ -810,22 +941,27 @@ logpage(int argc, char *argv[])
 			    "smart/health information");
 	}
 
-	print_fn = print_hex;
+	print_fn = print_log_hex;
 	size = DEFAULT_SIZE;
-	if (!hexflag) {
+	if (binflag)
+		print_fn = print_bin;
+	if (!binflag && !hexflag) {
 		/*
-		 * See if there is a pretty print function for the
-		 *  specified log page.  If one isn't found, we
-		 *  just revert to the default (print_hex).
+		 * See if there is a pretty print function for the specified log
+		 * page.  If one isn't found, we just revert to the default
+		 * (print_hex). If there was a vendor specified bt the user, and
+		 * the page is vendor specific, don't match the print function
+		 * unless the vendors match.
 		 */
-		f = logfuncs;
-		while (f->log_page > 0) {
-			if (log_page == f->log_page) {
-				print_fn = f->print_fn;
-				size = f->size;
-				break;
-			}
-			f++;
+		for (f = logfuncs; f->log_page > 0; f++) {
+			if (f->vendor != NULL && vendor != NULL &&
+			    strcmp(f->vendor, vendor) != 0)
+				continue;
+			if (log_page != f->log_page)
+				continue;
+			print_fn = f->print_fn;
+			size = f->size;
+			break;
 		}
 	}
 
@@ -837,7 +973,7 @@ logpage(int argc, char *argv[])
 	/* Read the log page */
 	buf = get_log_buffer(size);
 	read_logpage(fd, log_page, nsid, buf, size);
-	print_fn(buf, size);
+	print_fn(&cdata, buf, size);
 
 	close(fd);
 	exit(0);
