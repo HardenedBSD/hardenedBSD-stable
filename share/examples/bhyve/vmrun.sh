@@ -56,14 +56,9 @@ usage() {
 	echo "                [-g <gdbport> ] [-H <directory>]"
 	echo "                [-I <location of installation iso>] [-l <loader>]"
 	echo "                [-L <VNC IP for UEFI framebuffer>]"
-<<<<<<< HEAD
-	echo "                [-m <memsize>] [-P <port>] [-s <password>]"
-	echo "                [-t <tapdev>] <vmname>"
-=======
 	echo "                [-m <memsize>]" \
 	    "[-n <network adapter emulation type>]"
-	echo "                [-P <port>] [-t <tapdev>] <vmname>"
->>>>>>> origin/freebsd/current/master
+	echo "                [-P <port>] [-s password] [-t <tapdev>] <vmname>"
 	echo ""
 	echo "       -h: display this help message"
 	echo "       -a: force memory mapped local APIC access"
@@ -90,12 +85,8 @@ usage() {
 	echo "       -p: pass-through a host PCI device at bus/slot/func" \
 	    "(e.g. 10/0/0)"
 	echo "       -P: UEFI GOP VNC port (default: 5900)"
-<<<<<<< HEAD
 	echo "       -s: UEFI GOP VNC password"
-	echo "       -t: tap device for virtio-net (default is $DEFAULT_TAPDEV)"
-=======
 	echo "       -t: tap device for virtio-net (default: $DEFAULT_TAPDEV)"
->>>>>>> origin/freebsd/current/master
 	echo "       -T: Enable tablet device (for UEFI GOP)"
 	echo "       -u: RTC keeps UTC time"
 	echo "       -v: Wait for VNC client connection before booting VM"
@@ -140,11 +131,7 @@ vncpassword=""
 fbsize="w=1024,h=768"
 tablet=""
 
-<<<<<<< HEAD
-while getopts aAc:C:d:e:Ef:F:g:hH:iI:l:L:m:p:P:s:t:Tuvw c ; do
-=======
-while getopts aAc:C:d:e:Ef:F:g:hH:iI:l:m:n:p:P:t:Tuvw c ; do
->>>>>>> origin/freebsd/current/master
+while getopts aAc:C:d:e:Ef:F:g:hH:iI:l:L:m:n:p:P:s:t:Tuvw c ; do
 	case $c in
 	a)
 		bhyverun_opt="${bhyverun_opt} -a"
