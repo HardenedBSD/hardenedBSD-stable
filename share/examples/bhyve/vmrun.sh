@@ -39,8 +39,13 @@ DEFAULT_TAPDEV=tap0
 DEFAULT_CONSOLE=stdio
 
 DEFAULT_NIC=virtio-net
+DEFAULT_DISK=virtio-blk
 DEFAULT_VIRTIO_DISK="./diskdev"
 DEFAULT_ISOFILE="./release.iso"
+
+DEFAULT_VNCHOST="127.0.0.1"
+DEFAULT_VNCPORT=5900
+DEFAULT_VNCSIZE="w=1024,h=768"
 
 errmsg() {
 	echo "*** $1"
@@ -62,7 +67,7 @@ usage() {
 	echo ""
 	echo "       -h: display this help message"
 	echo "       -a: force memory mapped local APIC access"
-	echo "       -A: use AHCI disk emulation instead of virtio"
+	echo "       -A: use AHCI disk emulation instead of ${DEFAULT_DISK}"
 	echo "       -c: number of virtual cpus (default: ${DEFAULT_CPUS})"
 	echo "       -C: console device (default: ${DEFAULT_CONSOLE})"
 	echo "       -d: virtio diskdev file (default: ${DEFAULT_VIRTIO_DISK})"
@@ -70,7 +75,7 @@ usage() {
 	echo "       -E: Use UEFI mode"
 	echo "       -f: Use a specific UEFI firmware"
 	echo "       -F: Use a custom UEFI GOP framebuffer size" \
-	    "(default: w=1024,h=768)"
+	    "(default: ${DEFAULT_VNCSIZE}"
 	echo "       -g: listen for connection from kgdb at <gdbport>"
 	echo "       -H: host filesystem to export to the loader"
 	echo "       -i: force boot of the Installation CDROM image"
@@ -78,14 +83,18 @@ usage() {
 	    "(default: ${DEFAULT_ISOFILE})"
 	echo "       -l: the OS loader to use (default: /boot/userboot.so)"
 	echo "       -L: IP address for UEFI GOP VNC server" \
-	    "(default: 127.0.0.1)"
+	    "(default: ${DEFAULT_VNCHOST}"
 	echo "       -m: memory size (default: ${DEFAULT_MEMSIZE})"
 	echo "       -n: network adapter emulation type" \
 	    "(default: ${DEFAULT_NIC})"
 	echo "       -p: pass-through a host PCI device at bus/slot/func" \
 	    "(e.g. 10/0/0)"
+<<<<<<< HEAD
 	echo "       -P: UEFI GOP VNC port (default: 5900)"
 	echo "       -s: UEFI GOP VNC password"
+=======
+	echo "       -P: UEFI GOP VNC port (default: ${DEFAULT_VNCPORT})"
+>>>>>>> origin/freebsd/current/master
 	echo "       -t: tap device for virtio-net (default: $DEFAULT_TAPDEV)"
 	echo "       -T: Enable tablet device (for UEFI GOP)"
 	echo "       -u: RTC keeps UTC time"
@@ -115,7 +124,7 @@ cpus=${DEFAULT_CPUS}
 nic=${DEFAULT_NIC}
 tap_total=0
 disk_total=0
-disk_emulation="virtio-blk"
+disk_emulation=${DEFAULT_DISK}
 gdbport=0
 loader_opt=""
 bhyverun_opt="-H -A -P"
@@ -125,10 +134,16 @@ pass_total=0
 efi_mode=0
 efi_firmware="/usr/local/share/uefi-firmware/BHYVE_UEFI.fd"
 vncwait=""
+<<<<<<< HEAD
 vnchost="127.0.0.1"
 vncport=5900
 vncpassword=""
 fbsize="w=1024,h=768"
+=======
+vnchost=${DEFAULT_VNCHOST}
+vncport=${DEFAULT_VNCPORT}
+vncsize=${DEFAULT_VNCSIZE}
+>>>>>>> origin/freebsd/current/master
 tablet=""
 
 while getopts aAc:C:d:e:Ef:F:g:hH:iI:l:L:m:n:p:P:s:t:Tuvw c ; do
@@ -162,7 +177,7 @@ while getopts aAc:C:d:e:Ef:F:g:hH:iI:l:L:m:n:p:P:s:t:Tuvw c ; do
 		efi_firmware="${OPTARG}"
 		;;
 	F)
-		fbsize="${OPTARG}"
+		vncsize="${OPTARG}"
 		;;
 	g)	
 		gdbport=${OPTARG}
@@ -249,7 +264,8 @@ fi
 
 if [ ${efi_mode} -gt 0 ]; then
 	if [ ! -f ${efi_firmware} ]; then
-		echo "Error: EFI Firmware ${efi_firmware} doesn't exist. Try: pkg install uefi-edk2-bhyve"
+		echo "Error: EFI Firmware ${efi_firmware} doesn't exist." \
+		    "Try: pkg install uefi-edk2-bhyve"
 		exit 1
 	fi
 fi
@@ -286,7 +302,8 @@ while [ 1 ]; do
 	file -s ${first_diskdev} | grep "boot sector" > /dev/null
 	rc=$?
 	if [ $rc -ne 0 ]; then
-		file -s ${first_diskdev} | grep ": Unix Fast File sys" > /dev/null
+		file -s ${first_diskdev} | \
+		    grep ": Unix Fast File sys" > /dev/null
 		rc=$?
 	fi
 	if [ $rc -ne 0 ]; then
@@ -317,8 +334,8 @@ while [ 1 ]; do
 	fi
 
 	if [ ${efi_mode} -eq 0 ]; then
-		${LOADER} -c ${console} -m ${memsize} ${BOOTDISKS} ${loader_opt} \
-			${vmname}
+		${LOADER} -c ${console} -m ${memsize} ${BOOTDISKS} \
+		    ${loader_opt} ${vmname}
 		bhyve_exit=$?
 		if [ $bhyve_exit -ne 0 ]; then
 			break
@@ -358,7 +375,12 @@ while [ 1 ]; do
 
 	efiargs=""
 	if [ ${efi_mode} -gt 0 ]; then
+<<<<<<< HEAD
 		efiargs="-s 29,fbuf,tcp=${vnchost}:${vncport},${fbsize}${vncwait}${vncpassword}"
+=======
+		efiargs="-s 29,fbuf,tcp=${vnchost}:${vncport},"
+		efiargs="${efiargs}${vncsize}${vncwait}"
+>>>>>>> origin/freebsd/current/master
 		efiargs="${efiargs} -l bootrom,${efi_firmware}"
 		efiargs="${efiargs} ${tablet}"
 	fi

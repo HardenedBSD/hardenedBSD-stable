@@ -104,7 +104,11 @@ void initializeFixupBWInstPassPass(PassRegistry &);
 FunctionPass *createX86EvexToVexInsts();
 
 /// This pass creates the thunks for the retpoline feature.
+<<<<<<< HEAD
 ModulePass *createX86RetpolineThunksPass();
+=======
+FunctionPass *createX86RetpolineThunksPass();
+>>>>>>> origin/freebsd/current/master
 
 InstructionSelector *createX86InstructionSelector(const X86TargetMachine &TM,
                                                   X86Subtarget &,

@@ -321,6 +321,7 @@ public:
   void addPreRegAlloc() override;
   void addPostRegAlloc() override;
   void addPreEmitPass() override;
+  void addPreEmitPass2() override;
   void addPreSched2() override;
   void addEmitPass() override;
 };
@@ -443,4 +444,10 @@ void X86PassConfig::addPreEmitPass() {
   }
 }
 
+<<<<<<< HEAD
 void X86PassConfig::addEmitPass() { addPass(createX86RetpolineThunksPass()); }
+=======
+void X86PassConfig::addPreEmitPass2() {
+  addPass(createX86RetpolineThunksPass());
+}
+>>>>>>> origin/freebsd/current/master

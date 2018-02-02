@@ -416,9 +416,18 @@ protected:
   /// immediately before machine code is emitted.
   virtual void addPreEmitPass() { }
 
+<<<<<<< HEAD
   /// This pass may be implemented by targets that want to run passes
   /// that emit MI directly and bypass all other machine passes.
   virtual void addEmitPass() {}
+=======
+  /// Targets may add passes immediately before machine code is emitted in this
+  /// callback. This is called even later than `addPreEmitPass`.
+  // FIXME: Rename `addPreEmitPass` to something more sensible given its actual
+  // position and remove the `2` suffix here as this callback is what
+  // `addPreEmitPass` *should* be but in reality isn't.
+  virtual void addPreEmitPass2() {}
+>>>>>>> origin/freebsd/current/master
 
   /// Utilities for targets to add passes to the pass manager.
   ///
