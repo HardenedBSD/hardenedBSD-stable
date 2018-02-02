@@ -444,10 +444,6 @@ void X86PassConfig::addPreEmitPass() {
   }
 }
 
-<<<<<<< HEAD
-void X86PassConfig::addEmitPass() { addPass(createX86RetpolineThunksPass()); }
-=======
 void X86PassConfig::addPreEmitPass2() {
   addPass(createX86RetpolineThunksPass());
 }
->>>>>>> origin/freebsd/current/master

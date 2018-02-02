@@ -475,11 +475,7 @@ void RetpolinePic::writePlt(uint8_t *Buf, uint64_t GotPltEntryAddr,
 }
 
 RetpolineNoPic::RetpolineNoPic() {
-<<<<<<< HEAD
-  PltHeaderSize = 64;
-=======
   PltHeaderSize = 48;
->>>>>>> origin/freebsd/current/master
   PltEntrySize = 32;
 }
 

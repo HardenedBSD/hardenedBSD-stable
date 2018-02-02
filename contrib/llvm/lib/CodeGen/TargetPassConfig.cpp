@@ -908,11 +908,7 @@ void TargetPassConfig::addMachinePasses() {
     PM->add(createMachineOutlinerPass(EnableLinkOnceODROutlining));
 
   // Add passes that directly emit MI after all other MI passes.
-<<<<<<< HEAD
-  addEmitPass();
-=======
   addPreEmitPass2();
->>>>>>> origin/freebsd/current/master
 
   AddingMachinePasses = false;
 }

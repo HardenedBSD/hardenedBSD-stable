@@ -89,12 +89,8 @@ usage() {
 	    "(default: ${DEFAULT_NIC})"
 	echo "       -p: pass-through a host PCI device at bus/slot/func" \
 	    "(e.g. 10/0/0)"
-<<<<<<< HEAD
-	echo "       -P: UEFI GOP VNC port (default: 5900)"
-	echo "       -s: UEFI GOP VNC password"
-=======
 	echo "       -P: UEFI GOP VNC port (default: ${DEFAULT_VNCPORT})"
->>>>>>> origin/freebsd/current/master
+	echo "       -s: UEFI GOP VNC password"
 	echo "       -t: tap device for virtio-net (default: $DEFAULT_TAPDEV)"
 	echo "       -T: Enable tablet device (for UEFI GOP)"
 	echo "       -u: RTC keeps UTC time"
@@ -134,16 +130,10 @@ pass_total=0
 efi_mode=0
 efi_firmware="/usr/local/share/uefi-firmware/BHYVE_UEFI.fd"
 vncwait=""
-<<<<<<< HEAD
-vnchost="127.0.0.1"
-vncport=5900
 vncpassword=""
-fbsize="w=1024,h=768"
-=======
 vnchost=${DEFAULT_VNCHOST}
 vncport=${DEFAULT_VNCPORT}
 vncsize=${DEFAULT_VNCSIZE}
->>>>>>> origin/freebsd/current/master
 tablet=""
 
 while getopts aAc:C:d:e:Ef:F:g:hH:iI:l:L:m:n:p:P:s:t:Tuvw c ; do
@@ -375,12 +365,8 @@ while [ 1 ]; do
 
 	efiargs=""
 	if [ ${efi_mode} -gt 0 ]; then
-<<<<<<< HEAD
-		efiargs="-s 29,fbuf,tcp=${vnchost}:${vncport},${fbsize}${vncwait}${vncpassword}"
-=======
 		efiargs="-s 29,fbuf,tcp=${vnchost}:${vncport},"
-		efiargs="${efiargs}${vncsize}${vncwait}"
->>>>>>> origin/freebsd/current/master
+		efiargs="${efiargs}${vncsize}${vncwait}${vncpassword}"
 		efiargs="${efiargs} -l bootrom,${efi_firmware}"
 		efiargs="${efiargs} ${tablet}"
 	fi
