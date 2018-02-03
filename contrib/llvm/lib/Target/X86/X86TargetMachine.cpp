@@ -323,7 +323,6 @@ public:
   void addPreEmitPass() override;
   void addPreEmitPass2() override;
   void addPreSched2() override;
-  void addEmitPass() override;
 };
 
 class X86ExecutionDepsFix : public ExecutionDepsFix {
