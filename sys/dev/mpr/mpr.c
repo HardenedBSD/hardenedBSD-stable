@@ -397,6 +397,7 @@ mpr_resize_queues(struct mpr_softc *sc)
 	reqcr = MIN(reqcr, sc->facts->RequestCredit);
 
 	sc->num_reqs = prireqcr + reqcr;
+	sc->num_prireqs = prireqcr;
 	sc->num_replies = MIN(sc->max_replyframes + sc->max_evtframes,
 	    sc->facts->MaxReplyDescriptorPostQueueDepth) - 1;
 
@@ -1183,6 +1184,42 @@ mpr_memaddr_cb(void *arg, bus_dma_segment_t *segs, int nsegs, int error)
 	*addr = segs[0].ds_addr;
 }
 
+void
+mpr_memaddr_wait_cb(void *arg, bus_dma_segment_t *segs, int nsegs, int error)
+{
+	struct mpr_busdma_context *ctx;
+	int need_unload, need_free;
+
+	ctx = (struct mpr_busdma_context *)arg;
+	need_unload = 0;
+	need_free = 0;
+
+	mpr_lock(ctx->softc);
+	ctx->error = error;
+	ctx->completed = 1;
+	if ((error == 0) && (ctx->abandoned == 0)) {
+		*ctx->addr = segs[0].ds_addr;
+	} else {
+		if (nsegs != 0)
+			need_unload = 1;
+		if (ctx->abandoned != 0)
+			need_free = 1;
+	}
+	if (need_free == 0)
+		wakeup(ctx);
+
+	mpr_unlock(ctx->softc);
+
+	if (need_unload != 0) {
+		bus_dmamap_unload(ctx->buffer_dmat,
+				  ctx->buffer_dmamap);
+		*ctx->addr = 0;
+	}
+
+	if (need_free != 0)
+		free(ctx, M_MPR);
+}
+
 static int
 mpr_alloc_queues(struct mpr_softc *sc)
 {
@@ -1471,7 +1508,7 @@ mpr_alloc_requests(struct mpr_softc *sc)
 		/* XXX Is a failure here a critical problem? */
 		if (bus_dmamap_create(sc->buffer_dmat, 0, &cm->cm_dmamap)
 		    == 0) {
-			if (i <= sc->facts->HighPriorityCredit)
+			if (i <= sc->num_prireqs)
 				mpr_free_high_priority_command(sc, cm);
 			else
 				mpr_free_command(sc, cm);
