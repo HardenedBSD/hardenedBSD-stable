@@ -879,8 +879,8 @@ check_sanity() {
 		exit 1
 	fi
 
-	if [ ${fetchonly} -gt 0 ] && [ ${nodownload} -gt 0]; then
-		debug_print "[-] Fetch only and no download options cannot be combined"
+	if [ ${fetchonly} -gt 0 ] && [ ${nodownload} -gt 0 ]; then
+		debug_print "[-] Fetch only and no download options are mutually exclusive"
 		exit 1
 	fi
 
@@ -928,7 +928,7 @@ main() {
 	local_kernel=""
 	no_kernel=0
 
-	while getopts 'dhinosBCDITUVb:c:j:K:k:r:t:u:v:' opt; do
+	while getopts 'dfhinosBCDITUVb:c:j:K:k:r:t:u:v:' opt; do
 		case "${opt}" in
 			b)
 				zfsbe="${OPTARG}"
