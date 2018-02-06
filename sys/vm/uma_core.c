@@ -1088,12 +1088,11 @@ startup_alloc(uma_zone_t zone, vm_size_t bytes, int domain, uint8_t *pflag,
 	 * Check our small startup cache to see if it has pages remaining.
 	 */
 	mtx_lock(&uma_boot_pages_mtx);
+	if (pages <= boot_pages) {
 #ifdef DIAGNOSTIC
-	if (booted < BOOT_PAGEALLOC)
 		printf("%s from \"%s\", %d boot pages left\n", __func__,
 		    zone->uz_name, boot_pages);
 #endif
-	if (pages <= boot_pages) {
 		mem = bootmem;
 		boot_pages -= pages;
 		bootmem += pages * PAGE_SIZE;
@@ -1811,14 +1810,14 @@ uma_startup_count(int zones)
 		pages += howmany(zones, UMA_SLAB_SIZE / zsize);
 
 	/* ... and their kegs. */
-	pages += howmany(ksize * zones, UMA_SLAB_SIZE);
+	pages += howmany(zones, UMA_SLAB_SIZE / ksize);
 
 	/*
 	 * Take conservative approach that every zone
 	 * is going to allocate hash.
 	 */
-	pages += howmany(sizeof(struct slabhead *) * UMA_HASH_SIZE_INIT *
-	    zones, UMA_SLAB_SIZE);
+	pages += howmany(zones, UMA_SLAB_SIZE /
+	    (sizeof(struct slabhead *) * UMA_HASH_SIZE_INIT));
 
 	return (pages);
 }
@@ -3465,7 +3464,7 @@ uma_large_malloc_domain(vm_size_t size, int domain, int wait)
 		slab->us_data = (void *)addr;
 		slab->us_flags = UMA_SLAB_KERNEL | UMA_SLAB_MALLOC;
 		slab->us_size = size;
-		slab->us_domain = vm_phys_domidx(PHYS_TO_VM_PAGE(
+		slab->us_domain = vm_phys_domain(PHYS_TO_VM_PAGE(
 		    pmap_kextract(addr)));
 		uma_total_inc(size);
 	} else {
