@@ -104,8 +104,7 @@ interact(const char *rc)
 
     if (rc == NULL) {
 	/* Read our default configuration. */
-	if (include("/boot/loader.rc") != CMD_OK)
-	    include("/boot/boot.conf");
+	include("/boot/loader.rc");
     } else if (*rc != '\0')
 	include(rc);
 
@@ -214,7 +213,8 @@ include(const char *filename)
 #endif
 
     if (((fd = open(filename, O_RDONLY)) == -1)) {
-	sprintf(command_errbuf,"can't open '%s': %s", filename, strerror(errno));
+	snprintf(command_errbuf, sizeof(command_errbuf),
+	    "can't open '%s': %s", filename, strerror(errno));
 	return(CMD_ERROR);
     }
 
@@ -256,8 +256,9 @@ include(const char *filename)
 			script = script->next;
 			free(se);
 		}
-		sprintf(command_errbuf, "file '%s' line %d: memory allocation "
-		    "failure - aborting", filename, line);
+		snprintf(command_errbuf, sizeof(command_errbuf),
+		    "file '%s' line %d: memory allocation failure - aborting",
+		    filename, line);
 		return (CMD_ERROR);
 	}
 	strcpy(sp->text, cp);
@@ -291,7 +292,9 @@ include(const char *filename)
 #ifdef BOOT_FORTH
 	res = bf_run(sp->text);
 	if (res != VM_OUTOFTEXT) {
-		sprintf(command_errbuf, "Error while including %s, in the line:\n%s", filename, sp->text);
+		snprintf(command_errbuf, sizeof(command_errbuf),
+		    "Error while including %s, in the line:\n%s",
+		    filename, sp->text);
 		res = CMD_ERROR;
 		break;
 	} else

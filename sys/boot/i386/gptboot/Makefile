@@ -47,7 +47,7 @@ LIBGELIBOOT=	${.OBJDIR}/../../geli/libgeliboot.a
 OPENCRYPTO_XTS=	xform_aes_xts.o
 .endif
 
-LD_FLAGS=-static -N --gc-sections
+LD_FLAGS=${LD_FLAGS_BIN}
 
 LIBSTAND=	${.OBJDIR}/../../libstand32/libstand.a
 
@@ -75,7 +75,7 @@ gptboot.bin: gptboot.out
 	${OBJCOPY} -S -O binary gptboot.out ${.TARGET}
 
 gptboot.out: ${BTXCRT} gptboot.o sio.o crc32.o drv.o cons.o util.o ${OPENCRYPTO_XTS}
-	${LD} ${LD_FLAGS} -Ttext ${ORG2} -o ${.TARGET} ${.ALLSRC} ${LIBSTAND} ${LIBGELIBOOT}
+	${LD} ${LD_FLAGS} -Ttext ${ORG2} -o ${.TARGET} ${.ALLSRC} ${LIBGELIBOOT} ${LIBSTAND}
 
 gptboot.o: ${.CURDIR}/../../common/ufsread.c
 

@@ -56,7 +56,7 @@ OPENCRYPTO_XTS=	xform_aes_xts.o
 
 CFLAGS.gcc+=	--param max-inline-insns-single=100
 
-LD_FLAGS=-static -N --gc-sections
+LD_FLAGS=${LD_FLAGS_BIN}
 
 LIBSTAND=	${.OBJDIR}/../../libstand32/libstand.a
 
@@ -85,7 +85,7 @@ gptzfsboot.bin: gptzfsboot.out
 
 gptzfsboot.out: ${BTXCRT} zfsboot.o sio.o gpt.o drv.o cons.o util.o \
 	skein.o skein_block.o ${OPENCRYPTO_XTS}
-	${LD} ${LD_FLAGS} -Ttext ${ORG2} -o ${.TARGET} ${.ALLSRC} ${LIBSTAND} ${LIBGELIBOOT}
+	${LD} ${LD_FLAGS} -Ttext ${ORG2} -o ${.TARGET} ${.ALLSRC} ${LIBGELIBOOT} ${LIBSTAND}
 
 zfsboot.o: ${.CURDIR}/../../zfs/zfsimpl.c
 
