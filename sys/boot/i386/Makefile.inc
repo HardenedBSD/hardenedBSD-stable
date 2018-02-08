@@ -28,15 +28,13 @@ BTXLDR=		${BTXDIR}/btxldr/btxldr
 BTXKERN=	${BTXDIR}/btx/btx
 BTXCRT=		${BTXDIR}/lib/crt0.o
 
-<<<<<<< HEAD
 NOPIE=	yes
-=======
+
 # compact binary with no padding between text, data, bss
 LDSCRIPT=	${SRCTOP}/sys/boot/i386/boot.ldscript
 # LDFLAGS_BIN=-e start -Ttext ${ORG} -Wl,-T,${LDSCRIPT},-S,--oformat,binary
 # LD_FLAGS_BIN=-static -T ${LDSCRIPT} --gc-sections
 LDFLAGS_BIN=-e start -Ttext ${ORG} -Wl,-N,-S,--oformat,binary
 LD_FLAGS_BIN=-static -N --gc-sections
->>>>>>> origin/freebsd/11-stable/master
 
 .include "../Makefile.inc"
