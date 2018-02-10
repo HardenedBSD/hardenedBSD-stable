@@ -91,8 +91,8 @@ userdisk_init(void)
 			return (ENOMEM);
 		for (i = 0; i < userdisk_maxunit; i++) {
 			if (CALLBACK(diskioctl, i, DIOCGSECTORSIZE,
-			    &sectorsize) != NULL || CALLBACK(diskioctl, i,
-			    DIOCGMEDIASIZE, &mediasize) != NULL)
+			    &sectorsize) != 0 || CALLBACK(diskioctl, i,
+			    DIOCGMEDIASIZE, &mediasize) != 0)
 				return (ENXIO);
 			ud_info[i].mediasize = mediasize;
 			ud_info[i].sectorsize = sectorsize;
@@ -110,7 +110,6 @@ userdisk_cleanup(void)
 
 	if (userdisk_maxunit > 0)
 		free(ud_info);
-	disk_cleanup(&userboot_disk);
 }
 
 /*
@@ -141,7 +140,7 @@ userdisk_print(int verbose)
 		dev.d_slice = -1;
 		dev.d_partition = -1;
 		if (disk_open(&dev, ud_info[i].mediasize,
-		    ud_info[i].sectorsize, 0) == 0) {
+		    ud_info[i].sectorsize) == 0) {
 			snprintf(line, sizeof(line), "    disk%d", i);
 			ret = disk_print(&dev, line, verbose);
 			disk_close(&dev);
@@ -171,7 +170,7 @@ userdisk_open(struct open_file *f, ...)
 	if (ud_info[dev->d_unit].ud_bcache == NULL)
 		ud_info[dev->d_unit].ud_bcache = bcache_allocate();
 	return (disk_open(dev, ud_info[dev->d_unit].mediasize,
-	    ud_info[dev->d_unit].sectorsize, 0));
+	    ud_info[dev->d_unit].sectorsize));
 }
 
 static int
@@ -212,6 +211,7 @@ userdisk_realstrategy(void *devdata, int rw, daddr_t dblk, size_t size,
 	size_t		resid;
 	int		rc;
 
+	rw &= F_MASK;
 	if (rw == F_WRITE)
 		return (EROFS);
 	if (rw != F_READ)
@@ -231,7 +231,12 @@ static int
 userdisk_ioctl(struct open_file *f, u_long cmd, void *data)
 {
 	struct disk_devdesc *dev;
+	int rc;
 
 	dev = (struct disk_devdesc *)f->f_devdata;
+	rc = disk_ioctl(dev, cmd, data);
+	if (rc != ENOTTY)
+		return (rc);
+
 	return (CALLBACK(diskioctl, dev->d_unit, cmd, data));
 }

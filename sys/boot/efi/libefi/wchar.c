@@ -1,6 +1,5 @@
 /*-
- * Copyright (c) 2010 Pawel Jakub Dawidek <pjd@FreeBSD.org>
- * All rights reserved.
+ * Copyright 2016 Netflix, Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -11,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS ``AS IS'' AND
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHORS OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
  * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
@@ -22,27 +21,53 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- * $FreeBSD$
  */
 
-#ifndef _DRV_H_
-#define _DRV_H_
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
-struct dsk {
-	unsigned int drive;
-	unsigned int type;
-	unsigned int unit;
-	unsigned int slice;
-	int part;
-	daddr_t start;
-	uint64_t size;
-};
+#include <efi.h>
+#include <efilib.h>
 
-int drvread(struct dsk *dskp, void *buf, daddr_t lba, unsigned nblk);
-#if defined(GPT) || defined(ZFS)
-int drvwrite(struct dsk *dskp, void *buf, daddr_t lba, unsigned nblk);
-#endif	/* GPT || ZFS */
-uint64_t drvsize(struct dsk *dskp);
+/*
+ * CHAR16 related functions moved from loader.
+ * Perhaps we should move those to libstand afterall, but they are
+ * needed only by UEFI.
+ */
 
-#endif	/* !_DRV_H_ */
+int
+wcscmp(CHAR16 *a, CHAR16 *b)
+{
+
+	while (*a && *b && *a == *b) {
+		a++;
+		b++;
+	}
+	return *a - *b;
+}
+
+/*
+ * cpy8to16 copies a traditional C string into a CHAR16 string and
+ * 0 terminates it. len is the size of *dst in bytes.
+ */
+void
+cpy8to16(const char *src, CHAR16 *dst, size_t len)
+{
+	len <<= 1;		/* Assume CHAR16 is 2 bytes */
+	while (len > 0 && *src) {
+		*dst++ = *src++;
+		len--;
+	}
+	*dst++ = (CHAR16)0;
+}
+
+void
+cpy16to8(const CHAR16 *src, char *dst, size_t len)
+{
+	size_t i;
+
+	for (i = 0; i < len && src[i]; i++)
+		dst[i] = (char)src[i];
+	if (i < len)
+		dst[i] = '\0';
+}

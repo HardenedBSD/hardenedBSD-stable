@@ -168,6 +168,7 @@ struct devdesc
 #define DEVT_NET	2
 #define DEVT_CD		3
 #define DEVT_ZFS	4
+#define DEVT_FD		5
     int			d_unit;
     void		*d_opendata;
 };
@@ -193,6 +194,9 @@ extern struct open_file files[];
 #define	F_WRITE		0x0002	/* file opened for writing */
 #define	F_RAW		0x0004	/* raw device open - no file system */
 #define F_NODEV		0x0008	/* network open - no device */
+#define	F_MASK		0xFFFF
+/* Mode modifier for strategy() */
+#define	F_NORA		(0x01 << 16)	/* Disable Read-Ahead */
 
 #define isascii(c)	(((c) & ~0x7F) == 0)
 
