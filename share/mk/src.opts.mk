@@ -467,7 +467,7 @@ MK_LLDB:=	no
 .if ${MK_CLANG} == "no"
 MK_CLANG_EXTRAS:= no
 MK_CLANG_FULL:= no
-<<<<<<< HEAD
+MK_LLVM_COV:= no
 MK_SAFESTACK:=	no
 .endif
 
@@ -486,10 +486,8 @@ MK_NTP:=	no
 
 .if ${MK_NTP} != "no"
 MK_OPENNTPD:=	no
-=======
-MK_LLVM_COV:= no
->>>>>>> origin/freebsd/current/master
 .endif
+
 
 #
 # MK_* options whose default value depends on another option.
