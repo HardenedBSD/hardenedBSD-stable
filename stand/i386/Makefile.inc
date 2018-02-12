@@ -11,12 +11,9 @@ BTXLDR=		${BTXDIR}/btxldr/btxldr
 BTXKERN=	${BTXDIR}/btx/btx
 BTXCRT=		${BTXDIR}/lib/crt0.o
 
-<<<<<<< HEAD:sys/boot/i386/Makefile.inc
 NOPIE=	yes
-=======
 BTXSRC=		${BOOTSRC}/i386/btx
 BTXLIB=		${BTXSRC}/lib
->>>>>>> origin/freebsd/11-stable/master:stand/i386/Makefile.inc
 
 # compact binary with no padding between text, data, bss
 LDSCRIPT=	${BOOTSRC}/i386/boot.ldscript

@@ -2,13 +2,6 @@
 
 MAN=
 
-<<<<<<< HEAD:sys/boot/efi/loader/Makefile
-.if ${MACHINE_CPUARCH} == "aarch64"
-NOPIE=	1
-.endif
-
-.include <src.opts.mk>
-=======
 LOADER_NET_SUPPORT?=	yes
 LOADER_MSDOS_SUPPORT?=	yes
 LOADER_UFS_SUPPORT?=	yes
@@ -16,9 +9,12 @@ LOADER_CD9660_SUPPORT?=	no
 LOADER_EXT2FS_SUPPORT?=	no
 
 .include <bsd.init.mk>
->>>>>>> origin/freebsd/11-stable/master:stand/efi/loader/Makefile
 
 MK_SSP=		no
+
+.if ${MACHINE_CPUARCH} == "aarch64"
+MK_PIE=	no
+.endif
 
 PROG=		loader.sym
 INTERNALPROG=

@@ -123,11 +123,8 @@ __DEFAULT_YES_OPTIONS = \
     LEGACY_CONSOLE \
     LIBPTHREAD \
     LIBTHR \
-<<<<<<< HEAD
     LIBRESSL \
-=======
     LOADER_GELI \
->>>>>>> origin/freebsd/11-stable/master
     LOCALES \
     LOCATE \
     LPR \

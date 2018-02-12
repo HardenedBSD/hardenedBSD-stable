@@ -17,15 +17,8 @@ INTERNALLIB=
 LIBSA_CPUARCH?=${MACHINE_CPUARCH}
 LIBC_SRC=	${SRCTOP}/lib/libc
 
-<<<<<<< HEAD:lib/libstand/Makefile
-LIB=		stand
-INCS?=		stand.h
-MAN?=		libstand.3
-
-=======
 LIB?=		sa
 NO_PIC=
->>>>>>> origin/freebsd/11-stable/master:stand/libsa/Makefile
 WARNS?=		0
 
 CFLAGS+= -I${SASRC}

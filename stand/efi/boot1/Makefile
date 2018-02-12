@@ -2,18 +2,14 @@
 
 MAN=
 
-<<<<<<< HEAD:sys/boot/efi/boot1/Makefile
-.if ${MACHINE_CPUARCH} == "aarch64"
-NOPIE=		1
-.endif
-
-.include <src.opts.mk>
-=======
 .include <bsd.init.mk>
->>>>>>> origin/freebsd/11-stable/master:stand/efi/boot1/Makefile
 
 MK_SSP=		no
 MK_FORTH=	no
+
+.if ${MACHINE_CPUARCH} == "aarch64"
+MK_PIE=		no
+.endif
 
 PROG=		boot1.sym
 INTERNALPROG=
