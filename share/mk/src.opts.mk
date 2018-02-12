@@ -123,7 +123,11 @@ __DEFAULT_YES_OPTIONS = \
     LEGACY_CONSOLE \
     LIBPTHREAD \
     LIBTHR \
+<<<<<<< HEAD
     LIBRESSL \
+=======
+    LOADER_GELI \
+>>>>>>> origin/freebsd/11-stable/master
     LOCALES \
     LOCATE \
     LPR \
@@ -193,6 +197,7 @@ __DEFAULT_NO_OPTIONS = \
     LIB32 \
     LIBSOFT \
     LINT \
+    LOADER_FIREWIRE \
     LOADER_FORCE_LE \
     NAND \
     OFED \
