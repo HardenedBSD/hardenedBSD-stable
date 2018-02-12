@@ -1,7 +1,5 @@
 /*-
- * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
- *
- * Copyright (c) 2003 Alexander Kabaev
+ * Copyright (c) 2018 M Warner Losh
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,10 +26,7 @@
  * $FreeBSD$
  */
 
-#ifndef _VARARGS_H_
-#define	_VARARGS_H_
-
-#error "<varargs.h> is obsolete."
-#error "Change your code to use <stdarg.h> instead."
-
-#endif /* !_VARARGS_H_ */
+/*
+ * Empty file to keep lua build happy. Lua expects to have to include float.h
+ * but the int64_t number implementation doesn't need it.
+ */

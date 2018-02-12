@@ -1,7 +1,5 @@
 /*-
- * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
- *
- * Copyright (c) 2003 Alexander Kabaev
+ * Copyright (c) 2014 Pedro Souza <pedrosouza@freebsd.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,10 +26,7 @@
  * $FreeBSD$
  */
 
-#ifndef _VARARGS_H_
-#define	_VARARGS_H_
+#include <lua.h>
 
-#error "<varargs.h> is obsolete."
-#error "Change your code to use <stdarg.h> instead."
-
-#endif /* !_VARARGS_H_ */
+void	lregister(lua_State *, const char *, const char *, int (*fptr)(lua_State *));
+void	register_utils(lua_State *);

@@ -1,7 +1,5 @@
 /*-
- * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
- *
- * Copyright (c) 2003 Alexander Kabaev
+ * Copyright (c) 2014 Pedro Souza <pedrosouza@freebsd.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,10 +26,49 @@
  * $FreeBSD$
  */
 
-#ifndef _VARARGS_H_
-#define	_VARARGS_H_
+#ifndef LSTD_H
+#define LSTD_H
 
-#error "<varargs.h> is obsolete."
-#error "Change your code to use <stdarg.h> instead."
+#include <stand.h>
+#include <sys/types.h>
+#include <sys/stdint.h>
+#include <limits.h>
+#include <string.h>
+#include <machine/stdarg.h>
 
-#endif /* !_VARARGS_H_ */
+typedef struct FILE
+{
+	int fd;
+	size_t offset;
+	size_t size;
+} FILE;
+
+FILE *fopen(const char *filename, const char *mode);
+FILE *freopen( const char *filename, const char *mode, FILE *stream);
+size_t fread(void *ptr, size_t size, size_t count, FILE *stream);
+int fclose(FILE *stream);
+int ferror(FILE *stream);
+int feof(FILE *stream);
+int getc(FILE * stream);
+
+#ifndef EOF
+#define EOF (-1)
+#endif
+
+#define stdin ((FILE*)NULL)
+#define stdout 1
+
+#ifndef BUFSIZ
+#define BUFSIZ 512
+#endif
+
+#define lua_writestringerror(s, p) do { printf((s), (p)); } while (0)
+
+void luai_writestring(const char *, int);
+
+#define lua_writestring(s,l) luai_writestring(s,l)
+
+#define fflush	/* */
+#define fgets(b, l, s) fgetstr((b), (l), 0)
+
+#endif /* LSTD_H */

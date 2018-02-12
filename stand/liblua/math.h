@@ -1,7 +1,5 @@
 /*-
- * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
- *
- * Copyright (c) 2003 Alexander Kabaev
+ * Copyright (c) 2018 M Warner Losh
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,10 +26,13 @@
  * $FreeBSD$
  */
 
-#ifndef _VARARGS_H_
-#define	_VARARGS_H_
+/*
+ * A replacement for math.h that's sufficient to pretend that we
+ * actually have one to keep the un-modified lua happy.
+ */
+#include <stdint.h>
 
-#error "<varargs.h> is obsolete."
-#error "Change your code to use <stdarg.h> instead."
-
-#endif /* !_VARARGS_H_ */
+int64_t lstd_pow(int64_t x, int64_t y);
+int64_t lstd_floor(int64_t);
+int64_t lstd_fmod(int64_t a, int64_t b);
+int64_t lstd_frexp(int64_t a, int *);
