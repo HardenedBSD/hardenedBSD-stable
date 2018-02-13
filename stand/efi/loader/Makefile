@@ -1,7 +1,5 @@
 # $FreeBSD$
 
-MAN=
-
 LOADER_NET_SUPPORT?=	yes
 LOADER_MSDOS_SUPPORT?=	yes
 LOADER_UFS_SUPPORT?=	yes
@@ -10,12 +8,15 @@ LOADER_EXT2FS_SUPPORT?=	no
 
 .include <bsd.init.mk>
 
+<<<<<<< HEAD
 MK_SSP=		no
 
 .if ${MACHINE_CPUARCH} == "aarch64"
 MK_PIE=	no
 .endif
 
+=======
+>>>>>>> origin/freebsd/11-stable/master
 PROG=		loader.sym
 INTERNALPROG=
 WARNS?=		3
@@ -62,12 +63,6 @@ CFLAGS+=	-I${SYSDIR}/contrib/dev/acpica/include
 CFLAGS+=	-I${BOOTSRC}/i386/libi386
 CFLAGS+=	-DNO_PCI -DEFI
 
-# make buildenv doesn't set DESTDIR, this means LIBSTAND
-# will be wrong when crossbuilding.
-.if exists(${.OBJDIR}/../../../../lib/libstand/libstand.a)
-LIBSTAND=	${.OBJDIR}/../../../../lib/libstand/libstand.a
-.endif
-
 .if !defined(BOOT_HIDE_SERIAL_NUMBERS)
 # Export serial numbers, UUID, and asset tag from loader.
 CFLAGS+= -DSMBIOS_SERIAL_NUMBERS
@@ -93,7 +88,6 @@ CFLAGS+=	-DEFI_STAGING_SIZE=${EFI_STAGING_SIZE}
 .endif
 
 # Always add MI sources
-HELP_FILES=
 .include	"${BOOTSRC}/loader.mk"
 
 FILES+=	loader.efi
@@ -134,8 +128,8 @@ loader.efi: ${PROG}
 
 LIBEFI=		${BOOTOBJ}/efi/libefi/libefi.a
 
-DPADD=		${LIBFICL} ${LIBEFI} ${LIBFDT} ${LIBEFI_FDT} ${LIBZFSBOOT} ${LIBSA} \
+DPADD=		${LDR_INTERP} ${LIBEFI} ${LIBFDT} ${LIBEFI_FDT} ${LIBZFSBOOT} ${LIBSA} \
 		${LDSCRIPT}
-LDADD=		${LIBFICL} ${LIBEFI} ${LIBFDT} ${LIBEFI_FDT} ${LIBZFSBOOT} ${LIBSA}
+LDADD=		${LDR_INTERP} ${LIBEFI} ${LIBFDT} ${LIBEFI_FDT} ${LIBZFSBOOT} ${LIBSA}
 
 .include <bsd.prog.mk>

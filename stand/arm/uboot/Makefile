@@ -28,7 +28,7 @@ SRCS=		start.S conf.c self_reloc.c vers.c
 CWARNFLAGS.self_reloc.c+=	-Wno-error=maybe-uninitialized
 .endif
 
-HELP_FILES+=	 help.uboot ${BOOTSRC}/fdt/help.fdt
+HELP_FILES=	 ${.CURDIR}/help.uboot ${BOOTSRC}/fdt/help.fdt
 
 # Always add MI sources
 .include	"${BOOTSRC}/loader.mk"
@@ -41,8 +41,8 @@ LDFLAGS+=	-Wl,-znotext
 
 CFLAGS+=	-fPIC
 
-DPADD=		${LIBFICL} ${LIBUBOOT} ${LIBFDT} ${LIBUBOOT_FDT} ${LIBSA}
-LDADD=		${LIBFICL} ${LIBUBOOT} ${LIBFDT} ${LIBUBOOT_FDT} ${LIBSA}
+DPADD=		${LDR_INTERP} ${LIBUBOOT} ${LIBFDT} ${LIBUBOOT_FDT} ${LIBSA}
+LDADD=		${LDR_INTERP} ${LIBUBOOT} ${LIBFDT} ${LIBUBOOT_FDT} ${LIBSA}
 
 OBJS+=  ${SRCS:N*.h:R:S/$/.o/g}
 

@@ -2,8 +2,6 @@
 
 .include <bsd.init.mk>
 
-SSP_CFLAGS=
-
 PROG=           boot1.elf
 NEWVERSWHAT=    "Open Firmware boot block" ${MACHINE_ARCH}
 INSTALLFLAGS=   -b
@@ -11,9 +9,7 @@ INSTALLFLAGS=   -b
 FILES=		boot1.hfs
 SRCS=		boot1.c ashldi3.c syncicache.c
 
-MAN=
-
-CFLAGS= -I${LDRSRC} -I${SYSDIR} -I${SASRC} -D_STANDALONE
+CFLAGS+=-I${LDRSRC}
 LDFLAGS=-nostdlib -static -Wl,-N
 
 .PATH:  ${SYSDIR}/libkern ${SRCTOP}/lib/libc/powerpc/gen ${.CURDIR}
@@ -33,8 +29,6 @@ boot1.hfs: boot1.elf bootinfo.txt
 	    conv=notrunc
 
 CLEANFILES+= boot1.hfs
-
-boot1.o: ${SASRC}/ufsread.c
 
 .include <bsd.prog.mk>
 

@@ -4,7 +4,6 @@
 
 PROG=	boot1.elf
 INTERNALPROG=
-MAN=
 FILES?=	boot1
 SRCS=	_start.s boot1.c
 CLEANFILES+=${FILES} boot1.aout
@@ -26,7 +25,5 @@ ${FILES}: boot1.aout
 
 boot1.aout: boot1.elf
 	elf2aout -o ${.TARGET} ${.ALLSRC}
-
-boot1.o: ${SASRC}/ufsread.c
 
 .include <bsd.prog.mk>

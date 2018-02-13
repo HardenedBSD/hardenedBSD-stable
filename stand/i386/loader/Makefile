@@ -14,11 +14,8 @@ LOADER_BZIP2_SUPPORT?=	yes
 
 .include <bsd.init.mk>
 
-MK_SSP=		no
-
 LOADER?=	loader
 PROG=		${LOADER}.sym
-MAN=	
 INTERNALPROG=
 NEWVERSWHAT?=	"bootstrap loader" x86
 VERSION_FILE=	${.CURDIR}/../loader/version
@@ -41,9 +38,7 @@ LIBFIREWIRE=	${BOOTOBJ}/i386/libfirewire/libfirewire.a
 .endif
 
 .if exists(${.CURDIR}/help.i386)
-HELP_FILES+=	help.i386
-.else
-HELP_FILES=
+HELP_FILES=	${.CURDIR}/help.i386
 .endif
 
 # Always add MI sources
@@ -57,9 +52,6 @@ LDFLAGS+=	-static -Ttext 0x0
 # i386 standalone support library
 LIBI386=	${BOOTOBJ}/i386/libi386/libi386.a
 CFLAGS+=	-I${BOOTSRC}/i386
-
-# BTX components
-CFLAGS+=	-I${BTXLIB}
 
 # Debug me!
 #CFLAGS+=	-g
@@ -79,8 +71,8 @@ FILESMODE_${LOADER}= ${BINMODE} -b
 # XXX crt0.o needs to be first for pxeboot(8) to work
 OBJS=	${BTXCRT}
 
-DPADD=	${LIBFICL32} ${LIBFIREWIRE} ${LIBZFSBOOT} ${LIBI386} ${LIBGELIBOOT} ${LIBSA32}
-LDADD=	${LIBFICL32} ${LIBFIREWIRE} ${LIBZFSBOOT} ${LIBI386} ${LIBGELIBOOT} ${LIBSA32}
+DPADD=	${LDR_INTERP32} ${LIBFIREWIRE} ${LIBZFSBOOT} ${LIBI386} ${LIBGELIBOOT} ${LIBSA32}
+LDADD=	${LDR_INTERP32} ${LIBFIREWIRE} ${LIBZFSBOOT} ${LIBI386} ${LIBGELIBOOT} ${LIBSA32}
 
 .if ${MACHINE_CPUARCH} == "amd64"
 CFLAGS+=	-DLOADER_PREFER_AMD64

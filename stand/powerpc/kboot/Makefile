@@ -11,8 +11,6 @@ LOADER_GZIP_SUPPORT?=	yes
 LOADER_BZIP2_SUPPORT?=	no
 
 .include <bsd.init.mk>
-MK_SSP=		no
-MAN=
 
 PROG=		loader.kboot
 NEWVERSWHAT=	"kboot loader" ${MACHINE_ARCH}
@@ -28,7 +26,6 @@ SRCS+=		ucmpdi2.c
 CFLAGS+=	-mcpu=powerpc64
 
 # Always add MI sources
-HELP_FILES=	# Disable
 .include	"${BOOTSRC}/loader.mk"
 .PATH:		${SYSDIR}/libkern
 
@@ -42,9 +39,7 @@ LDFLAGS=	-nostdlib -static -T ${.CURDIR}/ldscript.powerpc
 # 64-bit bridge extensions
 CFLAGS+= -Wa,-mppc64bridge
 
-DPADD=		${LIBFICL} ${LIBOFW} ${LIBFDT} ${LIBSA}
-LDADD=		${LIBFICL} ${LIBOFW} ${LIBFDT} ${LIBSA}
-
-HELP_FILES+=	${FDTSRC}/help.fdt
+DPADD=		${LDR_INTERP} ${LIBOFW} ${LIBFDT} ${LIBSA}
+LDADD=		${LDR_INTERP} ${LIBOFW} ${LIBFDT} ${LIBSA}
 
 .include <bsd.prog.mk>

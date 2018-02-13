@@ -38,9 +38,6 @@ LOADER_BZIP2_SUPPORT?=	yes
 
 .include <bsd.init.mk>
 
-MK_SSP=		no
-MAN=
-
 PROG?=		loader
 NEWVERSWHAT=	"BERI loader" ${MACHINE_CPUARCH}
 INSTALLFLAGS=	-b
@@ -67,7 +64,7 @@ SRCS+=		altera_jtag_uart.c				\
 # Since we don't have a backward compatibility issue, default to this on BERI.
 CFLAGS+=	-DBOOT_PROMPT_123
 
-HELP_FILES+=	help.mips
+HELP_FILES=	${.CURDIR}/help.mips
 
 # Always add MI sources
 .include	"${BOOTSRC}/loader.mk"
@@ -85,14 +82,13 @@ CFLAGS+=	-G0					\
 		-mno-abicalls				\
 		-g
 
-LDFLAGS=	-nostdlib				\
-		-static					\
+LDFLAGS+=	-static					\
 		-T ${.CURDIR}/loader.ldscript		\
 		-L${.CURDIR}				\
 		-e __start
 
-DPADD=		${LIBFICL} ${LIBSA}
-LDADD=		${LIBFICL} ${LIBSA}
+DPADD=		${LDR_INTERP} ${LIBSA}
+LDADD=		${LDR_INTERP} ${LIBSA}
 
 .if defined(LOADER_USB_SUPPORT)
 # Do garbage collection

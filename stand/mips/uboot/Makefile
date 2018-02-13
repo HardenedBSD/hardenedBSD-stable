@@ -24,7 +24,7 @@ UBLDR_LOADADDR?=	0xffffffff80800000
 # Architecture-specific loader code
 SRCS=		start.S conf.c vers.c
 
-HELP_FILES+=	help.uboot ${BOOTSRC}/fdt/help.fdt
+HELP_FILES=	${.CURDIR}/help.uboot ${BOOTSRC}/fdt/help.fdt
 
 # Always add MI sources
 .include	"${BOOTSRC}/loader.mk"
@@ -35,8 +35,8 @@ LDFLAGS=	-nostdlib -static -T ${.CURDIR}/ldscript.${MACHINE_CPUARCH}
 
 .include	"${BOOTSRC}/uboot.mk"
 
-DPADD=		${LIBFICL} ${LIBUBOOT} ${LIBFDT} ${LIBUBOOT_FDT} ${LIBSA}
-LDADD=		${LIBFICL} ${LIBUBOOT} ${LIBFDT} ${LIBUBOOT_FDT} ${LIBSA}
+DPADD=		${LDR_INTERP} ${LIBUBOOT} ${LIBFDT} ${LIBUBOOT_FDT} ${LIBSA}
+LDADD=		${LDR_INTERP} ${LIBUBOOT} ${LIBFDT} ${LIBUBOOT_FDT} ${LIBSA}
 
 OBJS+=  ${SRCS:N*.h:R:S/$/.o/g}
 

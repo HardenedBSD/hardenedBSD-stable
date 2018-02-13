@@ -58,14 +58,16 @@ extern int	ofw_boot(void);
 extern int	ofw_autoload(void);
 
 void	ofw_memmap(int);
-void	*ofw_alloc_heap(unsigned int);
-void	ofw_release_heap(void);
 
 struct preloaded_file;
 struct file_format;
 
 int	ofw_elf_loadfile(char *, vm_offset_t, struct preloaded_file **);
 int	ofw_elf_exec(struct preloaded_file *);
+
+/* MD code implementing MI interfaces */
+vm_offset_t md_load(char *args, vm_offset_t *modulep, vm_offset_t *dtb);
+vm_offset_t md_load64(char *args, vm_offset_t *modulep, vm_offset_t *dtb);
 
 extern struct file_format	ofw_elf;
 #ifdef __powerpc__

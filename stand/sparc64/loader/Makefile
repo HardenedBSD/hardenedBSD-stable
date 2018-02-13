@@ -13,8 +13,6 @@ LOADER_BZIP2_SUPPORT?=	no
 LOADER_DEBUG?=		no
 
 .include <bsd.init.mk>
-MK_SSP=		no
-MAN=
 
 PROG?=		loader
 NEWVERSWHAT?=	"bootstrap loader" sparc64
@@ -30,9 +28,7 @@ CFLAGS+=	-DLOADER_DEBUG
 .endif
 
 .if exists(${.CURDIR}/help.sparc64)
-HELP_FILES+=	help.sparc64
-.else
-HELP_FILES=
+HELP_FILES=	${.CURDIR}/help.sparc64
 .endif
 
 # Always add MI sources
@@ -44,7 +40,7 @@ LDFLAGS+=	-static
 LIBOFW=		${BOOTOBJ}/ofw/libofw/libofw.a
 CFLAGS+=	-I${BOOTSRC}/ofw/libofw/
 
-DPADD=		${LIBFICL} ${LIBZFSBOOT} ${LIBOFW} ${LIBSA}
-LDADD=		${LIBFICL} ${LIBZFSBOOT} ${LIBOFW} ${LIBSA}
+DPADD=		${LDR_INTERP} ${LIBZFSBOOT} ${LIBOFW} ${LIBSA}
+LDADD=		${LDR_INTERP} ${LIBZFSBOOT} ${LIBOFW} ${LIBSA}
 
 .include <bsd.prog.mk>

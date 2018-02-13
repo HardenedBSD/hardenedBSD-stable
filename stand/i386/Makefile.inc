@@ -15,6 +15,8 @@ NOPIE=	yes
 BTXSRC=		${BOOTSRC}/i386/btx
 BTXLIB=		${BTXSRC}/lib
 
+CFLAGS+=	-I${BTXLIB}
+
 # compact binary with no padding between text, data, bss
 LDSCRIPT=	${BOOTSRC}/i386/boot.ldscript
 # LDFLAGS_BIN=-e start -Ttext ${ORG} -Wl,-T,${LDSCRIPT},-S,--oformat,binary

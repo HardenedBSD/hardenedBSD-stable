@@ -45,18 +45,20 @@ extern char	command_errbuf[COMMAND_ERRBUFSZ];
 #define CMD_FATAL	4
 
 /* interp.c */
-void	interact(const char *rc);
-int	include(const char *filename);
+void	interact(void);
+void	interp_emit_prompt(void);
+int	interp_builtin_cmd(int argc, char *argv[]);
+
+/* Called by interp.c for interp_*.c embedded interpreters */
+int	interp_include(const char *filename);	/* Execute commands from filename */
+void	interp_init(void);			/* Initialize interpreater */
+int	interp_run(const char *line);		/* Run a single command */
 
 /* interp_backslash.c */
-char	*backslash(char *str);
+char	*backslash(const char *str);
 
 /* interp_parse.c */
-int	parse(int *argc, char ***argv, char *str);
-
-/* interp_forth.c */
-void	bf_init(const char *rc);
-int	bf_run(char *line);
+int	parse(int *argc, char ***argv, const char *str);
 
 /* boot.c */
 int	autoboot(int timeout, char *prompt);
@@ -315,6 +317,9 @@ struct arch_switch
 
     /* Probe ZFS pool(s), if needed. */
     void	(*arch_zfs_probe)(void);
+
+    /* For kexec-type loaders, get ksegment structure */
+    void	(*arch_kexec_kseg_get)(int *nseg, void **kseg);
 };
 extern struct arch_switch archsw;
 
