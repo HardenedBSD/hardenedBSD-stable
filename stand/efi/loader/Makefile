@@ -8,18 +8,10 @@ LOADER_EXT2FS_SUPPORT?=	no
 
 .include <bsd.init.mk>
 
-<<<<<<< HEAD
-MK_SSP=		no
-
-.if ${MACHINE_CPUARCH} == "aarch64"
-MK_PIE=	no
-.endif
-
-=======
->>>>>>> origin/freebsd/11-stable/master
 PROG=		loader.sym
 INTERNALPROG=
 WARNS?=		3
+NOPIE=		yes
 
 # architecture-specific loader code
 SRCS=	autoload.c \

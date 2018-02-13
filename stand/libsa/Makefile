@@ -6,14 +6,6 @@
 #   quite large.
 #
 
-<<<<<<< HEAD
-PACKAGE=lib${LIB}
-MK_PROFILE=	no
-MK_SSP=		no
-NO_PIC=
-
-=======
->>>>>>> origin/freebsd/11-stable/master
 .include <bsd.init.mk>
 
 LIBSA_CPUARCH?=${MACHINE_CPUARCH}

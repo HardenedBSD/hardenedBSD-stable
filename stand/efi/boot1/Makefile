@@ -2,19 +2,10 @@
 
 .include <bsd.init.mk>
 
-<<<<<<< HEAD
-MK_SSP=		no
-MK_FORTH=	no
-
-.if ${MACHINE_CPUARCH} == "aarch64"
-MK_PIE=		no
-.endif
-
-=======
->>>>>>> origin/freebsd/11-stable/master
 PROG=		boot1.sym
 INTERNALPROG=
 WARNS?=		6
+NOPIE=		yes
 
 # We implement a slightly non-standard %S in that it always takes a
 # CHAR16 that's common in UEFI-land instead of a wchar_t. This only
