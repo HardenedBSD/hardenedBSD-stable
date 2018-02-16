@@ -161,6 +161,9 @@ menu.welcome = {
 		name = function()
 			return color.highlight("Esc").."ape to loader prompt";
 		end,
+		func = function()
+			loader.setenv("autoboot_delay", "NO")
+		end,
 		alias = {core.KEYSTR_ESCAPE}
 	},
 
@@ -210,8 +213,10 @@ menu.welcome = {
 			    " (" .. idx ..
 			    " of " .. #all_choices .. ")";
 		end,
-		func = function(choice)
-			config.reload(choice);
+		func = function(choice, all_choices)
+			if (#all_choices > 1) then
+				config.reload(choice);
+			end
 		end,
 		alias = {"k", "K"}
 	},
@@ -266,7 +271,8 @@ function menu.run(m)
 		local key = io.getchar();
 
 		-- Special key behaviors
-		if (key == core.KEY_BACKSPACE) and (m ~= menu.welcome) then
+		if ((key == core.KEY_BACKSPACE) or (key == core.KEY_DELETE)) and
+		    (m ~= menu.welcome) then
 			break
 		elseif (key == core.KEY_ENTER) then
 			core.boot();
@@ -293,13 +299,20 @@ function menu.run(m)
 				local caridx = menu.getCarouselIndex(carid);
 				local choices = sel_entry.items();
 
-				caridx = (caridx % #choices) + 1;
-				menu.setCarouselIndex(carid, caridx);
-				sel_entry.func(choices[caridx]);
+				if (#choices > 0) then
+					caridx = (caridx % #choices) + 1;
+					menu.setCarouselIndex(carid, caridx);
+					sel_entry.func(choices[caridx],
+					    choices);
+				end
 			elseif (sel_entry.entry_type == core.MENU_SUBMENU) then
 				-- recurse
 				cont = menu.run(sel_entry.submenu());
 			elseif (sel_entry.entry_type == core.MENU_RETURN) then
+				-- allow entry to have a function/side effect
+				if (sel_entry.func ~= nil) then
+					sel_entry.func();
+				end
 				-- break recurse
 				cont = false;
 			end
