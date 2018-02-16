@@ -17,12 +17,8 @@ CFLAGS+=	-I${SYSDIR}/contrib/libfdt/ -I${LDRSRC}
 
 CFLAGS+=	-Wformat -Wall
 
-<<<<<<< HEAD
 .if ${MACHINE_CPUARCH} == "aarch64"
 NOPIE=		1
 .endif
 
-.include <bsd.stand.mk>
-=======
->>>>>>> origin/freebsd/current/master
 .include <bsd.lib.mk>
