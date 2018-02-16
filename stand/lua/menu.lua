@@ -39,7 +39,7 @@ local OnOff;
 local skip;
 local run;
 local autoboot;
-local current_kernel_index = 1;
+local carousel_choices = {};
 
 --loader menu tree:
 --rooted at menu.welcome
@@ -50,7 +50,7 @@ local welcome;
 menu.boot_options = {
 	-- return to welcome menu
 	{
-		entry_type = "return",
+		entry_type = core.MENU_RETURN,
 		name = function()
 			return "Back to main menu"..color.highlight(" [Backspace]");
 		end
@@ -58,7 +58,7 @@ menu.boot_options = {
 
 	-- load defaults
 	{
-		entry_type = "entry",
+		entry_type = core.MENU_ENTRY,
 		name = function()
 			return "Load System "..color.highlight("D").."efaults";
 		end,
@@ -69,14 +69,14 @@ menu.boot_options = {
 	},
 
 	{
-		entry_type = "separator",
+		entry_type = core.MENU_SEPARATOR,
 		name = function()
 			return "";
 		end
 	},
 
 	{
-		entry_type = "separator",
+		entry_type = core.MENU_SEPARATOR,
 		name = function()
 			return "Boot Options:";
 		end
@@ -84,7 +84,7 @@ menu.boot_options = {
 
 	-- acpi
 	{
-		entry_type = "entry",
+		entry_type = core.MENU_ENTRY,
 		name = function()
 			return OnOff(color.highlight("A").."CPI       :", core.acpi);
 		end,
@@ -95,7 +95,7 @@ menu.boot_options = {
 	},
 	-- safe mode
 	{
-		entry_type = "entry",
+		entry_type = core.MENU_ENTRY,
 		name = function()
 			return OnOff("Safe "..color.highlight("M").."ode  :", core.sm);
 		end,
@@ -106,7 +106,7 @@ menu.boot_options = {
 	},
 	-- single user
 	{
-		entry_type = "entry",
+		entry_type = core.MENU_ENTRY,
 		name = function()
 			return OnOff(color.highlight("S").."ingle user:", core.su);
 		end,
@@ -117,7 +117,7 @@ menu.boot_options = {
 	},
 	-- verbose boot
 	{
-		entry_type = "entry",
+		entry_type = core.MENU_ENTRY,
 		name = function()
 			return OnOff(color.highlight("V").."erbose    :", core.verbose);
 		end,
@@ -131,7 +131,7 @@ menu.boot_options = {
 menu.welcome = {
 	-- boot multi user
 	{
-		entry_type = "entry",
+		entry_type = core.MENU_ENTRY,
 		name = function()
 			return color.highlight("B").."oot Multi user "..color.highlight("[Enter]");
 		end,
@@ -144,7 +144,7 @@ menu.welcome = {
 
 	-- boot single user
 	{
-		entry_type = "entry",
+		entry_type = core.MENU_ENTRY,
 		name = function()
 			return "Boot "..color.highlight("S").."ingle user";
 		end,
@@ -157,7 +157,7 @@ menu.welcome = {
 
 	-- escape to interpreter
 	{
-		entry_type = "return",
+		entry_type = core.MENU_RETURN,
 		name = function()
 			return color.highlight("Esc").."ape to loader prompt";
 		end,
@@ -166,7 +166,7 @@ menu.welcome = {
 
 	-- reboot
 	{
-		entry_type = "entry",
+		entry_type = core.MENU_ENTRY,
 		name = function()
 			return color.highlight("R").."eboot";
 		end,
@@ -178,14 +178,14 @@ menu.welcome = {
 
 
 	{
-		entry_type = "separator",
+		entry_type = core.MENU_SEPARATOR,
 		name = function()
 			return "";
 		end
 	},
 
 	{
-		entry_type = "separator",
+		entry_type = core.MENU_SEPARATOR,
 		name = function()
 			return "Options:";
 		end
@@ -193,41 +193,32 @@ menu.welcome = {
 
 	-- kernel options
 	{
-		entry_type = "entry",
-		name = function()
-			local kernels = core.kernelList();
-			if #kernels == 0 then
+		entry_type = core.MENU_CAROUSEL_ENTRY,
+		carousel_id = "kernel",
+		items = core.kernelList,
+		name = function(idx, choice, all_choices)
+			if #all_choices == 0 then
 				return "Kernel: ";
 			end
 
 			local kernel_name = color.escapef(color.GREEN) ..
-			    kernels[current_kernel_index] .. color.default();
-			if (current_kernel_index == 1) then
+			    choice .. color.default();
+			if (idx == 1) then
 				kernel_name = "default/" .. kernel_name;
 			end
 			return color.highlight("K").."ernel: " .. kernel_name ..
-			    " (" .. current_kernel_index ..
-			    " of " .. #kernels .. ")";
+			    " (" .. idx ..
+			    " of " .. #all_choices .. ")";
 		end,
-		func = function()
-
-			-- dynamically build the kernel menu:
-			local kernels = core.kernelList();
-			-- Don't do anything if we don't have multiple kernels
-			if #kernels <= 1 then
-				return nil;
-			end
-			current_kernel_index = (current_kernel_index % #kernels)
-			    + 1;
-			local current_kernel = kernels[current_kernel_index];
-			config.reload(current_kernel)
+		func = function(choice)
+			config.reload(choice);
 		end,
 		alias = {"k", "K"}
 	},
 
 	-- boot options
 	{
-		entry_type = "submenu",
+		entry_type = core.MENU_SUBMENU,
 		name = function()
 			return "Boot "..color.highlight("O").."ptions";
 		end,
@@ -238,6 +229,19 @@ menu.welcome = {
 	}
 
 };
+
+-- The first item in every carousel is always the default item.
+function menu.getCarouselIndex(id)
+	local val = carousel_choices[id];
+	if (val == nil) then
+		return 1;
+	end
+	return val;
+end
+
+function menu.setCarouselIndex(id, idx)
+	carousel_choices[id] = idx;
+end
 
 function menu.run(m)
 
@@ -280,13 +284,22 @@ function menu.run(m)
 
 		-- if we have an alias do the assigned action:
 		if(sel_entry ~= nil) then
-			if (sel_entry.entry_type == "entry") then
+			if (sel_entry.entry_type == core.MENU_ENTRY) then
 				-- run function
 				sel_entry.func();
-			elseif (sel_entry.entry_type == "submenu") then
+			elseif (sel_entry.entry_type == core.MENU_CAROUSEL_ENTRY) then
+				-- carousel (rotating) functionality
+				local carid = sel_entry.carousel_id;
+				local caridx = menu.getCarouselIndex(carid);
+				local choices = sel_entry.items();
+
+				caridx = (caridx % #choices) + 1;
+				menu.setCarouselIndex(carid, caridx);
+				sel_entry.func(choices[caridx]);
+			elseif (sel_entry.entry_type == core.MENU_SUBMENU) then
 				-- recurse
 				cont = menu.run(sel_entry.submenu());
-			elseif (sel_entry.entry_type == "return") then
+			elseif (sel_entry.entry_type == core.MENU_RETURN) then
 				-- break recurse
 				cont = false;
 			end
