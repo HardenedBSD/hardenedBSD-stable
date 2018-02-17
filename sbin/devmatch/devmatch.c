@@ -47,6 +47,8 @@ __FBSDID("$FreeBSD$");
 static struct option longopts[] = {
 	{ "all",		no_argument,		NULL,	'a' },
 	{ "dump",		no_argument,		NULL,	'd' },
+	{ "hints",		required_argument,	NULL,	'h' },
+	{ "nomatch",		required_argument,	NULL,	'p' },
 	{ "unbound",		no_argument,		NULL,	'u' },
 	{ "verbose",		no_argument,		NULL,	'v' },
 	{ NULL,			0,			NULL,	0 }
@@ -54,53 +56,74 @@ static struct option longopts[] = {
 
 static int all_flag;
 static int dump_flag;
+static char *linker_hints;
+static char *nomatch_str;
 static int unbound_flag;
 static int verbose_flag;
 
 static void *hints;
 static void *hints_end;
 
+static void *
+read_hints(const char *fn, size_t *len)
+{
+	void *h;
+	int fd;
+	struct stat sb;
+
+	fd = open(fn, O_RDONLY);
+	if (fd < 0) {
+		if (errno == ENOENT)
+			return NULL;
+		err(1, "Can't open %s for reading", fn);
+	}
+	if (fstat(fd, &sb) != 0)
+		err(1, "Can't fstat %s\n", fn);
+	h = malloc(sb.st_size);
+	if (h == NULL)
+		err(1, "not enough space to read hints file of %ju bytes", (uintmax_t)sb.st_size);
+	if (read(fd, h, sb.st_size) != sb.st_size)
+		err(1, "Can't read in %ju bytes from %s", (uintmax_t)sb.st_size, fn);
+	close(fd);
+	*len = sb.st_size;
+	return h;
+}
+
 static void
 read_linker_hints(void)
 {
 	char fn[MAXPATHLEN];
-	struct stat sb;
 	char *modpath, *p, *q;
-	size_t buflen;
-	int fd;
+	size_t buflen, len;
 
-	if (sysctlbyname("kern.module_path", NULL, &buflen, NULL, 0) < 0)
-		errx(1, "Can't find kernel module path.");
-	modpath = malloc(buflen);
-	if (modpath == NULL)
-		err(1, "Can't get memory for modpath.");
-	if (sysctlbyname("kern.module_path", modpath, &buflen, NULL, 0) < 0)
-		errx(1, "Can't find kernel module path.");
-	p = modpath;
-	while ((q = strsep(&p, ";")) != NULL) {
-		snprintf(fn, sizeof(fn), "%s/linker.hints", q);
-		fd = open(fn, O_RDONLY);
-		if (fd < 0) {
-			if (errno == ENOENT)
+	if (linker_hints == NULL) {
+		if (sysctlbyname("kern.module_path", NULL, &buflen, NULL, 0) < 0)
+			errx(1, "Can't find kernel module path.");
+		modpath = malloc(buflen);
+		if (modpath == NULL)
+			err(1, "Can't get memory for modpath.");
+		if (sysctlbyname("kern.module_path", modpath, &buflen, NULL, 0) < 0)
+			errx(1, "Can't find kernel module path.");
+		p = modpath;
+		while ((q = strsep(&p, ";")) != NULL) {
+			snprintf(fn, sizeof(fn), "%s/linker.hints", q);
+			hints = read_hints(fn, &len);
+			if (hints == NULL)
 				continue;
-			err(1, "Can't open %s for reading", fn);
+			break;
 		}
-		if (fstat(fd, &sb) != 0)
-			err(1, "Can't fstat %s\n", fn);
-		hints = malloc(sb.st_size);
+		if (q == NULL) {
+			warnx("Can't read linker hints file.");
+			free(hints);
+			hints = NULL;
+			return;
+		}
+	} else {
+		hints = read_hints(linker_hints, &len);
 		if (hints == NULL)
-			err(1, "not enough space to read hints file of %ju bytes", (uintmax_t)sb.st_size);
-		if (read(fd, hints, sb.st_size) != sb.st_size)
-			err(1, "Can't read in %ju bytes from %s", (uintmax_t)sb.st_size, fn);
-		close(fd);
-		break;
+			err(1, "Can't open %s for reading", fn);
 	}
-	if (q == NULL) {
-		warnx("Can't read linker hints file.");
-		free(hints);
-		hints = NULL;
-		return;
-	}
+
 	if (*(int *)(intptr_t)hints != LINKER_HINTS_VERSION) {
 		warnx("Linker hints version %d doesn't match expected %d.",
 		    *(int *)(intptr_t)hints, LINKER_HINTS_VERSION);
@@ -108,7 +131,7 @@ read_linker_hints(void)
 		hints = NULL;
 	}
 	if (hints != NULL)
-		hints_end = (void *)((intptr_t)hints + (intptr_t)sb.st_size);
+		hints_end = (void *)((intptr_t)hints + (intptr_t)len);
 }
 
 static int
@@ -265,6 +288,7 @@ search_hints(const char *bus, const char *dev, const char *pnpinfo)
 				bit = -1;
 				do {
 					switch (*cp) {
+						/* All integer fields */
 					case 'I':
 					case 'J':
 					case 'G':
@@ -284,7 +308,7 @@ search_hints(const char *bus, const char *dev, const char *pnpinfo)
 								break;
 							/*FALLTHROUGH*/
 						case 'I':
-							if (v != ival && ival != 0)
+							if (v != ival)
 								notme++;
 							break;
 						case 'G':
@@ -300,6 +324,7 @@ search_hints(const char *bus, const char *dev, const char *pnpinfo)
 							break;
 						}
 						break;
+						/* String fields */
 					case 'D':
 					case 'Z':
 						getstr(&ptr, val1);
@@ -313,7 +338,24 @@ search_hints(const char *bus, const char *dev, const char *pnpinfo)
 						if (strcmp(s, val1) != 0)
 							notme++;
 						break;
+						/* Key override fields, required to be last in the string */
+					case 'T':
+						/*
+						 * This is imperfect and only does one key and will be redone
+						 * to be more general for multiple keys. Currently, nothing
+						 * does that.
+						 */
+						if (dump_flag)				/* No per-row data stored */
+							break;
+						if (cp[strlen(cp) - 1] == ';')		/* Skip required ; at end */
+							cp[strlen(cp) - 1] = '\0';	/* in case it's not there */
+						if ((s = strstr(pnpinfo, cp + 2)) == NULL)
+							notme++;
+						else if (s > pnpinfo && s[-1] != ' ')
+							notme++;
+						break;
 					default:
+						fprintf(stderr, "Unknown field type %c\n:", *cp);
 						break;
 					}
 					bit++;
@@ -379,10 +421,50 @@ find_unmatched(struct devinfo_dev *dev, void *arg)
 }
 
 static void
+find_nomatch(char *nomatch)
+{
+	char *bus, *pnpinfo, *tmp;
+
+	/*
+	 * Find our bus name. It will include the unit number. We have to search
+	 * backwards to avoid false positive for any PNP string that has ' on '
+	 * in them, which would come earlier in the string. Like if there were
+	 * an 'Old Bard' ethernet card made by 'Stratford on Avon Hardware' or
+	 * something silly like that.
+	 */
+	tmp = nomatch + strlen(nomatch) - 4;
+	while (tmp > nomatch && strncmp(tmp, " on ", 4) != 0)
+		tmp--;
+	if (tmp == nomatch)
+		errx(1, "No bus found in nomatch string: '%s'", nomatch);
+	bus = tmp + 4;
+	*tmp = '\0';
+	tmp = bus + strlen(bus) - 1;
+	while (tmp > bus && isdigit(*tmp))
+		tmp--;
+	*++tmp = '\0';
+
+	/*
+	 * Note: the NOMATCH events place both the bus location as well as the
+	 * pnp info after the 'at' and we don't know where one stops and the
+	 * other begins, so we pass the whole thing to our search routine.
+	 */
+	if (*nomatch == '?')
+		nomatch++;
+	if (strncmp(nomatch, " at ", 4) != 0)
+		errx(1, "Malformed NOMATCH string: '%s'", nomatch);
+	pnpinfo = nomatch + 4;
+
+	search_hints(bus, "", pnpinfo);
+
+	exit(0);
+}
+
+static void
 usage(void)
 {
 
-	errx(1, "devmatch [-adv]");
+	errx(1, "devmatch [-adv] [-p nomatch] [-h linker-hints]");
 }
 
 int
@@ -391,7 +473,7 @@ main(int argc, char **argv)
 	struct devinfo_dev *root;
 	int ch;
 
-	while ((ch = getopt_long(argc, argv, "aduv",
+	while ((ch = getopt_long(argc, argv, "adh:p:uv",
 		    longopts, NULL)) != -1) {
 		switch (ch) {
 		case 'a':
@@ -399,6 +481,12 @@ main(int argc, char **argv)
 			break;
 		case 'd':
 			dump_flag++;
+			break;
+		case 'h':
+			linker_hints = optarg;
+			break;
+		case 'p':
+			nomatch_str = optarg;
 			break;
 		case 'u':
 			unbound_flag++;
@@ -422,6 +510,8 @@ main(int argc, char **argv)
 		exit(0);
 	}
 
+	if (nomatch_str != NULL)
+		find_nomatch(nomatch_str);
 	if (devinfo_init())
 		err(1, "devinfo_init");
 	if ((root = devinfo_handle_to_device(DEVINFO_ROOT_DEVICE)) == NULL)

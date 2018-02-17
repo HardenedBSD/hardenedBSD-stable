@@ -817,12 +817,10 @@ proc_reap(struct thread *td, struct proc *p, int *status, int options)
 
 	sx_assert(&proctree_lock, SA_XLOCKED);
 	PROC_LOCK_ASSERT(p, MA_OWNED);
-	PROC_SLOCK_ASSERT(p, MA_OWNED);
 	KASSERT(p->p_state == PRS_ZOMBIE, ("proc_reap: !PRS_ZOMBIE"));
 
 	q = td->td_proc;
 
-	PROC_SUNLOCK(p);
 	if (status)
 		*status = KW_EXITCODE(p->p_xexit, p->p_xsig);
 	if (options & WNOWAIT) {
@@ -1090,7 +1088,6 @@ proc_to_reap(struct thread *td, struct proc *p, idtype_t idtype, id_t id,
 	}
 
 	if (p->p_state == PRS_ZOMBIE && !check_only) {
-		PROC_SLOCK(p);
 		proc_reap(td, p, status, options);
 		return (-1);
 	}
@@ -1228,15 +1225,11 @@ loop_locked:
 		nfound++;
 		PROC_LOCK_ASSERT(p, MA_OWNED);
 
-		if ((options & (WTRAPPED | WUNTRACED)) != 0)
-			PROC_SLOCK(p);
-
 		if ((options & WTRAPPED) != 0 &&
 		    (p->p_flag & P_TRACED) != 0 &&
 		    (p->p_flag & (P_STOPPED_TRACE | P_STOPPED_SIG)) != 0 &&
 		    p->p_suspcount == p->p_numthreads &&
 		    (p->p_flag & P_WAITED) == 0) {
-			PROC_SUNLOCK(p);
 			CTR4(KTR_PTRACE,
 			    "wait: returning trapped pid %d status %#x "
 			    "(xstat %d) xthread %d",
@@ -1251,13 +1244,10 @@ loop_locked:
 		    (p->p_flag & P_STOPPED_SIG) != 0 &&
 		    p->p_suspcount == p->p_numthreads &&
 		    (p->p_flag & P_WAITED) == 0) {
-			PROC_SUNLOCK(p);
 			report_alive_proc(td, p, siginfo, status, options,
 			    CLD_STOPPED);
 			return (0);
 		}
-		if ((options & (WTRAPPED | WUNTRACED)) != 0)
-			PROC_SUNLOCK(p);
 		if ((options & WCONTINUED) != 0 &&
 		    (p->p_flag & P_CONTINUED) != 0) {
 			report_alive_proc(td, p, siginfo, status, options,
