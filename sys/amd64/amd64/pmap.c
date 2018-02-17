@@ -975,25 +975,15 @@ create_pagetables(vm_paddr_t *firstaddr)
 	for (i = NPDEPG * ndm1g, j = 0; i < NPDEPG * ndmpdp; i++, j++) {
 		pd_p[j] = (vm_paddr_t)i << PDRSHIFT;
 		/* Preset PG_M and PG_A because demotion expects it. */
-<<<<<<< HEAD
-		pd_p[j] |= X86_PG_RW | X86_PG_V | PG_PS | X86_PG_G |
-		    X86_PG_M | X86_PG_A | pg_nx;
-=======
 		pd_p[j] |= X86_PG_RW | X86_PG_V | PG_PS | pg_g |
-		    X86_PG_M | X86_PG_A;
->>>>>>> origin/freebsd/11-stable/master
+		    X86_PG_M | X86_PG_A | pg_nx;
 	}
 	pdp_p = (pdp_entry_t *)DMPDPphys;
 	for (i = 0; i < ndm1g; i++) {
 		pdp_p[i] = (vm_paddr_t)i << PDPSHIFT;
 		/* Preset PG_M and PG_A because demotion expects it. */
-<<<<<<< HEAD
-		pdp_p[i] |= X86_PG_RW | X86_PG_V | PG_PS | X86_PG_G |
-		    X86_PG_M | X86_PG_A | pg_nx;
-=======
 		pdp_p[i] |= X86_PG_RW | X86_PG_V | PG_PS | pg_g |
-		    X86_PG_M | X86_PG_A;
->>>>>>> origin/freebsd/11-stable/master
+		    X86_PG_M | X86_PG_A | pg_nx;
 	}
 	for (j = 0; i < ndmpdp; i++, j++) {
 		pdp_p[i] = DMPDphys + ptoa(j);
