@@ -204,16 +204,22 @@ menu.welcome = {
 				return "Kernel: ";
 			end
 
-			local kernel_name = color.escapef(color.GREEN) ..
-			    choice .. color.default();
-			if (idx == 1) then
-				kernel_name = "default/" .. kernel_name;
+			local is_default = (idx == 1);
+			local kernel_name = "";
+			local name_color;
+			if is_default then
+				name_color = color.escapef(color.GREEN);
+				kernel_name = "default/";
+			else
+				name_color = color.escapef(color.BLUE);
 			end
+			kernel_name = kernel_name .. name_color .. choice ..
+			    color.default();
 			return color.highlight("K").."ernel: " .. kernel_name ..
 			    " (" .. idx ..
 			    " of " .. #all_choices .. ")";
 		end,
-		func = function(choice, all_choices)
+		func = function(idx, choice, all_choices)
 			if (#all_choices > 1) then
 				config.reload(choice);
 			end
@@ -264,7 +270,7 @@ function menu.run(m)
 	screen.defcursor();
 	local alias_table = drawer.drawscreen(m);
 
---	menu.autoboot();
+	menu.autoboot();
 
 	cont = true;
 	while cont do
@@ -302,7 +308,7 @@ function menu.run(m)
 				if (#choices > 0) then
 					caridx = (caridx % #choices) + 1;
 					menu.setCarouselIndex(carid, caridx);
-					sel_entry.func(choices[caridx],
+					sel_entry.func(caridx, choices[caridx],
 					    choices);
 				end
 			elseif (sel_entry.entry_type == core.MENU_SUBMENU) then
@@ -353,7 +359,9 @@ function menu.autoboot()
 	menu.already_autoboot = true;
 
 	local ab = loader.getenv("autoboot_delay");
-	if ab == "NO" or ab == "no" then
+	if (ab ~= nil) and (ab:lower() == "no") then
+		return;
+	elseif (tonumber(ab) == -1) then
 		core.boot();
 	end
 	ab = tonumber(ab) or 10;
@@ -375,8 +383,6 @@ function menu.autoboot()
 			if ch == core.KEY_ENTER then
 				break;
 			else
-				-- prevent autoboot when escaping to interpreter
-				loader.setenv("autoboot_delay", "NO");
 				-- erase autoboot msg
 				screen.setcursor(0, y);
 				print("                                        "

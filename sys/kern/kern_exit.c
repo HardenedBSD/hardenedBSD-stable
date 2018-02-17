@@ -193,6 +193,7 @@ exit1(struct thread *td, int rval, int signo)
 	struct proc *p, *nq, *q, *t;
 	struct thread *tdt;
 	ksiginfo_t *ksi, *ksi1;
+	int signal_parent;
 
 	mtx_assert(&Giant, MA_NOTOWNED);
 	KASSERT(rval == 0 || signo == 0, ("exit1 rv %d sig %d", rval, signo));
@@ -530,9 +531,6 @@ exit1(struct thread *td, int rval, int signo)
 	PROC_LOCK(p);
 	p->p_xthread = td;
 
-	/* Tell the prison that we are gone. */
-	prison_proc_free(p->p_ucred->cr_prison);
-
 #ifdef KDTRACE_HOOKS
 	/*
 	 * Tell the DTrace fasttrap provider about the exit if it
@@ -562,6 +560,7 @@ exit1(struct thread *td, int rval, int signo)
 	 * procdesc_exit() to serialize concurrent calls to close() and
 	 * exit().
 	 */
+	signal_parent = 0;
 	if (p->p_procdesc == NULL || procdesc_exit(p)) {
 		/*
 		 * Notify parent that we're gone.  If parent has the
@@ -591,17 +590,27 @@ exit1(struct thread *td, int rval, int signo)
 		} else
 			mtx_unlock(&p->p_pptr->p_sigacts->ps_mtx);
 
-		if (p->p_pptr == p->p_reaper || p->p_pptr == initproc)
-			childproc_exited(p);
-		else if (p->p_sigparent != 0) {
-			if (p->p_sigparent == SIGCHLD)
-				childproc_exited(p);
-			else	/* LINUX thread */
-				kern_psignal(p->p_pptr, p->p_sigparent);
+		if (p->p_pptr == p->p_reaper || p->p_pptr == initproc) {
+			signal_parent = 1;
+		} else if (p->p_sigparent != 0) {
+			if (p->p_sigparent == SIGCHLD) {
+				signal_parent = 1;
+			} else { /* LINUX thread */
+				signal_parent = 2;
+			}
 		}
 	} else
 		PROC_LOCK(p->p_pptr);
 	sx_xunlock(&proctree_lock);
+
+	if (signal_parent == 1) {
+		childproc_exited(p);
+	} else if (signal_parent == 2) {
+		kern_psignal(p->p_pptr, p->p_sigparent);
+	}
+
+	/* Tell the prison that we are gone. */
+	prison_proc_free(p->p_ucred->cr_prison);
 
 	/*
 	 * The state PRS_ZOMBIE prevents other proesses from sending
@@ -1202,21 +1211,21 @@ loop:
 		q->p_flag &= ~P_STATCHILD;
 		PROC_UNLOCK(q);
 	}
-	nfound = 0;
 	sx_xlock(&proctree_lock);
+loop_locked:
+	nfound = 0;
 	LIST_FOREACH(p, &q->p_children, p_sibling) {
 		pid = p->p_pid;
 		ret = proc_to_reap(td, p, idtype, id, status, options,
 		    wrusage, siginfo, 0);
 		if (ret == 0)
 			continue;
-		else if (ret == 1)
-			nfound++;
-		else {
+		else if (ret != 1) {
 			td->td_retval[0] = pid;
 			return (0);
 		}
 
+		nfound++;
 		PROC_LOCK_ASSERT(p, MA_OWNED);
 
 		if ((options & (WTRAPPED | WUNTRACED)) != 0)
@@ -1237,7 +1246,7 @@ loop:
 			report_alive_proc(td, p, siginfo, status, options,
 			    CLD_TRAPPED);
 			return (0);
-			}
+		}
 		if ((options & WUNTRACED) != 0 &&
 		    (p->p_flag & P_STOPPED_SIG) != 0 &&
 		    p->p_suspcount == p->p_numthreads &&
@@ -1293,13 +1302,13 @@ loop:
 		return (0);
 	}
 	PROC_LOCK(q);
-	sx_xunlock(&proctree_lock);
 	if (q->p_flag & P_STATCHILD) {
 		q->p_flag &= ~P_STATCHILD;
-		error = 0;
-	} else
-		error = msleep(q, &q->p_mtx, PWAIT | PCATCH, "wait", 0);
-	PROC_UNLOCK(q);
+		PROC_UNLOCK(q);
+		goto loop_locked;
+	}
+	sx_xunlock(&proctree_lock);
+	error = msleep(q, &q->p_mtx, PWAIT | PCATCH | PDROP, "wait", 0);
 	if (error)
 		return (error);
 	goto loop;
