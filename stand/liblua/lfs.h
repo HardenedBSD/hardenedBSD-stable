@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2014 Pedro Souza <pedrosouza@freebsd.org>
+ * Copyright (c) 2018 Conrad Meyer <cem@FreeBSD.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,7 +26,8 @@
  * $FreeBSD$
  */
 
+#pragma once
+
 #include <lua.h>
 
-int	luaopen_loader(lua_State *);
-int	luaopen_io(lua_State *);
+int luaopen_lfs(lua_State *L);
