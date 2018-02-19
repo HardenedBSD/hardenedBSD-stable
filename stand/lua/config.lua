@@ -1,5 +1,6 @@
 --
 -- Copyright (c) 2015 Pedro Souza <pedrosouza@freebsd.org>
+-- Copyright (C) 2018 Kyle Evans <kevans@FreeBSD.org>
 -- All rights reserved.
 --
 -- Redistribution and use in source and binary forms, with or without
@@ -27,8 +28,36 @@
 --
 
 local config = {};
+-- Which variables we changed
+config.env_changed = {};
+-- Values to restore env to (nil to unset)
+config.env_restore = {};
 
 local modules = {};
+
+function config.restoreEnv()
+	for k, v in pairs(config.env_changed) do
+		local restore_value = config.env_restore[k];
+		if (restore_value ~= nil) then
+			loader.setenv(k, restore_value);
+		else
+			loader.unsetenv(k);
+		end
+	end
+
+	config.env_changed = {};
+	config.env_restore = {};
+end
+
+function config.setenv(k, v)
+	-- Do we need to track this change?
+	if (config.env_changed[k] == nil) then
+		config.env_changed[k] = true;
+		config.env_restore[k] = loader.getenv(k);
+	end
+
+	return loader.setenv(k, v);
+end
 
 function config.setKey(k, n, v)
 	if (modules[k] == nil) then
@@ -115,7 +144,7 @@ local pattern_table = {
 	[10] = {
 		str = "^%s*([%w%p]+)%s*=%s*\"([%w%s%p]-)\"%s*(.*)",
 		process = function(k, v)
-			if (loader.setenv(k, v) ~= 0) then
+			if (config.setenv(k, v) ~= 0) then
 				print("Failed to set '" .. k ..
 				    "' with value: " .. v .. "");
 			end
@@ -125,7 +154,7 @@ local pattern_table = {
 	[11] = {
 		str = "^%s*([%w%p]+)%s*=%s*(%d+)%s*(.*)",
 		process = function(k, v)
-			if (loader.setenv(k, v) ~= 0) then
+			if (config.setenv(k, v) ~= 0) then
 				print("Failed to set '" .. k ..
 				    "' with value: " .. v .. "");
 			end
@@ -168,7 +197,7 @@ function config.loadmod(mod, silent)
 					if (not silent) then
 						print("Failed to execute '" ..
 						    v.before ..
-						    "' before loading '".. k ..
+						    "' before loading '" .. k ..
 						    "'");
 					end
 					status = false;
@@ -199,7 +228,9 @@ function config.loadmod(mod, silent)
 			end
 
 		else
-			--if not silent then print("Skiping module '".. k .. "'"); end
+			-- if not silent then
+				-- print("Skiping module '". . k .. "'");
+			-- end
 		end
 	end
 
@@ -374,9 +405,8 @@ end
 
 -- Reload configuration
 function config.reload(file)
-	-- XXX TODO: We should be doing something more here to clear out env
-	-- changes that rode in with the last configuration load
 	modules = {};
+	config.restoreEnv();
 	config.load(file);
 end
 
@@ -404,4 +434,4 @@ function config.loadelf()
 end
 
 
-return config
+return config;

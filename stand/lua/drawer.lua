@@ -26,11 +26,11 @@
 -- $FreeBSD$
 --
 
-local drawer = {};
-
 local color = require("color");
 local core = require("core");
 local screen = require("screen");
+
+local drawer = {};
 
 drawer.brand_position = {x = 2, y = 1};
 drawer.fbsd_logo = {
@@ -193,7 +193,7 @@ function drawer.drawmenu(m)
 			else
 				name = e.name();
 			end
-			print(entry_num .. ". "..name);
+			print(entry_num .. ". " .. name);
 
 			-- fill the alias table
 			alias_table[tostring(entry_num)] = e;
