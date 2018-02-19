@@ -357,7 +357,7 @@ SUBDIR=	\
 	snp \
 	sound \
 	${_speaker} \
-	spigen \
+	spi \
 	${_splash} \
 	${_sppp} \
 	ste \
