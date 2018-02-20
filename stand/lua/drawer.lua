@@ -41,28 +41,23 @@ local orb;
 local none;
 local none_shifted = false;
 
-drawer.menu_name_handlers = {
-	-- Menu name handlers should take the menu being drawn and entry being
-	-- drawn as parameters, and return the name of the item.
-	-- This is designed so that everything, including menu separators, may
-	-- have their names derived differently. The default action for entry
-	-- types not specified here is to call and use entry.name().
-	[core.MENU_CAROUSEL_ENTRY] = function(drawing_menu, entry)
-		local carid = entry.carousel_id;
-		local caridx = menu.getCarouselIndex(carid);
-		local choices = entry.items();
+local menu_entry_name = function(drawing_menu, entry)
+	local name_handler = drawer.menu_name_handlers[entry.entry_type];
 
-		if (#choices < caridx) then
-			caridx = 1;
-		end
-		return entry.name(caridx, choices[caridx], choices);
-	end,
-};
+	if (name_handler ~= nil) then
+		return name_handler(drawing_menu, entry);
+	end
+	return entry.name();
+end
 
-drawer.brand_position = {x = 2, y = 1};
-drawer.logo_position = {x = 46, y = 1};
-drawer.menu_position = {x = 6, y = 11};
-drawer.box_pos_dim = {x = 3, y = 10, w = 41, h = 11};
+local shift_brand_text = function(shift)
+	drawer.brand_position.x = drawer.brand_position.x + shift.x;
+	drawer.brand_position.y = drawer.brand_position.y + shift.y;
+	drawer.menu_position.x = drawer.menu_position.x + shift.x;
+	drawer.menu_position.y = drawer.menu_position.y + shift.y;
+	drawer.box_pos_dim.x = drawer.box_pos_dim.x + shift.x;
+	drawer.box_pos_dim.y = drawer.box_pos_dim.y + shift.y;
+end
 
 fbsd_logo = {
 	"  ______               ____   _____ _____  ",
@@ -172,6 +167,30 @@ orb = {
 
 none = {""};
 
+-- Module exports
+drawer.menu_name_handlers = {
+	-- Menu name handlers should take the menu being drawn and entry being
+	-- drawn as parameters, and return the name of the item.
+	-- This is designed so that everything, including menu separators, may
+	-- have their names derived differently. The default action for entry
+	-- types not specified here is to call and use entry.name().
+	[core.MENU_CAROUSEL_ENTRY] = function(drawing_menu, entry)
+		local carid = entry.carousel_id;
+		local caridx = menu.getCarouselIndex(carid);
+		local choices = entry.items();
+
+		if (#choices < caridx) then
+			caridx = 1;
+		end
+		return entry.name(caridx, choices[caridx], choices);
+	end,
+};
+
+drawer.brand_position = {x = 2, y = 1};
+drawer.logo_position = {x = 46, y = 1};
+drawer.menu_position = {x = 6, y = 11};
+drawer.box_pos_dim = {x = 3, y = 10, w = 41, h = 11};
+
 drawer.branddefs = {
 	-- Indexed by valid values for loader_brand in loader.conf(5). Valid
 	-- keys are: graphic (table depicting graphic)
@@ -226,15 +245,6 @@ function drawer.drawscreen(menu_opts)
         drawer.drawbrand();
         drawer.drawbox();
 	return drawer.drawmenu(menu_opts);
-end
-
-function menu_entry_name(drawing_menu, entry)
-	local name_handler = drawer.menu_name_handlers[entry.entry_type];
-
-	if (name_handler ~= nil) then
-		return name_handler(drawing_menu, entry);
-	end
-	return entry.name();
 end
 
 function drawer.drawmenu(m)
@@ -332,15 +342,6 @@ function drawer.drawbrand()
 		graphic = fbsd_logo;
 	end
 	drawer.draw(x, y, graphic);
-end
-
-function shift_brand_text(shift)
-	drawer.brand_position.x = drawer.brand_position.x + shift.x;
-	drawer.brand_position.y = drawer.brand_position.y + shift.y;
-	drawer.menu_position.x = drawer.menu_position.x + shift.x;
-	drawer.menu_position.y = drawer.menu_position.y + shift.y;
-	drawer.box_pos_dim.x = drawer.box_pos_dim.x + shift.x;
-	drawer.box_pos_dim.y = drawer.box_pos_dim.y + shift.y;
 end
 
 function drawer.drawlogo()
