@@ -31,7 +31,10 @@ local config = {};
 
 local modules = {};
 
-local pattern_table = {
+local pattern_table;
+local carousel_choices = {};
+
+pattern_table = {
 	[1] = {
 		str = "^%s*(#.*)",
 		process = function(k, v)  end
@@ -125,14 +128,40 @@ config.env_changed = {};
 -- Values to restore env to (nil to unset)
 config.env_restore = {};
 
+-- The first item in every carousel is always the default item.
+function config.getCarouselIndex(id)
+	local val = carousel_choices[id];
+	if (val == nil) then
+		return 1;
+	end
+	return val;
+end
+
+function config.setCarouselIndex(id, idx)
+	carousel_choices[id] = idx;
+end
+
 function config.restoreEnv()
+	-- Examine changed environment variables
 	for k, v in pairs(config.env_changed) do
 		local restore_value = config.env_restore[k];
+		if (restore_value == nil) then
+			-- This one doesn't need restored for some reason
+			goto continue;
+		end
+		local current_value = loader.getenv(k);
+		if (current_value ~= v) then
+			-- This was overwritten by some action taken on the menu
+			-- most likely; we'll leave it be.
+			goto continue;
+		end
+		restore_value = restore_value.value;
 		if (restore_value ~= nil) then
 			loader.setenv(k, restore_value);
 		else
 			loader.unsetenv(k);
 		end
+		::continue::
 	end
 
 	config.env_changed = {};
@@ -140,11 +169,12 @@ function config.restoreEnv()
 end
 
 function config.setenv(k, v)
-	-- Do we need to track this change?
-	if (config.env_changed[k] == nil) then
-		config.env_changed[k] = true;
-		config.env_restore[k] = loader.getenv(k);
+	-- Track the original value for this if we haven't already
+	if (config.env_restore[k] == nil) then
+		config.env_restore[k] = {value = loader.getenv(k)};
 	end
+
+	config.env_changed[k] = v;
 
 	return loader.setenv(k, v);
 end
@@ -414,18 +444,13 @@ function config.reload(file)
 end
 
 function config.loadelf()
-	local kernel = config.kernel_loaded or config.kernel_selected;
+	local kernel = config.kernel_selected or config.kernel_loaded;
 	local loaded = false;
 
 	print("Loading kernel...");
 	loaded = config.loadkernel(kernel);
 
 	if (not loaded) then
-		loaded = config.loadkernel();
-	end
-
-	if (not loaded) then
-		-- Ultimately failed to load kernel
 		print("Failed to load any kernel");
 		return;
 	end

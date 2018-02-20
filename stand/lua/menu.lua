@@ -39,7 +39,6 @@ local menu = {};
 local skip;
 local run;
 local autoboot;
-local carousel_choices = {};
 
 local OnOff = function(str, b)
 	if (b) then
@@ -65,12 +64,12 @@ menu.handlers = {
 	[core.MENU_CAROUSEL_ENTRY] = function(current_menu, entry)
 		-- carousel (rotating) functionality
 		local carid = entry.carousel_id;
-		local caridx = menu.getCarouselIndex(carid);
+		local caridx = config.getCarouselIndex(carid);
 		local choices = entry.items();
 
 		if (#choices > 0) then
 			caridx = (caridx % #choices) + 1;
-			menu.setCarouselIndex(carid, caridx);
+			config.setCarouselIndex(carid, caridx);
 			entry.func(caridx, choices[caridx], choices);
 		end
 	end,
@@ -129,6 +128,7 @@ menu.boot_options = {
 		-- acpi
 		{
 			entry_type = core.MENU_ENTRY,
+			visible = core.isSystem386,
 			name = function()
 				return OnOff(color.highlight("A") ..
 				    "CPI       :", core.acpi);
@@ -327,19 +327,6 @@ menu.welcome = {
 	},
 };
 
--- The first item in every carousel is always the default item.
-function menu.getCarouselIndex(id)
-	local val = carousel_choices[id];
-	if (val == nil) then
-		return 1;
-	end
-	return val;
-end
-
-function menu.setCarouselIndex(id, idx)
-	carousel_choices[id] = idx;
-end
-
 function menu.run(m)
 
 	if (menu.skip()) then
@@ -403,7 +390,6 @@ function menu.run(m)
 	if (m == menu.welcome) then
 		screen.defcursor();
 		print("Exiting menu!");
-		config.loadelf();
 		return false;
 	end
 

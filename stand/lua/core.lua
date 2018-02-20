@@ -30,6 +30,63 @@ local config = require('config');
 
 local core = {};
 
+local compose_loader_cmd = function(cmd_name, argstr)
+	if (argstr ~= nil) then
+		cmd_name = cmd_name .. " " .. argstr;
+	end
+	return cmd_name;
+end
+
+-- Internal function
+-- Parses arguments to boot and returns two values: kernel_name, argstr
+-- Defaults to nil and "" respectively.
+-- This will also parse arguments to autoboot, but the with_kernel argument
+-- will need to be explicitly overwritten to false
+local parse_boot_args = function(argv, with_kernel)
+	if (#argv == 0) then
+		return nil, "";
+	end
+	if (with_kernel == nil) then
+		with_kernel = true;
+	end
+	local kernel_name;
+	local argstr = "";
+
+	for k, v in ipairs(argv) do
+		if (with_kernel) and (v:sub(1,1) ~= "-") then
+			kernel_name = v;
+		else
+			argstr = argstr .. " " .. v;
+		end
+	end
+	if (with_kernel) then
+		return kernel_name, argstr;
+	else
+		return argstr;
+	end
+end
+
+-- Globals
+function boot(...)
+	local argv = {...};
+	local cmd_name = "";
+	cmd_name, argv = core.popFrontTable(argv);
+	local kernel, argstr = parse_boot_args(argv);
+	if (kernel ~= nil) then
+		loader.perform("unload");
+		config.selectkernel(kernel);
+	end
+	core.boot(argstr);
+end
+
+function autoboot(...)
+	local argv = {...}
+	local cmd_name = "";
+	cmd_name, argv = core.popFrontTable(argv);
+	local argstr = parse_boot_args(argv, false);
+	core.autoboot(argstr);
+end
+
 -- Module exports
 -- Commonly appearing constants
 core.KEY_BACKSPACE	= 8;
@@ -182,14 +239,14 @@ function core.setDefaults()
 	core.setVerbose(false);
 end
 
-function core.autoboot()
+function core.autoboot(argstr)
 	config.loadelf();
-	loader.perform("autoboot");
+	loader.perform(compose_loader_cmd("autoboot", argstr));
 end
 
-function core.boot()
+function core.boot(argstr)
 	config.loadelf();
-	loader.perform("boot");
+	loader.perform(compose_loader_cmd("boot", argstr));
 end
 
 function core.isSingleUserBoot()
@@ -218,6 +275,10 @@ function core.isSerialBoot()
 	return false;
 end
 
+function core.isSystem386()
+	return (loader.machine_arch == "i386");
+end
+
 -- This may be a better candidate for a 'utility' module.
 function core.shallowCopyTable(tbl)
 	local new_tbl = {};
@@ -231,11 +292,34 @@ function core.shallowCopyTable(tbl)
 	return new_tbl;
 end
 
+-- XXX This should go away if we get the table lib into shape for importing.
+-- As of now, it requires some 'os' functions, so we'll implement this in lua
+-- for our uses
+function core.popFrontTable(tbl)
+	-- Shouldn't reasonably happen
+	if (#tbl == 0) then
+		return nil, nil;
+	elseif (#tbl == 1) then
+		return tbl[1], {};
+	end
+
+	local first_value = tbl[1];
+	local new_tbl = {};
+	-- This is not a cheap operation
+	for k, v in ipairs(tbl) do
+		if (k > 1) then
+			new_tbl[k - 1] = v;
+		end
+	end
+
+	return first_value, new_tbl;
+end
+
 -- On i386, hint.acpi.0.rsdp will be set before we're loaded. On !i386, it will
 -- generally be set upon execution of the kernel. Because of this, we can't (or
 -- don't really want to) detect/disable ACPI on !i386 reliably. Just set it
 -- enabled if we detect it and leave well enough alone if we don't.
-if (core.getACPIPresent(false)) then
+if (core.isSystem386()) and (core.getACPIPresent(false)) then
 	core.setACPI(true);
 end
 return core;
