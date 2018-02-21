@@ -50,6 +50,12 @@ local OnOff = function(str, b)
 	end
 end
 
+local bootenvSet = function(env)
+	loader.setenv("vfs.root.mountfrom", env)
+	loader.setenv("currdev", env .. ":")
+	config.reload()
+end
+
 -- Module exports
 menu.handlers = {
 	-- Menu handlers take the current menu and selected entry as parameters,
@@ -88,6 +94,58 @@ menu.handlers = {
 	end,
 }
 -- loader menu tree is rooted at menu.welcome
+
+menu.boot_environments = {
+	entries = {
+		-- return to welcome menu
+		{
+			entry_type = core.MENU_RETURN,
+			name = "Back to main menu" ..
+			    color.highlight(" [Backspace]"),
+		},
+		{
+			entry_type = core.MENU_CAROUSEL_ENTRY,
+			carousel_id = "be_active",
+			items = core.bootenvList,
+			name = function(idx, choice, all_choices)
+				if #all_choices == 0 then
+					return "Active: "
+				end
+
+				local is_default = (idx == 1)
+				local bootenv_name = ""
+				local name_color
+				if is_default then
+					name_color = color.escapef(color.GREEN)
+				else
+					name_color = color.escapef(color.BLUE)
+				end
+				bootenv_name = bootenv_name .. name_color ..
+				    choice .. color.default()
+				return color.highlight("A").."ctive: " ..
+				    bootenv_name .. " (" .. idx .. " of " ..
+				    #all_choices .. ")"
+			end,
+			func = function(idx, choice, all_choices)
+				bootenvSet(choice)
+			end,
+			alias = {"a", "A"},
+		},
+		{
+			entry_type = core.MENU_ENTRY,
+			name = function()
+				return color.highlight("b") .. "ootfs: " ..
+				    core.bootenvDefault()
+			end,
+			func = function()
+				-- Reset active boot environment to the default
+				config.setCarouselIndex("be_active", 1)
+				bootenvSet(core.bootenvDefault())
+			end,
+			alias = {"b", "B"},
+		},
+	},
+}
 
 menu.boot_options = {
 	entries = {
@@ -270,6 +328,17 @@ menu.welcome = {
 			submenu = menu.boot_options,
 			alias = {"o", "O"}
 		},
+		-- boot environments
+		{
+			entry_type = core.MENU_SUBMENU,
+			visible = function()
+				return core.isZFSBoot() and
+				    #core.bootenvList() > 1
+			end,
+			name = "Boot " .. color.highlight("E") .. "nvironments",
+			submenu = menu.boot_environments,
+			alias = {"e", "E"},
+		},
 	},
 }
 
@@ -291,11 +360,13 @@ function menu.run(m)
 	screen.defcursor()
 	local alias_table = drawer.drawscreen(m)
 
-	menu.autoboot()
+	-- Might return nil, that's ok
+	local autoboot_key = menu.autoboot()
 
 	cont = true
 	while cont do
-		local key = io.getchar()
+		local key = autoboot_key or io.getchar()
+		autoboot_key = nil
 
 		-- Special key behaviors
 		if (key == core.KEY_BACKSPACE or key == core.KEY_DELETE) and
@@ -360,13 +431,13 @@ end
 
 function menu.autoboot()
 	if menu.already_autoboot then
-		return
+		return nil
 	end
 	menu.already_autoboot = true
 
 	local ab = loader.getenv("autoboot_delay")
 	if ab ~= nil and ab:lower() == "no" then
-		return
+		return nil
 	elseif tonumber(ab) == -1 then
 		core.boot()
 	end
@@ -395,7 +466,7 @@ function menu.autoboot()
 				print("                                        "
 				    .. "                                        ")
 				screen.defcursor()
-				return
+				return ch
 			end
 		end
 

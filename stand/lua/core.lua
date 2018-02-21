@@ -188,7 +188,8 @@ end
 
 function core.kernelList()
 	local k = loader.getenv("kernel")
-	local v = loader.getenv("kernels") or ""
+	local v = loader.getenv("kernels")
+	local autodetect = loader.getenv("kernels_autodetect") or ""
 
 	local kernels = {}
 	local unique = {}
@@ -199,12 +200,21 @@ function core.kernelList()
 		unique[k] = true
 	end
 
-	for n in v:gmatch("([^; ]+)[; ]?") do
-		if unique[n] == nil then
-			i = i + 1
-			kernels[i] = n
-			unique[n] = true
+	if v ~= nil then
+		for n in v:gmatch("([^; ]+)[; ]?") do
+			if unique[n] == nil then
+				i = i + 1
+				kernels[i] = n
+				unique[n] = true
+			end
 		end
+	end
+
+	-- Base whether we autodetect kernels or not on a loader.conf(5)
+	-- setting, kernels_autodetect. If it's set to 'yes', we'll add
+	-- any kernels we detect based on the criteria described.
+	if autodetect:lower() ~= "yes" then
+		return kernels
 	end
 
 	-- Automatically detect other bootable kernel directories using a
@@ -236,6 +246,41 @@ function core.kernelList()
 	return kernels
 end
 
+function core.bootenvDefault()
+	return loader.getenv("zfs_be_active")
+end
+
+function core.bootenvList()
+	local bootenv_count = tonumber(loader.getenv("bootenvs_count"))
+	local bootenvs = {}
+	local curenv
+	local curenv_idx = 0
+	local envcount = 0
+	local unique = {}
+
+	if bootenv_count == nil or bootenv_count <= 0 then
+		return bootenvs
+	end
+
+	-- Currently selected bootenv is always first/default
+	curenv = core.bootenvDefault()
+	if curenv ~= nil then
+		envcount = envcount + 1
+		bootenvs[envcount] = curenv
+		unique[curenv] = true
+	end
+
+	for curenv_idx = 0, bootenv_count - 1 do
+		curenv = loader.getenv("bootenvs[" .. curenv_idx .. "]")
+		if curenv ~= nil and unique[curenv] == nil then
+			envcount = envcount + 1
+			bootenvs[envcount] = curenv
+			unique[curenv] = true
+		end
+	end
+	return bootenvs
+end
+
 function core.setDefaults()
 	core.setACPI(core.getACPIPresent(true))
 	core.setSafeMode(false)
@@ -256,6 +301,15 @@ end
 function core.isSingleUserBoot()
 	local single_user = loader.getenv("boot_single")
 	return single_user ~= nil and single_user:lower() == "yes"
+end
+
+function core.isZFSBoot()
+	local c = loader.getenv("currdev")
+
+	if c ~= nil then
+		return c:match("^zfs:") ~= nil
+	end
+	return false
 end
 
 function core.isSerialBoot()
