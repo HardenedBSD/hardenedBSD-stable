@@ -48,7 +48,10 @@ local menu_entry_name = function(drawing_menu, entry)
 	if name_handler ~= nil then
 		return name_handler(drawing_menu, entry)
 	end
-	return entry.name()
+	if type(entry.name) == "function" then
+		return entry.name()
+	end
+	return entry.name
 end
 
 local shift_brand_text = function(shift)
@@ -174,12 +177,23 @@ drawer.menu_name_handlers = {
 	-- drawn as parameters, and return the name of the item.
 	-- This is designed so that everything, including menu separators, may
 	-- have their names derived differently. The default action for entry
-	-- types not specified here is to call and use entry.name().
+	-- types not specified here is to use entry.name directly.
+	[core.MENU_SEPARATOR] = function(drawing_menu, entry)
+		if entry.name ~= nil then
+			if type(entry.name) == "function" then
+				return entry.name()
+			end
+			return entry.name
+		end
+		return ""
+	end,
 	[core.MENU_CAROUSEL_ENTRY] = function(drawing_menu, entry)
 		local carid = entry.carousel_id
 		local caridx = config.getCarouselIndex(carid)
-		local choices = entry.items()
-
+		local choices = entry.items
+		if type(choices) == "function" then
+			choices = choices()
+		end
 		if #choices < caridx then
 			caridx = 1
 		end
