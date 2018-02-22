@@ -26,7 +26,7 @@
 -- $FreeBSD$
 --
 
-local config = require('config')
+local config = require("config")
 
 local core = {}
 
@@ -35,60 +35,6 @@ local compose_loader_cmd = function(cmd_name, argstr)
 		cmd_name = cmd_name .. " " .. argstr
 	end
 	return cmd_name
-end
-
--- Internal function
--- Parses arguments to boot and returns two values: kernel_name, argstr
--- Defaults to nil and "" respectively.
--- This will also parse arguments to autoboot, but the with_kernel argument
--- will need to be explicitly overwritten to false
-local parse_boot_args = function(argv, with_kernel)
-	if with_kernel == nil then
-		with_kernel = true
-	end
-	if #argv == 0 then
-		if with_kernel then
-			return nil, ""
-		else
-			return ""
-		end
-	end
-	local kernel_name
-	local argstr = ""
-
-	for k, v in ipairs(argv) do
-		if with_kernel and v:sub(1,1) ~= "-" then
-			kernel_name = v
-		else
-			argstr = argstr .. " " .. v
-		end
-	end
-	if with_kernel then
-		return kernel_name, argstr
-	else
-		return argstr
-	end
-end
-
--- Globals
-function boot(...)
-	local argv = {...}
-	local cmd_name = ""
-	cmd_name, argv = core.popFrontTable(argv)
-	local kernel, argstr = parse_boot_args(argv)
-	if kernel ~= nil then
-		loader.perform("unload")
-		config.selectkernel(kernel)
-	end
-	core.boot(argstr)
-end
-
-function autoboot(...)
-	local argv = {...}
-	local cmd_name = ""
-	cmd_name, argv = core.popFrontTable(argv)
-	local argstr = parse_boot_args(argv, false)
-	core.autoboot(argstr)
 end
 
 -- Module exports
@@ -254,7 +200,6 @@ function core.bootenvList()
 	local bootenv_count = tonumber(loader.getenv("bootenvs_count"))
 	local bootenvs = {}
 	local curenv
-	local curenv_idx = 0
 	local envcount = 0
 	local unique = {}
 

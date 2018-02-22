@@ -338,6 +338,7 @@ typedef enum bp_embedded_type {
 
 #define	SPA_BLKPTRSHIFT	7		/* blkptr_t is 128 bytes	*/
 #define	SPA_DVAS_PER_BP	3		/* Number of DVAs in a bp	*/
+#define	SPA_SYNC_MIN_VDEVS 3		/* min vdevs to update during sync */
 
 /*
  * A block is a hole when it has either 1) never been written to, or
@@ -827,6 +828,8 @@ extern objset_t *spa_meta_objset(spa_t *spa);
 extern uint64_t spa_deadman_synctime(spa_t *spa);
 
 /* Miscellaneous support routines */
+extern void spa_load_failed(spa_t *spa, const char *fmt, ...);
+extern void spa_load_note(spa_t *spa, const char *fmt, ...);
 extern void spa_activate_mos_feature(spa_t *spa, const char *feature,
     dmu_tx_t *tx);
 extern void spa_deactivate_mos_feature(spa_t *spa, const char *feature);
@@ -854,11 +857,16 @@ extern boolean_t spa_writeable(spa_t *spa);
 extern boolean_t spa_has_pending_synctask(spa_t *spa);
 extern int spa_maxblocksize(spa_t *spa);
 extern void zfs_blkptr_verify(spa_t *spa, const blkptr_t *bp);
+extern boolean_t zfs_dva_valid(spa_t *spa, const dva_t *dva,
+    const blkptr_t *bp);
 typedef void (*spa_remap_cb_t)(uint64_t vdev, uint64_t offset, uint64_t size,
     void *arg);
 extern boolean_t spa_remap_blkptr(spa_t *spa, blkptr_t *bp,
     spa_remap_cb_t callback, void *arg);
 extern uint64_t spa_get_last_removal_txg(spa_t *spa);
+extern boolean_t spa_trust_config(spa_t *spa);
+extern uint64_t spa_missing_tvds_allowed(spa_t *spa);
+extern void spa_set_missing_tvds(spa_t *spa, uint64_t missing);
 
 extern int spa_mode(spa_t *spa);
 extern uint64_t zfs_strtonum(const char *str, char **nptr);
