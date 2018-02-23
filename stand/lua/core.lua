@@ -1,5 +1,8 @@
 --
+-- SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+--
 -- Copyright (c) 2015 Pedro Souza <pedrosouza@freebsd.org>
+-- Copyright (c) 2018 Kyle Evans <kevans@FreeBSD.org>
 -- All rights reserved.
 --
 -- Redistribution and use in source and binary forms, with or without
@@ -30,7 +33,7 @@ local config = require("config")
 
 local core = {}
 
-local compose_loader_cmd = function(cmd_name, argstr)
+local function compose_loader_cmd(cmd_name, argstr)
 	if argstr ~= nil then
 		cmd_name = cmd_name .. " " .. argstr
 	end
@@ -283,11 +286,11 @@ function core.isSystem386()
 end
 
 -- This may be a better candidate for a 'utility' module.
-function core.shallowCopyTable(tbl)
+function core.deepCopyTable(tbl)
 	local new_tbl = {}
 	for k, v in pairs(tbl) do
 		if type(v) == "table" then
-			new_tbl[k] = core.shallowCopyTable(v)
+			new_tbl[k] = core.deepCopyTable(v)
 		else
 			new_tbl[k] = v
 		end

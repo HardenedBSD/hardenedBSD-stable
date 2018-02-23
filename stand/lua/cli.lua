@@ -1,4 +1,6 @@
 --
+-- SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+--
 -- Copyright (c) 2018 Kyle Evans <kevans@FreeBSD.org>
 -- All rights reserved.
 --
@@ -36,7 +38,7 @@ local cli = {}
 -- Defaults to nil and "" respectively.
 -- This will also parse arguments to autoboot, but the with_kernel argument
 -- will need to be explicitly overwritten to false
-local parse_boot_args = function(argv, with_kernel)
+local function parse_boot_args(argv, with_kernel)
 	if with_kernel == nil then
 		with_kernel = true
 	end

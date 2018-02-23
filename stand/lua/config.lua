@@ -1,4 +1,6 @@
 --
+-- SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+--
 -- Copyright (c) 2015 Pedro Souza <pedrosouza@freebsd.org>
 -- Copyright (C) 2018 Kyle Evans <kevans@FreeBSD.org>
 -- All rights reserved.
@@ -334,7 +336,7 @@ function config.loadkernel(other_kernel)
 	local flags = loader.getenv("kernel_options") or ""
 	local kernel = other_kernel or loader.getenv("kernel")
 
-	local try_load = function (names)
+	local function try_load(names)
 		for name in names:gmatch("([^;]+)%s*;?") do
 			local r = loader.perform("load " .. flags ..
 			    " " .. name)
@@ -345,7 +347,7 @@ function config.loadkernel(other_kernel)
 		return nil
 	end
 
-	local load_bootfile = function()
+	local function load_bootfile()
 		local bootfile = loader.getenv("bootfile")
 
 		-- append default kernel name

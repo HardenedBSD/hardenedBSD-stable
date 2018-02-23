@@ -1,4 +1,6 @@
 --
+-- SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+--
 -- Copyright (c) 2015 Pedro Souza <pedrosouza@freebsd.org>
 -- Copyright (c) 2018 Kyle Evans <kevans@FreeBSD.org>
 -- All rights reserved.
@@ -32,7 +34,7 @@ local config = require("config")
 local menu = require("menu")
 local password = require("password")
 
-local result, _, _ = lfs.attributes("/boot/lua/local.lua")
+local result = lfs.attributes("/boot/lua/local.lua")
 -- Effectively discard any errors; we'll just act if it succeeds.
 if result ~= nil then
 	require("local")

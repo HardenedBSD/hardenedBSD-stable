@@ -1,4 +1,6 @@
 --
+-- SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+--
 -- Copyright (c) 2015 Pedro Souza <pedrosouza@freebsd.org>
 -- Copyright (C) 2018 Kyle Evans <kevans@FreeBSD.org>
 -- All rights reserved.
@@ -36,7 +38,7 @@ local drawer = require("drawer")
 
 local menu = {}
 
-local OnOff = function(str, b)
+local function OnOff(str, b)
 	if b then
 		return str .. color.escapef(color.GREEN) .. "On" ..
 		    color.escapef(color.WHITE)
@@ -46,7 +48,7 @@ local OnOff = function(str, b)
 	end
 end
 
-local bootenvSet = function(env)
+local function bootenvSet(env)
 	loader.setenv("vfs.root.mountfrom", env)
 	loader.setenv("currdev", env .. ":")
 	config.reload()
@@ -220,7 +222,7 @@ menu.welcome = {
 				return menu.welcome.swapped_menu
 			end
 			-- Shallow copy the table
-			menu_entries = core.shallowCopyTable(menu_entries)
+			menu_entries = core.deepCopyTable(menu_entries)
 
 			-- Swap the first two menu entries
 			menu_entries[1], menu_entries[2] =

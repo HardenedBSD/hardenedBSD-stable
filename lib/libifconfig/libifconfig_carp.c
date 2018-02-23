@@ -1,8 +1,6 @@
-/*-
- * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
- *
- * Copyright (c) 2001 Dima Dorfman.
- * All rights reserved.
+/*
+ * Copyright (c) 1983, 1993
+ *  The Regents of the University of California.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -12,11 +10,14 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
+ * 3. Neither the name of the University nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
  * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
@@ -24,37 +25,36 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
+ * $FreeBSD$
  */
-
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
-#include "namespace.h"
 #include <sys/param.h>
-#include <sys/socket.h>
-#include <sys/ucred.h>
-#include <sys/un.h>
+#include <sys/ioctl.h>
 
-#include <errno.h>
-#include <unistd.h>
-#include "un-namespace.h"
+#include <net/if.h>
+#include <netinet/ip_carp.h>
+
+#include <string.h>
+#include <strings.h>
+
+#include "libifconfig.h"
+#include "libifconfig_internal.h"
+
 
 int
-getpeereid(int s, uid_t *euid, gid_t *egid)
+ifconfig_carp_get_info(ifconfig_handle_t *h, const char *name,
+    struct carpreq *carpr, int ncarpr)
 {
-	struct xucred xuc;
-	socklen_t xuclen;
-	int error;
+	struct ifreq ifr;
 
-	xuclen = sizeof(xuc);
-	error = _getsockopt(s, 0, LOCAL_PEERCRED, &xuc, &xuclen);
-	if (error != 0)
-		return (error);
-	if (xuc.cr_version != XUCRED_VERSION) {
-		errno = EINVAL;
+	bzero(carpr, sizeof(struct carpreq) * ncarpr);
+	carpr[0].carpr_count = ncarpr;
+	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	ifr.ifr_data = (caddr_t)carpr;
+
+	if (ifconfig_ioctlwrap(h, AF_LOCAL, SIOCGVH, &ifr) != 0) {
 		return (-1);
 	}
-	*euid = xuc.cr_uid;
-	*egid = xuc.cr_gid;
+
 	return (0);
 }
