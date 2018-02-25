@@ -1,8 +1,5 @@
 /*-
- * Copyright (c) 2010 Isilon Systems, Inc.
- * Copyright (c) 2010 iX Systems, Inc.
- * Copyright (c) 2010 Panasas, Inc.
- * Copyright (c) 2013, 2014 Mellanox Technologies, Ltd.
+ * Copyright (c) 2017 Limelight Networks, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,29 +26,15 @@
  * $FreeBSD$
  */
 
-#ifndef _LINUX_LOCKDEP_H_
-#define	_LINUX_LOCKDEP_H_
+#ifndef _LINUX_IRQRETURN_H
+#define	_LINUX_IRQRETURN_H
 
-struct lock_class_key {
-};
+typedef enum irqreturn {
+	IRQ_NONE = 0,
+	IRQ_HANDLED = 1,
+	IRQ_WAKE_THREAD = 2
+} irqreturn_t;
 
-#define	lockdep_set_class(lock, key)
+#define	IRQ_RETVAL(x) ((x) ? IRQ_HANDLED : IRQ_NONE)
 
-#define	lockdep_set_class_and_name(lock, key, name)
-
-#define	lockdep_assert_held(m)				\
-	sx_assert(&(m)->sx, SA_XLOCKED)
-
-#define	lockdep_assert_held_once(m)			\
-	sx_assert(&(m)->sx, SA_XLOCKED | SA_NOTRECURSED)
-
-#define	lockdep_is_held(m)	(sx_xholder(&(m)->sx) == curthread)
-
-#define	might_lock(m)	do { } while (0)
-#define	might_lock_read(m) do { } while (0)
-
-#define	lock_acquire(...) do { } while (0)
-#define	lock_release(...) do { } while (0)
-#define	lock_acquire_shared_recursive(...) do { } while (0)
-
-#endif /* _LINUX_LOCKDEP_H_ */
+#endif /* _LINUX_IRQRETURN_H */

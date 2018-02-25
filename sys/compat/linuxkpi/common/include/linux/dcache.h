@@ -1,8 +1,5 @@
 /*-
- * Copyright (c) 2010 Isilon Systems, Inc.
- * Copyright (c) 2010 iX Systems, Inc.
- * Copyright (c) 2010 Panasas, Inc.
- * Copyright (c) 2013, 2014 Mellanox Technologies, Ltd.
+ * Copyright (c) 2017 Limelight Networks, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,29 +26,21 @@
  * $FreeBSD$
  */
 
-#ifndef _LINUX_LOCKDEP_H_
-#define	_LINUX_LOCKDEP_H_
+#ifndef __LINUX_DCACHE_H
+#define	__LINUX_DCACHE_H
 
-struct lock_class_key {
+struct vnode;
+struct pfs_node;
+
+struct dentry {
+	struct vnode *d_inode;
+	struct pfs_node *d_pfs_node;	/* FreeBSD specific field */
 };
 
-#define	lockdep_set_class(lock, key)
+static inline struct vnode *
+d_inode(const struct dentry *dentry)
+{
+	return (dentry->d_inode);
+}
 
-#define	lockdep_set_class_and_name(lock, key, name)
-
-#define	lockdep_assert_held(m)				\
-	sx_assert(&(m)->sx, SA_XLOCKED)
-
-#define	lockdep_assert_held_once(m)			\
-	sx_assert(&(m)->sx, SA_XLOCKED | SA_NOTRECURSED)
-
-#define	lockdep_is_held(m)	(sx_xholder(&(m)->sx) == curthread)
-
-#define	might_lock(m)	do { } while (0)
-#define	might_lock_read(m) do { } while (0)
-
-#define	lock_acquire(...) do { } while (0)
-#define	lock_release(...) do { } while (0)
-#define	lock_acquire_shared_recursive(...) do { } while (0)
-
-#endif /* _LINUX_LOCKDEP_H_ */
+#endif /* __LINUX_DCACHE_H */
