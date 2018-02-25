@@ -81,7 +81,7 @@ menu.handlers = {
 	end,
 	[core.MENU_SUBMENU] = function(_, entry)
 		-- recurse
-		return menu.run(entry.submenu)
+		menu.process(entry.submenu)
 	end,
 	[core.MENU_RETURN] = function(_, entry)
 		-- allow entry to have a function/side effect
@@ -159,7 +159,7 @@ menu.boot_options = {
 			name = "Load System " .. color.highlight("D") ..
 			    "efaults",
 			func = core.setDefaults,
-			alias = {"d", "D"}
+			alias = {"d", "D"},
 		},
 		{
 			entry_type = core.MENU_SEPARATOR,
@@ -177,7 +177,7 @@ menu.boot_options = {
 				    "CPI       :", core.acpi)
 			end,
 			func = core.setACPI,
-			alias = {"a", "A"}
+			alias = {"a", "A"},
 		},
 		-- safe mode
 		{
@@ -187,7 +187,7 @@ menu.boot_options = {
 				    "ode  :", core.sm)
 			end,
 			func = core.setSafeMode,
-			alias = {"m", "M"}
+			alias = {"m", "M"},
 		},
 		-- single user
 		{
@@ -197,7 +197,7 @@ menu.boot_options = {
 				    "ingle user:", core.su)
 			end,
 			func = core.setSingleUser,
-			alias = {"s", "S"}
+			alias = {"s", "S"},
 		},
 		-- verbose boot
 		{
@@ -207,7 +207,7 @@ menu.boot_options = {
 				    "erbose    :", core.verbose)
 			end,
 			func = core.setVerbose,
-			alias = {"v", "V"}
+			alias = {"v", "V"},
 		},
 	},
 }
@@ -249,7 +249,7 @@ menu.welcome = {
 				core.setSingleUser(false)
 				core.boot()
 			end,
-			alias = {"b", "B"}
+			alias = {"b", "B"},
 		},
 		-- boot single user
 		{
@@ -262,7 +262,7 @@ menu.welcome = {
 				core.setSingleUser(true)
 				core.boot()
 			end,
-			alias = {"s", "S"}
+			alias = {"s", "S"},
 		},
 		-- escape to interpreter
 		{
@@ -271,7 +271,7 @@ menu.welcome = {
 			func = function()
 				loader.setenv("autoboot_delay", "NO")
 			end,
-			alias = {core.KEYSTR_ESCAPE}
+			alias = {core.KEYSTR_ESCAPE},
 		},
 		-- reboot
 		{
@@ -280,7 +280,7 @@ menu.welcome = {
 			func = function()
 				loader.perform("reboot")
 			end,
-			alias = {"r", "R"}
+			alias = {"r", "R"},
 		},
 		{
 			entry_type = core.MENU_SEPARATOR,
@@ -317,14 +317,14 @@ menu.welcome = {
 			func = function(_, choice, _)
 				config.selectKernel(choice)
 			end,
-			alias = {"k", "K"}
+			alias = {"k", "K"},
 		},
 		-- boot options
 		{
 			entry_type = core.MENU_SUBMENU,
 			name = "Boot " .. color.highlight("O") .. "ptions",
 			submenu = menu.boot_options,
-			alias = {"o", "O"}
+			alias = {"o", "O"},
 		},
 		-- boot environments
 		{
@@ -342,29 +342,24 @@ menu.welcome = {
 
 menu.default = menu.welcome
 
-function menu.run(m)
-
-	if menu.skip() then
-		core.autoboot()
-		return false
-	end
-
-	if m == nil then
-		m = menu.default
-	end
-
+function menu.process(m)
+	assert(m ~= nil)
 	-- redraw screen
 	screen.clear()
 	screen.defcursor()
 	local alias_table = drawer.drawscreen(m)
 
-	-- Might return nil, that's ok
+	-- autoboot processing likely belongs better in menu.run, but we want
+	-- to draw the menu once before we do any autoboot prompting.  We also
+	-- collect the alias table from the drawer, which generates the table
+	-- based on all of the 'alias' entries along with effective line numbers
+	-- that each entry is drawn at.  This makes it cleaner to handle here,
+	-- for the time being.
 	local autoboot_key;
 	if m == menu.default then
 		autoboot_key = menu.autoboot()
 	end
-	local cont = true
-	while cont do
+	while true do
 		local key = autoboot_key or io.getchar()
 		autoboot_key = nil
 
@@ -391,12 +386,11 @@ function menu.run(m)
 			-- Get menu handler
 			local handler = menu.handlers[sel_entry.entry_type]
 			if handler ~= nil then
-				-- The handler's return value indicates whether
-				-- we need to exit this menu. An omitted return
-				-- value means "continue" by default.
-				cont = handler(m, sel_entry)
-				if cont == nil then
-					cont = true
+				-- The handler's return value indicates if we
+				-- need to exit this menu. An omitted or true
+				-- return value means to continue.
+				if handler(m, sel_entry) == false then
+					return
 				end
 			end
 			-- if we got an alias key the screen is out of date:
@@ -405,14 +399,18 @@ function menu.run(m)
 			alias_table = drawer.drawscreen(m)
 		end
 	end
+end
 
-	if m == menu.default then
-		screen.defcursor()
-		print("Exiting menu!")
-		return false
+function menu.run()
+	if menu.skip() then
+		core.autoboot()
+		return
 	end
 
-	return true
+	menu.process(menu.default)
+
+	screen.defcursor()
+	print("Exiting menu!")
 end
 
 function menu.skip()
