@@ -38,7 +38,7 @@ function screen.clear()
 	if core.isSerialBoot() then
 		return
 	end
-	loader.printc("\027[H\027[J")
+	loader.printc(core.KEYSTR_CSI .. "H" .. core.KEYSTR_CSI .. "J")
 end
 
 function screen.setcursor(x, y)
@@ -46,7 +46,25 @@ function screen.setcursor(x, y)
 		return
 	end
 
-	loader.printc("\027[" .. y .. ";" .. x .. "H")
+	loader.printc(core.KEYSTR_CSI .. y .. ";" .. x .. "H")
+end
+
+function screen.movecursor(dx, dy)
+	if core.isSerialBoot() then
+		return
+	end
+
+	if dx < 0 then
+		loader.printc(core.KEYSTR_CSI .. -dx .. "D")
+	elseif dx > 0 then
+		loader.printc(core.KEYSTR_CSI .. dx .. "C")
+	end
+
+	if dy < 0 then
+		loader.printc(core.KEYSTR_CSI .. -dy .. "A")
+	elseif dy > 0 then
+		loader.printc(core.KEYSTR_CSI .. dy .. "B")
+	end
 end
 
 function screen.setforeground(color_value)
@@ -71,7 +89,7 @@ function screen.defcursor()
 	if core.isSerialBoot() then
 		return
 	end
-	loader.printc("\027[25;0H")
+	loader.printc(core.KEYSTR_CSI .. "25;0H")
 end
 
 return screen
