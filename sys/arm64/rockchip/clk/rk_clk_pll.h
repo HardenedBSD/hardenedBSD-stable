@@ -1,10 +1,8 @@
 /*-
- * Copyright (c) 2014 Ruslan Bukin <br@bsdpad.com>
- * All rights reserved.
+ * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
  *
- * This software was developed by SRI International and the University of
- * Cambridge Computer Laboratory under DARPA/AFRL contract (FA8750-10-C-0237)
- * ("CTSRD"), as part of the DARPA CRASH research programme.
+ * Copyright 2018 Emmanuel Vadot <manu@FreeBSD.org>
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,64 +28,25 @@
  * $FreeBSD$
  */
 
-#ifndef DEV_MMC_HOST_DWMMC_VAR_H
-#define DEV_MMC_HOST_DWMMC_VAR_H
+#ifndef _RK_CLK_PLL_H_
+#define _RK_CLK_PLL_H_
 
-#ifdef EXT_RESOURCES
 #include <dev/extres/clk/clk.h>
-#endif
 
-enum {
-	HWTYPE_NONE,
-	HWTYPE_ALTERA,
-	HWTYPE_EXYNOS,
-	HWTYPE_HISILICON,
-	HWTYPE_ROCKCHIP,
-};
+struct rk_clk_pll_def {
+	struct clknode_init_def	clkdef;
+	uint32_t		base_offset;
 
-struct dwmmc_softc {
-	struct resource		*res[2];
-	device_t		dev;
-	void			*intr_cookie;
-	struct mmc_host		host;
-	struct mtx		sc_mtx;
-	struct mmc_request	*req;
-	struct mmc_command	*curcmd;
+	uint32_t		gate_offset;
+	uint32_t		gate_shift;
+
 	uint32_t		flags;
-	uint32_t		hwtype;
-	uint32_t		use_auto_stop;
-	uint32_t		use_pio;
-	uint32_t		pwren_inverted;
-	u_int			desc_count;
-
-	int			(*update_ios)(struct dwmmc_softc *sc, struct mmc_ios *ios);
-
-	bus_dma_tag_t		desc_tag;
-	bus_dmamap_t		desc_map;
-	struct idmac_desc	*desc_ring;
-	bus_addr_t		desc_ring_paddr;
-	bus_dma_tag_t		buf_tag;
-	bus_dmamap_t		buf_map;
-
-	uint32_t		bus_busy;
-	uint32_t		dto_rcvd;
-	uint32_t		acd_rcvd;
-	uint32_t		cmd_done;
-	uint64_t		bus_hz;
-	uint32_t		max_hz;
-	uint32_t		fifo_depth;
-	uint32_t		num_slots;
-	uint32_t		sdr_timing;
-	uint32_t		ddr_timing;
-
-#ifdef EXT_RESOURCES
-	clk_t			biu;
-	clk_t			ciu;
-#endif
 };
 
-DECLARE_CLASS(dwmmc_driver);
+#define	RK_CLK_PLL_HAVE_GATE	0x1
 
-int dwmmc_attach(device_t);
+#define	RK_CLK_PLL_MASK	0xFFFF0000
 
-#endif
+int rk_clk_pll_register(struct clkdom *clkdom, struct rk_clk_pll_def *clkdef);
+
+#endif /* _RK_CLK_PLL_H_ */
