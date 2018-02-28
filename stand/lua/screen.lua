@@ -34,6 +34,9 @@ local core = require("core")
 local screen = {}
 
 -- Module exports
+screen.default_x = 0
+screen.default_y = 25
+
 function screen.clear()
 	if core.isSerialBoot() then
 		return
@@ -47,24 +50,6 @@ function screen.setcursor(x, y)
 	end
 
 	loader.printc(core.KEYSTR_CSI .. y .. ";" .. x .. "H")
-end
-
-function screen.movecursor(dx, dy)
-	if core.isSerialBoot() then
-		return
-	end
-
-	if dx < 0 then
-		loader.printc(core.KEYSTR_CSI .. -dx .. "D")
-	elseif dx > 0 then
-		loader.printc(core.KEYSTR_CSI .. dx .. "C")
-	end
-
-	if dy < 0 then
-		loader.printc(core.KEYSTR_CSI .. -dy .. "A")
-	elseif dy > 0 then
-		loader.printc(core.KEYSTR_CSI .. dy .. "B")
-	end
 end
 
 function screen.setforeground(color_value)
@@ -89,7 +74,7 @@ function screen.defcursor()
 	if core.isSerialBoot() then
 		return
 	end
-	loader.printc(core.KEYSTR_CSI .. "25;0H")
+	screen.setcursor(screen.default_x, screen.default_y)
 end
 
 return screen
