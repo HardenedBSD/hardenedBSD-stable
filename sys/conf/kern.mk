@@ -220,14 +220,6 @@ LDFLAGS+=	-Wl,-z,retpoline
 .endif
 
 #
-# Retpoline speculative execution vulnerability mitigation (CVE-2017-5715)
-#
-.if defined(COMPILER_FEATURES) && ${COMPILER_FEATURES:Mretpoline} != "" && \
-    ${MK_KERNEL_RETPOLINE} != "no"
-CFLAGS+=	-mretpoline
-.endif
-
-#
 # Add -gdwarf-2 when compiling -g. The default starting in clang v3.4
 # and gcc 4.8 is to generate DWARF version 4. However, our tools don't
 # cope well with DWARF 4, so force it to genereate DWARF2, which they
