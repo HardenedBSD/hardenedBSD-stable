@@ -1869,14 +1869,19 @@ iwi_monitor.fw			optional iwimonitorfw | iwifw		\
 	no-obj no-implicit-rule						\
 	clean		"iwi_monitor.fw"
 dev/iwm/if_iwm.c		optional iwm
+dev/iwm/if_iwm_7000.c		optional iwm
+dev/iwm/if_iwm_8000.c		optional iwm
 dev/iwm/if_iwm_binding.c	optional iwm
+dev/iwm/if_iwm_fw.c		optional iwm
 dev/iwm/if_iwm_led.c		optional iwm
 dev/iwm/if_iwm_mac_ctxt.c	optional iwm
+dev/iwm/if_iwm_notif_wait.c	optional iwm
 dev/iwm/if_iwm_pcie_trans.c	optional iwm
 dev/iwm/if_iwm_phy_ctxt.c	optional iwm
 dev/iwm/if_iwm_phy_db.c		optional iwm
 dev/iwm/if_iwm_power.c		optional iwm
 dev/iwm/if_iwm_scan.c		optional iwm
+dev/iwm/if_iwm_sta.c		optional iwm
 dev/iwm/if_iwm_time_event.c	optional iwm
 dev/iwm/if_iwm_util.c		optional iwm
 iwm3160fw.c			optional iwm3160fw | iwmfw		\
@@ -1921,6 +1926,20 @@ iwm7265.fw			optional iwm7265fw | iwmfw		\
 	compile-with	"${NORMAL_FW}"					\
 	no-obj no-implicit-rule						\
 	clean		"iwm7265.fw"
+iwm7265Dfw.c			optional iwm7265Dfw | iwmfw		\
+	compile-with	"${AWK} -f $S/tools/fw_stub.awk iwm7265D.fw:iwm7265Dfw -miwm7265Dfw -c${.TARGET}" \
+	no-implicit-rule before-depend local				\
+	clean		"iwm7265Dfw.c"
+iwm7265Dfw.fwo			optional iwm7265Dfw | iwmfw		\
+	dependency	"iwm7265D.fw"					\
+	compile-with	"${NORMAL_FWO}"					\
+	no-implicit-rule						\
+	clean		"iwm7265Dfw.fwo"
+iwm7265D.fw			optional iwm7265Dfw | iwmfw		\
+	dependency	"$S/contrib/dev/iwm/iwm-7265D-17.fw.uu"		\
+	compile-with	"${NORMAL_FW}"					\
+	no-obj no-implicit-rule						\
+	clean		"iwm7265D.fw"
 iwm8000Cfw.c			optional iwm8000Cfw | iwmfw		\
 	compile-with	"${AWK} -f $S/tools/fw_stub.awk iwm8000C.fw:iwm8000Cfw -miwm8000Cfw -c${.TARGET}" \
 	no-implicit-rule before-depend local				\
@@ -1935,6 +1954,20 @@ iwm8000C.fw			optional iwm8000Cfw | iwmfw		\
 	compile-with	"${NORMAL_FW}"					\
 	no-obj no-implicit-rule						\
 	clean		"iwm8000C.fw"
+iwm8265.fw			optional iwm8265fw | iwmfw		\
+	dependency	"$S/contrib/dev/iwm/iwm-8265-22.fw.uu" \
+	compile-with	"${NORMAL_FW}"					\
+	no-obj no-implicit-rule						\
+	clean		"iwm8265.fw"
+iwm8265fw.c			optional iwm8265fw | iwmfw		\
+	compile-with	"${AWK} -f $S/tools/fw_stub.awk iwm8265.fw:iwm8265fw -miwm8265fw -c${.TARGET}" \
+	no-implicit-rule before-depend local				\
+	clean		"iwm8265fw.c"
+iwm8265fw.fwo			optional iwm8265fw | iwmfw		\
+	dependency	"iwm8265.fw"					\
+	compile-with	"${NORMAL_FWO}"					\
+	no-implicit-rule						\
+	clean		"iwm8265fw.fwo"
 dev/iwn/if_iwn.c		optional iwn
 iwn1000fw.c			optional iwn1000fw | iwnfw		\
 	compile-with	"${AWK} -f $S/tools/fw_stub.awk iwn1000.fw:iwn1000fw -miwn1000fw -c${.TARGET}" \

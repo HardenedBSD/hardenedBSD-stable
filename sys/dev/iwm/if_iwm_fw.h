@@ -1,29 +1,9 @@
-/*	$OpenBSD: if_iwm.c,v 1.39 2015/03/23 00:35:19 jsg Exp $	*/
-/*	$FreeBSD$ */
-
-/*
- * Copyright (c) 2014 genua mbh <info@genua.de>
- * Copyright (c) 2014 Fixup Software Ltd.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- */
-
 /*-
  * Based on BSD-licensed source modules in the Linux iwlwifi driver,
  * which were used as the reference documentation for this implementation.
  *
  * Driver version we are currently based off of is
- * Linux 3.14.3 (tag id a2df521e42b1d9a23f620ac79dbfe8655a8391dd)
+ * Linux 4.7.3 (tag id d7f6728f57e3ecbb7ef34eb7d9f564d514775d75)
  *
  ***********************************************************************
  *
@@ -32,7 +12,9 @@
  *
  * GPL LICENSE SUMMARY
  *
- * Copyright(c) 2007 - 2013 Intel Corporation. All rights reserved.
+ * Copyright(c) 2008 - 2014 Intel Corporation. All rights reserved.
+ * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
+ * Copyright(c) 2016        Intel Deutschland GmbH
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -52,13 +34,14 @@
  * in the file called COPYING.
  *
  * Contact Information:
- *  Intel Linux Wireless <ilw@linux.intel.com>
+ *  Intel Linux Wireless <linuxwifi@intel.com>
  * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
- *
  *
  * BSD LICENSE
  *
- * Copyright(c) 2005 - 2013 Intel Corporation. All rights reserved.
+ * Copyright(c) 2005 - 2014 Intel Corporation. All rights reserved.
+ * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
+ * Copyright(c) 2016        Intel Deutschland GmbH
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -87,28 +70,44 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
-/*-
- * Copyright (c) 2007-2010 Damien Bergamini <damien.bergamini@free.fr>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+/*
+ * $FreeBSD$
  */
-#ifndef	__IF_IWN_SCAN_H__
-#define	__IF_IWN_SCAN_H__
+#ifndef	__IF_IWM_FW_H__
+#define	__IF_IWM_FW_H__
 
-extern	int iwm_mvm_lmac_scan(struct iwm_softc *sc);
-extern	int iwm_mvm_config_umac_scan(struct iwm_softc *);
-extern	int iwm_mvm_umac_scan(struct iwm_softc *);
-extern	int iwm_mvm_scan_stop_wait(struct iwm_softc *sc);
+/*
+ * Block paging calculations
+ */
+#define IWM_PAGE_2_EXP_SIZE 12 /* 4K == 2^12 */
+#define IWM_FW_PAGING_SIZE (1 << IWM_PAGE_2_EXP_SIZE) /* page size is 4KB */
+#define IWM_PAGE_PER_GROUP_2_EXP_SIZE 3
+/* 8 pages per group */
+#define IWM_NUM_OF_PAGE_PER_GROUP (1 << IWM_PAGE_PER_GROUP_2_EXP_SIZE)
+/* don't change, support only 32KB size */
+#define IWM_PAGING_BLOCK_SIZE (IWM_NUM_OF_PAGE_PER_GROUP * IWM_FW_PAGING_SIZE)
+/* 32K == 2^15 */
+#define IWM_BLOCK_2_EXP_SIZE (IWM_PAGE_2_EXP_SIZE + IWM_PAGE_PER_GROUP_2_EXP_SIZE)
 
-#endif	/* __IF_IWN_SCAN_H__ */
+/*
+ * Image paging calculations
+ */
+#define IWM_BLOCK_PER_IMAGE_2_EXP_SIZE 5
+/* 2^5 == 32 blocks per image */
+#define IWM_NUM_OF_BLOCK_PER_IMAGE (1 << IWM_BLOCK_PER_IMAGE_2_EXP_SIZE)
+/* maximum image size 1024KB */
+#define IWM_MAX_PAGING_IMAGE_SIZE (IWM_NUM_OF_BLOCK_PER_IMAGE * IWM_PAGING_BLOCK_SIZE)
+
+/* Virtual address signature */
+#define IWM_PAGING_ADDR_SIG 0xAA000000
+
+#define IWM_PAGING_CMD_IS_SECURED (1 << 9)
+#define IWM_PAGING_CMD_IS_ENABLED (1 << 8)
+#define IWM_PAGING_CMD_NUM_OF_PAGES_IN_LAST_GRP_POS 0
+#define IWM_PAGING_TLV_SECURE_MASK 1
+
+extern	void iwm_free_fw_paging(struct iwm_softc *);
+extern	int iwm_save_fw_paging(struct iwm_softc *, const struct iwm_fw_sects *);
+extern	int iwm_send_paging_cmd(struct iwm_softc *, const struct iwm_fw_sects *);
+
+#endif	/* __IF_IWM_FW_H__ */

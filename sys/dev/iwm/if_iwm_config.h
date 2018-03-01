@@ -1,38 +1,16 @@
-/*	$OpenBSD: if_iwm.c,v 1.39 2015/03/23 00:35:19 jsg Exp $	*/
-/*	$FreeBSD$ */
-
-/*
- * Copyright (c) 2014 genua mbh <info@genua.de>
- * Copyright (c) 2014 Fixup Software Ltd.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- */
-
 /*-
  * Based on BSD-licensed source modules in the Linux iwlwifi driver,
  * which were used as the reference documentation for this implementation.
  *
- * Driver version we are currently based off of is
- * Linux 3.14.3 (tag id a2df521e42b1d9a23f620ac79dbfe8655a8391dd)
- *
- ***********************************************************************
+ ******************************************************************************
  *
  * This file is provided under a dual BSD/GPLv2 license.  When using or
  * redistributing this file, you may do so under either license.
  *
  * GPL LICENSE SUMMARY
  *
- * Copyright(c) 2007 - 2013 Intel Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2014 Intel Corporation. All rights reserved.
+ * Copyright (C) 2016 Intel Deutschland GmbH
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -52,13 +30,13 @@
  * in the file called COPYING.
  *
  * Contact Information:
- *  Intel Linux Wireless <ilw@linux.intel.com>
+ *  Intel Linux Wireless <linuxwifi@intel.com>
  * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
- *
  *
  * BSD LICENSE
  *
- * Copyright(c) 2005 - 2013 Intel Corporation. All rights reserved.
+ * Copyright(c) 2005 - 2014 Intel Corporation. All rights reserved.
+ * Copyright (C) 2016 Intel Deutschland GmbH
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -86,29 +64,73 @@
  * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ *****************************************************************************/
+
+/*
+ * $FreeBSD$
  */
 
-/*-
- * Copyright (c) 2007-2010 Damien Bergamini <damien.bergamini@free.fr>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+#ifndef __IWM_CONFIG_H__
+#define __IWM_CONFIG_H__
+
+enum iwm_device_family {
+	IWM_DEVICE_FAMILY_UNDEFINED,
+	IWM_DEVICE_FAMILY_7000,
+	IWM_DEVICE_FAMILY_8000,
+};
+
+/* Antenna presence definitions */
+#define	IWM_ANT_NONE	0x0
+#define	IWM_ANT_A	(1 << 0)
+#define	IWM_ANT_B	(1 << 1)
+#define IWM_ANT_C	(1 << 2)
+#define	IWM_ANT_AB	(IWM_ANT_A | IWM_ANT_B)
+#define	IWM_ANT_AC	(IWM_ANT_A | IWM_ANT_C)
+#define IWM_ANT_BC	(IWM_ANT_B | IWM_ANT_C)
+#define IWM_ANT_ABC	(IWM_ANT_A | IWM_ANT_B | IWM_ANT_C)
+
+static inline uint8_t num_of_ant(uint8_t mask)
+{
+	return  !!((mask) & IWM_ANT_A) +
+		!!((mask) & IWM_ANT_B) +
+		!!((mask) & IWM_ANT_C);
+}
+
+/* lower blocks contain EEPROM image and calibration data */
+#define IWM_OTP_LOW_IMAGE_SIZE_FAMILY_7000	(16 * 512 * sizeof(uint16_t)) /* 16 KB */
+#define IWM_OTP_LOW_IMAGE_SIZE_FAMILY_8000	(32 * 512 * sizeof(uint16_t)) /* 32 KB */
+#define IWM_OTP_LOW_IMAGE_SIZE_FAMILY_9000	IWM_OTP_LOW_IMAGE_SIZE_FAMILY_8000
+
+/**
+ * struct iwm_cfg
+ * @name: Official name of the device
+ * @fw_name: Firmware filename.
+ * @host_interrupt_operation_mode: device needs host interrupt operation
+ *      mode set
+ * @nvm_hw_section_num: the ID of the HW NVM section
+ * @apmg_wake_up_wa: should the MAC access REQ be asserted when a command
+ *      is in flight. This is due to a HW bug in 7260, 3160 and 7265.
  */
-#ifndef	__IF_IWN_SCAN_H__
-#define	__IF_IWN_SCAN_H__
+struct iwm_cfg {
+	const char *name;
+        const char *fw_name;
+        uint16_t eeprom_size;
+        enum iwm_device_family device_family;
+        int host_interrupt_operation_mode;
+        uint8_t nvm_hw_section_num;
+        int apmg_wake_up_wa;
+};
 
-extern	int iwm_mvm_lmac_scan(struct iwm_softc *sc);
-extern	int iwm_mvm_config_umac_scan(struct iwm_softc *);
-extern	int iwm_mvm_umac_scan(struct iwm_softc *);
-extern	int iwm_mvm_scan_stop_wait(struct iwm_softc *sc);
+/*
+ * This list declares the config structures for all devices.
+ */
+extern const struct iwm_cfg iwm7260_cfg;
+extern const struct iwm_cfg iwm3160_cfg;
+extern const struct iwm_cfg iwm3165_cfg;
+extern const struct iwm_cfg iwm7265_cfg;
+extern const struct iwm_cfg iwm7265d_cfg;
+extern const struct iwm_cfg iwm8260_cfg;
+extern const struct iwm_cfg iwm8265_cfg;
 
-#endif	/* __IF_IWN_SCAN_H__ */
+#endif /* __IWM_CONFIG_H__ */

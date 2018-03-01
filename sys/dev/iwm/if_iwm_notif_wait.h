@@ -1,38 +1,16 @@
-/*	$OpenBSD: if_iwm.c,v 1.39 2015/03/23 00:35:19 jsg Exp $	*/
-/*	$FreeBSD$ */
-
-/*
- * Copyright (c) 2014 genua mbh <info@genua.de>
- * Copyright (c) 2014 Fixup Software Ltd.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- */
-
 /*-
  * Based on BSD-licensed source modules in the Linux iwlwifi driver,
  * which were used as the reference documentation for this implementation.
  *
- * Driver version we are currently based off of is
- * Linux 3.14.3 (tag id a2df521e42b1d9a23f620ac79dbfe8655a8391dd)
- *
- ***********************************************************************
+ ******************************************************************************
  *
  * This file is provided under a dual BSD/GPLv2 license.  When using or
  * redistributing this file, you may do so under either license.
  *
  * GPL LICENSE SUMMARY
  *
- * Copyright(c) 2007 - 2013 Intel Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2014 Intel Corporation. All rights reserved.
+ * Copyright(c) 2015 Intel Deutschland GmbH
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -52,13 +30,12 @@
  * in the file called COPYING.
  *
  * Contact Information:
- *  Intel Linux Wireless <ilw@linux.intel.com>
+ *  Intel Linux Wireless <linuxwifi@intel.com>
  * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
- *
  *
  * BSD LICENSE
  *
- * Copyright(c) 2005 - 2013 Intel Corporation. All rights reserved.
+ * Copyright(c) 2005 - 2014 Intel Corporation. All rights reserved.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -86,29 +63,76 @@
  * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
-
-/*-
- * Copyright (c) 2007-2010 Damien Bergamini <damien.bergamini@free.fr>
  *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
+ *****************************************************************************/
+
+/* $FreeBSD$ */
+
+#ifndef __IF_IWN_NOTIF_WAIT_H__
+#define __IF_IWN_NOTIF_WAIT_H__
+
+#include <sys/queue.h>
+
+#define IWM_MAX_NOTIF_CMDS	5
+
+struct iwm_rx_packet;
+struct iwm_softc;
+
+/**
+ * struct iwm_notification_wait - notification wait entry
+ * @entry: link for global list
+ * @fn: Function called with the notification. If the function
+ *      returns true, the wait is over, if it returns false then
+ *      the waiter stays blocked. If no function is given, any
+ *      of the listed commands will unblock the waiter.
+ * @cmds: command IDs
+ * @n_cmds: number of command IDs
+ * @triggered: waiter should be woken up
+ * @aborted: wait was aborted
  *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * This structure is not used directly, to wait for a
+ * notification declare it on the stack, and call
+ * iwm_init_notification_wait() with appropriate
+ * parameters. Then do whatever will cause the ucode
+ * to notify the driver, and to wait for that then
+ * call iwm_wait_notification().
+ *
+ * Each notification is one-shot. If at some point we
+ * need to support multi-shot notifications (which
+ * can't be allocated on the stack) we need to modify
+ * the code for them.
  */
-#ifndef	__IF_IWN_SCAN_H__
-#define	__IF_IWN_SCAN_H__
+struct iwm_notification_wait {
+	STAILQ_ENTRY(iwm_notification_wait) entry;
 
-extern	int iwm_mvm_lmac_scan(struct iwm_softc *sc);
-extern	int iwm_mvm_config_umac_scan(struct iwm_softc *);
-extern	int iwm_mvm_umac_scan(struct iwm_softc *);
-extern	int iwm_mvm_scan_stop_wait(struct iwm_softc *sc);
+	int (*fn)(struct iwm_softc *sc, struct iwm_rx_packet *pkt, void *data);
+	void *fn_data;
 
-#endif	/* __IF_IWN_SCAN_H__ */
+	uint16_t cmds[IWM_MAX_NOTIF_CMDS];
+	uint8_t n_cmds;
+	int triggered, aborted;
+};
+
+/* caller functions */
+extern	struct iwm_notif_wait_data *iwm_notification_wait_init(
+		struct iwm_softc *sc);
+extern	void iwm_notification_wait_free(struct iwm_notif_wait_data *notif_data);
+extern	void iwm_notification_wait_notify(
+		struct iwm_notif_wait_data *notif_data, uint16_t cmd,
+		struct iwm_rx_packet *pkt);
+extern	void iwm_abort_notification_waits(
+		struct iwm_notif_wait_data *notif_data);
+
+/* user functions */
+extern	void iwm_init_notification_wait(struct iwm_notif_wait_data *notif_data,
+		struct iwm_notification_wait *wait_entry,
+		const uint16_t *cmds, int n_cmds,
+		int (*fn)(struct iwm_softc *sc,
+			  struct iwm_rx_packet *pkt, void *data),
+		void *fn_data);
+extern	int iwm_wait_notification(struct iwm_notif_wait_data *notif_data,
+		struct iwm_notification_wait *wait_entry, int timeout);
+extern	void iwm_remove_notification(struct iwm_notif_wait_data *notif_data,
+		struct iwm_notification_wait *wait_entry);
+
+#endif  /* __IF_IWN_NOTIF_WAIT_H__ */

@@ -1,6 +1,6 @@
 # $FreeBSD$
 
-KMOD=	iwm3160fw
-IMG=	iwm-3160-17
+KMOD=	iwm8265fw
+IMG=	iwm-8265-22
 
 .include <bsd.kmod.mk>
