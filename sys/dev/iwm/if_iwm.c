@@ -312,7 +312,8 @@ static int	iwm_mvm_get_signal_strength(struct iwm_softc *,
 static void	iwm_mvm_rx_rx_phy_cmd(struct iwm_softc *,
                                       struct iwm_rx_packet *,
                                       struct iwm_rx_data *);
-static int	iwm_get_noise(const struct iwm_mvm_statistics_rx_non_phy *);
+static int	iwm_get_noise(struct iwm_softc *sc,
+		    const struct iwm_mvm_statistics_rx_non_phy *);
 static void	iwm_mvm_rx_rx_mpdu(struct iwm_softc *, struct iwm_rx_packet *,
                                    struct iwm_rx_data *);
 static int	iwm_mvm_rx_tx_cmd_single(struct iwm_softc *,
@@ -2871,21 +2872,34 @@ iwm_mvm_rx_rx_phy_cmd(struct iwm_softc *sc,
  * Retrieve the average noise (in dBm) among receivers.
  */
 static int
-iwm_get_noise(const struct iwm_mvm_statistics_rx_non_phy *stats)
+iwm_get_noise(struct iwm_softc *sc,
+    const struct iwm_mvm_statistics_rx_non_phy *stats)
 {
 	int i, total, nbant, noise;
 
 	total = nbant = noise = 0;
 	for (i = 0; i < 3; i++) {
 		noise = le32toh(stats->beacon_silence_rssi[i]) & 0xff;
+		IWM_DPRINTF(sc, IWM_DEBUG_RECV, "%s: i=%d, noise=%d\n",
+		    __func__,
+		    i,
+		    noise);
+
 		if (noise) {
 			total += noise;
 			nbant++;
 		}
 	}
 
+	IWM_DPRINTF(sc, IWM_DEBUG_RECV, "%s: nbant=%d, total=%d\n",
+	    __func__, nbant, total);
+#if 0
 	/* There should be at least one antenna but check anyway. */
 	return (nbant == 0) ? -127 : (total / nbant) - 107;
+#else
+	/* For now, just hard-code it to -96 to be safe */
+	return (-96);
+#endif
 }
 
 /*
@@ -2940,8 +2954,15 @@ iwm_mvm_rx_rx_mpdu(struct iwm_softc *sc,
 	} else {
 		rssi = iwm_mvm_calc_rssi(sc, phy_info);
 	}
-	rssi = (0 - IWM_MIN_DBM) + rssi;	/* normalize */
-	rssi = MIN(rssi, sc->sc_max_rssi);	/* clip to max. 100% */
+
+	/* Note: RSSI is absolute (ie a -ve value) */
+	if (rssi < IWM_MIN_DBM)
+		rssi = IWM_MIN_DBM;
+	else if (rssi > IWM_MAX_DBM)
+		rssi = IWM_MAX_DBM;
+
+	/* Map it to relative value */
+	rssi = rssi - sc->sc_noise;
 
 	/* replenish ring for the buffer we're going to feed to the sharks */
 	if (iwm_rx_addbuf(sc, IWM_RBUF_SIZE, sc->rxq.cur) != 0) {
@@ -2949,6 +2970,9 @@ iwm_mvm_rx_rx_mpdu(struct iwm_softc *sc,
 		    __func__);
 		return;
 	}
+
+	IWM_DPRINTF(sc, IWM_DEBUG_RECV,
+	    "%s: rssi=%d, noise=%d\n", __func__, rssi, sc->sc_noise);
 
 	ni = ieee80211_find_rxnode(ic, (struct ieee80211_frame_min *)wh);
 
@@ -2970,7 +2994,9 @@ iwm_mvm_rx_rx_mpdu(struct iwm_softc *sc,
 	} else {
 		rxs.c_freq = ieee80211_ieee2mhz(rxs.c_ieee, IEEE80211_CHAN_5GHZ);
 	}
-	rxs.rssi = rssi - sc->sc_noise;
+
+	/* rssi is in 1/2db units */
+	rxs.rssi = rssi * 2;
 	rxs.nf = sc->sc_noise;
 
 	if (ieee80211_radiotap_active_vap(vap)) {
@@ -3091,11 +3117,6 @@ iwm_mvm_rx_tx_cmd(struct iwm_softc *sc,
 	if (--ring->queued < IWM_TX_RING_LOMARK) {
 		sc->qfullmsk &= ~(1 << ring->qid);
 		if (sc->qfullmsk == 0) {
-			/*
-			 * Well, we're in interrupt context, but then again
-			 * I guess net80211 does all sorts of stunts in
-			 * interrupt context, so maybe this is no biggie.
-			 */
 			iwm_start(sc);
 		}
 	}
@@ -3119,6 +3140,11 @@ iwm_cmd_done(struct iwm_softc *sc, struct iwm_rx_packet *pkt)
 	if (pkt->hdr.qid != IWM_MVM_CMD_QUEUE) {
 		return;	/* Not a command ack. */
 	}
+
+	/* XXX wide commands? */
+	IWM_DPRINTF(sc, IWM_DEBUG_CMD,
+	    "cmd notification type 0x%x qid %d idx %d\n",
+	    pkt->hdr.code, pkt->hdr.qid, pkt->hdr.idx);
 
 	data = &ring->data[pkt->hdr.idx];
 
@@ -5167,7 +5193,7 @@ iwm_notif_intr(struct iwm_softc *sc)
 			struct iwm_notif_statistics *stats;
 			SYNC_RESP_STRUCT(stats, pkt);
 			memcpy(&sc->sc_stats, stats, sizeof(sc->sc_stats));
-			sc->sc_noise = iwm_get_noise(&stats->rx.general);
+			sc->sc_noise = iwm_get_noise(sc, &stats->rx.general);
 			break; }
 
 		case IWM_NVM_ACCESS_CMD:
@@ -5598,6 +5624,9 @@ iwm_dev_check(device_t dev)
 	}
 }
 
+/* PCI registers */
+#define PCI_CFG_RETRY_TIMEOUT	0x041
+
 static int
 iwm_pci_attach(device_t dev)
 {
@@ -5607,9 +5636,9 @@ iwm_pci_attach(device_t dev)
 
 	sc = device_get_softc(dev);
 
-	/* Clear device-specific "PCI retry timeout" register (41h). */
-	reg = pci_read_config(dev, 0x40, sizeof(reg));
-	pci_write_config(dev, 0x40, reg & ~0xff00, sizeof(reg));
+	/* We disable the RETRY_TIMEOUT register (0x41) to keep
+	 * PCI Tx retries from interfering with C3 CPU state */
+	pci_write_config(dev, PCI_CFG_RETRY_TIMEOUT, 0x00, 1);
 
 	/* Enable bus-mastering and hardware bug workaround. */
 	pci_enable_busmaster(dev);
@@ -5818,8 +5847,12 @@ iwm_attach(device_t dev)
 		sc->sc_phyctxt[i].channel = NULL;
 	}
 
+	/* Default noise floor */
+	sc->sc_noise = -96;
+
 	/* Max RSSI */
 	sc->sc_max_rssi = IWM_MAX_DBM - IWM_MIN_DBM;
+
 	sc->sc_preinit_hook.ich_func = iwm_preinit;
 	sc->sc_preinit_hook.ich_arg = sc;
 	if (config_intrhook_establish(&sc->sc_preinit_hook) != 0) {
@@ -6071,11 +6104,12 @@ iwm_resume(device_t dev)
 {
 	struct iwm_softc *sc = device_get_softc(dev);
 	int do_reinit = 0;
-	uint16_t reg;
 
-	/* Clear device-specific "PCI retry timeout" register (41h). */
-	reg = pci_read_config(dev, 0x40, sizeof(reg));
-	pci_write_config(dev, 0x40, reg & ~0xff00, sizeof(reg));
+	/*
+	 * We disable the RETRY_TIMEOUT register (0x41) to keep
+	 * PCI Tx retries from interfering with C3 CPU state.
+	 */
+	pci_write_config(dev, PCI_CFG_RETRY_TIMEOUT, 0x00, 1);
 	iwm_init_task(device_get_softc(dev));
 
 	IWM_LOCK(sc);
