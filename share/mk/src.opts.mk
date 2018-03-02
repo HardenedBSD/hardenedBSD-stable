@@ -309,7 +309,6 @@ BROKEN_OPTIONS+=SSP
 .if ${__T:Mmips*} || ${__T:Mpowerpc*} || ${__T:Msparc64} || ${__T:Mriscv*}
 BROKEN_OPTIONS+=EFI
 .endif
-<<<<<<< HEAD
 
 .if ${__T} == "amd64" || ${__T} == "i386" || ${__T} == "aarch64"
 __DEFAULT_YES_OPTIONS+=PIE
@@ -339,7 +338,8 @@ __DEFAULT_NO_OPTIONS+=LLVM_AR_IS_AR
 __DEFAULT_NO_OPTIONS+=LLVM_NM_IS_NM
 __DEFAULT_NO_OPTIONS+=LLVM_OBJDUMP_IS_OBJDUMP
 __DEFAULT_NO_OPTIONS+=RETPOLINE
-=======
+.endif
+
 # GELI isn't supported on !x86
 .if ${__T} != "i386" && ${__T} != "amd64"
 BROKEN_OPTIONS+=LOADER_GELI
@@ -351,7 +351,6 @@ BROKEN_OPTIONS+=LOADER_OFW
 # UBOOT is only for arm, mips and powerpc, exclude others
 .if ${__T:Marm*} == "" && ${__T:Mmips*} == "" && ${__T:Mpowerpc*} == ""
 BROKEN_OPTIONS+=LOADER_UBOOT
->>>>>>> origin/freebsd/current/master
 .endif
 
 .if ${__T:Mmips64*}
