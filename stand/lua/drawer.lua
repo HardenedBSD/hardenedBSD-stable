@@ -43,7 +43,6 @@ local fbsd_logo_v
 local orb_color
 local orb
 local none
-local none_shifted = false
 
 local function menuEntryName(drawing_menu, entry)
 	local name_handler = drawer.menu_name_handlers[entry.entry_type]
@@ -55,15 +54,6 @@ local function menuEntryName(drawing_menu, entry)
 		return entry.name()
 	end
 	return entry.name
-end
-
-local function shiftBrandText(shift)
-	drawer.brand_position.x = drawer.brand_position.x + shift.x
-	drawer.brand_position.y = drawer.brand_position.y + shift.y
-	drawer.menu_position.x = drawer.menu_position.x + shift.x
-	drawer.menu_position.y = drawer.menu_position.y + shift.y
-	drawer.box_pos_dim.x = drawer.box_pos_dim.x + shift.x
-	drawer.box_pos_dim.y = drawer.box_pos_dim.y + shift.y
 end
 
 fbsd_logo = {
@@ -205,9 +195,11 @@ drawer.menu_name_handlers = {
 }
 
 drawer.brand_position = {x = 2, y = 1}
-drawer.logo_position = {x = 46, y = 1}
-drawer.menu_position = {x = 6, y = 11}
-drawer.box_pos_dim = {x = 3, y = 10, w = 41, h = 11}
+drawer.logo_position = {x = 46, y = 4}
+drawer.menu_position = {x = 5, y = 10}
+drawer.frame_size = {w = 42, h = 13}
+drawer.default_shift = {x = 0, y = 0}
+drawer.shift = drawer.default_shift
 
 drawer.branddefs = {
 	-- Indexed by valid values for loader_brand in loader.conf(5). Valid
@@ -299,6 +291,9 @@ function drawer.drawmenu(menudef)
 	local x = drawer.menu_position.x
 	local y = drawer.menu_position.y
 
+	x = x + drawer.shift.x
+	y = y + drawer.shift.y
+
 	-- print the menu and build the alias table
 	local alias_table = {}
 	local entry_num = 0
@@ -337,10 +332,10 @@ function drawer.drawmenu(menudef)
 end
 
 function drawer.drawbox()
-	local x = drawer.box_pos_dim.x
-	local y = drawer.box_pos_dim.y
-	local w = drawer.box_pos_dim.w
-	local h = drawer.box_pos_dim.h
+	local x = drawer.menu_position.x - 3
+	local y = drawer.menu_position.y - 1
+	local w = drawer.frame_size.w
+	local h = drawer.frame_size.h
 
 	local framestyle = loader.getenv("loader_menu_frame") or "double"
 	local framespec = drawer.frame_styles[framestyle]
@@ -357,6 +352,9 @@ function drawer.drawbox()
 	local bl = framespec.bottom_left
 	local tr = framespec.top_right
 	local br = framespec.bottom_right
+
+	x = x + drawer.shift.x
+	y = y + drawer.shift.y
 
 	screen.setcursor(x, y); printc(tl)
 	screen.setcursor(x, y + h); printc(bl)
@@ -380,14 +378,32 @@ function drawer.drawbox()
 		printc(vl)
 	end
 
-	screen.setcursor(x + (w / 2) - 9, y)
-	printc("Welcome to FreeBSD")
+	local menu_header = loader.getenv("loader_menu_title") or
+	    "Welcome to FreeBSD"
+	local menu_header_align = loader.getenv("loader_menu_title_align")
+	local menu_header_x
+
+	if menu_header_align ~= nil then
+		menu_header_align = menu_header_align:lower()
+		if menu_header_align == "left" then
+			-- Just inside the left border on top
+			menu_header_x = x + 1
+		elseif menu_header_align == "right" then
+			-- Just inside the right border on top
+			menu_header_x = x + w - #menu_header
+		end
+	end
+	if menu_header_x == nil then
+		menu_header_x = x + (w / 2) - (#menu_header / 2)
+	end
+	screen.setcursor(menu_header_x, y)
+	printc(menu_header)
 end
 
 function drawer.draw(x, y, logo)
 	for i = 1, #logo do
-		screen.setcursor(x, y + i)
-		print(logo[i])
+		screen.setcursor(x, y + i - 1)
+		printc(logo[i])
 	end
 end
 
@@ -401,6 +417,9 @@ function drawer.drawbrand()
 	if graphic == nil then
 		graphic = fbsd_logo
 	end
+
+	x = x + drawer.shift.x
+	y = y + drawer.shift.y
 	drawer.draw(x, y, graphic)
 end
 
@@ -416,13 +435,7 @@ function drawer.drawlogo()
 	-- Lookup
 	local logodef = drawer.logodefs[logo]
 
-	if logodef ~= nil and logodef.graphic == none then
-		-- centre brand and text if no logo
-		if not none_shifted then
-			shiftBrandText(logodef.shift)
-			none_shifted = true
-		end
-	elseif logodef == nil or logodef.graphic == nil or
+	if logodef == nil or logodef.graphic == nil or
 	    (not colored and logodef.requires_color) then
 		-- Choose a sensible default
 		if colored then
@@ -431,10 +444,21 @@ function drawer.drawlogo()
 			logodef = drawer.logodefs["orbbw"]
 		end
 	end
-	if logodef.shift ~= nil then
+
+	if logodef ~= nil and logodef.graphic == none then
+		drawer.shift = logodef.shift
+	else
+		drawer.shift = drawer.default_shift
+	end
+
+	x = x + drawer.shift.x
+	y = y + drawer.shift.y
+
+	if logdef ~= nil and logodef.shift ~= nil then
 		x = x + logodef.shift.x
 		y = y + logodef.shift.y
 	end
+
 	drawer.draw(x, y, logodef.graphic)
 end
 
