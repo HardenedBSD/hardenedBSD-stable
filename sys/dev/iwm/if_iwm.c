@@ -106,6 +106,7 @@
 __FBSDID("$FreeBSD$");
 
 #include "opt_wlan.h"
+#include "opt_iwm.h"
 
 #include <sys/param.h>
 #include <sys/bus.h>
@@ -3259,8 +3260,13 @@ iwm_mvm_rx_rx_mpdu(struct iwm_softc *sc, struct mbuf *m, uint32_t offset,
 	}
 
 	/* rssi is in 1/2db units */
-	rxs.rssi = rssi * 2;
-	rxs.nf = sc->sc_noise;
+	rxs.c_rssi = rssi * 2;
+	rxs.c_nf = sc->sc_noise;
+	if (ieee80211_add_rx_params(m, &rxs) == 0) {
+		if (ni)
+			ieee80211_free_node(ni);
+		goto fail;
+	}
 
 	if (ieee80211_radiotap_active_vap(vap)) {
 		struct iwm_rx_radiotap_header *tap = &sc->sc_rxtap;
@@ -3297,17 +3303,18 @@ iwm_mvm_rx_rx_mpdu(struct iwm_softc *sc, struct mbuf *m, uint32_t offset,
 	IWM_UNLOCK(sc);
 	if (ni != NULL) {
 		IWM_DPRINTF(sc, IWM_DEBUG_RECV, "input m %p\n", m);
-		ieee80211_input_mimo(ni, m, &rxs);
+		ieee80211_input_mimo(ni, m);
 		ieee80211_free_node(ni);
 	} else {
 		IWM_DPRINTF(sc, IWM_DEBUG_RECV, "inputall m %p\n", m);
-		ieee80211_input_mimo_all(ic, m, &rxs);
+		ieee80211_input_mimo_all(ic, m);
 	}
 	IWM_LOCK(sc);
 
 	return TRUE;
 
-fail:	counter_u64_add(ic->ic_ierrors, 1);
+fail:
+	counter_u64_add(ic->ic_ierrors, 1);
 	return FALSE;
 }
 
@@ -6138,6 +6145,8 @@ iwm_attach(device_t dev)
 	    IEEE80211_C_SHPREAMBLE	/* short preamble supported */
 //	    IEEE80211_C_BGSCAN		/* capable of bg scanning */
 	    ;
+	/* Advertise full-offload scanning */
+	ic->ic_flags_ext = IEEE80211_FEXT_SCAN_OFFLOAD;
 	for (i = 0; i < nitems(sc->sc_phyctxt); i++) {
 		sc->sc_phyctxt[i].id = i;
 		sc->sc_phyctxt[i].color = 0;

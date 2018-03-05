@@ -492,6 +492,12 @@ rsu_attach(device_t self)
 		sc->sc_ntxstream = 2;
 		rft = "2T2R";
 		break;
+	case 0x3:	/* "green" NIC */
+		sc->sc_rftype = RTL8712_RFCONFIG_1T2R;
+		sc->sc_nrxstream = 2;
+		sc->sc_ntxstream = 1;
+		rft = "1T2R ('green')";
+		break;
 	default:
 		device_printf(sc->sc_dev,
 		    "%s: unknown board type (rfconfig=0x%02x)\n",
@@ -1540,12 +1546,14 @@ rsu_event_survey(struct rsu_softc *sc, uint8_t *buf, int len)
 	rxs.c_ieee = le32toh(bss->config.dsconfig);
 	rxs.c_freq = ieee80211_ieee2mhz(rxs.c_ieee, IEEE80211_CHAN_2GHZ);
 	/* This is a number from 0..100; so let's just divide it down a bit */
-	rxs.rssi = le32toh(bss->rssi) / 2;
-	rxs.nf = -96;
+	rxs.c_rssi = le32toh(bss->rssi) / 2;
+	rxs.c_nf = -96;
+	if (ieee80211_add_rx_params(m, &rxs) == 0)
+		return;
 
 	/* XXX avoid a LOR */
 	RSU_UNLOCK(sc);
-	ieee80211_input_mimo_all(ic, m, &rxs);
+	ieee80211_input_mimo_all(ic, m);
 	RSU_LOCK(sc);
 }
 
