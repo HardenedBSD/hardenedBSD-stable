@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2013-2015, Mellanox Technologies, Ltd.  All rights reserved.
+ * Copyright (c) 2018, Mellanox Technologies, Ltd.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,37 +25,36 @@
  * $FreeBSD$
  */
 
-#ifndef MLX5_SRQ_H
-#define MLX5_SRQ_H
+#ifndef _DEV_MLX5_MLX5IO_H_
+#define _DEV_MLX5_MLX5IO_H_
 
-#include <dev/mlx5/driver.h>
+#include <sys/ioccom.h>
 
-enum {
-	MLX5_SRQ_FLAG_ERR    = (1 << 0),
-	MLX5_SRQ_FLAG_WQ_SIG = (1 << 1),
+struct mlx5_fwdump_reg {
+	uint32_t addr;
+	uint32_t val;
 };
 
-struct mlx5_srq_attr {
-	u32 type;
-	u32 flags;
-	u32 log_size;
-	u32 wqe_shift;
-	u32 log_page_size;
-	u32 wqe_cnt;
-	u32 srqn;
-	u32 xrcd;
-	u32 page_offset;
-	u32 cqn;
-	u32 pd;
-	u32 lwm;
-	u32 user_index;
-	u64 db_record;
-	u64 *pas;
+struct mlx5_fwdump_addr {
+	uint32_t domain;
+	uint8_t bus;
+	uint8_t slot;
+	uint8_t func;
 };
 
-struct mlx5_core_dev;
+struct mlx5_fwdump_get {
+	struct mlx5_fwdump_addr devaddr;
+	struct mlx5_fwdump_reg *buf;
+	size_t reg_cnt;
+	size_t reg_filled; /* out */
+};
 
-void mlx5_init_srq_table(struct mlx5_core_dev *dev);
-void mlx5_cleanup_srq_table(struct mlx5_core_dev *dev);
+#define	MLX5_FWDUMP_GET		_IOWR('m', 1, struct mlx5_fwdump_get)
+#define	MLX5_FWDUMP_RESET	_IOW('m', 2, struct mlx5_fwdump_addr)
+#define	MLX5_FWDUMP_FORCE	_IOW('m', 3, struct mlx5_fwdump_addr)
 
-#endif /* MLX5_SRQ_H */
+#ifndef _KERNEL
+#define	MLX5_DEV_PATH	_PATH_DEV"mlx5ctl"
+#endif
+
+#endif

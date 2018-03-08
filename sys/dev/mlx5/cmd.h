@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2013-2015, Mellanox Technologies, Ltd.  All rights reserved.
+ * Copyright (c) 2013-2017, Mellanox Technologies, Ltd.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,37 +25,29 @@
  * $FreeBSD$
  */
 
-#ifndef MLX5_SRQ_H
-#define MLX5_SRQ_H
+#ifndef MLX5_CMD_H
+#define MLX5_CMD_H
 
-#include <dev/mlx5/driver.h>
+#include <linux/types.h>
 
-enum {
-	MLX5_SRQ_FLAG_ERR    = (1 << 0),
-	MLX5_SRQ_FLAG_WQ_SIG = (1 << 1),
+struct manage_pages_layout {
+	u64	ptr;
+	u32	reserved;
+	u16	num_entries;
+	u16	func_id;
 };
 
-struct mlx5_srq_attr {
-	u32 type;
-	u32 flags;
-	u32 log_size;
-	u32 wqe_shift;
-	u32 log_page_size;
-	u32 wqe_cnt;
-	u32 srqn;
-	u32 xrcd;
-	u32 page_offset;
-	u32 cqn;
-	u32 pd;
-	u32 lwm;
-	u32 user_index;
-	u64 db_record;
-	u64 *pas;
+
+struct mlx5_cmd_alloc_uar_imm_out {
+	u32	rsvd[3];
+	u32	uarn;
 };
 
 struct mlx5_core_dev;
-
-void mlx5_init_srq_table(struct mlx5_core_dev *dev);
-void mlx5_cleanup_srq_table(struct mlx5_core_dev *dev);
-
-#endif /* MLX5_SRQ_H */
+int mlx5_cmd_query_cong_counter(struct mlx5_core_dev *dev,
+                                bool reset, void *out, int out_size);
+int mlx5_cmd_query_cong_params(struct mlx5_core_dev *dev, int cong_point,
+                               void *out, int out_size);
+int mlx5_cmd_modify_cong_params(struct mlx5_core_dev *mdev,
+                                void *in, int in_size);
+#endif /* MLX5_CMD_H */
