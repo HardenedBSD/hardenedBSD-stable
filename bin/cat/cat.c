@@ -59,7 +59,6 @@ __FBSDID("$FreeBSD$");
 #include <err.h>
 #include <fcntl.h>
 #include <locale.h>
-#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -226,10 +225,16 @@ cook_cat(FILE *fp)
 				} else
 					gobble = 0;
 			}
-			if (nflag && (!bflag || ch != '\n')) {
-				(void)fprintf(stdout, "%6d\t", ++line);
-				if (ferror(stdout))
-					break;
+			if (nflag) {
+				if (!bflag || ch != '\n') {
+					(void)fprintf(stdout, "%6d\t", ++line);
+					if (ferror(stdout))
+						break;
+				} else if (eflag) {
+					(void)fprintf(stdout, "%6s\t", "");
+					if (ferror(stdout))
+						break;
+				}
 			}
 		}
 		if (ch == '\n') {
