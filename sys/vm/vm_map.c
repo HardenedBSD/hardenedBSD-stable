@@ -154,7 +154,9 @@ static int vm_map_stack_locked(vm_map_t map, vm_offset_t addrbos,
     int cow);
 static void vm_map_wire_entry_failure(vm_map_t map, vm_map_entry_t entry,
     vm_offset_t failed_addr);
+#ifdef PAX_HARDENING
 static int sysctl_stack_guard_page(SYSCTL_HANDLER_ARGS);
+#endif
 
 #define	ENTRY_CHARGED(e) ((e)->cred != NULL || \
     ((e)->object.vm_object != NULL && (e)->object.vm_object->cred != NULL && \
