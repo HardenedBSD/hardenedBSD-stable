@@ -16,6 +16,8 @@
 # Include the default AR933x parameters
 include         "std.AR933X"
 
+include 	HARDENEDBSD
+
 ident           ONIONOMEGA
 
 # Override hints with board values
