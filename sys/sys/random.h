@@ -99,13 +99,10 @@ enum random_entropy_source {
 
 #define RANDOM_HARVEST_EVERYTHING_MASK ((1 << (RANDOM_ENVIRONMENTAL_END + 1)) - 1)
 #define RANDOM_HARVEST_PURE_MASK (((1 << ENTROPYSOURCE) - 1) & (-1UL << RANDOM_PURE_START))
-<<<<<<< HEAD
-=======
 
 #define RANDOM_LEGACY_BOOT_ENTROPY_MODULE	"/boot/entropy"
 #define RANDOM_CACHED_BOOT_ENTROPY_MODULE	"boot_entropy_cache"
 #define	RANDOM_CACHED_SKIP_START	256
->>>>>>> origin/freebsd/11-stable/master
 
 #if defined(DEV_RANDOM)
 void random_harvest_queue(const void *, u_int, u_int, enum random_entropy_source);
