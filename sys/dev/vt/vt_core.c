@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+ *
  * Copyright (c) 2009, 2013 The FreeBSD Foundation
  * All rights reserved.
  *
@@ -1075,6 +1077,8 @@ vt_determine_colors(term_char_t c, int cursor,
 	if (TCHAR_FORMAT(c) & TF_BOLD)
 		*fg = TCOLOR_LIGHT(*fg);
 	*bg = TCHAR_BGCOLOR(c);
+	if (TCHAR_FORMAT(c) & TF_BLINK)
+		*bg = TCOLOR_LIGHT(*bg);
 
 	if (TCHAR_FORMAT(c) & TF_REVERSE)
 		invert ^= 1;
