@@ -85,7 +85,6 @@ SUBDIR=	\
 	cd9660_iconv \
 	${_ce} \
 	${_cfi} \
-	chacha20 \
 	${_chromebook_platform} \
 	${_ciss} \
 	cloudabi \
