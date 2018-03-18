@@ -1505,7 +1505,9 @@ vm_page_replace(vm_page_t mnew, vm_object_t object, vm_pindex_t pindex)
 
 	VM_OBJECT_ASSERT_WLOCKED(object);
 	KASSERT(mnew->object == NULL,
-	    ("vm_page_replace: page already in object"));
+	    ("vm_page_replace: page %p already in object", mnew));
+	KASSERT(mnew->queue == PQ_NONE,
+	    ("vm_page_replace: new page %p is on a paging queue", mnew));
 
 	/*
 	 * This function mostly follows vm_page_insert() and
@@ -1517,7 +1519,7 @@ vm_page_replace(vm_page_t mnew, vm_object_t object, vm_pindex_t pindex)
 	mnew->pindex = pindex;
 	mold = vm_radix_replace(&object->rtree, mnew);
 	KASSERT(mold->queue == PQ_NONE,
-	    ("vm_page_replace: mold is on a paging queue"));
+	    ("vm_page_replace: old page %p is on a paging queue", mold));
 
 	/* Keep the resident page list in sorted order. */
 	TAILQ_INSERT_AFTER(&object->memq, mold, mnew, listq);
@@ -3361,7 +3363,8 @@ vm_page_unwire_noq(vm_page_t m)
 }
 
 /*
- * Move the specified page to the inactive queue.
+ * Move the specified page to the inactive queue, or requeue the page if it is
+ * already in the inactive queue.
  *
  * Normally, "noreuse" is FALSE, resulting in LRU ordering of the inactive
  * queue.  However, setting "noreuse" to TRUE will accelerate the specified
@@ -3379,15 +3382,10 @@ _vm_page_deactivate(vm_page_t m, boolean_t noreuse)
 
 	vm_page_assert_locked(m);
 
-	/*
-	 * Ignore if the page is already inactive, unless it is unlikely to be
-	 * reactivated.
-	 */
-	if ((queue = m->queue) == PQ_INACTIVE && !noreuse)
-		return;
 	if (m->wire_count == 0 && (m->oflags & VPO_UNMANAGED) == 0) {
 		pq = &vm_pagequeue_domain(m)->vmd_pagequeues[PQ_INACTIVE];
 		/* Avoid multiple acquisitions of the inactive queue lock. */
+		queue = m->queue;
 		if (queue == PQ_INACTIVE) {
 			vm_pagequeue_lock(pq);
 			vm_page_dequeue_locked(m);
@@ -3409,7 +3407,8 @@ _vm_page_deactivate(vm_page_t m, boolean_t noreuse)
 }
 
 /*
- * Move the specified page to the inactive queue.
+ * Move the specified page to the inactive queue, or requeue the page if it is
+ * already in the inactive queue.
  *
  * The page must be locked.
  */
@@ -3436,19 +3435,20 @@ vm_page_deactivate_noreuse(vm_page_t m)
 /*
  * vm_page_launder
  *
- * 	Put a page in the laundry.
+ * 	Put a page in the laundry, or requeue it if it is already there.
  */
 void
 vm_page_launder(vm_page_t m)
 {
-	int queue;
 
 	vm_page_assert_locked(m);
-	if ((queue = m->queue) != PQ_LAUNDRY && m->wire_count == 0 &&
-	    (m->oflags & VPO_UNMANAGED) == 0) {
-		if (queue != PQ_NONE)
-			vm_page_dequeue(m);
-		vm_page_enqueue(PQ_LAUNDRY, m);
+	if (m->wire_count == 0 && (m->oflags & VPO_UNMANAGED) == 0) {
+		if (m->queue == PQ_LAUNDRY)
+			vm_page_requeue(m);
+		else {
+			vm_page_remque(m);
+			vm_page_enqueue(PQ_LAUNDRY, m);
+		}
 	}
 }
 
@@ -3538,7 +3538,7 @@ vm_page_advise(vm_page_t m, int advice)
 	 */
 	if (m->dirty == 0)
 		vm_page_deactivate_noreuse(m);
-	else
+	else if (!vm_page_in_laundry(m))
 		vm_page_launder(m);
 }
 
