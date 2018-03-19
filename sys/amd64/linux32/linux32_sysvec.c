@@ -217,13 +217,8 @@ linux_fixup_elf(register_t **stack_base, struct image_params *imgp)
 	int issetugid;
 
 	KASSERT(curthread->td_proc == imgp->proc,
-<<<<<<< HEAD
-	    ("unsafe elf_linux_fixup(), should be curproc"));
-
-	arginfo = (struct linux32_ps_strings *)imgp->proc->p_psstrings;
-=======
 	    ("unsafe linux_fixup_elf(), should be curproc"));
->>>>>>> origin/freebsd/current/master
+	arginfo = (struct linux32_ps_strings *)imgp->proc->p_psstrings;
 	base = (Elf32_Addr *)*stack_base;
 	args = (Elf32_Auxargs *)imgp->auxargs;
 	pos = base + (imgp->args->argc + imgp->args->envc + 2);
