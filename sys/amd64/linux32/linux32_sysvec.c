@@ -122,12 +122,12 @@ extern struct sysent linux32_sysent[LINUX32_SYS_MAXSYSCALL];
 
 SET_DECLARE(linux_ioctl_handler_set, struct linux_ioctl_handler);
 
-static int	elf_linux_fixup(register_t **stack_base,
+static int	linux_fixup_elf(register_t **stack_base,
 		    struct image_params *iparams);
 static register_t *linux_copyout_strings(struct image_params *imgp);
 static void     linux_sendsig(sig_t catcher, ksiginfo_t *ksi, sigset_t *mask);
-static int	exec_linux_imgact_try(struct image_params *iparams);
-static void	exec_linux_setregs(struct thread *td,
+static int	linux_exec_imgact_try(struct image_params *iparams);
+static void	linux_exec_setregs(struct thread *td,
 				   struct image_params *imgp, u_long stack);
 static void	linux32_fixlimit(struct rlimit *rl, int which);
 static bool	linux32_trans_osrel(const Elf_Note *note, int32_t *osrel);
@@ -192,7 +192,7 @@ LINUX_VDSO_SYM_CHAR(linux_platform);
  * MPSAFE
  */
 static int
-translate_traps(int signal, int trap_code)
+linux_translate_traps(int signal, int trap_code)
 {
 	if (signal != SIGBUS)
 		return signal;
@@ -208,7 +208,7 @@ translate_traps(int signal, int trap_code)
 }
 
 static int
-elf_linux_fixup(register_t **stack_base, struct image_params *imgp)
+linux_fixup_elf(register_t **stack_base, struct image_params *imgp)
 {
 	Elf32_Auxargs *args;
 	Elf32_Addr *base;
@@ -217,9 +217,13 @@ elf_linux_fixup(register_t **stack_base, struct image_params *imgp)
 	int issetugid;
 
 	KASSERT(curthread->td_proc == imgp->proc,
+<<<<<<< HEAD
 	    ("unsafe elf_linux_fixup(), should be curproc"));
 
 	arginfo = (struct linux32_ps_strings *)imgp->proc->p_psstrings;
+=======
+	    ("unsafe linux_fixup_elf(), should be curproc"));
+>>>>>>> origin/freebsd/current/master
 	base = (Elf32_Addr *)*stack_base;
 	args = (Elf32_Auxargs *)imgp->auxargs;
 	pos = base + (imgp->args->argc + imgp->args->envc + 2);
@@ -726,7 +730,7 @@ linux32_fetch_syscall_args(struct thread *td)
  * binary is doing the exec, so we do not create an EXEC module for it.
  */
 static int
-exec_linux_imgact_try(struct image_params *imgp)
+linux_exec_imgact_try(struct image_params *imgp)
 {
 	const char *head = (const char *)imgp->image_header;
 	char *rpath;
@@ -760,7 +764,7 @@ exec_linux_imgact_try(struct image_params *imgp)
  * XXX copied from ia32_signal.c.
  */
 static void
-exec_linux_setregs(struct thread *td, struct image_params *imgp, u_long stack)
+linux_exec_setregs(struct thread *td, struct image_params *imgp, u_long stack)
 {
 	struct trapframe *regs = td->td_frame;
 	struct pcb *pcb = td->td_pcb;
@@ -955,14 +959,14 @@ struct sysentvec elf_linux_sysvec = {
 	.sv_mask	= 0,
 	.sv_errsize	= ELAST + 1,
 	.sv_errtbl	= bsd_to_linux_errno_generic,
-	.sv_transtrap	= translate_traps,
-	.sv_fixup	= elf_linux_fixup,
+	.sv_transtrap	= linux_translate_traps,
+	.sv_fixup	= linux_fixup_elf,
 	.sv_sendsig	= linux_sendsig,
 	.sv_sigcode	= &_binary_linux32_locore_o_start,
 	.sv_szsigcode	= &linux_szsigcode,
 	.sv_name	= "Linux ELF32",
 	.sv_coredump	= elf32_coredump,
-	.sv_imgact_try	= exec_linux_imgact_try,
+	.sv_imgact_try	= linux_exec_imgact_try,
 	.sv_minsigstksz	= LINUX_MINSIGSTKSZ,
 	.sv_pagesize	= PAGE_SIZE,
 	.sv_minuser	= VM_MIN_ADDRESS,
@@ -971,7 +975,7 @@ struct sysentvec elf_linux_sysvec = {
 	.sv_psstrings	= LINUX32_PS_STRINGS,
 	.sv_stackprot	= VM_PROT_READ | VM_PROT_WRITE,
 	.sv_copyout_strings = linux_copyout_strings,
-	.sv_setregs	= exec_linux_setregs,
+	.sv_setregs	= linux_exec_setregs,
 	.sv_fixlimit	= linux32_fixlimit,
 	.sv_maxssiz	= &linux32_maxssiz,
 	.sv_flags	= SV_ABI_LINUX | SV_ILP32 | SV_IA32 | SV_SHP,
