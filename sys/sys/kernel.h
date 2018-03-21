@@ -260,7 +260,7 @@ sysinit_tslog_shim(const void * data)
 		sysinit_tslog_shim,				\
 		&uniquifier ## _sys_init_tslog			\
 	};							\
-	DATA_SET(sysinit_set,uniquifier ## _sys_init)
+	DATA_WSET(sysinit_set,uniquifier ## _sys_init)
 #else
 #define	C_SYSINIT(uniquifier, subsystem, order, func, ident)	\
 	static struct sysinit uniquifier ## _sys_init = {	\
@@ -269,7 +269,7 @@ sysinit_tslog_shim(const void * data)
 		func,						\
 		(ident)						\
 	};							\
-	DATA_SET(sysinit_set,uniquifier ## _sys_init)
+	DATA_WSET(sysinit_set,uniquifier ## _sys_init)
 #endif
 
 #define	SYSINIT(uniquifier, subsystem, order, func, ident)	\
@@ -286,7 +286,7 @@ sysinit_tslog_shim(const void * data)
 		func,						\
 		(ident)						\
 	};							\
-	DATA_SET(sysuninit_set,uniquifier ## _sys_uninit)
+	DATA_WSET(sysuninit_set,uniquifier ## _sys_uninit)
 
 #define	SYSUNINIT(uniquifier, subsystem, order, func, ident)	\
 	C_SYSUNINIT(uniquifier, subsystem, order,		\
