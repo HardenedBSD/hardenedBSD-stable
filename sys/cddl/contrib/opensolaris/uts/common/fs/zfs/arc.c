@@ -350,6 +350,11 @@ extern boolean_t zfs_prefetch_disable;
 static boolean_t arc_warm;
 
 /*
+ * log2 fraction of the zio arena to keep free.
+ */
+int arc_zio_arena_free_shift = 2;
+
+/*
  * These tunables are for performance analysis.
  */
 uint64_t zfs_arc_max;
@@ -4326,15 +4331,16 @@ arc_available_memory(void)
 	/*
 	 * If zio data pages are being allocated out of a separate heap segment,
 	 * then enforce that the size of available vmem for this arena remains
-	 * above about 1/16th free.
+	 * above about 1/4th (1/(2^arc_zio_arena_free_shift)) free.
 	 *
-	 * Note: The 1/16th arena free requirement was put in place
-	 * to aggressively evict memory from the arc in order to avoid
-	 * memory fragmentation issues.
+	 * Note that reducing the arc_zio_arena_free_shift keeps more virtual
+	 * memory (in the zio_arena) free, which can avoid memory
+	 * fragmentation issues.
 	 */
 	if (zio_arena != NULL) {
 		n = (int64_t)vmem_size(zio_arena, VMEM_FREE) -
-		    (vmem_size(zio_arena, VMEM_ALLOC) >> 4);
+		    (vmem_size(zio_arena, VMEM_ALLOC) >>
+		    arc_zio_arena_free_shift);
 		if (n < lowest) {
 			lowest = n;
 			r = FMR_ZIO_ARENA;
@@ -4452,8 +4458,9 @@ arc_kmem_reap_now(void)
  * This possible deadlock is avoided by always acquiring a hash lock
  * using mutex_tryenter() from arc_reclaim_thread().
  */
+/* ARGSUSED */
 static void
-arc_reclaim_thread(void *dummy __unused)
+arc_reclaim_thread(void *unused __unused)
 {
 	hrtime_t		growtime = 0;
 	callb_cpr_t		cpr;
@@ -7590,8 +7597,9 @@ l2arc_write_buffers(spa_t *spa, l2arc_dev_t *dev, uint64_t target_sz)
  * This thread feeds the L2ARC at regular intervals.  This is the beating
  * heart of the L2ARC.
  */
+/* ARGSUSED */
 static void
-l2arc_feed_thread(void *dummy __unused)
+l2arc_feed_thread(void *unused __unused)
 {
 	callb_cpr_t cpr;
 	l2arc_dev_t *dev;
