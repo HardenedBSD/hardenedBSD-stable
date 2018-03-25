@@ -67,11 +67,8 @@ __FBSDID("$FreeBSD$");
 #include <sys/kernel.h>
 #include <sys/linker.h>
 #include <sys/msgbuf.h>
-<<<<<<< HEAD
 #include <sys/pax.h>
-=======
 #include <sys/reboot.h>
->>>>>>> origin/freebsd/11-stable/master
 #include <sys/rwlock.h>
 #include <sys/sched.h>
 #include <sys/syscallsubr.h>
