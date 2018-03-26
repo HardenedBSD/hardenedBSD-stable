@@ -129,6 +129,26 @@ __mlx5_mask(typ, fld))
                                     MLX5_BY_PASS_NUM_DONT_TRAP_PRIOS +\
                                     MLX5_BY_PASS_NUM_MULTICAST_PRIOS)
 
+/* insert a value to a struct */
+#define MLX5_VSC_SET(typ, p, fld, v) do { \
+	BUILD_BUG_ON(__mlx5_st_sz_bits(typ) % 32);	       \
+	BUILD_BUG_ON(__mlx5_bit_sz(typ, fld) > 32); \
+	*((__le32 *)(p) + __mlx5_dw_off(typ, fld)) = \
+	cpu_to_le32((le32_to_cpu(*((__le32 *)(p) + __mlx5_dw_off(typ, fld))) & \
+		     (~__mlx5_dw_mask(typ, fld))) | (((v) & __mlx5_mask(typ, fld)) \
+		     << __mlx5_dw_bit_off(typ, fld))); \
+} while (0)
+
+#define MLX5_VSC_GET(typ, p, fld) ((le32_to_cpu(*((__le32 *)(p) +\
+__mlx5_dw_off(typ, fld))) >> __mlx5_dw_bit_off(typ, fld)) & \
+__mlx5_mask(typ, fld))
+
+#define MLX5_VSC_GET_PR(typ, p, fld) ({ \
+	u32 ___t = MLX5_VSC_GET(typ, p, fld); \
+	pr_debug(#fld " = 0x%x\n", ___t); \
+	___t; \
+})
+
 enum {
 	MLX5_MAX_COMMANDS		= 32,
 	MLX5_CMD_DATA_BLOCK_SIZE	= 512,
@@ -417,7 +437,7 @@ struct mlx5_health_buffer {
 	__be32		rsvd2;
 	u8		irisc_index;
 	u8		synd;
-	__be16		ext_sync;
+	__be16		ext_synd;
 };
 
 struct mlx5_init_seg {
@@ -501,9 +521,10 @@ struct mlx5_eqe_vport_change {
 #define PORT_MODULE_EVENT_ERROR_TYPE_MASK     0xF
 
 enum {
-	MLX5_MODULE_STATUS_PLUGGED    = 0x1,
-	MLX5_MODULE_STATUS_UNPLUGGED  = 0x2,
-	MLX5_MODULE_STATUS_ERROR      = 0x3,
+	MLX5_MODULE_STATUS_PLUGGED_ENABLED      = 0x1,
+	MLX5_MODULE_STATUS_UNPLUGGED            = 0x2,
+	MLX5_MODULE_STATUS_ERROR                = 0x3,
+	MLX5_MODULE_STATUS_PLUGGED_DISABLED     = 0x4,
 };
 
 enum {
@@ -512,7 +533,7 @@ enum {
 	MLX5_MODULE_EVENT_ERROR_BUS_STUCK                             = 0x2,
 	MLX5_MODULE_EVENT_ERROR_NO_EEPROM_RETRY_TIMEOUT               = 0x3,
 	MLX5_MODULE_EVENT_ERROR_ENFORCE_PART_NUMBER_LIST              = 0x4,
-	MLX5_MODULE_EVENT_ERROR_UNKNOWN_IDENTIFIER                    = 0x5,
+	MLX5_MODULE_EVENT_ERROR_UNSUPPORTED_CABLE                     = 0x5,
 	MLX5_MODULE_EVENT_ERROR_HIGH_TEMPERATURE                      = 0x6,
 	MLX5_MODULE_EVENT_ERROR_CABLE_IS_SHORTED                      = 0x7,
 };

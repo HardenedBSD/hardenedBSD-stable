@@ -27,7 +27,7 @@
 
 #include <linux/interrupt.h>
 #include <linux/module.h>
-#include <dev/mlx5/driver.h>
+#include <dev/mlx5/port.h>
 #include <dev/mlx5/mlx5_ifc.h>
 #include "mlx5_core.h"
 
@@ -398,6 +398,7 @@ int mlx5_create_map_eq(struct mlx5_core_dev *dev, struct mlx5_eq *eq, u8 vecidx,
 	int inlen;
 
 	eq->nent = roundup_pow_of_two(nent + MLX5_NUM_SPARE_EQE);
+	eq->cons_index = 0;
 	err = mlx5_buf_alloc(dev, eq->nent * MLX5_EQE_SIZE, 2 * PAGE_SIZE,
 			     &eq->buf);
 	if (err)
@@ -618,8 +619,8 @@ static const char *mlx5_port_module_event_error_type_to_string(u8 error_type)
 		return "No EEPROM/retry timeout";
 	case MLX5_MODULE_EVENT_ERROR_ENFORCE_PART_NUMBER_LIST:
 		return "Enforce part number list";
-	case MLX5_MODULE_EVENT_ERROR_UNKNOWN_IDENTIFIER:
-		return "Unknown identifier";
+	case MLX5_MODULE_EVENT_ERROR_UNSUPPORTED_CABLE:
+		return "Unsupported Cable";
 	case MLX5_MODULE_EVENT_ERROR_HIGH_TEMPERATURE:
 		return "High Temperature";
 	case MLX5_MODULE_EVENT_ERROR_CABLE_IS_SHORTED:
@@ -655,8 +656,8 @@ static void mlx5_port_module_event(struct mlx5_core_dev *dev,
 		     PORT_MODULE_EVENT_ERROR_TYPE_MASK;
 
 	switch (module_status) {
-	case MLX5_MODULE_STATUS_PLUGGED:
-		device_printf((&pdev->dev)->bsddev, "INFO: ""Module %u, status: plugged\n", module_num);
+	case MLX5_MODULE_STATUS_PLUGGED_ENABLED:
+		device_printf((&pdev->dev)->bsddev, "INFO: ""Module %u, status: plugged and enabled\n", module_num);
 		break;
 
 	case MLX5_MODULE_STATUS_UNPLUGGED:
@@ -665,6 +666,10 @@ static void mlx5_port_module_event(struct mlx5_core_dev *dev,
 
 	case MLX5_MODULE_STATUS_ERROR:
 		device_printf((&pdev->dev)->bsddev, "INFO: ""Module %u, status: error, %s\n", module_num, mlx5_port_module_event_error_type_to_string(error_type));
+		break;
+
+	case MLX5_MODULE_STATUS_PLUGGED_DISABLED:
+		device_printf((&pdev->dev)->bsddev, "INFO: ""Module %u, status: plugged but disabled\n", module_num);
 		break;
 
 	default:

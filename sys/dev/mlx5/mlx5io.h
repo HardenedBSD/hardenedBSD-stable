@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2015 Mellanox Technologies. All rights reserved.
+ * Copyright (c) 2018, Mellanox Technologies, Ltd.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,29 +25,36 @@
  * $FreeBSD$
  */
 
-#include "en.h"
+#ifndef _DEV_MLX5_MLX5IO_H_
+#define _DEV_MLX5_MLX5IO_H_
 
-struct mlx5_cqe64 *
-mlx5e_get_cqe(struct mlx5e_cq *cq)
-{
-	struct mlx5_cqe64 *cqe;
+#include <sys/ioccom.h>
 
-	cqe = mlx5_cqwq_get_wqe(&cq->wq, mlx5_cqwq_get_ci(&cq->wq));
+struct mlx5_fwdump_reg {
+	uint32_t addr;
+	uint32_t val;
+};
 
-	if ((cqe->op_own ^ mlx5_cqwq_get_wrap_cnt(&cq->wq)) & MLX5_CQE_OWNER_MASK)
-		return (NULL);
+struct mlx5_fwdump_addr {
+	uint32_t domain;
+	uint8_t bus;
+	uint8_t slot;
+	uint8_t func;
+};
 
-	/* ensure cqe content is read after cqe ownership bit */
-	atomic_thread_fence_acq();
+struct mlx5_fwdump_get {
+	struct mlx5_fwdump_addr devaddr;
+	struct mlx5_fwdump_reg *buf;
+	size_t reg_cnt;
+	size_t reg_filled; /* out */
+};
 
-	return (cqe);
-}
+#define	MLX5_FWDUMP_GET		_IOWR('m', 1, struct mlx5_fwdump_get)
+#define	MLX5_FWDUMP_RESET	_IOW('m', 2, struct mlx5_fwdump_addr)
+#define	MLX5_FWDUMP_FORCE	_IOW('m', 3, struct mlx5_fwdump_addr)
 
-void
-mlx5e_cq_error_event(struct mlx5_core_cq *mcq, int event)
-{
-	struct mlx5e_cq *cq = container_of(mcq, struct mlx5e_cq, mcq);
+#ifndef _KERNEL
+#define	MLX5_DEV_PATH	_PATH_DEV"mlx5ctl"
+#endif
 
-	if_printf(cq->priv->ifp, "%s: cqn=0x%.6x event=0x%.2x\n",
-	    __func__, mcq->cqn, event);
-}
+#endif

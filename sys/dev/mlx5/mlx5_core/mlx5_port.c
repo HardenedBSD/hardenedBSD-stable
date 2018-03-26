@@ -26,7 +26,7 @@
  */
 
 #include <linux/module.h>
-#include <dev/mlx5/driver.h>
+#include <dev/mlx5/port.h>
 #include "mlx5_core.h"
 
 int mlx5_core_access_reg(struct mlx5_core_dev *dev, void *data_in,
@@ -110,13 +110,13 @@ int mlx5_set_port_caps(struct mlx5_core_dev *dev, u8 port_num, u32 caps)
 EXPORT_SYMBOL_GPL(mlx5_set_port_caps);
 
 int mlx5_query_port_ptys(struct mlx5_core_dev *dev, u32 *ptys,
-			 int ptys_size, int proto_mask)
+			 int ptys_size, int proto_mask, u8 local_port)
 {
 	u32 in[MLX5_ST_SZ_DW(ptys_reg)];
 	int err;
 
 	memset(in, 0, sizeof(in));
-	MLX5_SET(ptys_reg, in, local_port, 1);
+	MLX5_SET(ptys_reg, in, local_port, local_port);
 	MLX5_SET(ptys_reg, in, proto_mask, proto_mask);
 
 	err = mlx5_core_access_reg(dev, in, sizeof(in), ptys,
@@ -132,7 +132,7 @@ int mlx5_query_port_proto_cap(struct mlx5_core_dev *dev,
 	u32 out[MLX5_ST_SZ_DW(ptys_reg)];
 	int err;
 
-	err = mlx5_query_port_ptys(dev, out, sizeof(out), proto_mask);
+	err = mlx5_query_port_ptys(dev, out, sizeof(out), proto_mask, 1);
 	if (err)
 		return err;
 
@@ -151,7 +151,7 @@ int mlx5_query_port_autoneg(struct mlx5_core_dev *dev, int proto_mask,
 	u32 out[MLX5_ST_SZ_DW(ptys_reg)];
 	int err;
 
-	err = mlx5_query_port_ptys(dev, out, sizeof(out), proto_mask);
+	err = mlx5_query_port_ptys(dev, out, sizeof(out), proto_mask, 1);
 	if (err)
 		return err;
 
@@ -198,7 +198,7 @@ int mlx5_query_port_proto_admin(struct mlx5_core_dev *dev,
 	u32 out[MLX5_ST_SZ_DW(ptys_reg)];
 	int err;
 
-	err = mlx5_query_port_ptys(dev, out, sizeof(out), proto_mask);
+	err = mlx5_query_port_ptys(dev, out, sizeof(out), proto_mask, 1);
 	if (err)
 		return err;
 
@@ -210,6 +210,23 @@ int mlx5_query_port_proto_admin(struct mlx5_core_dev *dev,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mlx5_query_port_proto_admin);
+
+int mlx5_query_port_eth_proto_oper(struct mlx5_core_dev *dev,
+				   u32 *proto_oper, u8 local_port)
+{
+	u32 out[MLX5_ST_SZ_DW(ptys_reg)];
+	int err;
+
+	err = mlx5_query_port_ptys(dev, out, sizeof(out), MLX5_PTYS_EN,
+				   local_port);
+	if (err)
+		return err;
+
+	*proto_oper = MLX5_GET(ptys_reg, out, eth_proto_oper);
+
+	return 0;
+}
+EXPORT_SYMBOL(mlx5_query_port_eth_proto_oper);
 
 int mlx5_set_port_proto(struct mlx5_core_dev *dev, u32 proto_admin,
 			int proto_mask)
@@ -335,18 +352,26 @@ int mlx5_query_port_max_mtu(struct mlx5_core_dev *dev, int *max_mtu)
 }
 EXPORT_SYMBOL_GPL(mlx5_query_port_max_mtu);
 
-int mlx5_set_port_pause(struct mlx5_core_dev *dev, u32 port,
-			u32 rx_pause, u32 tx_pause)
+int mlx5_set_port_pause_and_pfc(struct mlx5_core_dev *dev, u32 port,
+				u8 rx_pause, u8 tx_pause,
+				u8 pfc_en_rx, u8 pfc_en_tx)
 {
-	u32 in[MLX5_ST_SZ_DW(pfcc_reg)];
-	u32 out[MLX5_ST_SZ_DW(pfcc_reg)];
+	u32 in[MLX5_ST_SZ_DW(pfcc_reg)] = {0};
+	u32 out[MLX5_ST_SZ_DW(pfcc_reg)] = {0};
 
-	memset(in, 0, sizeof(in));
-	memset(out, 0, sizeof(out));
+	if (pfc_en_rx || pfc_en_tx) {
+		/* PFC and global pauseframes are incompatible features */
+		if (tx_pause || rx_pause)
+			return -EINVAL;
+	}
 
 	MLX5_SET(pfcc_reg, in, local_port, port);
 	MLX5_SET(pfcc_reg, in, pptx, tx_pause);
 	MLX5_SET(pfcc_reg, in, pprx, rx_pause);
+	MLX5_SET(pfcc_reg, in, pfctx, pfc_en_tx);
+	MLX5_SET(pfcc_reg, in, pfcrx, pfc_en_rx);
+	MLX5_SET(pfcc_reg, in, prio_mask_tx, pfc_en_tx);
+	MLX5_SET(pfcc_reg, in, prio_mask_rx, pfc_en_rx);
 
 	return mlx5_core_access_reg(dev, in, sizeof(in), out,
 				   sizeof(out), MLX5_REG_PFCC, 0, 1);
@@ -375,25 +400,9 @@ int mlx5_query_port_pause(struct mlx5_core_dev *dev, u32 port,
 	return 0;
 }
 
-int mlx5_set_port_pfc(struct mlx5_core_dev *dev, u8 pfc_en_tx, u8 pfc_en_rx)
-{
-	u32 in[MLX5_ST_SZ_DW(pfcc_reg)] = {0};
-	u32 out[MLX5_ST_SZ_DW(pfcc_reg)];
-
-	MLX5_SET(pfcc_reg, in, local_port, 1);
-	MLX5_SET(pfcc_reg, in, pfctx, pfc_en_tx);
-	MLX5_SET(pfcc_reg, in, pfcrx, pfc_en_rx);
-	MLX5_SET_TO_ONES(pfcc_reg, in, prio_mask_tx);
-	MLX5_SET_TO_ONES(pfcc_reg, in, prio_mask_rx);
-
-	return mlx5_core_access_reg(dev, in, sizeof(in), out,
-				    sizeof(out), MLX5_REG_PFCC, 0, 1);
-}
-EXPORT_SYMBOL_GPL(mlx5_set_port_pfc);
-
 int mlx5_query_port_pfc(struct mlx5_core_dev *dev, u8 *pfc_en_tx, u8 *pfc_en_rx)
 {
-	u32 in[MLX5_ST_SZ_DW(pfcc_reg)] = {0};
+	u32 in[MLX5_ST_SZ_DW(pfcc_reg)] = {};
 	u32 out[MLX5_ST_SZ_DW(pfcc_reg)];
 	int err;
 
@@ -403,12 +412,10 @@ int mlx5_query_port_pfc(struct mlx5_core_dev *dev, u8 *pfc_en_tx, u8 *pfc_en_rx)
 	if (err)
 		return err;
 
-	if (pfc_en_tx)
+	if (pfc_en_tx != NULL)
 		*pfc_en_tx = MLX5_GET(pfcc_reg, out, pfctx);
-
-	if (pfc_en_rx)
+	if (pfc_en_rx != NULL)
 		*pfc_en_rx = MLX5_GET(pfcc_reg, out, pfcrx);
-
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mlx5_query_port_pfc);
@@ -842,6 +849,131 @@ int mlx5_query_port_cong_params(struct mlx5_core_dev *mdev, int protocol,
 	return mlx5_cmd_exec_check_status(mdev, in, sizeof(in),
 					  out, out_size);
 }
+
+static int mlx5_query_port_qetcr_reg(struct mlx5_core_dev *mdev, u32 *out,
+				     int outlen)
+{
+	u32 in[MLX5_ST_SZ_DW(qtct_reg)];
+
+	if (!MLX5_CAP_GEN(mdev, ets))
+		return -ENOTSUPP;
+
+	memset(in, 0, sizeof(in));
+	return mlx5_core_access_reg(mdev, in, sizeof(in), out, outlen,
+				    MLX5_REG_QETCR, 0, 0);
+}
+
+int mlx5_max_tc(struct mlx5_core_dev *mdev)
+{
+	u8 num_tc = MLX5_CAP_GEN(mdev, max_tc) ? : 8;
+
+	return num_tc - 1;
+}
+EXPORT_SYMBOL_GPL(mlx5_max_tc);
+
+static int mlx5_set_port_qetcr_reg(struct mlx5_core_dev *mdev, u32 *in,
+				   int inlen)
+{
+	u32 out[MLX5_ST_SZ_DW(qtct_reg)];
+
+	if (!MLX5_CAP_GEN(mdev, ets))
+		return -ENOTSUPP;
+
+	return mlx5_core_access_reg(mdev, in, inlen, out, sizeof(out),
+				    MLX5_REG_QETCR, 0, 1);
+}
+
+int mlx5_query_port_tc_rate_limit(struct mlx5_core_dev *mdev,
+				   u8 *max_bw_value,
+				   u8 *max_bw_units)
+{
+	u32 out[MLX5_ST_SZ_DW(qetc_reg)];
+	void *ets_tcn_conf;
+	int err;
+	int i;
+
+	err = mlx5_query_port_qetcr_reg(mdev, out, sizeof(out));
+	if (err)
+		return err;
+
+	for (i = 0; i <= mlx5_max_tc(mdev); i++) {
+		ets_tcn_conf = MLX5_ADDR_OF(qetc_reg, out, tc_configuration[i]);
+
+		max_bw_value[i] = MLX5_GET(ets_tcn_config_reg, ets_tcn_conf,
+					   max_bw_value);
+		max_bw_units[i] = MLX5_GET(ets_tcn_config_reg, ets_tcn_conf,
+					   max_bw_units);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mlx5_query_port_tc_rate_limit);
+
+int mlx5_modify_port_tc_rate_limit(struct mlx5_core_dev *mdev,
+				   const u8 *max_bw_value,
+				   const u8 *max_bw_units)
+{
+	u32 in[MLX5_ST_SZ_DW(qetc_reg)] = {};
+	void *ets_tcn_conf;
+	int i;
+
+	MLX5_SET(qetc_reg, in, port_number, 1);
+
+	for (i = 0; i <= mlx5_max_tc(mdev); i++) {
+		ets_tcn_conf = MLX5_ADDR_OF(qetc_reg, in, tc_configuration[i]);
+
+		MLX5_SET(ets_tcn_config_reg, ets_tcn_conf, r, 1);
+		MLX5_SET(ets_tcn_config_reg, ets_tcn_conf, max_bw_units,
+			 max_bw_units[i]);
+		MLX5_SET(ets_tcn_config_reg, ets_tcn_conf, max_bw_value,
+			 max_bw_value[i]);
+	}
+
+	return mlx5_set_port_qetcr_reg(mdev, in, sizeof(in));
+}
+EXPORT_SYMBOL_GPL(mlx5_modify_port_tc_rate_limit);
+
+int mlx5_query_port_prio_tc(struct mlx5_core_dev *mdev,
+			    u8 prio, u8 *tc)
+{
+	u32 in[MLX5_ST_SZ_DW(qtct_reg)];
+	u32 out[MLX5_ST_SZ_DW(qtct_reg)];
+	int err;
+
+	memset(in, 0, sizeof(in));
+	memset(out, 0, sizeof(out));
+
+	MLX5_SET(qtct_reg, in, port_number, 1);
+	MLX5_SET(qtct_reg, in, prio, prio);
+
+	err = mlx5_core_access_reg(mdev, in, sizeof(in), out,
+				   sizeof(out), MLX5_REG_QTCT, 0, 0);
+	if (!err)
+		*tc = MLX5_GET(qtct_reg, out, tclass);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(mlx5_query_port_prio_tc);
+
+int mlx5_set_port_prio_tc(struct mlx5_core_dev *mdev, int prio_index,
+			  const u8 prio_tc)
+{
+	u32 in[MLX5_ST_SZ_DW(qtct_reg)] = {};
+	u32 out[MLX5_ST_SZ_DW(qtct_reg)];
+	int err;
+
+	if (prio_tc > mlx5_max_tc(mdev))
+		return -EINVAL;
+
+	MLX5_SET(qtct_reg, in, prio, prio_index);
+	MLX5_SET(qtct_reg, in, tclass, prio_tc);
+
+	err = mlx5_core_access_reg(mdev, in, sizeof(in), out,
+				   sizeof(out), MLX5_REG_QTCT, 0, 1);
+
+	return (err);
+}
+EXPORT_SYMBOL_GPL(mlx5_set_port_prio_tc);
 
 int mlx5_modify_port_cong_params(struct mlx5_core_dev *mdev,
 				 void *in, int in_size)
