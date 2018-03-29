@@ -1,6 +1,4 @@
 /*-
- * SPDX-License-Identifier: BSD-3-Clause
- *
  * Copyright (c) 1982, 1986, 1989, 1991, 1993
  *	The Regents of the University of California.  All rights reserved.
  * (c) UNIX System Laboratories, Inc.
@@ -100,6 +98,8 @@ struct fork_args {
 	int     dummy;
 };
 #endif
+
+EVENTHANDLER_LIST_DECLARE(process_fork);
 
 /* ARGSUSED */
 int
@@ -715,7 +715,7 @@ do_fork(struct thread *td, struct fork_req *fr, struct proc *p2, struct thread *
 	 * Both processes are set up, now check if any loadable modules want
 	 * to adjust anything.
 	 */
-	EVENTHANDLER_INVOKE(process_fork, p1, p2, fr->fr_flags);
+	EVENTHANDLER_DIRECT_INVOKE(process_fork, p1, p2, fr->fr_flags);
 
 	/*
 	 * Set the child start time and mark the process as being complete.
