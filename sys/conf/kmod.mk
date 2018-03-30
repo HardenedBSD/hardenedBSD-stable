@@ -125,7 +125,7 @@ CFLAGS.gcc+= --param large-function-growth=1000
 CFLAGS+=	-fno-common
 LDFLAGS+=	-d -warn-common
 
-.if ${LINKER_FEATURES:Mbuild-id}
+.if defined(LINKER_FEATURES) && ${LINKER_FEATURES:Mbuild-id}
 LDFLAGS+=	-Wl,--build-id=sha1
 .endif
 
@@ -238,14 +238,14 @@ ${FULLPROG}: ${OBJS}
 .if ${EXPORT_SYMS} == NO
 	:> export_syms
 .elif !exists(${.CURDIR}/${EXPORT_SYMS})
-	echo ${EXPORT_SYMS} > export_syms
+	echo -n "${EXPORT_SYMS:@s@$s${.newline}@}" > export_syms
 .else
 	grep -v '^#' < ${EXPORT_SYMS} > export_syms
 .endif
 	${AWK} -f ${SYSDIR}/conf/kmod_syms.awk ${.TARGET} \
 	    export_syms | xargs -J% ${OBJCOPY} % ${.TARGET}
 .endif
-.endif
+.endif # defined(EXPORT_SYMS)
 .if !defined(DEBUG_FLAGS) && ${__KLD_SHARED} == no
 	${OBJCOPY} --strip-debug ${.TARGET}
 .endif
