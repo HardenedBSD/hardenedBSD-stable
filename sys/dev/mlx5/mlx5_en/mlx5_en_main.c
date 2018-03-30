@@ -640,7 +640,7 @@ mlx5e_update_stats(void *arg)
 {
 	struct mlx5e_priv *priv = arg;
 
-	schedule_work(&priv->update_stats_work);
+	queue_work(priv->wq, &priv->update_stats_work);
 
 	callout_reset(&priv->watchdog, hz, &mlx5e_update_stats, priv);
 }
@@ -652,7 +652,7 @@ mlx5e_async_event_sub(struct mlx5e_priv *priv,
 	switch (event) {
 	case MLX5_DEV_EVENT_PORT_UP:
 	case MLX5_DEV_EVENT_PORT_DOWN:
-		schedule_work(&priv->update_carrier_work);
+		queue_work(priv->wq, &priv->update_carrier_work);
 		break;
 
 	default:
@@ -802,8 +802,7 @@ mlx5e_destroy_rq(struct mlx5e_rq *rq)
 	wq_sz = mlx5_wq_ll_get_size(&rq->wq);
 	for (i = 0; i != wq_sz; i++) {
 		if (rq->mbuf[i].mbuf != NULL) {
-			bus_dmamap_unload(rq->dma_tag,
-			    rq->mbuf[i].dma_map);
+			bus_dmamap_unload(rq->dma_tag, rq->mbuf[i].dma_map);
 			m_freem(rq->mbuf[i].mbuf);
 		}
 		bus_dmamap_destroy(rq->dma_tag, rq->mbuf[i].dma_map);
@@ -959,8 +958,11 @@ mlx5e_close_rq(struct mlx5e_rq *rq)
 static void
 mlx5e_close_rq_wait(struct mlx5e_rq *rq)
 {
+	struct mlx5_core_dev *mdev = rq->channel->priv->mdev;
+
 	/* wait till RQ is empty */
-	while (!mlx5_wq_ll_is_empty(&rq->wq)) {
+	while (!mlx5_wq_ll_is_empty(&rq->wq) &&
+	       (mdev->state != MLX5_DEVICE_STATE_INTERNAL_ERROR)) {
 		msleep(4);
 		rq->cq.mcq.comp(&rq->cq.mcq);
 	}
@@ -1299,6 +1301,7 @@ void
 mlx5e_drain_sq(struct mlx5e_sq *sq)
 {
 	int error;
+	struct mlx5_core_dev *mdev= sq->priv->mdev;
 
 	/*
 	 * Check if already stopped.
@@ -1331,7 +1334,8 @@ mlx5e_drain_sq(struct mlx5e_sq *sq)
 	/* wait till SQ is empty or link is down */
 	mtx_lock(&sq->lock);
 	while (sq->cc != sq->pc &&
-	    (sq->priv->media_status_last & IFM_ACTIVE) != 0) {
+	    (sq->priv->media_status_last & IFM_ACTIVE) != 0 &&
+	    mdev->state != MLX5_DEVICE_STATE_INTERNAL_ERROR) {
 		mtx_unlock(&sq->lock);
 		msleep(1);
 		sq->cq.mcq.comp(&sq->cq.mcq);
@@ -1348,7 +1352,8 @@ mlx5e_drain_sq(struct mlx5e_sq *sq)
 
 	/* wait till SQ is empty */
 	mtx_lock(&sq->lock);
-	while (sq->cc != sq->pc) {
+	while (sq->cc != sq->pc &&
+	       mdev->state != MLX5_DEVICE_STATE_INTERNAL_ERROR) {
 		mtx_unlock(&sq->lock);
 		msleep(1);
 		sq->cq.mcq.comp(&sq->cq.mcq);
@@ -2030,7 +2035,7 @@ mlx5e_open_rqt(struct mlx5e_priv *priv)
 {
 	struct mlx5_core_dev *mdev = priv->mdev;
 	u32 *in;
-	u32 out[MLX5_ST_SZ_DW(create_rqt_out)];
+	u32 out[MLX5_ST_SZ_DW(create_rqt_out)] = {0};
 	void *rqtc;
 	int inlen;
 	int err;
@@ -2062,8 +2067,7 @@ mlx5e_open_rqt(struct mlx5e_priv *priv)
 
 	MLX5_SET(create_rqt_in, in, opcode, MLX5_CMD_OP_CREATE_RQT);
 
-	memset(out, 0, sizeof(out));
-	err = mlx5_cmd_exec_check_status(mdev, in, inlen, out, sizeof(out));
+	err = mlx5_cmd_exec(mdev, in, inlen, out, sizeof(out));
 	if (!err)
 		priv->rqtn = MLX5_GET(create_rqt_out, out, rqtn);
 
@@ -2075,16 +2079,13 @@ mlx5e_open_rqt(struct mlx5e_priv *priv)
 static void
 mlx5e_close_rqt(struct mlx5e_priv *priv)
 {
-	u32 in[MLX5_ST_SZ_DW(destroy_rqt_in)];
-	u32 out[MLX5_ST_SZ_DW(destroy_rqt_out)];
-
-	memset(in, 0, sizeof(in));
+	u32 in[MLX5_ST_SZ_DW(destroy_rqt_in)] = {0};
+	u32 out[MLX5_ST_SZ_DW(destroy_rqt_out)] = {0};
 
 	MLX5_SET(destroy_rqt_in, in, opcode, MLX5_CMD_OP_DESTROY_RQT);
 	MLX5_SET(destroy_rqt_in, in, rqtn, priv->rqtn);
 
-	mlx5_cmd_exec_check_status(priv->mdev, in, sizeof(in), out,
-	    sizeof(out));
+	mlx5_cmd_exec(priv->mdev, in, sizeof(in), out, sizeof(out));
 }
 
 static void
@@ -2585,7 +2586,7 @@ mlx5e_set_rx_mode(struct ifnet *ifp)
 {
 	struct mlx5e_priv *priv = ifp->if_softc;
 
-	schedule_work(&priv->set_rx_mode_work);
+	queue_work(priv->wq, &priv->set_rx_mode_work);
 }
 
 static int
@@ -2923,32 +2924,36 @@ mlx5e_build_ifp_priv(struct mlx5_core_dev *mdev,
 
 static int
 mlx5e_create_mkey(struct mlx5e_priv *priv, u32 pdn,
-    struct mlx5_core_mr *mr)
+		  struct mlx5_core_mr *mkey)
 {
 	struct ifnet *ifp = priv->ifp;
 	struct mlx5_core_dev *mdev = priv->mdev;
-	struct mlx5_create_mkey_mbox_in *in;
+	int inlen = MLX5_ST_SZ_BYTES(create_mkey_in);
+	void *mkc;
+	u32 *in;
 	int err;
 
-	in = mlx5_vzalloc(sizeof(*in));
+	in = mlx5_vzalloc(inlen);
 	if (in == NULL) {
 		if_printf(ifp, "%s: failed to allocate inbox\n", __func__);
 		return (-ENOMEM);
 	}
-	in->seg.flags = MLX5_PERM_LOCAL_WRITE |
-	    MLX5_PERM_LOCAL_READ |
-	    MLX5_ACCESS_MODE_PA;
-	in->seg.flags_pd = cpu_to_be32(pdn | MLX5_MKEY_LEN64);
-	in->seg.qpn_mkey7_0 = cpu_to_be32(0xffffff << 8);
 
-	err = mlx5_core_create_mkey(mdev, mr, in, sizeof(*in), NULL, NULL,
-	    NULL);
+	mkc = MLX5_ADDR_OF(create_mkey_in, in, memory_key_mkey_entry);
+	MLX5_SET(mkc, mkc, access_mode, MLX5_ACCESS_MODE_PA);
+	MLX5_SET(mkc, mkc, lw, 1);
+	MLX5_SET(mkc, mkc, lr, 1);
+
+	MLX5_SET(mkc, mkc, pd, pdn);
+	MLX5_SET(mkc, mkc, length64, 1);
+	MLX5_SET(mkc, mkc, qpn, 0xffffff);
+
+	err = mlx5_core_create_mkey(mdev, mkey, in, inlen);
 	if (err)
 		if_printf(ifp, "%s: mlx5_core_create_mkey failed, %d\n",
 		    __func__, err);
 
 	kvfree(in);
-
 	return (err);
 }
 
@@ -3425,11 +3430,20 @@ mlx5e_create_ifp(struct mlx5_core_dev *mdev)
 		goto err_free_sysctl;
 	}
 	mlx5e_build_ifp_priv(mdev, priv, ncv);
+
+	snprintf(unit, sizeof(unit), "mce%u_wq",
+	    device_get_unit(mdev->pdev->dev.bsddev));
+	priv->wq = alloc_workqueue(unit, 0, 1);
+	if (priv->wq == NULL) {
+		if_printf(ifp, "%s: alloc_workqueue failed\n", __func__);
+		goto err_free_sysctl;
+	}
+
 	err = mlx5_alloc_map_uar(mdev, &priv->cq_uar);
 	if (err) {
 		if_printf(ifp, "%s: mlx5_alloc_map_uar failed, %d\n",
 		    __func__, err);
-		goto err_free_sysctl;
+		goto err_free_wq;
 	}
 	err = mlx5_core_alloc_pd(mdev, &priv->pdn);
 	if (err) {
@@ -3544,6 +3558,9 @@ err_dealloc_pd:
 err_unmap_free_uar:
 	mlx5_unmap_free_uar(mdev, &priv->cq_uar);
 
+err_free_wq:
+	destroy_workqueue(priv->wq);
+
 err_free_sysctl:
 	sysctl_ctx_free(&priv->sysctl_ctx);
 
@@ -3604,7 +3621,7 @@ mlx5e_destroy_ifp(struct mlx5_core_dev *mdev, void *vpriv)
 	mlx5_core_dealloc_pd(priv->mdev, priv->pdn);
 	mlx5_unmap_free_uar(priv->mdev, &priv->cq_uar);
 	mlx5e_disable_async_events(priv);
-	flush_scheduled_work();
+	destroy_workqueue(priv->wq);
 	mlx5e_priv_mtx_destroy(priv);
 	free(priv, M_MLX5EN);
 }

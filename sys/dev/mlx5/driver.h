@@ -41,6 +41,7 @@
 
 #include <dev/mlx5/device.h>
 #include <dev/mlx5/doorbell.h>
+#include <dev/mlx5/srq.h>
 
 #define MLX5_QCOUNTER_SETS_NETDEV 64
 #define MLX5_MAX_NUMBER_OF_VFS 128
@@ -491,12 +492,13 @@ struct mlx5_core_health {
 	struct timer_list		timer;
 	u32				prev;
 	int				miss_counter;
-	bool				sick;
+	u32				fatal_error;
 	/* wq spinlock to synchronize draining */
 	spinlock_t			wq_lock;
 	struct workqueue_struct	       *wq;
 	unsigned long			flags;
 	struct work_struct		work;
+	struct delayed_work		recover_work;
 };
 
 #define	MLX5_CQ_LINEAR_ARRAY_SIZE	1024
@@ -649,6 +651,7 @@ struct mlx5_core_dev {
 	struct mlx5_flow_root_namespace *sniffer_tx_root_ns;
 	u32 num_q_counter_allocated[MLX5_INTERFACE_NUMBER];
 	struct mlx5_dump_data	*dump_data;
+	u32			vsec_addr;
 };
 
 enum {
@@ -777,6 +780,7 @@ struct mlx5_cmd_work_ent {
 	u64			ts2;
 	u16			op;
 	u8			busy;
+	bool			polling;
 };
 
 struct mlx5_pas {
@@ -864,19 +868,20 @@ static inline u32 mlx5_base_mkey(const u32 key)
 	return key & 0xffffff00u;
 }
 
+void mlx5_enter_error_state(struct mlx5_core_dev *dev, bool force);
 int mlx5_cmd_init(struct mlx5_core_dev *dev);
 void mlx5_cmd_cleanup(struct mlx5_core_dev *dev);
 void mlx5_cmd_use_events(struct mlx5_core_dev *dev);
 void mlx5_cmd_use_polling(struct mlx5_core_dev *dev);
-int mlx5_cmd_status_to_err(struct mlx5_outbox_hdr *hdr);
-int mlx5_cmd_status_to_err_v2(void *ptr);
-int mlx5_core_get_caps(struct mlx5_core_dev *dev, enum mlx5_cap_type cap_type,
-		       enum mlx5_cap_mode cap_mode);
+void mlx5_cmd_mbox_status(void *out, u8 *status, u32 *syndrome);
+int mlx5_core_get_caps(struct mlx5_core_dev *dev, enum mlx5_cap_type cap_type);
 int mlx5_cmd_exec(struct mlx5_core_dev *dev, void *in, int in_size, void *out,
 		  int out_size);
 int mlx5_cmd_exec_cb(struct mlx5_core_dev *dev, void *in, int in_size,
 		     void *out, int out_size, mlx5_cmd_cbk_t callback,
 		     void *context);
+int mlx5_cmd_exec_polling(struct mlx5_core_dev *dev, void *in, int in_size,
+			  void *out, int out_size);
 int mlx5_cmd_alloc_uar(struct mlx5_core_dev *dev, u32 *uarn);
 int mlx5_cmd_free_uar(struct mlx5_core_dev *dev, u32 uarn);
 int mlx5_alloc_uuars(struct mlx5_core_dev *dev, struct mlx5_uuar_info *uuari);
@@ -888,6 +893,8 @@ int mlx5_health_init(struct mlx5_core_dev *dev);
 void mlx5_start_health_poll(struct mlx5_core_dev *dev);
 void mlx5_stop_health_poll(struct mlx5_core_dev *dev);
 void mlx5_drain_health_wq(struct mlx5_core_dev *dev);
+void mlx5_drain_health_recovery(struct mlx5_core_dev *dev);
+void mlx5_trigger_health_work(struct mlx5_core_dev *dev);
 
 #define	mlx5_buf_alloc_node(dev, size, direct, buf, node) \
 	mlx5_buf_alloc(dev, size, direct, buf)
@@ -895,23 +902,26 @@ int mlx5_buf_alloc(struct mlx5_core_dev *dev, int size, int max_direct,
 		   struct mlx5_buf *buf);
 void mlx5_buf_free(struct mlx5_core_dev *dev, struct mlx5_buf *buf);
 int mlx5_core_create_srq(struct mlx5_core_dev *dev, struct mlx5_core_srq *srq,
-			 struct mlx5_create_srq_mbox_in *in, int inlen,
-			 int is_xrc);
+			 struct mlx5_srq_attr *in);
 int mlx5_core_destroy_srq(struct mlx5_core_dev *dev, struct mlx5_core_srq *srq);
 int mlx5_core_query_srq(struct mlx5_core_dev *dev, struct mlx5_core_srq *srq,
-			struct mlx5_query_srq_mbox_out *out);
+			struct mlx5_srq_attr *out);
 int mlx5_core_query_vendor_id(struct mlx5_core_dev *mdev, u32 *vendor_id);
 int mlx5_core_arm_srq(struct mlx5_core_dev *dev, struct mlx5_core_srq *srq,
 		      u16 lwm, int is_srq);
 void mlx5_init_mr_table(struct mlx5_core_dev *dev);
 void mlx5_cleanup_mr_table(struct mlx5_core_dev *dev);
-int mlx5_core_create_mkey(struct mlx5_core_dev *dev, struct mlx5_core_mr *mr,
-			  struct mlx5_create_mkey_mbox_in *in, int inlen,
-			  mlx5_cmd_cbk_t callback, void *context,
-			  struct mlx5_create_mkey_mbox_out *out);
-int mlx5_core_destroy_mkey(struct mlx5_core_dev *dev, struct mlx5_core_mr *mr);
-int mlx5_core_query_mkey(struct mlx5_core_dev *dev, struct mlx5_core_mr *mr,
-			 struct mlx5_query_mkey_mbox_out *out, int outlen);
+int mlx5_core_create_mkey_cb(struct mlx5_core_dev *dev,
+			     struct mlx5_core_mr *mkey,
+			     u32 *in, int inlen,
+			     u32 *out, int outlen,
+			     mlx5_cmd_cbk_t callback, void *context);
+int mlx5_core_create_mkey(struct mlx5_core_dev *dev,
+			  struct mlx5_core_mr *mr,
+			  u32 *in, int inlen);
+int mlx5_core_destroy_mkey(struct mlx5_core_dev *dev, struct mlx5_core_mr *mkey);
+int mlx5_core_query_mkey(struct mlx5_core_dev *dev, struct mlx5_core_mr *mkey,
+			 u32 *out, int outlen);
 int mlx5_core_dump_fill_mkey(struct mlx5_core_dev *dev, struct mlx5_core_mr *mr,
 			     u32 *mkey);
 int mlx5_core_alloc_pd(struct mlx5_core_dev *dev, u32 *pdn);
@@ -966,7 +976,7 @@ void mlx5_toggle_port_link(struct mlx5_core_dev *dev);
 int mlx5_debug_eq_add(struct mlx5_core_dev *dev, struct mlx5_eq *eq);
 void mlx5_debug_eq_remove(struct mlx5_core_dev *dev, struct mlx5_eq *eq);
 int mlx5_core_eq_query(struct mlx5_core_dev *dev, struct mlx5_eq *eq,
-		       struct mlx5_query_eq_mbox_out *out, int outlen);
+		       u32 *out, int outlen);
 int mlx5_eq_debugfs_init(struct mlx5_core_dev *dev);
 void mlx5_eq_debugfs_cleanup(struct mlx5_core_dev *dev);
 int mlx5_cq_debugfs_init(struct mlx5_core_dev *dev);

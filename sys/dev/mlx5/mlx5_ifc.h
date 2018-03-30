@@ -941,7 +941,8 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         max_indirection[0x8];
 	u8         reserved_8[0x1];
 	u8         log_max_mrw_sz[0x7];
-	u8         reserved_9[0x2];
+	u8	   force_teardown[0x1];
+	u8         reserved_9[0x1];
 	u8         log_max_bsf_list_size[0x6];
 	u8         reserved_10[0x2];
 	u8         log_max_klm_list_size[0x6];
@@ -2187,12 +2188,9 @@ struct mlx5_ifc_srqc_bits {
 
 	u8         reserved_9[0x40];
 
-	u8         db_record_addr_h[0x20];
+	u8	   dbr_addr[0x40];
 
-	u8         db_record_addr_l[0x1e];
-	u8         reserved_10[0x2];
-
-	u8         reserved_11[0x80];
+	u8	   reserved_10[0x80];
 };
 
 enum {
@@ -3152,18 +3150,25 @@ struct mlx5_ifc_icmd_access_reg_in_bits {
 	u8         register_data[0][0x20];
 };
 
+enum {
+	MLX5_TEARDOWN_HCA_OUT_FORCE_STATE_SUCCESS = 0x0,
+	MLX5_TEARDOWN_HCA_OUT_FORCE_STATE_FAIL = 0x1,
+};
+
 struct mlx5_ifc_teardown_hca_out_bits {
 	u8         status[0x8];
 	u8         reserved_0[0x18];
 
 	u8         syndrome[0x20];
 
-	u8         reserved_1[0x40];
+	u8         reserved_1[0x3f];
+
+	u8	   force_state[0x1];
 };
 
 enum {
 	MLX5_TEARDOWN_HCA_IN_PROFILE_GRACEFUL_CLOSE  = 0x0,
-	MLX5_TEARDOWN_HCA_IN_PROFILE_PANIC_CLOSE     = 0x1,
+	MLX5_TEARDOWN_HCA_IN_PROFILE_FORCE_CLOSE     = 0x1,
 };
 
 struct mlx5_ifc_teardown_hca_in_bits {
@@ -3996,7 +4001,7 @@ struct mlx5_ifc_query_special_contexts_out_bits {
 
 	u8         syndrome[0x20];
 
-	u8         reserved_1[0x20];
+	u8	   dump_fill_mkey[0x20];
 
 	u8         resd_lkey[0x20];
 };
@@ -4288,9 +4293,9 @@ struct mlx5_ifc_query_pages_out_bits {
 };
 
 enum {
-	MLX5_BOOT_PAGES                           = 0x1,
-	MLX5_INIT_PAGES                           = 0x2,
-	MLX5_POST_INIT_PAGES                      = 0x3,
+	MLX5_QUERY_PAGES_IN_OP_MOD_BOOT_PAGES	  = 0x1,
+	MLX5_QUERY_PAGES_IN_OP_MOD_INIT_PAGES	  = 0x2,
+	MLX5_QUERY_PAGES_IN_OP_MOD_REGULAR_PAGES  = 0x3,
 };
 
 struct mlx5_ifc_query_pages_in_bits {
@@ -4868,17 +4873,17 @@ struct mlx5_ifc_query_cong_statistics_out_bits {
 
 	u8         reserved_1[0x40];
 
-	u8         cur_flows[0x20];
+	u8         rp_cur_flows[0x20];
 
 	u8         sum_flows[0x20];
 
-	u8         cnp_ignored_high[0x20];
+	u8         rp_cnp_ignored_high[0x20];
 
-	u8         cnp_ignored_low[0x20];
+	u8         rp_cnp_ignored_low[0x20];
 
-	u8         cnp_handled_high[0x20];
+	u8         rp_cnp_handled_high[0x20];
 
-	u8         cnp_handled_low[0x20];
+	u8         rp_cnp_handled_low[0x20];
 
 	u8         reserved_2[0x100];
 
@@ -4888,13 +4893,13 @@ struct mlx5_ifc_query_cong_statistics_out_bits {
 
 	u8         accumulators_period[0x20];
 
-	u8         ecn_marked_roce_packets_high[0x20];
+	u8         np_ecn_marked_roce_packets_high[0x20];
 
-	u8         ecn_marked_roce_packets_low[0x20];
+	u8         np_ecn_marked_roce_packets_low[0x20];
 
-	u8         cnps_sent_high[0x20];
+	u8         np_cnp_sent_high[0x20];
 
-	u8         cnps_sent_low[0x20];
+	u8         np_cnp_sent_low[0x20];
 
 	u8         reserved_3[0x560];
 };
