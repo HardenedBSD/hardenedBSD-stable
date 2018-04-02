@@ -10,7 +10,7 @@ CFLAGS+= -Wall -Werror -Wimplicit
 CFLAGS+= -DLIBRESSL_INTERNAL
 
 LIB=	tls
-SHLIB_MAJOR=	16
+SHLIB_MAJOR=	17
 
 LTLS_SRC=	${LIBRESSL_SRC}/tls
 
@@ -23,6 +23,7 @@ SRCS=	tls.c \
 	tls_client.c \
 	tls_config.c \
 	tls_conninfo.c \
+	tls_keypair.c \
 	tls_peer.c \
 	tls_server.c \
 	tls_util.c \

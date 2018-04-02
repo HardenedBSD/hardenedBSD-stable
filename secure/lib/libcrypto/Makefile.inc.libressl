@@ -3,8 +3,8 @@
 .include <bsd.own.mk>
 
 # OpenSSL version used for manual page generation
-OPENSSL_VER=	2.6.4
-OPENSSL_DATE=	2017-12-19
+OPENSSL_VER=	2.7.2
+OPENSSL_DATE=	2018-04-01
 
 LIBRESSL_SRC=	${SRCTOP}/crypto/libressl
 LCRYPTO_SRC=	${LIBRESSL_SRC}/crypto
@@ -17,6 +17,8 @@ CFLAGS+=	-I${LIBRESSL_SRC}/include -I${LIBRESSL_SRC}/include/compat
 CFLAGS+=	-DDSO_DLFCN -DHAVE_DLFCN_H
 CFLAGS+=	-DLIBRESSL_INTERNAL -D__BEGIN_HIDDEN_DECLS= \
 		-D__END_HIDDEN_DECLS=
+
+LDADD+=		-lthr
 
 MANDIR=	${SHAREDIR}/openssl/man/man
 
