@@ -551,6 +551,11 @@ apply_base() {
 			fi
 
 			for d in $(${FIND} ${mountpoint}/usr/src -type d -depth 1); do
+				# Skip the .zfs directory
+				if [ ${d} = "${mountpoint}/usr/src/.zfs" ]; then
+					continue
+				fi
+
 				rm -rf ${d}
 				res=${?}
 				if [ ${res} -gt 0 ]; then
