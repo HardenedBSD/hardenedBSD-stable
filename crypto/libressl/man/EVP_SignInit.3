@@ -1,4 +1,4 @@
-.\"	$OpenBSD: EVP_SignInit.3,v 1.4 2016/11/26 20:55:26 schwarze Exp $
+.\"	$OpenBSD: EVP_SignInit.3,v 1.7 2018/03/22 21:08:22 schwarze Exp $
 .\"	OpenSSL b97fdb57 Nov 11 09:33:09 2016 +0100
 .\"
 .\" This file was written by Dr. Stephen Henson <steve@openssl.org>.
@@ -49,7 +49,7 @@
 .\" ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 .\" OF THE POSSIBILITY OF SUCH DAMAGE.
 .\"
-.Dd $Mdocdate: November 26 2016 $
+.Dd $Mdocdate: March 22 2018 $
 .Dt EVP_SIGNINIT 3
 .Os
 .Sh NAME
@@ -188,16 +188,20 @@ The error codes can be obtained by
 .Xr ERR 3 ,
 .Xr evp 3 ,
 .Xr EVP_DigestInit 3 ,
+.Xr EVP_PKEY_asn1_set_public 3 ,
 .Xr EVP_VerifyInit 3
 .Sh HISTORY
 .Fn EVP_SignInit ,
 .Fn EVP_SignUpdate ,
+.Fn EVP_SignFinal ,
 and
-.Fn EVP_SignFinal
-are available in all versions of SSLeay and OpenSSL.
+.Fn EVP_PKEY_size
+appeared in SSLeay 0.8.1b or earlier and have been available since
+.Ox 2.4 .
 .Pp
 .Fn EVP_SignInit_ex
-was added in OpenSSL 0.9.7.
+first appeared in OpenSSL 0.9.7 and has been available since
+.Ox 3.2 .
 .Sh BUGS
 Older versions of this documentation wrongly stated that calls to
 .Fn EVP_SignUpdate

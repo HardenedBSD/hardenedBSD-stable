@@ -139,10 +139,10 @@ am_libssl_la_OBJECTS = bio_ssl.lo bs_ber.lo bs_cbb.lo bs_cbs.lo \
 	d1_both.lo d1_clnt.lo d1_enc.lo d1_lib.lo d1_meth.lo d1_pkt.lo \
 	d1_srtp.lo d1_srvr.lo pqueue.lo s3_cbc.lo s3_lib.lo \
 	ssl_algs.lo ssl_asn1.lo ssl_both.lo ssl_cert.lo ssl_ciph.lo \
-	ssl_clnt.lo ssl_err.lo ssl_lib.lo ssl_packet.lo ssl_pkt.lo \
-	ssl_rsa.lo ssl_sess.lo ssl_srvr.lo ssl_stat.lo ssl_tlsext.lo \
-	ssl_txt.lo ssl_versions.lo t1_clnt.lo t1_enc.lo t1_hash.lo \
-	t1_lib.lo t1_meth.lo t1_srvr.lo
+	ssl_clnt.lo ssl_err.lo ssl_init.lo ssl_lib.lo ssl_packet.lo \
+	ssl_pkt.lo ssl_rsa.lo ssl_sess.lo ssl_srvr.lo ssl_stat.lo \
+	ssl_tlsext.lo ssl_txt.lo ssl_versions.lo t1_clnt.lo t1_enc.lo \
+	t1_hash.lo t1_lib.lo t1_meth.lo t1_srvr.lo
 libssl_la_OBJECTS = $(am_libssl_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
@@ -350,9 +350,10 @@ libssl_la_SOURCES = bio_ssl.c bs_ber.c bs_cbb.c bs_cbs.c d1_both.c \
 	d1_clnt.c d1_enc.c d1_lib.c d1_meth.c d1_pkt.c d1_srtp.c \
 	d1_srvr.c pqueue.c s3_cbc.c s3_lib.c ssl_algs.c ssl_asn1.c \
 	ssl_both.c ssl_cert.c ssl_ciph.c ssl_clnt.c ssl_err.c \
-	ssl_lib.c ssl_packet.c ssl_pkt.c ssl_rsa.c ssl_sess.c \
-	ssl_srvr.c ssl_stat.c ssl_tlsext.c ssl_txt.c ssl_versions.c \
-	t1_clnt.c t1_enc.c t1_hash.c t1_lib.c t1_meth.c t1_srvr.c
+	ssl_init.c ssl_lib.c ssl_packet.c ssl_pkt.c ssl_rsa.c \
+	ssl_sess.c ssl_srvr.c ssl_stat.c ssl_tlsext.c ssl_txt.c \
+	ssl_versions.c t1_clnt.c t1_enc.c t1_hash.c t1_lib.c t1_meth.c \
+	t1_srvr.c
 noinst_HEADERS = srtp.h ssl_locl.h ssl_tlsext.h bytestring.h
 all: all-am
 
@@ -455,6 +456,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ssl_ciph.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ssl_clnt.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ssl_err.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ssl_init.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ssl_lib.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ssl_packet.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ssl_pkt.Plo@am__quote@

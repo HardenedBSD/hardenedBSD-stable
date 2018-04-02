@@ -23,9 +23,17 @@ libtls_la_SOURCES += tls_client.c
 libtls_la_SOURCES += tls_bio_cb.c
 libtls_la_SOURCES += tls_config.c
 libtls_la_SOURCES += tls_conninfo.c
+libtls_la_SOURCES += tls_keypair.c
 libtls_la_SOURCES += tls_server.c
 libtls_la_SOURCES += tls_ocsp.c
 libtls_la_SOURCES += tls_peer.c
 libtls_la_SOURCES += tls_util.c
 libtls_la_SOURCES += tls_verify.c
 noinst_HEADERS = tls_internal.h
+
+if HOST_WIN
+libtls_la_SOURCES += compat/ftruncate.c
+libtls_la_SOURCES += compat/getuid.c
+libtls_la_SOURCES += compat/pread.c
+libtls_la_SOURCES += compat/pwrite.c
+endif

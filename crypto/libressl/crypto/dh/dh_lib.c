@@ -1,4 +1,4 @@
-/* $OpenBSD: dh_lib.c,v 1.22 2017/01/29 17:49:22 beck Exp $ */
+/* $OpenBSD: dh_lib.c,v 1.30 2018/02/22 16:41:04 jsing Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -56,6 +56,7 @@
  * [including the GNU Public Licence.]
  */
 
+#include <limits.h>
 #include <stdio.h>
 
 #include <openssl/opensslconf.h>
@@ -238,4 +239,105 @@ int
 DH_size(const DH *dh)
 {
 	return BN_num_bytes(dh->p);
+}
+
+int
+DH_bits(const DH *dh)
+{
+	return BN_num_bits(dh->p);
+}
+
+ENGINE *
+DH_get0_engine(DH *dh)
+{
+	return dh->engine;
+}
+
+void
+DH_get0_pqg(const DH *dh, const BIGNUM **p, const BIGNUM **q, const BIGNUM **g)
+{
+	if (p != NULL)
+		*p = dh->p;
+	if (q != NULL)
+		*q = dh->q;
+	if (g != NULL)
+		*g = dh->g;
+}
+
+int
+DH_set0_pqg(DH *dh, BIGNUM *p, BIGNUM *q, BIGNUM *g)
+{
+	if ((dh->p == NULL && p == NULL) || (dh->g == NULL && g == NULL))
+		return 0;
+
+	if (p != NULL) {
+		BN_free(dh->p);
+		dh->p = p;
+	}
+	if (q != NULL) {
+		BN_free(dh->q);
+		dh->q = q;
+	}
+	if (g != NULL) {
+		BN_free(dh->g);
+		dh->g = g;
+	}
+
+	return 1;
+}
+
+void
+DH_get0_key(const DH *dh, const BIGNUM **pub_key, const BIGNUM **priv_key)
+{
+	if (pub_key != NULL)
+		*pub_key = dh->pub_key;
+	if (priv_key != NULL)
+		*priv_key = dh->priv_key;
+}
+
+int
+DH_set0_key(DH *dh, BIGNUM *pub_key, BIGNUM *priv_key)
+{
+	if ((dh->pub_key == NULL && pub_key == NULL) ||
+	    (dh->priv_key == NULL && priv_key == NULL))
+		return 0;
+
+	if (pub_key != NULL) {
+		BN_free(dh->pub_key);
+		dh->pub_key = pub_key;
+	}
+	if (priv_key != NULL) {
+		BN_free(dh->priv_key);
+		dh->priv_key = priv_key;
+	}
+
+	return 1;
+}
+
+void
+DH_clear_flags(DH *dh, int flags)
+{
+	dh->flags &= ~flags;
+}
+
+int
+DH_test_flags(const DH *dh, int flags)
+{
+	return dh->flags & flags;
+}
+
+void
+DH_set_flags(DH *dh, int flags)
+{
+	dh->flags |= flags;
+}
+
+int
+DH_set_length(DH *dh, long length)
+{
+	if (length < 0 || length > INT_MAX)
+		return 0;
+
+	dh->length = length;
+	return 1;
 }

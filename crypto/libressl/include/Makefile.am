@@ -12,6 +12,7 @@ noinst_HEADERS += compat/fcntl.h
 noinst_HEADERS += compat/limits.h
 noinst_HEADERS += compat/netdb.h
 noinst_HEADERS += compat/poll.h
+noinst_HEADERS += compat/pthread.h
 noinst_HEADERS += compat/readpassphrase.h
 noinst_HEADERS += compat/resolv.h
 noinst_HEADERS += compat/stdio.h

@@ -3,6 +3,7 @@ include $(top_srcdir)/Makefile.am.common
 AM_CPPFLAGS += -I $(top_srcdir)/crypto/modes
 AM_CPPFLAGS += -I $(top_srcdir)/crypto/asn1
 AM_CPPFLAGS += -I $(top_srcdir)/ssl
+AM_CPPFLAGS += -I $(top_srcdir)/tls
 AM_CPPFLAGS += -I $(top_srcdir)/apps/openssl
 AM_CPPFLAGS += -I $(top_srcdir)/apps/openssl/compat
 AM_CPPFLAGS += -D_PATH_SSL_CA_FILE=\"$(top_srcdir)/apps/openssl/cert.pem\"
@@ -42,6 +43,11 @@ check_PROGRAMS += arc4randomforktest
 arc4randomforktest_SOURCES = arc4randomforktest.c
 endif
 EXTRA_DIST += arc4randomforktest.sh
+
+# asn1evp
+TESTS += asn1evp
+check_PROGRAMS += asn1evp
+asn1evp_SOURCES = asn1evp.c
 
 # asn1test
 TESTS += asn1test
@@ -107,6 +113,11 @@ cipherstest_SOURCES = cipherstest.c
 TESTS += clienttest
 check_PROGRAMS += clienttest
 clienttest_SOURCES = clienttest.c
+
+# configtest
+TESTS += configtest
+check_PROGRAMS += configtest
+configtest_SOURCES = configtest.c
 
 # cts128test
 TESTS += cts128test
@@ -177,7 +188,6 @@ exptest_SOURCES = exptest.c
 # freenull
 TESTS += freenull
 check_PROGRAMS += freenull
-freenull_CPPFLAGS = $(AM_CPPFLAGS) -ULIBRESSL_INTERNAL
 freenull_SOURCES = freenull.c
 
 # gcm128test
@@ -209,6 +219,12 @@ ideatest_SOURCES = ideatest.c
 TESTS += igetest
 check_PROGRAMS += igetest
 igetest_SOURCES = igetest.c
+
+# keypairtest
+TESTS += keypairtest.sh
+check_PROGRAMS += keypairtest
+keypairtest_SOURCES = keypairtest.c
+EXTRA_DIST += keypairtest.sh
 
 # md4test
 TESTS += md4test
@@ -359,7 +375,6 @@ timingsafe_SOURCES = timingsafe.c
 # tlsexttest
 TESTS += tlsexttest
 check_PROGRAMS += tlsexttest
-tlsexttest_CPPFLAGS = $(AM_CPPFLAGS) -ULIBRESSL_INTERNAL
 tlsexttest_SOURCES = tlsexttest.c
 
 # tlstest

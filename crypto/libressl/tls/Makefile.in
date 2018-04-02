@@ -91,6 +91,8 @@ build_triplet = @build@
 host_triplet = @host@
 @OPENSSLDIR_DEFINED_TRUE@am__append_1 = -D_PATH_SSL_CA_FILE=\"@OPENSSLDIR@/cert.pem\"
 @OPENSSLDIR_DEFINED_FALSE@am__append_2 = -D_PATH_SSL_CA_FILE=\"$(sysconfdir)/ssl/cert.pem\"
+@HOST_WIN_TRUE@am__append_3 = compat/ftruncate.c compat/getuid.c \
+@HOST_WIN_TRUE@	compat/pread.c compat/pwrite.c
 subdir = tls
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/check-hardening-options.m4 \
@@ -139,11 +141,22 @@ LTLIBRARIES = $(lib_LTLIBRARIES)
 am__DEPENDENCIES_1 =
 libtls_la_DEPENDENCIES = $(abs_top_builddir)/ssl/libssl.la \
 	$(abs_top_builddir)/crypto/libcrypto.la $(am__DEPENDENCIES_1)
+am__libtls_la_SOURCES_DIST = tls.c tls_client.c tls_bio_cb.c \
+	tls_config.c tls_conninfo.c tls_keypair.c tls_server.c \
+	tls_ocsp.c tls_peer.c tls_util.c tls_verify.c \
+	compat/ftruncate.c compat/getuid.c compat/pread.c \
+	compat/pwrite.c
+am__dirstamp = $(am__leading_dot)dirstamp
+@HOST_WIN_TRUE@am__objects_1 = compat/libtls_la-ftruncate.lo \
+@HOST_WIN_TRUE@	compat/libtls_la-getuid.lo \
+@HOST_WIN_TRUE@	compat/libtls_la-pread.lo \
+@HOST_WIN_TRUE@	compat/libtls_la-pwrite.lo
 am_libtls_la_OBJECTS = libtls_la-tls.lo libtls_la-tls_client.lo \
 	libtls_la-tls_bio_cb.lo libtls_la-tls_config.lo \
-	libtls_la-tls_conninfo.lo libtls_la-tls_server.lo \
-	libtls_la-tls_ocsp.lo libtls_la-tls_peer.lo \
-	libtls_la-tls_util.lo libtls_la-tls_verify.lo
+	libtls_la-tls_conninfo.lo libtls_la-tls_keypair.lo \
+	libtls_la-tls_server.lo libtls_la-tls_ocsp.lo \
+	libtls_la-tls_peer.lo libtls_la-tls_util.lo \
+	libtls_la-tls_verify.lo $(am__objects_1)
 libtls_la_OBJECTS = $(am_libtls_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
@@ -187,7 +200,7 @@ am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
 SOURCES = $(libtls_la_SOURCES)
-DIST_SOURCES = $(libtls_la_SOURCES)
+DIST_SOURCES = $(am__libtls_la_SOURCES_DIST)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -350,8 +363,8 @@ libtls_la_LIBADD = $(abs_top_builddir)/ssl/libssl.la \
 	$(abs_top_builddir)/crypto/libcrypto.la $(PLATFORM_LDADD)
 libtls_la_CPPFLAGS = $(AM_CPPFLAGS) $(am__append_1) $(am__append_2)
 libtls_la_SOURCES = tls.c tls_client.c tls_bio_cb.c tls_config.c \
-	tls_conninfo.c tls_server.c tls_ocsp.c tls_peer.c tls_util.c \
-	tls_verify.c
+	tls_conninfo.c tls_keypair.c tls_server.c tls_ocsp.c \
+	tls_peer.c tls_util.c tls_verify.c $(am__append_3)
 noinst_HEADERS = tls_internal.h
 all: all-am
 
@@ -422,12 +435,28 @@ clean-libLTLIBRARIES:
 	  echo rm -f $${locs}; \
 	  rm -f $${locs}; \
 	}
+compat/$(am__dirstamp):
+	@$(MKDIR_P) compat
+	@: > compat/$(am__dirstamp)
+compat/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) compat/$(DEPDIR)
+	@: > compat/$(DEPDIR)/$(am__dirstamp)
+compat/libtls_la-ftruncate.lo: compat/$(am__dirstamp) \
+	compat/$(DEPDIR)/$(am__dirstamp)
+compat/libtls_la-getuid.lo: compat/$(am__dirstamp) \
+	compat/$(DEPDIR)/$(am__dirstamp)
+compat/libtls_la-pread.lo: compat/$(am__dirstamp) \
+	compat/$(DEPDIR)/$(am__dirstamp)
+compat/libtls_la-pwrite.lo: compat/$(am__dirstamp) \
+	compat/$(DEPDIR)/$(am__dirstamp)
 
 libtls.la: $(libtls_la_OBJECTS) $(libtls_la_DEPENDENCIES) $(EXTRA_libtls_la_DEPENDENCIES) 
 	$(AM_V_CCLD)$(libtls_la_LINK) -rpath $(libdir) $(libtls_la_OBJECTS) $(libtls_la_LIBADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
+	-rm -f compat/*.$(OBJEXT)
+	-rm -f compat/*.lo
 
 distclean-compile:
 	-rm -f *.tab.c
@@ -437,11 +466,16 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libtls_la-tls_client.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libtls_la-tls_config.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libtls_la-tls_conninfo.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libtls_la-tls_keypair.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libtls_la-tls_ocsp.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libtls_la-tls_peer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libtls_la-tls_server.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libtls_la-tls_util.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libtls_la-tls_verify.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@compat/$(DEPDIR)/libtls_la-ftruncate.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@compat/$(DEPDIR)/libtls_la-getuid.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@compat/$(DEPDIR)/libtls_la-pread.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@compat/$(DEPDIR)/libtls_la-pwrite.Plo@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
@@ -502,6 +536,13 @@ libtls_la-tls_conninfo.lo: tls_conninfo.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtls_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o libtls_la-tls_conninfo.lo `test -f 'tls_conninfo.c' || echo '$(srcdir)/'`tls_conninfo.c
 
+libtls_la-tls_keypair.lo: tls_keypair.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtls_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT libtls_la-tls_keypair.lo -MD -MP -MF $(DEPDIR)/libtls_la-tls_keypair.Tpo -c -o libtls_la-tls_keypair.lo `test -f 'tls_keypair.c' || echo '$(srcdir)/'`tls_keypair.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libtls_la-tls_keypair.Tpo $(DEPDIR)/libtls_la-tls_keypair.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='tls_keypair.c' object='libtls_la-tls_keypair.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtls_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o libtls_la-tls_keypair.lo `test -f 'tls_keypair.c' || echo '$(srcdir)/'`tls_keypair.c
+
 libtls_la-tls_server.lo: tls_server.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtls_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT libtls_la-tls_server.lo -MD -MP -MF $(DEPDIR)/libtls_la-tls_server.Tpo -c -o libtls_la-tls_server.lo `test -f 'tls_server.c' || echo '$(srcdir)/'`tls_server.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libtls_la-tls_server.Tpo $(DEPDIR)/libtls_la-tls_server.Plo
@@ -537,11 +578,40 @@ libtls_la-tls_verify.lo: tls_verify.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtls_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o libtls_la-tls_verify.lo `test -f 'tls_verify.c' || echo '$(srcdir)/'`tls_verify.c
 
+compat/libtls_la-ftruncate.lo: compat/ftruncate.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtls_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT compat/libtls_la-ftruncate.lo -MD -MP -MF compat/$(DEPDIR)/libtls_la-ftruncate.Tpo -c -o compat/libtls_la-ftruncate.lo `test -f 'compat/ftruncate.c' || echo '$(srcdir)/'`compat/ftruncate.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) compat/$(DEPDIR)/libtls_la-ftruncate.Tpo compat/$(DEPDIR)/libtls_la-ftruncate.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='compat/ftruncate.c' object='compat/libtls_la-ftruncate.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtls_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o compat/libtls_la-ftruncate.lo `test -f 'compat/ftruncate.c' || echo '$(srcdir)/'`compat/ftruncate.c
+
+compat/libtls_la-getuid.lo: compat/getuid.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtls_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT compat/libtls_la-getuid.lo -MD -MP -MF compat/$(DEPDIR)/libtls_la-getuid.Tpo -c -o compat/libtls_la-getuid.lo `test -f 'compat/getuid.c' || echo '$(srcdir)/'`compat/getuid.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) compat/$(DEPDIR)/libtls_la-getuid.Tpo compat/$(DEPDIR)/libtls_la-getuid.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='compat/getuid.c' object='compat/libtls_la-getuid.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtls_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o compat/libtls_la-getuid.lo `test -f 'compat/getuid.c' || echo '$(srcdir)/'`compat/getuid.c
+
+compat/libtls_la-pread.lo: compat/pread.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtls_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT compat/libtls_la-pread.lo -MD -MP -MF compat/$(DEPDIR)/libtls_la-pread.Tpo -c -o compat/libtls_la-pread.lo `test -f 'compat/pread.c' || echo '$(srcdir)/'`compat/pread.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) compat/$(DEPDIR)/libtls_la-pread.Tpo compat/$(DEPDIR)/libtls_la-pread.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='compat/pread.c' object='compat/libtls_la-pread.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtls_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o compat/libtls_la-pread.lo `test -f 'compat/pread.c' || echo '$(srcdir)/'`compat/pread.c
+
+compat/libtls_la-pwrite.lo: compat/pwrite.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtls_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT compat/libtls_la-pwrite.lo -MD -MP -MF compat/$(DEPDIR)/libtls_la-pwrite.Tpo -c -o compat/libtls_la-pwrite.lo `test -f 'compat/pwrite.c' || echo '$(srcdir)/'`compat/pwrite.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) compat/$(DEPDIR)/libtls_la-pwrite.Tpo compat/$(DEPDIR)/libtls_la-pwrite.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='compat/pwrite.c' object='compat/libtls_la-pwrite.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtls_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o compat/libtls_la-pwrite.lo `test -f 'compat/pwrite.c' || echo '$(srcdir)/'`compat/pwrite.c
+
 mostlyclean-libtool:
 	-rm -f *.lo
 
 clean-libtool:
 	-rm -rf .libs _libs
+	-rm -rf compat/.libs compat/_libs
 
 ID: $(am__tagged_files)
 	$(am__define_uniq_tagged_files); mkid -fID $$unique
@@ -658,6 +728,8 @@ clean-generic:
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
 	-test . = "$(srcdir)" || test -z "$(CONFIG_CLEAN_VPATH_FILES)" || rm -f $(CONFIG_CLEAN_VPATH_FILES)
+	-rm -f compat/$(DEPDIR)/$(am__dirstamp)
+	-rm -f compat/$(am__dirstamp)
 
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
@@ -668,7 +740,7 @@ clean-am: clean-generic clean-libLTLIBRARIES clean-libtool \
 	mostlyclean-am
 
 distclean: distclean-am
-	-rm -rf ./$(DEPDIR)
+	-rm -rf ./$(DEPDIR) compat/$(DEPDIR)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-tags
@@ -714,7 +786,7 @@ install-ps-am:
 installcheck-am:
 
 maintainer-clean: maintainer-clean-am
-	-rm -rf ./$(DEPDIR)
+	-rm -rf ./$(DEPDIR) compat/$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 

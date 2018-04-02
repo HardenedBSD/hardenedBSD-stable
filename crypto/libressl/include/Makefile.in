@@ -347,14 +347,15 @@ EXTRA_DIST = CMakeLists.txt
 SUBDIRS = openssl
 noinst_HEADERS = pqueue.h compat/dirent.h compat/dirent_msvc.h \
 	compat/err.h compat/fcntl.h compat/limits.h compat/netdb.h \
-	compat/poll.h compat/readpassphrase.h compat/resolv.h \
-	compat/stdio.h compat/stdlib.h compat/string.h compat/time.h \
-	compat/unistd.h compat/win32netcompat.h compat/arpa/inet.h \
-	compat/arpa/nameser.h compat/machine/endian.h \
-	compat/netinet/in.h compat/netinet/ip.h compat/netinet/tcp.h \
-	compat/sys/ioctl.h compat/sys/mman.h compat/sys/param.h \
-	compat/sys/select.h compat/sys/socket.h compat/sys/stat.h \
-	compat/sys/time.h compat/sys/types.h compat/sys/uio.h
+	compat/poll.h compat/pthread.h compat/readpassphrase.h \
+	compat/resolv.h compat/stdio.h compat/stdlib.h compat/string.h \
+	compat/time.h compat/unistd.h compat/win32netcompat.h \
+	compat/arpa/inet.h compat/arpa/nameser.h \
+	compat/machine/endian.h compat/netinet/in.h \
+	compat/netinet/ip.h compat/netinet/tcp.h compat/sys/ioctl.h \
+	compat/sys/mman.h compat/sys/param.h compat/sys/select.h \
+	compat/sys/socket.h compat/sys/stat.h compat/sys/time.h \
+	compat/sys/types.h compat/sys/uio.h
 include_HEADERS = tls.h
 all: all-recursive
 

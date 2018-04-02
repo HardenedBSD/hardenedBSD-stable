@@ -40,9 +40,6 @@ endif
 if !HAVE_FREEZERO
 	-echo freezero >> crypto_portable.sym
 endif
-if !HAVE_INET_PTON
-	-echo inet_pton >> crypto_portable.sym
-endif
 if !HAVE_REALLOCARRAY
 	-echo reallocarray >> crypto_portable.sym
 endif
@@ -166,10 +163,6 @@ if !HAVE_GETPAGESIZE
 libcompat_la_SOURCES += compat/getpagesize.c
 endif
 
-if !HAVE_INET_PTON
-libcompat_la_SOURCES += compat/inet_pton.c
-endif
-
 if !HAVE_TIMEGM
 libcompat_la_SOURCES += compat/timegm.c
 endif
@@ -216,6 +209,7 @@ endif
 
 libcrypto_la_SOURCES += cpt_err.c
 libcrypto_la_SOURCES += cryptlib.c
+libcrypto_la_SOURCES += crypto_init.c
 libcrypto_la_SOURCES += cversion.c
 libcrypto_la_SOURCES += ex_data.c
 libcrypto_la_SOURCES += malloc-wrapper.c
@@ -345,6 +339,7 @@ libcrypto_la_SOURCES += bio/bf_null.c
 libcrypto_la_SOURCES += bio/bio_cb.c
 libcrypto_la_SOURCES += bio/bio_err.c
 libcrypto_la_SOURCES += bio/bio_lib.c
+libcrypto_la_SOURCES += bio/bio_meth.c
 libcrypto_la_SOURCES += bio/bss_acpt.c
 libcrypto_la_SOURCES += bio/bss_bio.c
 libcrypto_la_SOURCES += bio/bss_conn.c
@@ -491,6 +486,7 @@ libcrypto_la_SOURCES += dsa/dsa_err.c
 libcrypto_la_SOURCES += dsa/dsa_gen.c
 libcrypto_la_SOURCES += dsa/dsa_key.c
 libcrypto_la_SOURCES += dsa/dsa_lib.c
+libcrypto_la_SOURCES += dsa/dsa_meth.c
 libcrypto_la_SOURCES += dsa/dsa_ossl.c
 libcrypto_la_SOURCES += dsa/dsa_pmeth.c
 libcrypto_la_SOURCES += dsa/dsa_prn.c
@@ -791,6 +787,7 @@ libcrypto_la_SOURCES += rsa/rsa_eay.c
 libcrypto_la_SOURCES += rsa/rsa_err.c
 libcrypto_la_SOURCES += rsa/rsa_gen.c
 libcrypto_la_SOURCES += rsa/rsa_lib.c
+libcrypto_la_SOURCES += rsa/rsa_meth.c
 libcrypto_la_SOURCES += rsa/rsa_none.c
 libcrypto_la_SOURCES += rsa/rsa_oaep.c
 libcrypto_la_SOURCES += rsa/rsa_pk1.c

@@ -1,10 +1,10 @@
-![LibreSSL image](http://www.libressl.org/images/libressl.jpg)
-## Official portable version of [LibreSSL](http://www.libressl.org) ##
+![LibreSSL image](https://www.libressl.org/images/libressl.jpg)
+## Official portable version of [LibreSSL](https://www.libressl.org) ##
 
 [![Build Status](https://travis-ci.org/libressl-portable/portable.svg?branch=master)](https://travis-ci.org/libressl-portable/portable)
 
 LibreSSL is a fork of [OpenSSL](https://www.openssl.org) 1.0.1g developed by the
-[OpenBSD](http://www.openbsd.org) project.  Our goal is to modernize the codebase,
+[OpenBSD](https://www.openbsd.org) project.  Our goal is to modernize the codebase,
 improve security, and apply best practice development processes from OpenBSD.
 
 ## Compatibility with OpenSSL: ##
@@ -37,14 +37,14 @@ At the time of this writing, LibreSSL is know to build and work on:
 * AIX (5.3 and later)
 
 LibreSSL also supports the following Windows environments:
-* Microsoft Windows (XP or higher, x86 and x64)
+* Microsoft Windows (Vista or higher, x86 and x64)
 * Wine (32-bit and 64-bit)
 * Builds with Mingw-w64, Cygwin, and Visual Studio
 
 Official release tarballs are available at your friendly neighborhood
 OpenBSD mirror in directory
-[LibreSSL](http://ftp.openbsd.org/pub/OpenBSD/LibreSSL/),
-although we suggest that you use a [mirror](http://www.openbsd.org/ftp.html).
+[LibreSSL](https://ftp.openbsd.org/pub/OpenBSD/LibreSSL/),
+although we suggest that you use a [mirror](https://www.openbsd.org/ftp.html).
 
 The LibreSSL portable build framework is also
 [mirrored](https://github.com/libressl-portable/portable) in Github.
@@ -143,9 +143,11 @@ into other projects or build by itself.
 | Option Name | Default | Description
 | ------------ | -----: | ------
 |  LIBRESSL_SKIP_INSTALL | OFF | allows skipping install() rules.  Can be specified from command line using <br>```-DLIBRESSL_SKIP_INSTALL=ON``` |
+|  LIBRESSL_APPS | ON | allows skipping application builds. Apps are required to run tests |
+|  LIBRESSL_TESTS | ON | allows skipping of tests. Tests are only available in static builds |
+|  BUILD_SHARED_LIBS | OFF | CMake option for building shared libraries. |
 |  ENABLE_ASM | ON | builds assembly optimized rules. |
 |  ENABLE_EXTRATESTS | OFF | Enable extra tests that may be unreliable on some platforms |
 |  ENABLE_NC | OFF | Enable installing TLS-enabled nc(1) |
-|  ENABLE_VSTEST | OFF | Enable test on Visual Studio |
 |  OPENSSLDIR | Blank | Set the default openssl directory.  Can be specified from command line using <br>```-DOPENSSLDIR=<dirname>``` |
 

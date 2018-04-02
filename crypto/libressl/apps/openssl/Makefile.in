@@ -95,7 +95,8 @@ bin_PROGRAMS = openssl$(EXEEXT)
 @HOST_WIN_TRUE@am__append_3 = apps_win.c
 @HOST_WIN_FALSE@am__append_4 = apps_posix.c
 @HAVE_POLL_FALSE@@HOST_WIN_TRUE@am__append_5 = compat/poll_win.c
-@HAVE_STRTONUM_FALSE@am__append_6 = compat/strtonum.c
+@HAVE_CLOCK_GETTIME_FALSE@@HOST_DARWIN_TRUE@am__append_6 = compat/clock_gettime_osx.c
+@HAVE_STRTONUM_FALSE@am__append_7 = compat/strtonum.c
 subdir = apps/openssl
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/check-hardening-options.m4 \
@@ -122,7 +123,7 @@ am__openssl_SOURCES_DIST = apps.c asn1pars.c ca.c ciphers.c crl.c \
 	s_cb.c s_client.c s_server.c s_socket.c s_time.c sess_id.c \
 	smime.c speed.c spkac.c ts.c verify.c version.c x509.c \
 	certhash.c certhash_win.c apps_win.c apps_posix.c \
-	compat/poll_win.c compat/strtonum.c
+	compat/poll_win.c compat/clock_gettime_osx.c compat/strtonum.c
 @BUILD_CERTHASH_TRUE@am__objects_1 = certhash.$(OBJEXT)
 @BUILD_CERTHASH_FALSE@am__objects_2 = certhash_win.$(OBJEXT)
 @HOST_WIN_TRUE@am__objects_3 = apps_win.$(OBJEXT)
@@ -130,7 +131,8 @@ am__openssl_SOURCES_DIST = apps.c asn1pars.c ca.c ciphers.c crl.c \
 am__dirstamp = $(am__leading_dot)dirstamp
 @HAVE_POLL_FALSE@@HOST_WIN_TRUE@am__objects_5 =  \
 @HAVE_POLL_FALSE@@HOST_WIN_TRUE@	compat/poll_win.$(OBJEXT)
-@HAVE_STRTONUM_FALSE@am__objects_6 = compat/strtonum.$(OBJEXT)
+@HAVE_CLOCK_GETTIME_FALSE@@HOST_DARWIN_TRUE@am__objects_6 = compat/clock_gettime_osx.$(OBJEXT)
+@HAVE_STRTONUM_FALSE@am__objects_7 = compat/strtonum.$(OBJEXT)
 am_openssl_OBJECTS = apps.$(OBJEXT) asn1pars.$(OBJEXT) ca.$(OBJEXT) \
 	ciphers.$(OBJEXT) crl.$(OBJEXT) crl2p7.$(OBJEXT) \
 	dgst.$(OBJEXT) dh.$(OBJEXT) dhparam.$(OBJEXT) dsa.$(OBJEXT) \
@@ -147,7 +149,7 @@ am_openssl_OBJECTS = apps.$(OBJEXT) asn1pars.$(OBJEXT) ca.$(OBJEXT) \
 	speed.$(OBJEXT) spkac.$(OBJEXT) ts.$(OBJEXT) verify.$(OBJEXT) \
 	version.$(OBJEXT) x509.$(OBJEXT) $(am__objects_1) \
 	$(am__objects_2) $(am__objects_3) $(am__objects_4) \
-	$(am__objects_5) $(am__objects_6)
+	$(am__objects_5) $(am__objects_6) $(am__objects_7)
 openssl_OBJECTS = $(am_openssl_OBJECTS)
 am__DEPENDENCIES_1 =
 openssl_DEPENDENCIES = $(abs_top_builddir)/ssl/libssl.la \
@@ -390,7 +392,7 @@ openssl_SOURCES = apps.c asn1pars.c ca.c ciphers.c crl.c crl2p7.c \
 	s_client.c s_server.c s_socket.c s_time.c sess_id.c smime.c \
 	speed.c spkac.c ts.c verify.c version.c x509.c $(am__append_1) \
 	$(am__append_2) $(am__append_3) $(am__append_4) \
-	$(am__append_5) $(am__append_6)
+	$(am__append_5) $(am__append_6) $(am__append_7)
 noinst_HEADERS = apps.h progs.h s_apps.h testdsa.h testrsa.h \
 	timeouts.h
 EXTRA_DIST = cert.pem openssl.cnf x509v3.cnf CMakeLists.txt
@@ -485,6 +487,8 @@ compat/$(DEPDIR)/$(am__dirstamp):
 	@: > compat/$(DEPDIR)/$(am__dirstamp)
 compat/poll_win.$(OBJEXT): compat/$(am__dirstamp) \
 	compat/$(DEPDIR)/$(am__dirstamp)
+compat/clock_gettime_osx.$(OBJEXT): compat/$(am__dirstamp) \
+	compat/$(DEPDIR)/$(am__dirstamp)
 compat/strtonum.$(OBJEXT): compat/$(am__dirstamp) \
 	compat/$(DEPDIR)/$(am__dirstamp)
 
@@ -550,6 +554,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/verify.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/version.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/x509.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@compat/$(DEPDIR)/clock_gettime_osx.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@compat/$(DEPDIR)/poll_win.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@compat/$(DEPDIR)/strtonum.Po@am__quote@
 

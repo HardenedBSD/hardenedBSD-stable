@@ -62,9 +62,9 @@
  * [including the GNU Public Licence.]
  */
 
-#define NUM_NID 959
-#define NUM_SN 952
-#define NUM_LN 952
+#define NUM_NID 968
+#define NUM_SN 961
+#define NUM_LN 961
 #define NUM_OBJ 893
 
 static const unsigned char lvalues[6250]={
@@ -2504,6 +2504,15 @@ static const ASN1_OBJECT nid_objs[NUM_NID]={
 	NID_jurisdictionStateOrProvinceName,11,&(lvalues[6227]),0},
 {"jurisdictionCountryName","jurisdictionCountryName",
 	NID_jurisdictionCountryName,11,&(lvalues[6238]),0},
+{"KxRSA","kx-rsa",NID_kx_rsa,0,NULL,0},
+{"KxECDHE","kx-ecdhe",NID_kx_ecdhe,0,NULL,0},
+{"KxDHE","kx-dhe",NID_kx_dhe,0,NULL,0},
+{"KxGOST","kx-gost",NID_kx_gost,0,NULL,0},
+{"AuthRSA","auth-rsa",NID_auth_rsa,0,NULL,0},
+{"AuthECDSA","auth-ecdsa",NID_auth_ecdsa,0,NULL,0},
+{"AuthGOST01","auth-gost01",NID_auth_gost01,0,NULL,0},
+{"AuthNULL","auth-null",NID_auth_null,0,NULL,0},
+{"ChaCha20-Poly1305","chacha20-poly1305",NID_chacha20_poly1305,0,NULL,0},
 };
 
 static const unsigned int sn_objs[NUM_SN]={
@@ -2534,6 +2543,10 @@ static const unsigned int sn_objs[NUM_SN]={
 426,	/* "AES-256-ECB" */
 428,	/* "AES-256-OFB" */
 914,	/* "AES-256-XTS" */
+964,	/* "AuthECDSA" */
+965,	/* "AuthGOST01" */
+966,	/* "AuthNULL" */
+963,	/* "AuthRSA" */
 91,	/* "BF-CBC" */
 93,	/* "BF-CFB" */
 92,	/* "BF-ECB" */
@@ -2566,6 +2579,7 @@ static const unsigned int sn_objs[NUM_SN]={
 141,	/* "CRLReason" */
 417,	/* "CSPName" */
 937,	/* "ChaCha" */
+967,	/* "ChaCha20-Poly1305" */
 367,	/* "CrlID" */
 391,	/* "DC" */
 31,	/* "DES-CBC" */
@@ -2612,6 +2626,10 @@ static const unsigned int sn_objs[NUM_SN]={
 645,	/* "ITU-T" */
 646,	/* "JOINT-ISO-ITU-T" */
 773,	/* "KISA" */
+961,	/* "KxDHE" */
+960,	/* "KxECDHE" */
+962,	/* "KxGOST" */
+959,	/* "KxRSA" */
 15,	/* "L" */
 856,	/* "LocalKeySet" */
  3,	/* "MD2" */
@@ -3654,6 +3672,10 @@ static const unsigned int ln_objs[NUM_LN]={
 484,	/* "associatedDomain" */
 485,	/* "associatedName" */
 501,	/* "audio" */
+964,	/* "auth-ecdsa" */
+965,	/* "auth-gost01" */
+966,	/* "auth-null" */
+963,	/* "auth-rsa" */
 882,	/* "authorityRevocationList" */
 91,	/* "bf-cbc" */
 93,	/* "bf-cfb" */
@@ -3726,6 +3748,7 @@ static const unsigned int ln_objs[NUM_LN]={
 517,	/* "certificate extensions" */
 883,	/* "certificateRevocationList" */
 937,	/* "chacha" */
+967,	/* "chacha20-poly1305" */
 54,	/* "challengePassword" */
 407,	/* "characteristic-two-field" */
 395,	/* "clearance" */
@@ -4064,6 +4087,10 @@ static const unsigned int ln_objs[NUM_LN]={
 957,	/* "jurisdictionStateOrProvinceName" */
 150,	/* "keyBag" */
 773,	/* "kisa" */
+961,	/* "kx-dhe" */
+960,	/* "kx-ecdhe" */
+962,	/* "kx-gost" */
+959,	/* "kx-rsa" */
 477,	/* "lastModifiedBy" */
 476,	/* "lastModifiedTime" */
 157,	/* "localKeyID" */

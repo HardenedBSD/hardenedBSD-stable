@@ -1,4 +1,4 @@
-/* $OpenBSD: s3_lib.c,v 1.161 2017/09/25 18:04:08 jsing Exp $ */
+/* $OpenBSD: s3_lib.c,v 1.165 2018/03/15 12:27:00 jca Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -1553,10 +1553,16 @@ ssl3_handshake_msg_finish_cbb(SSL *s, CBB *handshake)
 int
 ssl3_handshake_write(SSL *s)
 {
-	if (SSL_IS_DTLS(s))
-		return dtls1_do_write(s, SSL3_RT_HANDSHAKE);
+	return ssl3_record_write(s, SSL3_RT_HANDSHAKE);
+}
 
-	return ssl3_do_write(s, SSL3_RT_HANDSHAKE);
+int
+ssl3_record_write(SSL *s, int type)
+{
+	if (SSL_IS_DTLS(s))
+		return dtls1_do_write(s, type);
+
+	return ssl3_do_write(s, type);
 }
 
 int
@@ -1978,6 +1984,12 @@ ssl3_ctrl(SSL *s, int cmd, long larg, void *parg)
 	case SSL_CTRL_GET_SERVER_TMP_KEY:
 		return ssl_ctrl_get_server_tmp_key(s, parg);
 
+	case SSL_CTRL_GET_MIN_PROTO_VERSION:
+		return SSL_get_min_proto_version(s);
+
+	case SSL_CTRL_GET_MAX_PROTO_VERSION:
+		return SSL_get_max_proto_version(s);
+
 	case SSL_CTRL_SET_MIN_PROTO_VERSION:
 		if (larg < 0 || larg > UINT16_MAX)
 			return 0;
@@ -2128,6 +2140,13 @@ _SSL_CTX_set_tlsext_ticket_keys(SSL_CTX *ctx, unsigned char *keys, int keys_len)
 }
 
 static int
+_SSL_CTX_get_tlsext_status_arg(SSL_CTX *ctx, void **arg)
+{
+	*arg = ctx->internal->tlsext_status_arg;
+	return 1;
+}
+
+static int
 _SSL_CTX_set_tlsext_status_arg(SSL_CTX *ctx, void *arg)
 {
 	ctx->internal->tlsext_status_arg = arg;
@@ -2209,6 +2228,9 @@ ssl3_ctx_ctrl(SSL_CTX *ctx, int cmd, long larg, void *parg)
 	case SSL_CTRL_SET_TLSEXT_TICKET_KEYS:
 		return _SSL_CTX_set_tlsext_ticket_keys(ctx, parg, larg);
 
+	case SSL_CTRL_GET_TLSEXT_STATUS_REQ_CB_ARG:
+		return _SSL_CTX_get_tlsext_status_arg(ctx, parg);
+
 	case SSL_CTRL_SET_TLSEXT_STATUS_REQ_CB_ARG:
 		return _SSL_CTX_set_tlsext_status_arg(ctx, parg);
 
@@ -2226,6 +2248,12 @@ ssl3_ctx_ctrl(SSL_CTX *ctx, int cmd, long larg, void *parg)
 
 	case SSL_CTRL_SET_GROUPS_LIST:
 		return SSL_CTX_set1_groups_list(ctx, parg);
+
+	case SSL_CTRL_GET_MIN_PROTO_VERSION:
+		return SSL_CTX_get_min_proto_version(ctx);
+
+	case SSL_CTRL_GET_MAX_PROTO_VERSION:
+		return SSL_CTX_get_max_proto_version(ctx);
 
 	case SSL_CTRL_SET_MIN_PROTO_VERSION:
 		if (larg < 0 || larg > UINT16_MAX)
@@ -2273,6 +2301,10 @@ ssl3_ctx_callback_ctrl(SSL_CTX *ctx, int cmd, void (*fp)(void))
 		    (int (*)(SSL *, int *, void *))fp;
 		return 1;
 
+	case SSL_CTRL_GET_TLSEXT_STATUS_REQ_CB:
+		*(int (**)(SSL *, void *))fp = ctx->internal->tlsext_status_cb;
+		return 1;
+
 	case SSL_CTRL_SET_TLSEXT_STATUS_REQ_CB:
 		ctx->internal->tlsext_status_cb = (int (*)(SSL *, void *))fp;
 		return 1;
@@ -2292,12 +2324,12 @@ ssl3_ctx_callback_ctrl(SSL_CTX *ctx, int cmd, void (*fp)(void))
 const SSL_CIPHER *
 ssl3_get_cipher_by_char(const unsigned char *p)
 {
-	CBS cipher;
 	uint16_t cipher_value;
+	CBS cbs;
 
 	/* We have to assume it is at least 2 bytes due to existing API. */
-	CBS_init(&cipher, p, 2);
-	if (!CBS_get_u16(&cipher, &cipher_value))
+	CBS_init(&cbs, p, 2);
+	if (!CBS_get_u16(&cbs, &cipher_value))
 		return NULL;
 
 	return ssl3_get_cipher_by_value(cipher_value);
@@ -2306,12 +2338,29 @@ ssl3_get_cipher_by_char(const unsigned char *p)
 int
 ssl3_put_cipher_by_char(const SSL_CIPHER *c, unsigned char *p)
 {
-	if (p != NULL) {
-		if ((c->id & ~SSL3_CK_VALUE_MASK) != SSL3_CK_ID)
-			return (0);
-		s2n(ssl3_cipher_get_value(c), p); 
-	}
+	CBB cbb;
+
+	if (p == NULL)
+		return (2);
+
+	if ((c->id & ~SSL3_CK_VALUE_MASK) != SSL3_CK_ID)
+		return (0);
+
+	memset(&cbb, 0, sizeof(cbb));
+
+	/* We have to assume it is at least 2 bytes due to existing API. */
+	if (!CBB_init_fixed(&cbb, p, 2))
+		goto err;
+	if (!CBB_add_u16(&cbb, ssl3_cipher_get_value(c)))
+		goto err;
+	if (!CBB_finish(&cbb, NULL, NULL))
+		goto err;
+
 	return (2);
+
+ err:
+	CBB_cleanup(&cbb);
+	return (0);
 }
 
 SSL_CIPHER *

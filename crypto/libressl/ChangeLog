@@ -28,6 +28,65 @@ history is also available from Git.
 
 LibreSSL Portable Release Notes:
 
+2.7.2 - Stable release
+
+	* Updated and added extensive new HISTORY sections to API manuals.
+
+	* Added support for shared library builds with CMake on all supported
+	  platforms. Note that some of the CMake options have changed, consult
+	  the README for details.
+
+2.7.1 - Bug fixes
+
+	* Fixed a bug in int_x509_param_set_hosts, calling strlen() if name
+	  length provided is 0 to match the OpenSSL behaviour. Issue noticed
+	  by Christian Heimes <christian@python.org>.
+
+	* Fixed builds macOS 10.11 and older.
+
+2.7.0 - Bug fixes and improvements
+
+	* Added support for many OpenSSL 1.0.2 and 1.1 APIs, based on
+	  observations of real-world usage in applications. These are
+	  implemented in parallel with existing OpenSSL 1.0.1 APIs - visibility
+	  changes have not been made to existing structs, allowing code written
+	  for older OpenSSL APIs to continue working.
+
+	* Extensive corrections, improvements, and additions to the
+	  API documentation, including new public APIs from OpenSSL that had
+	  no pre-existing documentation.
+
+	* Added support for automatic library initialization in libcrypto,
+	  libssl, and libtls. Support for pthread_once or a compatible
+	  equivalent is now required of the target operating system. As a
+	  side-effect, minimum Windows support is Vista or higher.
+
+	* Converted more packet handling methods to CBB, which improves
+	  resiliency when generating TLS messages.
+
+	* Completed TLS extension handling rewrite, improving consistency of
+	  checks for malformed and duplicate extensions.
+
+	* Rewrote ASN1_TYPE_{get,set}_octetstring() using templated ASN.1.
+	  This removes the last remaining use of the old M_ASN1_* macros
+	  (asn1_mac.h) from API that needs to continue to exist.
+
+	* Added support for client-side session resumption in libtls.
+	  A libtls client can specify a session file descriptor (a regular
+	  file with appropriate ownership and permissions) and libtls will
+	  manage reading and writing of session data across TLS handshakes.
+
+	* Improved support for strict alignment on ARMv7 architectures,
+	  conditionally enabling assembly in those cases.
+
+	* Fixed a memory leak in libtls when reusing a tls_config.
+
+	* Merged more DTLS support into the regular TLS code path, removing
+	  duplicated code.
+
+	* Many improvements to Windows Cmake-based builds and tests,
+	  especially when targeting Visual Studio.
+
 2.6.4 - Bug fixes
 
 	* Make tls_config_parse_protocols() work correctly when passed a NULL

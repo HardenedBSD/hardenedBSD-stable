@@ -1,4 +1,4 @@
-/* $OpenBSD: dsa_lib.c,v 1.23 2017/01/29 17:49:22 beck Exp $ */
+/* $OpenBSD: dsa_lib.c,v 1.28 2018/02/20 17:52:27 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -303,3 +303,88 @@ err:
 	return NULL;
 }
 #endif
+
+void
+DSA_get0_pqg(const DSA *d, const BIGNUM **p, const BIGNUM **q, const BIGNUM **g)
+{
+	if (p != NULL)
+		*p = d->p;
+	if (q != NULL)
+		*q = d->q;
+	if (g != NULL)
+		*g = d->g;
+}
+
+int
+DSA_set0_pqg(DSA *d, BIGNUM *p, BIGNUM *q, BIGNUM *g)
+{
+	if ((d->p == NULL && p == NULL) || (d->q == NULL && q == NULL) ||
+	    (d->g == NULL && g == NULL))
+		return 0;
+
+	if (p != NULL) {
+		BN_free(d->p);
+		d->p = p;
+	}
+	if (q != NULL) {
+		BN_free(d->q);
+		d->q = q;
+	}
+	if (g != NULL) {
+		BN_free(d->g);
+		d->g = g;
+	}
+
+	return 1;
+}
+
+void
+DSA_get0_key(const DSA *d, const BIGNUM **pub_key, const BIGNUM **priv_key)
+{
+	if (pub_key != NULL)
+		*pub_key = d->pub_key;
+	if (priv_key != NULL)
+		*priv_key = d->priv_key;
+}
+
+int
+DSA_set0_key(DSA *d, BIGNUM *pub_key, BIGNUM *priv_key)
+{
+	if (d->pub_key == NULL && pub_key == NULL)
+		return 0;
+
+	if (pub_key != NULL) {
+		BN_free(d->pub_key);
+		d->pub_key = pub_key;
+	}
+	if (priv_key != NULL) {
+		BN_free(d->priv_key);
+		d->priv_key = priv_key;
+	}
+
+	return 1;
+}
+
+void
+DSA_clear_flags(DSA *d, int flags)
+{
+	d->flags &= ~flags;
+}
+
+int
+DSA_test_flags(const DSA *d, int flags)
+{
+	return d->flags & flags;
+}
+
+void
+DSA_set_flags(DSA *d, int flags)
+{
+	d->flags |= flags;
+}
+
+ENGINE *
+DSA_get0_engine(DSA *d)
+{
+	return d->engine;
+}

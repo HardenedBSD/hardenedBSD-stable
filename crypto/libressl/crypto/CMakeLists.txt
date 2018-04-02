@@ -112,6 +112,7 @@ set(
 	${CRYPTO_SRC}
 	cpt_err.c
 	cryptlib.c
+	crypto_init.c
 	cversion.c
 	ex_data.c
 	malloc-wrapper.c
@@ -217,6 +218,7 @@ set(
 	bio/bio_cb.c
 	bio/bio_err.c
 	bio/bio_lib.c
+	bio/bio_meth.c
 	bio/bss_acpt.c
 	bio/bss_bio.c
 	bio/bss_conn.c
@@ -323,6 +325,7 @@ set(
 	dsa/dsa_gen.c
 	dsa/dsa_key.c
 	dsa/dsa_lib.c
+	dsa/dsa_meth.c
 	dsa/dsa_ossl.c
 	dsa/dsa_pmeth.c
 	dsa/dsa_prn.c
@@ -551,6 +554,7 @@ set(
 	rsa/rsa_err.c
 	rsa/rsa_gen.c
 	rsa/rsa_lib.c
+	rsa/rsa_meth.c
 	rsa/rsa_none.c
 	rsa/rsa_oaep.c
 	rsa/rsa_pk1.c
@@ -642,19 +646,19 @@ set(
 	x509v3/v3err.c
 )
 
-if(CMAKE_HOST_UNIX)
+if(UNIX)
 	set(CRYPTO_SRC ${CRYPTO_SRC} bio/b_posix.c)
 	set(CRYPTO_SRC ${CRYPTO_SRC} bio/bss_log.c)
 	set(CRYPTO_SRC ${CRYPTO_SRC} ui/ui_openssl.c)
 endif()
 
-if(CMAKE_HOST_WIN32)
+if(WIN32)
 	set(CRYPTO_SRC ${CRYPTO_SRC} bio/b_win.c)
 	set(CRYPTO_UNEXPORT ${CRYPTO_UNEXPORT} BIO_s_log)
 	set(CRYPTO_SRC ${CRYPTO_SRC} ui/ui_openssl_win.c)
 endif()
 
-if(CMAKE_HOST_WIN32)
+if(WIN32)
 	set(CRYPTO_SRC ${CRYPTO_SRC} compat/posix_win.c)
 	set(EXTRA_EXPORT ${EXTRA_EXPORT} gettimeofday)
 	set(EXTRA_EXPORT ${EXTRA_EXPORT} posix_perror)
@@ -684,11 +688,6 @@ endif()
 
 if(NOT HAVE_GETPAGESIZE)
 	set(CRYPTO_SRC ${CRYPTO_SRC} compat/getpagesize.c)
-endif()
-
-if(NOT HAVE_INET_PTON)
-	set(CRYPTO_SRC ${CRYPTO_SRC} compat/inet_pton.c)
-	set(EXTRA_EXPORT ${EXTRA_EXPORT} inet_pton)
 endif()
 
 if(NOT HAVE_REALLOCARRAY)
@@ -736,7 +735,7 @@ if(NOT HAVE_TIMEGM)
 endif()
 
 if(NOT HAVE_EXPLICIT_BZERO)
-	if(CMAKE_HOST_WIN32)
+	if(WIN32)
 		set(CRYPTO_SRC ${CRYPTO_SRC} compat/explicit_bzero_win.c)
 	else()
 		set(CRYPTO_SRC ${CRYPTO_SRC} compat/explicit_bzero.c)
@@ -753,7 +752,7 @@ if(NOT HAVE_ARC4RANDOM_BUF)
 	set(EXTRA_EXPORT ${EXTRA_EXPORT} arc4random_uniform)
 
 	if(NOT HAVE_GETENTROPY)
-		if(CMAKE_HOST_WIN32)
+		if(WIN32)
 			set(CRYPTO_SRC ${CRYPTO_SRC} compat/getentropy_win.c)
 		elseif(CMAKE_SYSTEM_NAME MATCHES "AIX")
 			set(CRYPTO_SRC ${CRYPTO_SRC} compat/getentropy_aix.c)
@@ -787,7 +786,7 @@ endif()
 if(NOT ENABLE_ASM)
 	add_definitions(-DOPENSSL_NO_ASM)
 else()
-	if(CMAKE_HOST_WIN32)
+	if(WIN32)
 		add_definitions(-DOPENSSL_NO_ASM)
 	endif()
 endif()
@@ -802,35 +801,33 @@ file(READ ${CMAKE_CURRENT_SOURCE_DIR}/crypto.sym SYMS)
 foreach(SYM IN LISTS CRYPTO_UNEXPORT)
 	string(REPLACE "${SYM}\n" "" SYMS ${SYMS})
 endforeach()
-file(WRITE ${CMAKE_CURRENT_SOURCE_DIR}/crypto_p.sym ${SYMS})
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/crypto_p.sym ${SYMS})
 if(EXTRA_EXPORT)
 	list(SORT EXTRA_EXPORT)
 	foreach(SYM IN LISTS EXTRA_EXPORT)
-		file(APPEND ${CMAKE_CURRENT_SOURCE_DIR}/crypto_p.sym "${SYM}\n")
+		file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/crypto_p.sym "${SYM}\n")
 	endforeach()
 endif()
 
-add_library(crypto-objects OBJECT ${CRYPTO_SRC})
-if (BUILD_SHARED)
-	add_library(crypto STATIC $<TARGET_OBJECTS:crypto-objects>)
-	add_library(crypto-shared SHARED $<TARGET_OBJECTS:crypto-objects>)
-	export_symbol(crypto-shared ${CMAKE_CURRENT_SOURCE_DIR}/crypto_p.sym)
+add_library(crypto ${CRYPTO_SRC})
+if (BUILD_SHARED_LIBS)
+	export_symbol(crypto ${CMAKE_CURRENT_BINARY_DIR}/crypto_p.sym)
 	if (WIN32)
-		target_link_libraries(crypto-shared Ws2_32.lib)
+		target_link_libraries(crypto Ws2_32.lib)
 		set(CRYPTO_POSTFIX -${CRYPTO_MAJOR_VERSION})
 	endif()
-	set_target_properties(crypto-shared PROPERTIES
+	set_target_properties(crypto PROPERTIES
 		OUTPUT_NAME crypto${CRYPTO_POSTFIX}
 		ARCHIVE_OUTPUT_NAME crypto${CRYPTO_POSTFIX})
-	set_target_properties(crypto-shared PROPERTIES VERSION
+	set_target_properties(crypto PROPERTIES VERSION
 		${CRYPTO_VERSION} SOVERSION ${CRYPTO_MAJOR_VERSION})
-	if(ENABLE_LIBRESSL_INSTALL)
-		install(TARGETS crypto crypto-shared DESTINATION ${CMAKE_INSTALL_LIBDIR})
-	endif(ENABLE_LIBRESSL_INSTALL)
-else()
-	add_library(crypto STATIC ${CRYPTO_SRC})
-	if(ENABLE_LIBRESSL_INSTALL)
-		install(TARGETS crypto DESTINATION ${CMAKE_INSTALL_LIBDIR})
-	endif(ENABLE_LIBRESSL_INSTALL)
 endif()
 
+if(ENABLE_LIBRESSL_INSTALL)
+	install(
+		TARGETS crypto
+		ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+		LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+		RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+	)
+endif(ENABLE_LIBRESSL_INSTALL)

@@ -90,8 +90,7 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 bin_PROGRAMS = ocspcheck$(EXEEXT)
-@HAVE_INET_NTOP_FALSE@am__append_1 = compat/inet_ntop.c
-@HAVE_MEMMEM_FALSE@am__append_2 = compat/memmem.c
+@HAVE_MEMMEM_FALSE@am__append_1 = compat/memmem.c
 subdir = apps/ocspcheck
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/check-hardening-options.m4 \
@@ -110,13 +109,11 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
-am__ocspcheck_SOURCES_DIST = http.c ocspcheck.c compat/inet_ntop.c \
-	compat/memmem.c
+am__ocspcheck_SOURCES_DIST = http.c ocspcheck.c compat/memmem.c
 am__dirstamp = $(am__leading_dot)dirstamp
-@HAVE_INET_NTOP_FALSE@am__objects_1 = compat/inet_ntop.$(OBJEXT)
-@HAVE_MEMMEM_FALSE@am__objects_2 = compat/memmem.$(OBJEXT)
+@HAVE_MEMMEM_FALSE@am__objects_1 = compat/memmem.$(OBJEXT)
 am_ocspcheck_OBJECTS = http.$(OBJEXT) ocspcheck.$(OBJEXT) \
-	$(am__objects_1) $(am__objects_2)
+	$(am__objects_1)
 ocspcheck_OBJECTS = $(am_ocspcheck_OBJECTS)
 am__DEPENDENCIES_1 =
 ocspcheck_DEPENDENCIES = $(abs_top_builddir)/crypto/libcrypto.la \
@@ -323,7 +320,7 @@ ocspcheck_LDADD = $(abs_top_builddir)/crypto/libcrypto.la \
 	$(abs_top_builddir)/ssl/libssl.la \
 	$(abs_top_builddir)/tls/libtls.la $(PLATFORM_LDADD) \
 	$(PROG_LDADD)
-ocspcheck_SOURCES = http.c ocspcheck.c $(am__append_1) $(am__append_2)
+ocspcheck_SOURCES = http.c ocspcheck.c $(am__append_1)
 noinst_HEADERS = http.h
 all: all-am
 
@@ -414,8 +411,6 @@ compat/$(am__dirstamp):
 compat/$(DEPDIR)/$(am__dirstamp):
 	@$(MKDIR_P) compat/$(DEPDIR)
 	@: > compat/$(DEPDIR)/$(am__dirstamp)
-compat/inet_ntop.$(OBJEXT): compat/$(am__dirstamp) \
-	compat/$(DEPDIR)/$(am__dirstamp)
 compat/memmem.$(OBJEXT): compat/$(am__dirstamp) \
 	compat/$(DEPDIR)/$(am__dirstamp)
 
@@ -432,7 +427,6 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/http.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ocspcheck.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@compat/$(DEPDIR)/inet_ntop.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@compat/$(DEPDIR)/memmem.Po@am__quote@
 
 .c.o:

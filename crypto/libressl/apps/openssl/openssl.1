@@ -1,4 +1,4 @@
-.\" $OpenBSD: openssl.1,v 1.86 2017/08/28 17:50:58 jsing Exp $
+.\" $OpenBSD: openssl.1,v 1.89 2018/03/22 19:24:18 jmc Exp $
 .\" ====================================================================
 .\" Copyright (c) 1998-2002 The OpenSSL Project.  All rights reserved.
 .\"
@@ -112,7 +112,7 @@
 .\"
 .\" OPENSSL
 .\"
-.Dd $Mdocdate: August 28 2017 $
+.Dd $Mdocdate: March 22 2018 $
 .Dt OPENSSL 1
 .Os
 .Sh NAME
@@ -360,8 +360,8 @@ Specify an alternative configuration file.
 The number of days to certify the certificate for.
 .It Fl enddate Ar date
 Set the expiry date.
-The format of the date is YYMMDDHHMMSSZ
-.Pq the same as an ASN.1 UTCTime structure .
+The format of the date is [YY]YYMMDDHHMMSSZ,
+with all four year digits required for dates from 2050 onwards.
 .It Fl extensions Ar section
 The section of the configuration file containing certificate extensions
 to be added when a certificate is issued (defaults to
@@ -492,8 +492,8 @@ then it can be preceded by a number and a
 A single self-signed certificate to be signed by the CA.
 .It Fl startdate Ar date
 Set the start date.
-The format of the date is YYMMDDHHMMSSZ
-.Pq the same as an ASN.1 UTCTime structure .
+The format of the date is [YY]YYMMDDHHMMSSZ,
+with all four year digits required for dates from 2050 onwards.
 .It Fl status Ar serial
 Show the status of the certificate with serial number
 .Ar serial .
@@ -3404,7 +3404,7 @@ These are compiled into
 .Nm openssl
 and include the usual values such as
 .Cm commonName , countryName , localityName , organizationName ,
-.Cm organizationUnitName , stateOrProvinceName .
+.Cm organizationalUnitName , stateOrProvinceName .
 Additionally,
 .Cm emailAddress
 is included as well as
@@ -3578,6 +3578,7 @@ Verify the input data and output the recovered data.
 .Op Fl crlf
 .Op Fl debug
 .Op Fl extended_crl
+.Op Fl groups
 .Op Fl ign_eof
 .Op Fl ignore_critical
 .Op Fl issuer_checks
@@ -3691,6 +3692,8 @@ Translate a line feed from the terminal into CR+LF,
 as required by some servers.
 .It Fl debug
 Print extensive debugging information, including a hex dump of all traffic.
+.It Fl groups Ar ecgroups
+Specify a colon-separated list of permitted EC curve groups.
 .It Fl ign_eof
 Inhibit shutting down the connection when end of file is reached in the input.
 .It Fl key Ar keyfile

@@ -1,4 +1,4 @@
-/* $OpenBSD: x509_cmp.c,v 1.27 2017/01/29 17:49:23 beck Exp $ */
+/* $OpenBSD: x509_cmp.c,v 1.30 2018/03/17 14:57:23 jsing Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -321,9 +321,17 @@ X509_find_by_subject(STACK_OF(X509) *sk, X509_NAME *name)
 EVP_PKEY *
 X509_get_pubkey(X509 *x)
 {
-	if ((x == NULL) || (x->cert_info == NULL))
+	if (x == NULL || x->cert_info == NULL)
 		return (NULL);
 	return (X509_PUBKEY_get(x->cert_info->key));
+}
+
+EVP_PKEY *
+X509_get0_pubkey(X509 *x)
+{
+	if (x == NULL || x->cert_info == NULL)
+		return (NULL);
+	return (X509_PUBKEY_get0(x->cert_info->key));
 }
 
 ASN1_BIT_STRING *
@@ -363,4 +371,22 @@ X509_check_private_key(X509 *x, EVP_PKEY *k)
 	if (ret > 0)
 		return 1;
 	return 0;
+}
+
+/*
+ * Not strictly speaking an "up_ref" as a STACK doesn't have a reference
+ * count but it has the same effect by duping the STACK and upping the ref of
+ * each X509 structure.
+ */
+STACK_OF(X509) *
+X509_chain_up_ref(STACK_OF(X509) *chain)
+{
+	STACK_OF(X509) *ret;
+	size_t i;
+
+	ret = sk_X509_dup(chain);
+	for (i = 0; i < sk_X509_num(ret); i++)
+		X509_up_ref(sk_X509_value(ret, i));
+
+	return ret;
 }
