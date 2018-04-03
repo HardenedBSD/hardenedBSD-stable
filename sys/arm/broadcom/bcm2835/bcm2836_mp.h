@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2015 Andrew Turner
+ * Copyright (C) 2016 Emmanuel Vadot <manu@freebsd.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -13,6 +13,9 @@
  *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
  * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
@@ -23,72 +26,13 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
+ * $FreeBSD$
  */
 
-#include "opt_platform.h"
+#ifndef _BCM2836_MP_H_
+#define	_BCM2836_MP_H_
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
+void	bcm2836_mp_setmaxid(platform_t plat);
+void	bcm2836_mp_start_ap(platform_t plat);
 
-#include <sys/param.h>
-#include <sys/systm.h>
-#include <sys/devmap.h>
-
-#include <vm/vm.h>
-
-#include <machine/bus.h>
-#include <machine/platform.h>
-#include <machine/platformvar.h>
-
-#include <arm/qemu/virt_mp.h>
-
-#include "platform_if.h"
-
-static vm_offset_t
-virt_lastaddr(platform_t plat)
-{
-
-	return (devmap_lastaddr());
-}
-
-/*
- * Set up static device mappings.
- */
-static int
-virt_devmap_init(platform_t plat)
-{
-
-	devmap_add_entry(0x09000000, 0x100000); /* Uart */
-	return (0);
-}
-
-static platform_method_t virt_methods[] = {
-	PLATFORMMETHOD(platform_devmap_init,	virt_devmap_init),
-	PLATFORMMETHOD(platform_lastaddr,	virt_lastaddr),
-
-#ifdef SMP
-	PLATFORMMETHOD(platform_mp_start_ap,	virt_mp_start_ap),
-	PLATFORMMETHOD(platform_mp_setmaxid,	virt_mp_setmaxid),
-#endif
-
-	PLATFORMMETHOD_END,
-};
-
-FDT_PLATFORM_DEF(virt, "virt", 0, "linux,dummy-virt", 1);
-
-static int
-gem5_devmap_init(platform_t plat)
-{
-
-	devmap_add_entry(0x1c090000, 0x100000); /* Uart */
-	return (0);
-}
-
-static platform_method_t gem5_methods[] = {
-	PLATFORMMETHOD(platform_devmap_init,	gem5_devmap_init),
-	PLATFORMMETHOD(platform_lastaddr,	virt_lastaddr),
-
-	PLATFORMMETHOD_END,
-};
-
-FDT_PLATFORM_DEF(gem5, "gem5", 0, "arm,vexpress", 1);
+#endif /* _BCM2836_MP_H_ */
