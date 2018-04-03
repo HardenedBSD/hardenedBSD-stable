@@ -252,7 +252,7 @@ cpu_halt(void)
 }
 
 static void
-cpu_reset_real()
+cpu_reset_real(void)
 {
 	struct region_descriptor null_idt;
 	int b;
@@ -325,7 +325,7 @@ cpu_reset_real()
 
 #ifdef SMP
 static void
-cpu_reset_proxy()
+cpu_reset_proxy(void)
 {
 
 	cpu_reset_proxy_active = 1;
@@ -339,7 +339,7 @@ cpu_reset_proxy()
 #endif
 
 void
-cpu_reset()
+cpu_reset(void)
 {
 #ifdef SMP
 	cpuset_t map;
