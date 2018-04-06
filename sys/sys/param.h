@@ -60,7 +60,7 @@
  *		in the range 5 to 9.
  */
 #undef __FreeBSD_version
-#define __FreeBSD_version 1200060	/* Master, propagated to newvers */
+#define __FreeBSD_version 1200061	/* Master, propagated to newvers */
 
 /*
  * __FreeBSD_kernel__ indicates that this system uses the kernel of FreeBSD,
@@ -361,9 +361,5 @@ __END_DECLS
  * length array.
  */
 #define __PAST_END(array, offset) (((__typeof__(*(array)) *)(array))[offset])
-
-/* Unit conversion macros. */
-#define GiB(v) (v ## ULL << 30)
-#define MiB(v) (v ## ULL << 20)
 
 #endif	/* _SYS_PARAM_H_ */
