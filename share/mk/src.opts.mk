@@ -289,19 +289,6 @@ BROKEN_OPTIONS+=LIBSOFT
     ${__T:Mriscv*}
 BROKEN_OPTIONS+=EFI
 .endif
-<<<<<<< HEAD
-
-.if ${__T} == "amd64" || ${__T} == "i386" || ${__T} == "aarch64"
-__DEFAULT_YES_OPTIONS+=PIE
-.else
-__DEFAULT_NO_OPTIONS+=PIE
-.endif
-
-.if ${__T} == "amd64"
-__DEFAULT_YES_OPTIONS+=SAFESTACK
-.else
-__DEFAULT_NO_OPTIONS+=SAFESTACK
-=======
 # GELI isn't supported on !x86
 .if ${__T} != "i386" && ${__T} != "amd64"
 BROKEN_OPTIONS+=LOADER_GELI
@@ -313,7 +300,6 @@ BROKEN_OPTIONS+=LOADER_OFW
 # UBOOT is only for arm, mips and powerpc, exclude others
 .if ${__T:Marm*} == "" && ${__T:Mmips*} == "" && ${__T:Mpowerpc*} == ""
 BROKEN_OPTIONS+=LOADER_UBOOT
->>>>>>> origin/freebsd/11-stable/master
 .endif
 
 .if ${__T:Mmips64*}
@@ -330,6 +316,18 @@ __DEFAULT_NO_OPTIONS+=CXGBETOOL
 __DEFAULT_NO_OPTIONS+=MLX5TOOL
 .endif
 
+# HardenedBSD options
+.if ${__T} == "amd64" || ${__T} == "i386" || ${__T} == "aarch64"
+__DEFAULT_YES_OPTIONS+=PIE
+.else
+__DEFAULT_NO_OPTIONS+=PIE
+.endif
+
+.if ${__T} == "amd64"
+__DEFAULT_YES_OPTIONS+=SAFESTACK
+.else
+__DEFAULT_NO_OPTIONS+=SAFESTACK
+.endif
 .include <bsd.mkopt.mk>
 
 #
