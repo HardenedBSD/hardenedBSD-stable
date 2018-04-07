@@ -132,6 +132,8 @@ __DEFAULT_YES_OPTIONS = \
     LPR \
     LS_COLORS \
     LZMA_SUPPORT \
+    LOADER_OFW \
+    LOADER_UBOOT \
     MAIL \
     MAILWRAPPER \
     MAKE \
@@ -282,9 +284,12 @@ BROKEN_OPTIONS+=LLDB
 .if ${__T} != "armv6"
 BROKEN_OPTIONS+=LIBSOFT
 .endif
-.if ${__T:Mmips*} || ${__T:Mpowerpc*} || ${__T:Msparc64} || ${__T:Mriscv*}
+# EFI doesn't exist on mips, pc98, powerpc, sparc or riscv.
+.if ${__T:Mmips*} || ${__TT:Mpc98*} || ${__T:Mpowerpc*} || ${__T:Msparc64} || \
+    ${__T:Mriscv*}
 BROKEN_OPTIONS+=EFI
 .endif
+<<<<<<< HEAD
 
 .if ${__T} == "amd64" || ${__T} == "i386" || ${__T} == "aarch64"
 __DEFAULT_YES_OPTIONS+=PIE
@@ -296,6 +301,19 @@ __DEFAULT_NO_OPTIONS+=PIE
 __DEFAULT_YES_OPTIONS+=SAFESTACK
 .else
 __DEFAULT_NO_OPTIONS+=SAFESTACK
+=======
+# GELI isn't supported on !x86
+.if ${__T} != "i386" && ${__T} != "amd64"
+BROKEN_OPTIONS+=LOADER_GELI
+.endif
+# OFW is only for powerpc and sparc64, exclude others
+.if ${__T:Mpowerpc*} == "" && ${__T:Msparc64} == ""
+BROKEN_OPTIONS+=LOADER_OFW
+.endif
+# UBOOT is only for arm, mips and powerpc, exclude others
+.if ${__T:Marm*} == "" && ${__T:Mmips*} == "" && ${__T:Mpowerpc*} == ""
+BROKEN_OPTIONS+=LOADER_UBOOT
+>>>>>>> origin/freebsd/11-stable/master
 .endif
 
 .if ${__T:Mmips64*}

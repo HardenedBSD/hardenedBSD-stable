@@ -46,7 +46,7 @@ extern char		end[];
 extern vm_offset_t	reloc;	/* From <arch>/conf.c */
 
 int
-__elfN(ofw_loadfile)(char *filename, u_int64_t dest,
+__elfN(ofw_loadfile)(char *filename, uint64_t dest,
     struct preloaded_file **result)
 {
 	int	r;
@@ -89,8 +89,8 @@ __elfN(ofw_exec)(struct preloaded_file *fp)
 	dev_cleanup();
 	if (dtbp != 0) {
 		OF_quiesce();
-		((int (*)(u_long, u_long, u_long, void *, u_long))entry)(dtbp, 0, 0,
-		    (void *)mdp, sizeof(mdp));
+		((int (*)(u_long, u_long, u_long, void *, u_long))entry)(dtbp,
+		    0, 0, (void *)mdp, 0xfb5d104d);
 	} else {
 		OF_chain((void *)reloc, end - (char *)reloc, (void *)entry,
 		    (void *)mdp, 0xfb5d104d);

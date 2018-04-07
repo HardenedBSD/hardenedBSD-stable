@@ -12,11 +12,14 @@ BASE_SRCS=	dict.c ficl.c fileaccess.c float.c loader.c math64.c \
 SRCS=		${BASE_SRCS} sysdep.c softcore.c
 CLEANFILES+=	softcore.c testmain testmain.o
 
+<<<<<<< HEAD
 .if ${MACHINE_CPUARCH} == "aarch64"
 NOPIE=		yes
 .endif
 
 .include <bsd.stand.mk>
+=======
+>>>>>>> origin/freebsd/11-stable/master
 .ifmake testmain
 CFLAGS=	-DTESTMAIN -D_TESTMAIN
 CFLAGS+=	-I${FICLSRC} -I${FICLSRC}/${FICL_CPUARCH} -I${LDRSRC}
