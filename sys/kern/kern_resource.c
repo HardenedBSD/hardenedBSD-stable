@@ -39,9 +39,12 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
+<<<<<<< HEAD
 #include "opt_compat.h"
 #include "opt_pax.h"
 
+=======
+>>>>>>> origin/freebsd/current/master
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/sysproto.h>

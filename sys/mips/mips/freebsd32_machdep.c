@@ -32,9 +32,12 @@
  * Based on nwhitehorn's COMPAT_FREEBSD32 support code for PowerPC64.
  */
 
+<<<<<<< HEAD
 #include "opt_compat.h"
 #include "opt_pax.h"
 
+=======
+>>>>>>> origin/freebsd/current/master
 #define __ELF_WORD_SIZE 32
 
 #include <sys/types.h>

@@ -34,9 +34,12 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
+<<<<<<< HEAD
 #include "opt_compat.h"
 #include "opt_pax.h"
 
+=======
+>>>>>>> origin/freebsd/current/master
 #define	__ELF_WORD_SIZE	64
 
 #include <sys/param.h>
