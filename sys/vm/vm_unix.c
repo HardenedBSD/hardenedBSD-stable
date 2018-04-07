@@ -38,12 +38,8 @@
  *	@(#)vm_unix.c	8.1 (Berkeley) 6/11/93
  */
 
-<<<<<<< HEAD
-#include "opt_compat.h"
 #include "opt_pax.h"
 
-=======
->>>>>>> origin/freebsd/current/master
 /*
  * Traditional sbrk/grow interface to VM
  */
