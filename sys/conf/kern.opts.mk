@@ -87,11 +87,7 @@ BROKEN_OPTIONS+= OFED
 .endif
 
 # Things that don't work based on toolchain support.
-<<<<<<< HEAD
-.if ${MACHINE} != "amd64"
-=======
 .if ${MACHINE} != "i386" && ${MACHINE} != "amd64"
->>>>>>> origin/freebsd/11-stable/master
 BROKEN_OPTIONS+= KERNEL_RETPOLINE
 .endif
 
