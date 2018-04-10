@@ -38,7 +38,9 @@
 #	Operating System dependent/independent variables
 #
 
-if [ -z "${_rc_subr_loaded}" ]; then
+if [ -n "${_rc_subr_loaded}" ]; then
+	return
+fi
 
 _rc_subr_loaded="YES"
 
@@ -49,7 +51,7 @@ PROTECT="/usr/bin/protect"
 ID="/usr/bin/id"
 IDCMD="if [ -x $ID ]; then $ID -un; fi"
 PS="/bin/ps -ww"
-JID=`$PS -p $$ -o jid=`
+JID=0
 
 #
 #	functions
@@ -773,8 +775,6 @@ check_startmsgs()
 #
 #	${name}_login_class n	Login class to use, else "daemon".
 #
-#	${name}_limits	n	limits(1) to apply to ${command}.
-#
 #	${rc_arg}_cmd	n	If set, use this as the method when invoked;
 #				Otherwise, use default command (see below)
 #
@@ -930,9 +930,7 @@ run_rc_command()
 		else
 			_pidcmd='rc_pid=$(check_process '"$_procname $command_interpreter"')'
 		fi
-		if [ -n "$_pidcmd" ]; then
-			_keywords="${_keywords} status poll"
-		fi
+		_keywords="${_keywords} status poll"
 	fi
 
 	if [ -z "$rc_arg" ]; then
@@ -954,7 +952,7 @@ run_rc_command()
 	    _group=\$${name}_group	_groups=\$${name}_groups \
 	    _fib=\$${name}_fib		_env=\$${name}_env \
 	    _prepend=\$${name}_prepend	_login_class=\${${name}_login_class:-daemon} \
-	    _limits=\$${name}_limits    _oomprotect=\$${name}_oomprotect
+	    _oomprotect=\$${name}_oomprotect
 
 	if [ -n "$_user" ]; then	# unset $_user if running as that user
 		if [ "$_user" = "$(eval $IDCMD)" ]; then
@@ -1075,7 +1073,7 @@ $command $rc_flags $command_args"
 			fi
 
 					# Prepend default limits
-			_doit="$_cd limits -C $_login_class $_limits $_doit"
+			_doit="$_cd limits -C $_login_class $_doit"
 
 					# run the full command
 					#
@@ -2168,6 +2166,9 @@ _echoonce()
 	esac
 }
 
-fi # [ -z "${_rc_subr_loaded}" ]
-
-_rc_subr_loaded=:
+# If the loader env variable rc.debug is set, turn on debugging. rc.conf will
+# still override this, but /etc/defaults/rc.conf can't unconditionally set this
+# since it would undo what we've done here.
+if kenv -q rc.debug > /dev/null ; then
+	rc_debug=YES
+fi
