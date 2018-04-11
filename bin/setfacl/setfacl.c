@@ -36,6 +36,7 @@ __FBSDID("$FreeBSD$");
 #include <err.h>
 #include <errno.h>
 #include <fts.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -66,8 +67,17 @@ uint have_mask;
 uint need_mask;
 uint have_stdin;
 uint n_flag;
+static volatile sig_atomic_t siginfo;
 
 static void	usage(void);
+static void	siginfo_handler(int signo __unused);
+
+static void
+siginfo_handler(int signo __unused)
+{
+
+	siginfo++;
+}
 
 static void
 usage(void)
@@ -101,6 +111,7 @@ main(int argc, char *argv[])
 	h_flag = H_flag = L_flag = R_flag = false;
 
 	TAILQ_INIT(&entrylist);
+	signal(SIGINFO, siginfo_handler);
 
 	while ((ch = getopt(argc, argv, "HLM:PRX:a:bdhkm:nx:")) != -1)
 		switch(ch) {
@@ -326,6 +337,11 @@ main(int argc, char *argv[])
 
 		/* cycle through each option */
 		TAILQ_FOREACH(entry, &entrylist, next) {
+			if (siginfo) {
+				puts(file->fts_path);
+				siginfo = 0;
+			}
+
 			if (local_error)
 				continue;
 
