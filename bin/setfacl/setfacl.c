@@ -35,7 +35,13 @@ __FBSDID("$FreeBSD$");
 
 #include <err.h>
 #include <errno.h>
+<<<<<<< HEAD
 #include <signal.h>
+=======
+#include <fts.h>
+#include <stdbool.h>
+#include <stdint.h>
+>>>>>>> origin/freebsd/current/master
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -61,13 +67,6 @@ struct sf_entry {
 };
 static TAILQ_HEAD(, sf_entry) entrylist;
 
-/* TAILQ entry for files */
-struct sf_file {
-	const char *filename;
-	TAILQ_ENTRY(sf_file) next;
-};
-static TAILQ_HEAD(, sf_file) filelist;
-
 uint have_mask;
 uint need_mask;
 uint have_stdin;
@@ -78,9 +77,12 @@ static unsigned int carried_error;
 static acl_type_t acl_type;
 static volatile sig_atomic_t siginfo;
 
+<<<<<<< HEAD
 static void	add_filename(const char *filename);
 static acl_t	sanitize_inheritance(const struct stat *sb, acl_t acl);
 static int	walk_path(const char *path, const struct stat *sb, int flag, struct FTW *ftwp);
+=======
+>>>>>>> origin/freebsd/current/master
 static void	usage(void);
 static void	siginfo_handler(int signo __unused);
 
@@ -91,6 +93,7 @@ siginfo_handler(int signo __unused)
 }
 
 static void
+<<<<<<< HEAD
 add_filename(const char *filename)
 {
 	struct sf_file *file;
@@ -331,6 +334,14 @@ usage(void)
 
 	fprintf(stderr, "usage: setfacl [-bdhknR] [-a position entries] "
 	    "[-m entries] [-M file] [-x entries] [-X file] [file ...]\n");
+=======
+usage(void)
+{
+
+	fprintf(stderr, "usage: setfacl [-R [-H | -L | -P]] [-bdhkn] "
+	    "[-a position entries] [-m entries] [-M file] "
+	    "[-x entries] [-X file] [file ...]\n");
+>>>>>>> origin/freebsd/current/master
 	exit(1);
 }
 
@@ -338,24 +349,49 @@ int
 main(int argc, char *argv[])
 {
 	char filename[PATH_MAX];
+<<<<<<< HEAD
 	int ch, i, entry_number;
 	struct sf_file *file;
+=======
+	int local_error, carried_error, ch, entry_number, ret, fts_options;
+	bool h_flag, H_flag, L_flag, R_flag, follow_symlink;
+	size_t fl_count, i;
+	FTS *ftsp;
+	FTSENT *file;
+	char **files_list;
+>>>>>>> origin/freebsd/current/master
 	struct sf_entry *entry;
-	const char *fn_dup;
 	char *end;
 
 	acl_type = ACL_TYPE_ACCESS;
+<<<<<<< HEAD
 	carried_error = 0;
 	h_flag = have_mask = have_stdin = n_flag = need_mask = 0;
 	R_flag = 0;
+=======
+	carried_error = local_error = fts_options = 0;
+	have_mask = have_stdin = n_flag = need_mask = 0;
+	h_flag = H_flag = L_flag = R_flag = false;
+>>>>>>> origin/freebsd/current/master
 
 	TAILQ_INIT(&entrylist);
-	TAILQ_INIT(&filelist);
 
+<<<<<<< HEAD
 	signal(SIGINFO, siginfo_handler);
 
 	while ((ch = getopt(argc, argv, "M:RX:a:bdhkm:nx:")) != -1)
+=======
+	while ((ch = getopt(argc, argv, "HLM:PRX:a:bdhkm:nx:")) != -1)
+>>>>>>> origin/freebsd/current/master
 		switch(ch) {
+		case 'H':
+			H_flag = true;
+			L_flag = false;
+			break;
+		case 'L':
+			L_flag = true;
+			H_flag = false;
+			break;
 		case 'M':
 			entry = zmalloc(sizeof(struct sf_entry));
 			entry->acl = get_acl_from_file(optarg);
@@ -364,8 +400,16 @@ main(int argc, char *argv[])
 			entry->op = OP_MERGE_ACL;
 			TAILQ_INSERT_TAIL(&entrylist, entry, next);
 			break;
+<<<<<<< HEAD
 		case 'R':
 			R_flag = 1;
+=======
+		case 'P':
+			H_flag = L_flag = false;
+			break;
+		case 'R':
+			R_flag = true;
+>>>>>>> origin/freebsd/current/master
 			break;
 		case 'X':
 			entry = zmalloc(sizeof(struct sf_entry));
@@ -451,18 +495,32 @@ main(int argc, char *argv[])
 			err(1, "cannot have more than one stdin");
 		have_stdin = 1;
 		bzero(&filename, sizeof(filename));
+		i = 0;
+		/* Start with an array size sufficient for basic cases. */
+		fl_count = 1024;
+		files_list = zmalloc(fl_count * sizeof(char *));
 		while (fgets(filename, (int)sizeof(filename), stdin)) {
 			/* remove the \n */
 			filename[strlen(filename) - 1] = '\0';
-			fn_dup = strdup(filename);
-			if (fn_dup == NULL)
+			files_list[i] = strdup(filename);
+			if (files_list[i] == NULL)
 				err(1, "strdup() failed");
-			add_filename(fn_dup);
+			/* Grow array if necessary. */
+			if (++i == fl_count) {
+				fl_count <<= 1;
+				if (fl_count > SIZE_MAX / sizeof(char *))
+					errx(1, "Too many input files");
+				files_list = zrealloc(files_list,
+				    fl_count * sizeof(char *));
+			}
 		}
-	} else
-		for (i = 0; i < argc; i++)
-			add_filename(argv[i]);
 
+		/* fts_open() requires the last array element to be NULL. */
+		files_list[i] = NULL;
+	} else
+		files_list = argv;
+
+<<<<<<< HEAD
 	/* cycle through each file */
 	TAILQ_FOREACH(file, &filelist, next) {
 		if (nftw(file->filename, walk_path, 5, h_flag ? FTW_PHYS : 0) < 0) {
@@ -470,6 +528,199 @@ main(int argc, char *argv[])
 			carried_error++;
 			continue;
 		}
+=======
+	if (R_flag) {
+		if (h_flag)
+			errx(1, "the -R and -h options may not be "
+			    "specified together.");
+		if (L_flag) {
+			fts_options = FTS_LOGICAL;
+		} else {
+			fts_options = FTS_PHYSICAL;
+
+			if (H_flag) {
+				fts_options |= FTS_COMFOLLOW;
+			}
+		}
+	} else if (h_flag) {
+		fts_options = FTS_PHYSICAL;
+	} else {
+		fts_options = FTS_LOGICAL;
+	}
+
+	/* Open all files. */
+	if ((ftsp = fts_open(files_list, fts_options | FTS_NOSTAT, 0)) == NULL)
+		err(1, "fts_open");
+	while ((file = fts_read(ftsp)) != NULL) {
+		switch (file->fts_info) {
+		case FTS_D:
+			/* Do not recurse if -R not specified. */
+			if (!R_flag)
+				fts_set(ftsp, file, FTS_SKIP);
+			break;
+		case FTS_DP:
+			/* Skip the second visit to a directory. */
+			continue;
+		case FTS_DNR:
+		case FTS_ERR:
+			warnx("%s: %s", file->fts_path,
+			    strerror(file->fts_errno));
+			continue;
+		default:
+			break;
+		}
+
+		if (acl_type == ACL_TYPE_DEFAULT && file->fts_info != FTS_D) {
+			warnx("%s: default ACL may only be set on "
+			    "a directory", file->fts_path);
+			carried_error++;
+			continue;
+		}
+
+		local_error = 0;
+
+		follow_symlink = ((fts_options & FTS_LOGICAL) ||
+		    ((fts_options & FTS_COMFOLLOW) &&
+		    file->fts_level == FTS_ROOTLEVEL));
+
+		if (follow_symlink)
+			ret = pathconf(file->fts_accpath, _PC_ACL_NFS4);
+		else
+			ret = lpathconf(file->fts_accpath, _PC_ACL_NFS4);
+		if (ret > 0) {
+			if (acl_type == ACL_TYPE_DEFAULT) {
+				warnx("%s: there are no default entries "
+			           "in NFSv4 ACLs", file->fts_path);
+				carried_error++;
+				continue;
+			}
+			acl_type = ACL_TYPE_NFS4;
+		} else if (ret == 0) {
+			if (acl_type == ACL_TYPE_NFS4)
+				acl_type = ACL_TYPE_ACCESS;
+		} else if (ret < 0 && errno != EINVAL) {
+			warn("%s: pathconf(..., _PC_ACL_NFS4) failed",
+			    file->fts_path);
+		}
+
+		if (follow_symlink)
+			acl = acl_get_file(file->fts_accpath, acl_type);
+		else
+			acl = acl_get_link_np(file->fts_accpath, acl_type);
+		if (acl == NULL) {
+			if (follow_symlink)
+				warn("%s: acl_get_file() failed",
+				    file->fts_path);
+			else
+				warn("%s: acl_get_link_np() failed",
+				    file->fts_path);
+			carried_error++;
+			continue;
+		}
+
+		/* cycle through each option */
+		TAILQ_FOREACH(entry, &entrylist, next) {
+			if (local_error)
+				continue;
+
+			switch(entry->op) {
+			case OP_ADD_ACL:
+				local_error += add_acl(entry->acl,
+				    entry->entry_number,
+				    &acl, file->fts_path);
+				break;
+			case OP_MERGE_ACL:
+				local_error += merge_acl(entry->acl, &acl,
+				    file->fts_path);
+				need_mask = 1;
+				break;
+			case OP_REMOVE_EXT:
+				/*
+				 * Don't try to call remove_ext() for empty
+				 * default ACL.
+				 */
+				if (acl_type == ACL_TYPE_DEFAULT &&
+				    acl_get_entry(acl, ACL_FIRST_ENTRY,
+				    &unused_entry) == 0) {
+					local_error += remove_default(&acl,
+					    file->fts_path);
+					break;
+				}
+				remove_ext(&acl, file->fts_path);
+				need_mask = 0;
+				break;
+			case OP_REMOVE_DEF:
+				if (acl_type == ACL_TYPE_NFS4) {
+					warnx("%s: there are no default entries in NFSv4 ACLs; "
+					    "cannot remove", file->fts_path);
+					local_error++;
+					break;
+				}
+				if (acl_delete_def_file(file->fts_accpath) == -1) {
+					warn("%s: acl_delete_def_file() failed",
+					    file->fts_path);
+					local_error++;
+				}
+				if (acl_type == ACL_TYPE_DEFAULT)
+					local_error += remove_default(&acl,
+					    file->fts_path);
+				need_mask = 0;
+				break;
+			case OP_REMOVE_ACL:
+				local_error += remove_acl(entry->acl, &acl,
+				    file->fts_path);
+				need_mask = 1;
+				break;
+			case OP_REMOVE_BY_NUMBER:
+				local_error += remove_by_number(entry->entry_number,
+				    &acl, file->fts_path);
+				need_mask = 1;
+				break;
+			}
+		}
+
+		/*
+		 * Don't try to set an empty default ACL; it will always fail.
+		 * Use acl_delete_def_file(3) instead.
+		 */
+		if (acl_type == ACL_TYPE_DEFAULT &&
+		    acl_get_entry(acl, ACL_FIRST_ENTRY, &unused_entry) == 0) {
+			if (acl_delete_def_file(file->fts_accpath) == -1) {
+				warn("%s: acl_delete_def_file() failed",
+				    file->fts_path);
+				carried_error++;
+			}
+			continue;
+		}
+
+		/* don't bother setting the ACL if something is broken */
+		if (local_error) {
+			carried_error++;
+			continue;
+		}
+
+		if (acl_type != ACL_TYPE_NFS4 && need_mask &&
+		    set_acl_mask(&acl, file->fts_path) == -1) {
+			warnx("%s: failed to set ACL mask", file->fts_path);
+			carried_error++;
+		} else if (follow_symlink) {
+			if (acl_set_file(file->fts_accpath, acl_type,
+			    acl) == -1) {
+				carried_error++;
+				warn("%s: acl_set_file() failed",
+				    file->fts_path);
+			}
+		} else {
+			if (acl_set_link_np(file->fts_accpath, acl_type,
+			    acl) == -1) {
+				carried_error++;
+				warn("%s: acl_set_link_np() failed",
+				    file->fts_path);
+			}
+		}
+
+		acl_free(acl);
+>>>>>>> origin/freebsd/current/master
 	}
 
 	return (carried_error);
