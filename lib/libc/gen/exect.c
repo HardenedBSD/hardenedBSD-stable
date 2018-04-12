@@ -1,6 +1,5 @@
 /*-
- * Copyright (c) 2015-2016 Yandex LLC
- * Copyright (c) 2015-2016 Andrey V. Elsukov <ae@FreeBSD.org>
+ * Copyright (c) 2018 Ali Mashtizadeh <ali@mashtizadeh.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -23,36 +22,24 @@
  * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * $FreeBSD$
  */
 
-#ifndef	_IP_FW_NAT64STL_H_
-#define	_IP_FW_NAT64STL_H_
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
-struct nat64stl_cfg {
-	struct named_object	no;
+#include <sys/ptrace.h>
 
-	uint16_t		map64;	/* table with 6to4 mapping */
-	uint16_t		map46;	/* table with 4to6 mapping */
+#include <errno.h>
+#include <unistd.h>
 
-	struct in6_addr		prefix6;/* IPv6 prefix */
-	uint8_t			plen6;	/* prefix length */
-	uint32_t		flags;	/* flags for internal use */
-#define	NAT64STL_KIDX		0x0100
-#define	NAT64STL_46T		0x0200
-#define	NAT64STL_64T		0x0400
-#define	NAT64STL_FLAGSMASK	(NAT64_LOG) /* flags to pass to userland */
-	char			name[64];
-	nat64_stats_block	stats;
-};
+int
+exect(const char *path, char *const argv[], char *const envp[])
+{
 
-VNET_DECLARE(uint16_t, nat64stl_eid);
-#define	V_nat64stl_eid	VNET(nat64stl_eid)
-#define	IPFW_TLV_NAT64STL_NAME	IPFW_TLV_EACTION_NAME(V_nat64stl_eid)
+	if (ptrace(PT_TRACE_ME, 0, 0, 0) != 0) {
+		if (errno != EBUSY)
+			return (-1);
+	}
 
-int ipfw_nat64stl(struct ip_fw_chain *chain, struct ip_fw_args *args,
-    ipfw_insn *cmd, int *done);
-
-#endif
-
+	return (execve(path, argv, envp));
+}

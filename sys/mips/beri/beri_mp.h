@@ -1,6 +1,10 @@
 /*-
- * Copyright (c) 2002 Peter Grehan.
+ * Copyright (c) 2014 SRI International
  * All rights reserved.
+ *
+ * This software was developed by SRI International and the University of
+ * Cambridge Computer Laboratory under DARPA/AFRL contract (FA8750-11-C-0249)
+ * ("MRC2"), as part of the DARPA MRC research programme.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -22,21 +26,60 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
+ * $FreeBSD$
  */
-/*      $NetBSD: exect.S,v 1.3 1998/05/25 15:28:03 ws Exp $     */
-	
-#include <machine/asm.h>
-__FBSDID("$FreeBSD$");
 
-#include "SYS.h"
+static inline int
+beri_get_core(void)
+{
+	uint32_t cinfo;
 
-ENTRY(exect)
-	li	%r0,SYS_execve
-	sc
-	bso	1f
-	blr
-1:
-	b	PIC_PLT(HIDENAME(cerror))
-END(exect)
+	cinfo = mips_rd_cinfo();
+	return (cinfo & 0xffff);
+}
 
-	.section .note.GNU-stack,"",%progbits
+static inline int
+beri_get_ncores(void)
+{
+	uint32_t cinfo;
+
+	cinfo = mips_rd_cinfo();
+	return ((cinfo >> 16) + 1);
+}
+
+static inline int
+beri_get_thread(void)
+{
+	uint32_t tinfo;
+
+	tinfo = mips_rd_tinfo();
+	return (tinfo & 0xffff);
+}
+
+static inline int
+beri_get_nthreads(void)
+{
+	uint32_t tinfo;
+
+	tinfo = mips_rd_tinfo();
+	return ((tinfo >> 16) + 1);
+}
+
+static inline int
+beri_get_cpu(void)
+{
+
+	return ((beri_get_core() * beri_get_nthreads()) + beri_get_thread());
+}
+
+static inline int
+beri_get_ncpus(void)
+{
+
+	return(beri_get_ncores() * beri_get_nthreads());
+}
+
+void beripic_setup_ipi(device_t dev, u_int tid, u_int ipi_irq);
+void beripic_send_ipi(device_t dev, u_int tid);
+void beripic_clear_ipi(device_t dev, u_int tid);
