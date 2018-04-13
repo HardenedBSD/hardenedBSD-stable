@@ -87,6 +87,8 @@ __FBSDID("$FreeBSD$");
 #include <net/altq/altq.h>
 #endif
 
+#define PF_TABLES_MAX_REQUEST   65535 /* Maximum tables per request. */
+
 static struct pf_pool	*pf_get_pool(char *, u_int32_t, u_int8_t, u_int32_t,
 			    u_int8_t, u_int8_t, u_int8_t);
 
@@ -2523,13 +2525,15 @@ DIOCCHANGEADDR_error:
 			error = ENODEV;
 			break;
 		}
-		totlen = io->pfrio_size * sizeof(struct pfr_table);
-		pfrts = mallocarray(io->pfrio_size, sizeof(struct pfr_table),
-		    M_TEMP, M_WAITOK);
-		if (! pfrts) {
+
+		if (io->pfrio_size < 0 || io->pfrio_size > PF_TABLES_MAX_REQUEST) {
 			error = ENOMEM;
 			break;
 		}
+
+		totlen = io->pfrio_size * sizeof(struct pfr_table);
+		pfrts = mallocarray(io->pfrio_size, sizeof(struct pfr_table),
+		    M_TEMP, M_WAITOK);
 		error = copyin(io->pfrio_buffer, pfrts, totlen);
 		if (error) {
 			free(pfrts, M_TEMP);
@@ -2552,13 +2556,15 @@ DIOCCHANGEADDR_error:
 			error = ENODEV;
 			break;
 		}
-		totlen = io->pfrio_size * sizeof(struct pfr_table);
-		pfrts = mallocarray(io->pfrio_size, sizeof(struct pfr_table),
-		    M_TEMP, M_WAITOK);
-		if (! pfrts) {
+
+		if (io->pfrio_size < 0 || io->pfrio_size > PF_TABLES_MAX_REQUEST) {
 			error = ENOMEM;
 			break;
 		}
+
+		totlen = io->pfrio_size * sizeof(struct pfr_table);
+		pfrts = mallocarray(io->pfrio_size, sizeof(struct pfr_table),
+		    M_TEMP, M_WAITOK);
 		error = copyin(io->pfrio_buffer, pfrts, totlen);
 		if (error) {
 			free(pfrts, M_TEMP);
@@ -3109,10 +3115,17 @@ DIOCCHANGEADDR_error:
 			error = ENODEV;
 			break;
 		}
+
+		if (io->size < 0 ||
+		    WOULD_OVERFLOW(io->size, sizeof(struct pfioc_trans_e))) {
+			error = EINVAL;
+			break;
+		}
+
 		totlen = sizeof(struct pfioc_trans_e) * io->size;
 		ioes = mallocarray(io->size, sizeof(struct pfioc_trans_e),
-		    M_TEMP, M_WAITOK);
-		if (! ioes) {
+		    M_TEMP, M_NOWAIT);
+		if (ioes == NULL) {
 			error = ENOMEM;
 			break;
 		}
@@ -3315,13 +3328,20 @@ DIOCCHANGEADDR_error:
 			break;
 		}
 
+		if (io->pfiio_size < 0 ||
+		    WOULD_OVERFLOW(io->pfiio_size, sizeof(struct pfi_kif))) {
+			error = EINVAL;
+			break;
+		}
+
 		bufsiz = io->pfiio_size * sizeof(struct pfi_kif);
 		ifstore = mallocarray(io->pfiio_size, sizeof(struct pfi_kif),
-		    M_TEMP, M_WAITOK);
-		if (! ifstore) {
+		    M_TEMP, M_NOWAIT);
+		if (ifstore == NULL) {
 			error = ENOMEM;
 			break;
 		}
+
 		PF_RULES_RLOCK();
 		pfi_get_ifaces(io->pfiio_name, ifstore, &io->pfiio_size);
 		PF_RULES_RUNLOCK();
