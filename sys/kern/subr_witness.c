@@ -2789,18 +2789,16 @@ sysctl_debug_witness_fullgraph(SYSCTL_HANDLER_ARGS)
 	struct sbuf *sb;
 	int error;
 
-<<<<<<< HEAD
 	if (!unprivileged_read_msgbuf) {
 		error = priv_check(req->td, PRIV_MSGBUF);
 		if (error)
 			return (error);
 	}
-=======
+
 #ifdef __i386__
 	error = SYSCTL_OUT(req, w_notallowed, sizeof(w_notallowed));
 	return (error);
 #endif
->>>>>>> origin/freebsd/current/master
 
 	if (witness_watch < 1) {
 		error = SYSCTL_OUT(req, w_notrunning, sizeof(w_notrunning));
