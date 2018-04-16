@@ -32,7 +32,7 @@ __FBSDID("$FreeBSD$");
 
 #include "bootstrap.h"
 
-char		*command_errmsg;
+const char	*command_errmsg;
 /* XXX should have procedural interface for setting, size limit? */
 char		command_errbuf[COMMAND_ERRBUFSZ];
 
@@ -64,7 +64,9 @@ static int
 help_getnext(int fd, char **topic, char **subtopic, char **desc) 
 {
     char	line[81], *cp, *ep;
-    
+
+    /* Make sure we provide sane values. */
+    *topic = *subtopic = *desc = NULL;
     for (;;) {
 	if (fgetstr(line, 80, fd) < 0)
 	    return(0);
@@ -234,7 +236,7 @@ command_commandlist(int argc, char *argv[])
 	if (res)
 	    break;
 	if (((*cmdp)->c_name != NULL) && ((*cmdp)->c_desc != NULL)) {
-	    sprintf(name, "  %-15s  ", (*cmdp)->c_name);
+	    snprintf(name, sizeof(name), "  %-15s  ", (*cmdp)->c_name);
 	    pager_output(name);
 	    pager_output((*cmdp)->c_desc);
 	    res = pager_output("\n");
@@ -433,12 +435,12 @@ command_more(int argc, char *argv[])
     res=0;
     pager_open();
     for (i = 1; (i < argc) && (res == 0); i++) {
-	sprintf(line, "*** FILE %s BEGIN ***\n", argv[i]);
+	snprintf(line, sizeof(line), "*** FILE %s BEGIN ***\n", argv[i]);
 	if (pager_output(line))
 		break;
         res = page_file(argv[i]);
 	if (!res) {
-	    sprintf(line, "*** FILE %s END ***\n", argv[i]);
+	    snprintf(line, sizeof(line), "*** FILE %s END ***\n", argv[i]);
 	    res = pager_output(line);
 	}
     }
@@ -499,7 +501,7 @@ command_lsdev(int argc, char *argv[])
 	    if (devsw[i]->dv_print(verbose))
 		break;
 	} else {
-	    sprintf(line, "%s: (unknown)\n", devsw[i]->dv_name);
+	    snprintf(line, sizeof(line), "%s: (unknown)\n", devsw[i]->dv_name);
 	    if (pager_output(line))
 		    break;
 	}
