@@ -162,34 +162,6 @@ NESTED(copyinstr, CALLFRAME_SIZ, ra)
 END(copyinstr)
 
 /*
- * Copy a null terminated string from the kernel address space into
- * the user address space.
- *
- *	copyoutstr(fromaddr, toaddr, maxlength, &lencopied)
- *		caddr_t fromaddr;
- *		caddr_t toaddr;
- *		u_int maxlength;
- *		u_int *lencopied;
- */
-NESTED(copyoutstr, CALLFRAME_SIZ, ra)
-	PTR_SUBU	sp, sp, CALLFRAME_SIZ
-	.mask	0x80000000, (CALLFRAME_RA - CALLFRAME_SIZ)
-	PTR_LA	v0, copyerr
-	blt	a1, zero, _C_LABEL(copyerr)  # make sure address is in user space
-	REG_S	ra, CALLFRAME_RA(sp)
-	GET_CPU_PCPU(v1)
-	PTR_L	v1, PC_CURPCB(v1)
-	jal	_C_LABEL(copystr)
-	PTR_S	v0, U_PCB_ONFAULT(v1)
-	REG_L	ra, CALLFRAME_RA(sp)
-	GET_CPU_PCPU(v1)
-	PTR_L	v1, PC_CURPCB(v1)
-	PTR_S	zero, U_PCB_ONFAULT(v1)
-	j	ra
-	PTR_ADDU	sp, sp, CALLFRAME_SIZ
-END(copyoutstr)
-
-/*
  * Copy specified amount of data from user space into the kernel
  *	copyin(from, to, len)
  *		caddr_t *from;	(user source address)
@@ -443,41 +415,6 @@ LEAF(fswberr)
 	j	ra
 	li	v0, -1
 END(fswberr)
-
-/*
- * fuswintr and suswintr are just like fusword and susword except that if
- * the page is not in memory or would cause a trap, then we return an error.
- * The important thing is to prevent sleep() and switch().
- */
-LEAF(fuswintr)
-	PTR_LA	v0, fswintrberr
-	blt	a0, zero, fswintrberr	# make sure address is in user space
-	nop
-	GET_CPU_PCPU(v1)
-	PTR_L	v1, PC_CURPCB(v1)
-	PTR_S	v0, U_PCB_ONFAULT(v1)
-	lhu	v0, 0(a0)		# fetch short
-	j	ra
-	PTR_S	zero, U_PCB_ONFAULT(v1)
-END(fuswintr)
-
-LEAF(suswintr)
-	PTR_LA	v0, fswintrberr
-	blt	a0, zero, fswintrberr	# make sure address is in user space
-	nop
-	GET_CPU_PCPU(v1)
-	PTR_L	v1, PC_CURPCB(v1)
-	PTR_S	v0, U_PCB_ONFAULT(v1)
-	sh	a1, 0(a0)		# store short
-	PTR_S	zero, U_PCB_ONFAULT(v1)
-	j	ra
-	move	v0, zero
-END(suswintr)
-
-LEAF(fswintrberr)
-	j	ra
-	li	v0, -1
-END(fswintrberr)
 
 /*
  * memset(void *s1, int c, int len)
