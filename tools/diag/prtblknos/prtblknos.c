@@ -49,21 +49,65 @@ prtblknos(disk, dp)
 	struct uufsd *disk;
 	union dinode *dp;
 {
-	int i, len, lbn, frags, numblks, blksperindir;
+	int i, len, lbn, mode, frags, numblks, blksperindir;
 	ufs2_daddr_t blkno;
 	struct fs *fs;
 	off_t size;
 
 	fs = (struct fs *)&disk->d_sb;
-	if (fs->fs_magic == FS_UFS1_MAGIC)
+	if (fs->fs_magic == FS_UFS1_MAGIC) {
 		size = dp->dp1.di_size;
-	else
+		mode = dp->dp1.di_mode;
+	} else {
 		size = dp->dp2.di_size;
-	numblks = howmany(size, fs->fs_bsize);
-	if (numblks == 0) {
-		printf(" empty file\n");
-		return;
+		mode = dp->dp2.di_mode;
 	}
+	switch (mode & IFMT) {
+	case IFIFO:
+		printf("fifo\n");
+		return;
+	case IFCHR:
+		printf("character device\n");
+		return;
+	case IFBLK:
+		printf("block device\n");
+		return;
+	case IFSOCK:
+		printf("socket\n");
+		return;
+	case IFWHT:
+		printf("whiteout\n");
+		return;
+	case IFLNK:
+		if (size == 0) {
+			printf("empty symbolic link\n");
+			return;
+		}
+		if (size < fs->fs_maxsymlinklen) {
+			printf("symbolic link referencing %s\n",
+			    (fs->fs_magic == FS_UFS1_MAGIC) ?
+			    (char *)dp->dp1.di_db :
+			    (char *)dp->dp2.di_db);
+			return;
+		}
+		printf("symbolic link\n");
+		break;
+	case IFREG:
+		if (size == 0) {
+			printf("empty file\n");
+			return;
+		}
+		printf("regular file, size %ld\n", size);
+		break;
+	case IFDIR:
+		if (size == 0) {
+			printf("empty directory\n");
+			return;
+		}
+		printf("directory, size %ld\n", size);
+		break;
+	}
+	numblks = howmany(size, fs->fs_bsize);
 	len = numblks < UFS_NDADDR ? numblks : UFS_NDADDR;
 	for (i = 0; i < len; i++) {
 		if (i < numblks - 1)
@@ -110,10 +154,20 @@ indirprt(disk, level, blksperindir, lbn, blkno, lastlbn)
 	int i, last;
 
 	fs = (struct fs *)&disk->d_sb;
+	if (blkno == 0) {
+		printblk(fs, lbn, blkno,
+		    blksperindir * NINDIR(fs) * fs->fs_frag, lastlbn);
+		return;
+	}
 	printblk(fs, lbn, blkno, fs->fs_frag, -level);
 	/* read in the indirect block. */
-	if (bread(disk, fsbtodb(fs, blkno), indir, fs->fs_bsize) == -1)
-		err(1, "Read of indirect block %jd failed", (intmax_t)blkno);
+	if (bread(disk, fsbtodb(fs, blkno), indir, fs->fs_bsize) == -1) {
+		warn("Read of indirect block %jd failed", (intmax_t)blkno);
+		/* List the unreadable part as a hole */
+		printblk(fs, lbn, 0,
+		    blksperindir * NINDIR(fs) * fs->fs_frag, lastlbn);
+		return;
+	}
 	last = howmany(lastlbn - lbn, blksperindir) < NINDIR(fs) ?
 	    howmany(lastlbn - lbn, blksperindir) : NINDIR(fs);
 	if (blksperindir == 1) {
@@ -178,12 +232,12 @@ printblk(fs, lbn, blkno, numblks, lastlbn)
 	if (lastlbn <= 0)
 		goto flush;
 	if (seq == 0) {
-		seq = 1;
+		seq = howmany(numblks, fs->fs_frag);
 		firstblk = blkno;
 		return;
 	}
 	if (lbn == 0) {
-		seq = 1;
+		seq = howmany(numblks, fs->fs_frag);
 		lastblk = 0;
 		firstblk = blkno;
 		lastindirblk = 0;
@@ -192,8 +246,8 @@ printblk(fs, lbn, blkno, numblks, lastlbn)
 	if (lbn < lastlbn && ((firstblk == 0 && blkno == 0) ||
 	    (firstblk == BLK_NOCOPY && blkno == BLK_NOCOPY) ||
 	    (firstblk == BLK_SNAP && blkno == BLK_SNAP) ||
-	    blkno == firstblk + seq * numblks)) {
-		seq++;
+	    blkno == firstblk + seq * fs->fs_frag)) {
+		seq += howmany(numblks, fs->fs_frag);
 		return;
 	}
 flush:
