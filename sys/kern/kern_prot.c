@@ -68,6 +68,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/jail.h>
 #include <sys/pioctl.h>
 #include <sys/racct.h>
+#include <sys/rctl.h>
 #include <sys/resourcevar.h>
 #include <sys/socket.h>
 #include <sys/socketvar.h>
@@ -577,9 +578,14 @@ sys_setuid(struct thread *td, struct setuid_args *uap)
 		setsugid(p);
 	}
 	proc_set_cred(p, newcred);
-	PROC_UNLOCK(p);
 #ifdef RACCT
 	racct_proc_ucred_changed(p, oldcred, newcred);
+	crhold(newcred);
+#endif
+	PROC_UNLOCK(p);
+#ifdef RCTL
+	rctl_proc_ucred_changed(p, newcred);
+	crfree(newcred);
 #endif
 	uifree(uip);
 	crfree(oldcred);
@@ -925,9 +931,14 @@ sys_setreuid(struct thread *td, struct setreuid_args *uap)
 		setsugid(p);
 	}
 	proc_set_cred(p, newcred);
-	PROC_UNLOCK(p);
 #ifdef RACCT
 	racct_proc_ucred_changed(p, oldcred, newcred);
+	crhold(newcred);
+#endif
+	PROC_UNLOCK(p);
+#ifdef RCTL
+	rctl_proc_ucred_changed(p, newcred);
+	crfree(newcred);
 #endif
 	uifree(ruip);
 	uifree(euip);
@@ -1066,9 +1077,14 @@ sys_setresuid(struct thread *td, struct setresuid_args *uap)
 		setsugid(p);
 	}
 	proc_set_cred(p, newcred);
-	PROC_UNLOCK(p);
 #ifdef RACCT
 	racct_proc_ucred_changed(p, oldcred, newcred);
+	crhold(newcred);
+#endif
+	PROC_UNLOCK(p);
+#ifdef RCTL
+	rctl_proc_ucred_changed(p, newcred);
+	crfree(newcred);
 #endif
 	uifree(ruip);
 	uifree(euip);
