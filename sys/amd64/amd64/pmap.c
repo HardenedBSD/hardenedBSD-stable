@@ -1015,6 +1015,13 @@ create_pagetables(vm_paddr_t *firstaddr)
 	 */
 	*firstaddr = round_2mpage(*firstaddr);
 
+	/*
+	 * Because we map the physical blocks in 2M pages, adjust firstaddr
+	 * to record the physical blocks we've actually mapped into kernel
+	 * virtual address space.
+	 */
+	*firstaddr = round_2mpage(*firstaddr);
+
 	/* And connect up the PD to the PDP (leaving room for L4 pages) */
 	pdp_p = (pdp_entry_t *)(KPDPphys + ptoa(KPML4I - KPML4BASE));
 	for (i = 0; i < nkpdpe; i++)
@@ -1338,7 +1345,9 @@ pmap_init(void)
 		    ("pmap_init: page table page is out of range"));
 		mpte->pindex = pmap_pde_pindex(KERNBASE) + i;
 		mpte->phys_addr = KPTphys + (i << PAGE_SHIFT);
+		mpte->wire_count = 1;
 	}
+	atomic_add_int(&vm_cnt.v_wire_count, nkpt);
 
 	/*
 	 * If the kernel is running on a virtual machine, then it must assume
