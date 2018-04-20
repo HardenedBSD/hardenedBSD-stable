@@ -65,6 +65,7 @@ static bool	 first_match = true;
  */
 struct parsec {
 	regmatch_t	matches[MAX_MATCHES];		/* Matches made */
+	/* XXX TODO: This should be a chunk, not a line */
 	struct str	ln;				/* Current line */
 	size_t		lnstart;			/* Position in line */
 	size_t		matchidx;			/* Latest match index */
@@ -72,6 +73,18 @@ struct parsec {
 	bool		binary;				/* Binary file? */
 };
 
+/*
+ * Match printing context
+ */
+struct mprintc {
+	long long	tail;		/* Number of trailing lines to record */
+	int		last_outed;	/* Number of lines since last output */
+	bool		doctx;		/* Printing context? */
+	bool		printmatch;	/* Printing matches? */
+	bool		same_file;	/* Same file as previously printed? */
+};
+
+static bool procmatches(struct mprintc *mc, struct parsec *pc, bool matched);
 #ifdef WITH_INTERNAL_NOSPEC
 static int litexec(const struct pat *pat, const char *string,
     size_t nmatch, regmatch_t pmatch[]);
@@ -197,6 +210,76 @@ grep_tree(char **argv)
 }
 
 /*
+ * Process any matches in the current parsing context, return a boolean
+ * indicating whether we should halt any further processing or not. 'true' to
+ * continue processing, 'false' to halt.
+ */
+static bool
+procmatches(struct mprintc *mc, struct parsec *pc, bool matched)
+{
+
+	/*
+	 * XXX TODO: This should loop over pc->matches and handle things on a
+	 * line-by-line basis, setting up a `struct str` as needed.
+	 */
+	/* Deal with any -B context or context separators */
+	if (matched) {
+		if (mc->doctx) {
+			if (!first_match &&
+			    (!mc->same_file || mc->last_outed > 0))
+				printf("--\n");
+			if (Bflag > 0)
+				printqueue();
+			mc->tail = Aflag;
+		}
+
+		/* Print the matching line, but only if not quiet/binary */
+		if (mc->printmatch) {
+			printline(pc, ':');
+			while (pc->matchidx >= MAX_MATCHES) {
+				/* Reset matchidx and try again */
+				pc->matchidx = 0;
+				if (procline(pc) == 0)
+					printline(pc, ':');
+				else
+					break;
+			}
+			first_match = false;
+			mc->same_file = true;
+			mc->last_outed = 0;
+		}
+
+		/* Count the matches if we have a match limit */
+		if (mflag) {
+			/* XXX TODO: Decrement by number of matched lines */
+			mcount -= 1;
+			if (mflag && mcount <= 0)
+				return (false);
+		}
+	} else if (mc->doctx) {
+		/* Not matching, deal with any -A context as needed */
+		if (mc->tail > 0) {
+			grep_printline(&pc->ln, '-');
+			mc->tail--;
+			if (Bflag > 0)
+				clearqueue();
+		} else {
+			/*
+			 * Enqueue non-matching lines for -B context.
+			 * If we're not actually doing -B context or if
+			 * the enqueue resulted in a line being rotated
+			 * out, then go ahead and increment last_outed
+			 * to signify a gap between context/match.
+			 */
+			if (Bflag == 0 || (Bflag > 0 && enqueue(&pc->ln)))
+				++mc->last_outed;
+		}
+	}
+
+	return (true);
+}
+
+/*
  * Opens a file and processes it.  Each file is processed line-by-line
  * passing the lines to procline().
  */
@@ -204,13 +287,11 @@ int
 procfile(const char *fn)
 {
 	struct parsec pc;
-	long long tail;
+	struct mprintc mc;
 	struct file *f;
 	struct stat sb;
-	struct str *ln;
 	mode_t s;
-	int c, last_outed, t;
-	bool doctx, printmatch, same_file;
+	int c, t;
 
 	if (strcmp(fn, "-") == 0) {
 		fn = label != NULL ? label : getstr(1);
@@ -234,8 +315,6 @@ procfile(const char *fn)
 		return (0);
 	}
 
-	/* Convenience */
-	ln = &pc.ln;
 	pc.ln.file = grep_malloc(strlen(fn) + 1);
 	strcpy(pc.ln.file, fn);
 	pc.ln.line_no = 0;
@@ -243,26 +322,28 @@ procfile(const char *fn)
 	pc.ln.boff = 0;
 	pc.ln.off = -1;
 	pc.binary = f->binary;
-	pc.printed = 0;
-	tail = 0;
-	last_outed = 0;
-	same_file = false;
-	doctx = false;
-	printmatch = true;
+	memset(&mc, 0, sizeof(mc));
+	mc.printmatch = true;
 	if ((pc.binary && binbehave == BINFILE_BIN) || cflag || qflag ||
 	    lflag || Lflag)
-		printmatch = false;
-	if (printmatch && (Aflag != 0 || Bflag != 0))
-		doctx = true;
+		mc.printmatch = false;
+	if (mc.printmatch && (Aflag != 0 || Bflag != 0))
+		mc.doctx = true;
 	mcount = mlimit;
 
 	for (c = 0;  c == 0 || !(lflag || qflag); ) {
+		/*
+		 * XXX TODO: We need to revisit this in a chunking world. We're
+		 * not going to be doing per-line statistics because of the
+		 * overhead involved. procmatches can figure that stuff out as
+		 * needed. */
 		/* Reset per-line statistics */
 		pc.printed = 0;
 		pc.matchidx = 0;
 		pc.lnstart = 0;
 		pc.ln.boff = 0;
 		pc.ln.off += pc.ln.len + 1;
+		/* XXX TODO: Grab a chunk */
 		if ((pc.ln.dat = grep_fgetln(f, &pc.ln.len)) == NULL ||
 		    pc.ln.len == 0)
 			break;
@@ -282,56 +363,9 @@ procfile(const char *fn)
 		if ((t = procline(&pc)) == 0)
 			++c;
 
-		/* Deal with any -B context or context separators */
-		if (t == 0 && doctx) {
-			if (!first_match && (!same_file || last_outed > 0))
-				printf("--\n");
-			if (Bflag > 0)
-				printqueue();
-			tail = Aflag;
-		}
-		/* Print the matching line, but only if not quiet/binary */
-		if (t == 0 && printmatch) {
-			printline(&pc, ':');
-			while (pc.matchidx >= MAX_MATCHES) {
-				/* Reset matchidx and try again */
-				pc.matchidx = 0;
-				if (procline(&pc) == 0)
-					printline(&pc, ':');
-				else
-					break;
-			}
-			first_match = false;
-			same_file = true;
-			last_outed = 0;
-		}
-		if (t != 0 && doctx) {
-			/* Deal with any -A context */
-			if (tail > 0) {
-				grep_printline(&pc.ln, '-');
-				tail--;
-				if (Bflag > 0)
-					clearqueue();
-			} else {
-				/*
-				 * Enqueue non-matching lines for -B context.
-				 * If we're not actually doing -B context or if
-				 * the enqueue resulted in a line being rotated
-				 * out, then go ahead and increment last_outed
-				 * to signify a gap between context/match.
-				 */
-				if (Bflag == 0 || (Bflag > 0 && enqueue(ln)))
-					++last_outed;
-			}
-		}
-
-		/* Count the matches if we have a match limit */
-		if (t == 0 && mflag) {
-			--mcount;
-			if (mflag && mcount <= 0)
-				break;
-		}
-
+		/* Halt processing if we hit our match limit */
+		if (!procmatches(&mc, &pc, t == 0))
+			break;
 	}
 	if (Bflag > 0)
 		clearqueue();
@@ -564,6 +598,7 @@ procline(struct parsec *pc)
 			continue;
 		}
 
+		/* XXX TODO: We will need to keep going, since we're chunky */
 		/* One pass if we are not recording matches */
 		if (!wflag && ((color == NULL && !oflag) || qflag || lflag || Lflag))
 			break;
