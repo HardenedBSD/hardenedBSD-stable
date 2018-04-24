@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2000 Doug Rabson
+ * Copyright (c) 2018 iXsystems, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -23,32 +23,27 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *	$FreeBSD$
+ * $FreeBSD$
  */
 
-#ifndef _SYS_SPIGENIO_H_
-#define _SYS_SPIGENIO_H_
+#ifndef	_ETDUMP_H_
+#define	_ETDUMP_H_
 
-#include <sys/_iovec.h>
-
-struct spigen_transfer {
-	struct iovec st_command; /* master to slave */
-	struct iovec st_data;    /* slave to master and/or master to slave */
+struct outputter {
+	void (*output_image)(FILE *outfile, const char *filename,
+			     boot_volume_descriptor *bvd);
+	void (*output_section)(FILE *outfile, const char *filename,
+			       boot_catalog_section_header *bcsh);
+	void (*output_entry)(FILE *outfile, const char *filename,
+			     boot_catalog_section_entry *bcse,
+			     u_char platform_id, bool initial);
 };
 
-struct spigen_transfer_mmapped {
-	size_t stm_command_length; /* at offset 0 in mmap(2) area */
-	size_t stm_data_length;    /* at offset stm_command_length */
-};
+extern struct outputter *output_text;
+extern struct outputter *output_shell;
 
-#define SPIGENIOC_BASE     'S'
-#define SPIGENIOC_TRANSFER 	   _IOW(SPIGENIOC_BASE, 0, \
-	    struct spigen_transfer)
-#define SPIGENIOC_TRANSFER_MMAPPED _IOW(SPIGENIOC_BASE, 1, \
-	    struct spigen_transfer_mmapped)
-#define SPIGENIOC_GET_CLOCK_SPEED  _IOR(SPIGENIOC_BASE, 2, uint32_t)
-#define SPIGENIOC_SET_CLOCK_SPEED  _IOW(SPIGENIOC_BASE, 3, uint32_t)
-#define SPIGENIOC_GET_SPI_MODE     _IOR(SPIGENIOC_BASE, 4, uint32_t)
-#define SPIGENIOC_SET_SPI_MODE     _IOW(SPIGENIOC_BASE, 5, uint32_t)
+const char *system_id_string(u_char system_id);
+const char *media_type_string(u_char media_type);
 
-#endif /* !_SYS_SPIGENIO_H_ */
+#endif	/* _ETDUMP_H_ */
+

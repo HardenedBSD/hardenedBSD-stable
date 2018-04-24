@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2000 Doug Rabson
+ * Copyright (c) 2018 iXsystems, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -22,33 +22,48 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- *	$FreeBSD$
  */
 
-#ifndef _SYS_SPIGENIO_H_
-#define _SYS_SPIGENIO_H_
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
-#include <sys/_iovec.h>
+#include <stdbool.h>
+#include <stdio.h>
 
-struct spigen_transfer {
-	struct iovec st_command; /* master to slave */
-	struct iovec st_data;    /* slave to master and/or master to slave */
+#include "cd9660.h"
+#include "cd9660_eltorito.h"
+
+#include "etdump.h"
+
+static void
+output_entry(FILE *outfile, const char *filename __unused,
+    boot_catalog_section_entry *bcse, u_char platform_id, bool initial)
+{
+	const char *platform;
+
+	switch (bcse->boot_indicator[0]) {
+	case ET_BOOTABLE:
+		break;
+	case ET_NOT_BOOTABLE:
+	default:
+		return;
+	}
+
+	if (initial)
+		platform = "default";
+	else
+		platform = system_id_string(platform_id);
+
+	fprintf(outfile,
+	    "et_platform=%s;et_system=%s;et_lba=%d;et_sectors=%d\n",
+	    platform, system_id_string(bcse->system_type[0]),
+	    isonum_731(bcse->load_rba), isonum_721(bcse->sector_count));
+}
+
+static struct outputter _output_shell = {
+	.output_image = NULL,
+	.output_section = NULL,
+	.output_entry = output_entry,
 };
 
-struct spigen_transfer_mmapped {
-	size_t stm_command_length; /* at offset 0 in mmap(2) area */
-	size_t stm_data_length;    /* at offset stm_command_length */
-};
-
-#define SPIGENIOC_BASE     'S'
-#define SPIGENIOC_TRANSFER 	   _IOW(SPIGENIOC_BASE, 0, \
-	    struct spigen_transfer)
-#define SPIGENIOC_TRANSFER_MMAPPED _IOW(SPIGENIOC_BASE, 1, \
-	    struct spigen_transfer_mmapped)
-#define SPIGENIOC_GET_CLOCK_SPEED  _IOR(SPIGENIOC_BASE, 2, uint32_t)
-#define SPIGENIOC_SET_CLOCK_SPEED  _IOW(SPIGENIOC_BASE, 3, uint32_t)
-#define SPIGENIOC_GET_SPI_MODE     _IOR(SPIGENIOC_BASE, 4, uint32_t)
-#define SPIGENIOC_SET_SPI_MODE     _IOW(SPIGENIOC_BASE, 5, uint32_t)
-
-#endif /* !_SYS_SPIGENIO_H_ */
+struct outputter *output_shell = &_output_shell;
