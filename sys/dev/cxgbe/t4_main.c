@@ -617,8 +617,6 @@ static int del_filter(struct adapter *, struct t4_filter *);
 static void clear_filter(struct filter_entry *);
 static int set_filter_wr(struct adapter *, int);
 static int del_filter_wr(struct adapter *, int);
-static int set_tcb_rpl(struct sge_iq *, const struct rss_header *,
-    struct mbuf *);
 static int get_sge_context(struct adapter *, struct t4_sge_context *);
 static int load_fw(struct adapter *, struct t4_data *);
 static int load_cfg(struct adapter *, struct t4_data *);
@@ -2506,6 +2504,7 @@ alloc_atid(struct adapter *sc, void *ctx)
 		union aopen_entry *p = t->afree;
 
 		atid = p - t->atid_tab;
+		MPASS(atid <= M_TID_TID);
 		t->afree = p->next;
 		p->data = ctx;
 		t->atids_in_use++;
@@ -9270,22 +9269,6 @@ t4_filter_rpl(struct sge_iq *iq, const struct rss_header *rss, struct mbuf *m)
 }
 
 static int
-set_tcb_rpl(struct sge_iq *iq, const struct rss_header *rss, struct mbuf *m)
-{
-
-	MPASS(iq->set_tcb_rpl != NULL);
-	return (iq->set_tcb_rpl(iq, rss, m));
-}
-
-static int
-l2t_write_rpl(struct sge_iq *iq, const struct rss_header *rss, struct mbuf *m)
-{
-
-	MPASS(iq->l2t_write_rpl != NULL);
-	return (iq->l2t_write_rpl(iq, rss, m));
-}
-
-static int
 get_sge_context(struct adapter *sc, struct t4_sge_context *cntxt)
 {
 	int rc;
@@ -10556,8 +10539,10 @@ mod_event(module_t mod, int cmd, void *arg)
 		sx_xlock(&mlu);
 		if (loaded++ == 0) {
 			t4_sge_modload();
-			t4_register_cpl_handler(CPL_SET_TCB_RPL, set_tcb_rpl);
-			t4_register_cpl_handler(CPL_L2T_WRITE_RPL, l2t_write_rpl);
+			t4_register_shared_cpl_handler(CPL_SET_TCB_RPL,
+			    t4_filter_rpl, CPL_COOKIE_FILTER);
+			t4_register_shared_cpl_handler(CPL_L2T_WRITE_RPL,
+			    do_l2t_write_rpl, CPL_COOKIE_FILTER);
 			t4_register_cpl_handler(CPL_TRACE_PKT, t4_trace_pkt);
 			t4_register_cpl_handler(CPL_T5_TRACE_PKT, t5_trace_pkt);
 			sx_init(&t4_list_lock, "T4/T5 adapters");
