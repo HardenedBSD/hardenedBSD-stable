@@ -190,8 +190,12 @@ __DEFAULT_YES_OPTIONS = \
 
 __DEFAULT_NO_OPTIONS = \
     BSD_GREP \
+<<<<<<< HEAD
     BSD_GREP_FASTMATCH \
     DEVD_PIE \
+=======
+    CLANG_EXTRAS \
+>>>>>>> origin/freebsd/current/master
     DTRACE_TESTS \
     FREEBSD_UPDATE \
     GNU_GREP_COMPAT \
