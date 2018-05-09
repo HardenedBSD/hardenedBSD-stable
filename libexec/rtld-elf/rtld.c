@@ -413,7 +413,6 @@ _rtld(Elf_Addr *sp, func_ptr_type *exit_proc, Obj_Entry **objp)
     main_argc = argc;
     main_argv = argv;
 
-<<<<<<< HEAD
 #ifdef HARDENEDBSD
     /* Load PaX flags */
     if (aux_info[AT_PAXFLAGS] != NULL) {
@@ -422,29 +421,6 @@ _rtld(Elf_Addr *sp, func_ptr_type *exit_proc, Obj_Entry **objp)
     }
 #endif
 
-    if (aux_info[AT_CANARY] != NULL &&
-	aux_info[AT_CANARY]->a_un.a_ptr != NULL) {
-	    i = aux_info[AT_CANARYLEN]->a_un.a_val;
-	    if (i > sizeof(__stack_chk_guard))
-		    i = sizeof(__stack_chk_guard);
-	    memcpy(__stack_chk_guard, aux_info[AT_CANARY]->a_un.a_ptr, i);
-    } else {
-	mib[0] = CTL_KERN;
-	mib[1] = KERN_ARND;
-
-	len = sizeof(__stack_chk_guard);
-	if (sysctl(mib, 2, __stack_chk_guard, &len, NULL, 0) == -1 ||
-	    len != sizeof(__stack_chk_guard)) {
-		/* If sysctl was unsuccessful, use the "terminator canary". */
-		((unsigned char *)(void *)__stack_chk_guard)[0] = 0;
-		((unsigned char *)(void *)__stack_chk_guard)[1] = 0;
-		((unsigned char *)(void *)__stack_chk_guard)[2] = '\n';
-		((unsigned char *)(void *)__stack_chk_guard)[3] = 255;
-	}
-    }
-
-=======
->>>>>>> origin/freebsd/current/master
     trust = !issetugid();
 
     md_abi_variant_hook(aux_info);
