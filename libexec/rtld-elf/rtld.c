@@ -255,8 +255,6 @@ void _rtld_error(const char *, ...) __exported;
 int npagesizes, osreldate;
 size_t *pagesizes;
 
-long __stack_chk_guard[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-
 static int stack_prot = PROT_READ | PROT_WRITE | RTLD_DEFAULT_STACK_EXEC;
 static int max_stack_flags;
 
@@ -377,8 +375,7 @@ _rtld(Elf_Addr *sp, func_ptr_type *exit_proc, Obj_Entry **objp)
     char **argv, *argv0, **env, **envp, *kexecpath, *library_path_rpath;
     caddr_t imgentry;
     char buf[MAXPATHLEN];
-    int argc, fd, i, mib[2], phnum, rtld_argc;
-    size_t len;
+    int argc, fd, i, phnum, rtld_argc;
     bool dir_enable, explicit_fd, search_in_path;
 
     /*
@@ -416,6 +413,7 @@ _rtld(Elf_Addr *sp, func_ptr_type *exit_proc, Obj_Entry **objp)
     main_argc = argc;
     main_argv = argv;
 
+<<<<<<< HEAD
 #ifdef HARDENEDBSD
     /* Load PaX flags */
     if (aux_info[AT_PAXFLAGS] != NULL) {
@@ -445,6 +443,8 @@ _rtld(Elf_Addr *sp, func_ptr_type *exit_proc, Obj_Entry **objp)
 	}
     }
 
+=======
+>>>>>>> origin/freebsd/current/master
     trust = !issetugid();
 
     md_abi_variant_hook(aux_info);
@@ -5644,23 +5644,6 @@ int _thread_autoinit_dummy_decl = 1;
 void
 __pthread_cxa_finalize(struct dl_phdr_info *a)
 {
-}
-
-void
-__stack_chk_fail(void)
-{
-
-	_rtld_error("stack overflow detected; terminated");
-	rtld_die();
-}
-__weak_reference(__stack_chk_fail, __stack_chk_fail_local);
-
-void
-__chk_fail(void)
-{
-
-	_rtld_error("buffer overflow detected; terminated");
-	rtld_die();
 }
 
 const char *
