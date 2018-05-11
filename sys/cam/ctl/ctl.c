@@ -2454,26 +2454,6 @@ ctl_ioctl_fill_ooa(struct ctl_lun *lun, uint32_t *cur_fill_num,
 	mtx_unlock(&lun->lun_lock);
 }
 
-<<<<<<< HEAD
-static void *
-ctl_copyin_alloc(void *user_addr, unsigned int len, char *error_str,
-		 size_t error_str_len)
-{
-	void *kptr;
-
-	kptr = malloc(len, M_CTL, M_WAITOK | M_ZERO);
-
-	if (copyin(user_addr, kptr, len) != 0) {
-		snprintf(error_str, error_str_len, "Error copying %d bytes", len);
-		free(kptr, M_CTL);
-		return (NULL);
-	}
-
-	return (kptr);
-}
-
-=======
->>>>>>> origin/freebsd/current/master
 /*
  * Escape characters that are illegal or not recommended in XML.
  */
