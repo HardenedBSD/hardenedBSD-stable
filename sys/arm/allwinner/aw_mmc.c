@@ -115,6 +115,7 @@ struct aw_mmc_softc {
 	uint32_t		aw_intr_wait;
 	void *			aw_intrhand;
 	int32_t			aw_vdd;
+	int32_t			aw_vccq;
 	regulator_t		aw_reg_vmmc;
 	regulator_t		aw_reg_vqmmc;
 	unsigned int		aw_clock;
@@ -140,6 +141,7 @@ static int aw_mmc_attach(device_t);
 static int aw_mmc_detach(device_t);
 static int aw_mmc_setup_dma(struct aw_mmc_softc *);
 static int aw_mmc_reset(struct aw_mmc_softc *);
+static int aw_mmc_init(struct aw_mmc_softc *);
 static void aw_mmc_intr(void *);
 static int aw_mmc_update_clock(struct aw_mmc_softc *, uint32_t);
 
@@ -246,12 +248,6 @@ aw_mmc_attach(device_t dev)
 	SYSCTL_ADD_INT(ctx, tree, OID_AUTO, "req_timeout", CTLFLAG_RW,
 	    &sc->aw_timeout, 0, "Request timeout in seconds");
 
-	/* Hardware reset */
-	AW_MMC_WRITE_4(sc, AW_MMC_HWRST, 1);
-	DELAY(100);
-	AW_MMC_WRITE_4(sc, AW_MMC_HWRST, 0);
-	DELAY(500);
-
 	/* Soft Reset controller. */
 	if (aw_mmc_reset(sc) != 0) {
 		device_printf(dev, "cannot reset the controller\n");
@@ -270,13 +266,11 @@ aw_mmc_attach(device_t dev)
 	    &sc->aw_reg_vmmc) == 0) {
 		if (bootverbose)
 			device_printf(dev, "vmmc-supply regulator found\n");
-		regulator_enable(sc->aw_reg_vmmc);
 	}
 	if (regulator_get_by_ofw_property(dev, 0, "vqmmc-supply",
 	    &sc->aw_reg_vqmmc) == 0 && bootverbose) {
 		if (bootverbose)
 			device_printf(dev, "vqmmc-supply regulator found\n");
-		regulator_enable(sc->aw_reg_vqmmc);
 	}
 
 	sc->aw_host.f_min = 400000;
@@ -286,7 +280,7 @@ aw_mmc_attach(device_t dev)
 			   MMC_CAP_UHS_SDR25 | MMC_CAP_UHS_SDR50 |
 			   MMC_CAP_UHS_DDR50 | MMC_CAP_MMC_DDR52;
 
-	sc->aw_host.caps |= MMC_CAP_SIGNALING_330 /* | MMC_CAP_SIGNALING_180 */;
+	sc->aw_host.caps |= MMC_CAP_SIGNALING_330 | MMC_CAP_SIGNALING_180;
 
 	if (bus_width >= 4)
 		sc->aw_host.caps |= MMC_CAP_4_BIT_DATA;
@@ -450,6 +444,7 @@ aw_mmc_prepare_dma(struct aw_mmc_softc *sc)
 	    AW_MMC_DMAC_IDMAC_IDMA_ON | AW_MMC_DMAC_IDMAC_FIX_BURST);
 
 	/* Enable RX or TX DMA interrupt */
+	val = AW_MMC_READ_4(sc, AW_MMC_IDIE);
 	if (cmd->data->flags & MMC_DATA_WRITE)
 		val |= AW_MMC_IDST_TX_INT;
 	else
@@ -480,18 +475,37 @@ aw_mmc_reset(struct aw_mmc_softc *sc)
 	if (timeout == 0)
 		return (ETIMEDOUT);
 
+	return (0);
+}
+
+static int
+aw_mmc_init(struct aw_mmc_softc *sc)
+{
+	int ret;
+
+	ret = aw_mmc_reset(sc);
+	if (ret != 0)
+		return (ret);
+
 	/* Set the timeout. */
 	AW_MMC_WRITE_4(sc, AW_MMC_TMOR,
 	    AW_MMC_TMOR_DTO_LMT_SHIFT(AW_MMC_TMOR_DTO_LMT_MASK) |
 	    AW_MMC_TMOR_RTO_LMT_SHIFT(AW_MMC_TMOR_RTO_LMT_MASK));
 
+	/* Unmask interrupts. */
+	AW_MMC_WRITE_4(sc, AW_MMC_IMKR, 0);
+
 	/* Clear pending interrupts. */
 	AW_MMC_WRITE_4(sc, AW_MMC_RISR, 0xffffffff);
+
+	/* Debug register, undocumented */
+	AW_MMC_WRITE_4(sc, AW_MMC_DBGC, 0xdeb);
+
+	/* Function select register */
+	AW_MMC_WRITE_4(sc, AW_MMC_FUNS, 0xceaa0000);
+
 	AW_MMC_WRITE_4(sc, AW_MMC_IDST, 0xffffffff);
-	/* Unmask interrupts. */
-	AW_MMC_WRITE_4(sc, AW_MMC_IMKR,
-	    AW_MMC_INT_CMD_DONE | AW_MMC_INT_ERR_BIT |
-	    AW_MMC_INT_DATA_OVER | AW_MMC_INT_AUTO_STOP_DONE);
+
 	/* Enable interrupts and AHB access. */
 	AW_MMC_WRITE_4(sc, AW_MMC_GCTL,
 	    AW_MMC_READ_4(sc, AW_MMC_GCTL) | AW_MMC_CTRL_INT_ENB);
@@ -660,7 +674,7 @@ aw_mmc_request(device_t bus, device_t child, struct mmc_request *req)
 	int blksz;
 	struct aw_mmc_softc *sc;
 	struct mmc_command *cmd;
-	uint32_t cmdreg;
+	uint32_t cmdreg, imask;
 	int err;
 
 	sc = device_get_softc(bus);
@@ -669,11 +683,19 @@ aw_mmc_request(device_t bus, device_t child, struct mmc_request *req)
 		AW_MMC_UNLOCK(sc);
 		return (EBUSY);
 	}
+
 	sc->aw_req = req;
 	cmd = req->cmd;
 	cmdreg = AW_MMC_CMDR_LOAD;
+	imask = AW_MMC_INT_ERR_BIT;
+	sc->aw_intr_wait = 0;
+	sc->aw_intr = 0;
+	sc->aw_resid = 0;
+	cmd->error = MMC_ERR_NONE;
+
 	if (cmd->opcode == MMC_GO_IDLE_STATE)
 		cmdreg |= AW_MMC_CMDR_SEND_INIT_SEQ;
+
 	if (cmd->flags & MMC_RSP_PRESENT)
 		cmdreg |= AW_MMC_CMDR_RESP_RCV;
 	if (cmd->flags & MMC_RSP_136)
@@ -681,30 +703,52 @@ aw_mmc_request(device_t bus, device_t child, struct mmc_request *req)
 	if (cmd->flags & MMC_RSP_CRC)
 		cmdreg |= AW_MMC_CMDR_CHK_RESP_CRC;
 
-	sc->aw_intr = 0;
-	sc->aw_resid = 0;
-	sc->aw_intr_wait = AW_MMC_INT_CMD_DONE;
-	cmd->error = MMC_ERR_NONE;
-	if (cmd->data != NULL) {
-		sc->aw_intr_wait |= AW_MMC_INT_DATA_OVER;
+	if (cmd->data) {
 		cmdreg |= AW_MMC_CMDR_DATA_TRANS | AW_MMC_CMDR_WAIT_PRE_OVER;
+
 		if (cmd->data->flags & MMC_DATA_MULTI) {
 			cmdreg |= AW_MMC_CMDR_STOP_CMD_FLAG;
+			imask |= AW_MMC_INT_AUTO_STOP_DONE;
 			sc->aw_intr_wait |= AW_MMC_INT_AUTO_STOP_DONE;
+		} else {
+			sc->aw_intr_wait |= AW_MMC_INT_DATA_OVER;
+			imask |= AW_MMC_INT_DATA_OVER;
 		}
 		if (cmd->data->flags & MMC_DATA_WRITE)
 			cmdreg |= AW_MMC_CMDR_DIR_WRITE;
+
 		blksz = min(cmd->data->len, MMC_SECTOR_SIZE);
 		AW_MMC_WRITE_4(sc, AW_MMC_BKSR, blksz);
 		AW_MMC_WRITE_4(sc, AW_MMC_BYCR, cmd->data->len);
+	} else {
+		imask |= AW_MMC_INT_CMD_DONE;
+	}
 
+	/* Enable the interrupts we are interested in */
+	AW_MMC_WRITE_4(sc, AW_MMC_IMKR, imask);
+	AW_MMC_WRITE_4(sc, AW_MMC_RISR, 0xffffffff);
+
+	/* Enable auto stop if needed */
+	AW_MMC_WRITE_4(sc, AW_MMC_A12A,
+	    cmdreg & AW_MMC_CMDR_STOP_CMD_FLAG ? 0 : 0xffff);
+
+	/* Write the command argument */
+	AW_MMC_WRITE_4(sc, AW_MMC_CAGR, cmd->arg);
+
+	/* 
+	 * If we don't have data start the request
+	 * if we do prepare the dma request and start the request
+	 */
+	if (cmd->data == NULL) {
+		AW_MMC_WRITE_4(sc, AW_MMC_CMDR, cmdreg | cmd->opcode);
+	} else {
 		err = aw_mmc_prepare_dma(sc);
 		if (err != 0)
 			device_printf(sc->aw_dev, "prepare_dma failed: %d\n", err);
+
+		AW_MMC_WRITE_4(sc, AW_MMC_CMDR, cmdreg | cmd->opcode);
 	}
 
-	AW_MMC_WRITE_4(sc, AW_MMC_CAGR, cmd->arg);
-	AW_MMC_WRITE_4(sc, AW_MMC_CMDR, cmdreg | cmd->opcode);
 	callout_reset(&sc->aw_timeoutc, sc->aw_timeout * hz,
 	    aw_mmc_timeout, sc);
 	AW_MMC_UNLOCK(sc);
@@ -755,6 +799,9 @@ aw_mmc_read_ivar(device_t bus, device_t child, int which,
 	case MMCBR_IVAR_VDD:
 		*(int *)result = sc->aw_host.ios.vdd;
 		break;
+	case MMCBR_IVAR_VCCQ:
+		*(int *)result = sc->aw_host.ios.vccq;
+		break;
 	case MMCBR_IVAR_CAPS:
 		*(int *)result = sc->aw_host.caps;
 		break;
@@ -802,6 +849,9 @@ aw_mmc_write_ivar(device_t bus, device_t child, int which,
 		break;
 	case MMCBR_IVAR_VDD:
 		sc->aw_host.ios.vdd = value;
+		break;
+	case MMCBR_IVAR_VCCQ:
+		sc->aw_host.ios.vccq = value;
 		break;
 	case MMCBR_IVAR_TIMING:
 		sc->aw_host.ios.timing = value;
@@ -861,36 +911,30 @@ aw_mmc_update_clock(struct aw_mmc_softc *sc, uint32_t clkon)
 }
 
 static void
-aw_mmc_set_power(struct aw_mmc_softc *sc, int32_t vdd)
+aw_mmc_set_vccq(struct aw_mmc_softc *sc, int32_t vccq)
 {
-	int min_uvolt, max_uvolt;
-
-	sc->aw_vdd = vdd;
+	int uvolt;
 
 	if (sc->aw_reg_vqmmc == NULL)
 		return;
 
-	switch (1 << vdd) {
-	case MMC_OCR_LOW_VOLTAGE:
-		min_uvolt = max_uvolt = 1800000;
+	switch (vccq) {
+	case vccq_180:
+		uvolt = 1800000;
 		break;
-	case MMC_OCR_320_330:
-		min_uvolt = 3200000;
-		max_uvolt = 3300000;
+	case vccq_330:
+		uvolt = 3300000;
 		break;
-	case MMC_OCR_330_340:
-		min_uvolt = 3300000;
-		max_uvolt = 3400000;
-		break;
+	default:
+		return;
 	}
 
-	if (sc->aw_reg_vqmmc)
-		if (regulator_set_voltage(sc->aw_reg_vqmmc,
-		    min_uvolt, max_uvolt) != 0)
-			device_printf(sc->aw_dev,
-			    "Cannot set vqmmc to %d<->%d\n",
-			    min_uvolt,
-			    max_uvolt);
+	if (regulator_set_voltage(sc->aw_reg_vqmmc,
+	    uvolt, uvolt) != 0)
+		device_printf(sc->aw_dev,
+		    "Cannot set vqmmc to %d<->%d\n",
+		    uvolt,
+		    uvolt);
 }
 
 static int
@@ -919,16 +963,36 @@ aw_mmc_update_ios(device_t bus, device_t child)
 		break;
 	}
 
-	/* Set the voltage */
-	if (ios->power_mode == power_off) {
+	switch (ios->power_mode) {
+	case power_on:
+		break;
+	case power_off:
 		if (bootverbose)
 			device_printf(sc->aw_dev, "Powering down sd/mmc\n");
+
 		if (sc->aw_reg_vmmc)
 			regulator_disable(sc->aw_reg_vmmc);
 		if (sc->aw_reg_vqmmc)
 			regulator_disable(sc->aw_reg_vqmmc);
-	} else if (sc->aw_vdd != ios->vdd)
-		aw_mmc_set_power(sc, ios->vdd);
+
+		aw_mmc_reset(sc);
+		break;
+	case power_up:
+		if (bootverbose)
+			device_printf(sc->aw_dev, "Powering up sd/mmc\n");
+
+		if (sc->aw_reg_vmmc)
+			regulator_enable(sc->aw_reg_vmmc);
+		if (sc->aw_reg_vqmmc)
+			regulator_enable(sc->aw_reg_vqmmc);
+		aw_mmc_init(sc);
+		break;
+	};
+
+	if (ios->vccq != sc->aw_vccq) {
+		aw_mmc_set_vccq(sc, ios->vccq);
+		sc->aw_vccq = ios->vccq;
+	}
 
 	/* Enable ddr mode if needed */
 	reg = AW_MMC_READ_4(sc, AW_MMC_GCTL);

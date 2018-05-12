@@ -2508,15 +2508,12 @@ init386(int first)
 	return ((register_t)thread0.td_pcb);
 }
 
-extern u_int tramp_idleptd;
-
 static void
 machdep_init_trampoline(void)
 {
 	struct region_descriptor r_gdt, r_idt;
 	struct i386tss *tss;
 	char *copyout_buf, *trampoline, *tramp_stack_base;
-	u_int *tramp_idleptd_reloced;
 	int x;
 
 	gdt = pmap_trm_alloc(sizeof(union descriptor) * NGDT * mp_ncpus,
@@ -2532,12 +2529,12 @@ machdep_init_trampoline(void)
 	gdt[GPROC0_SEL].sd.sd_lobase = (int)tss;
 	gdt[GPROC0_SEL].sd.sd_hibase = (u_int)tss >> 24;
 	gdt[GPROC0_SEL].sd.sd_type = SDT_SYS386TSS;
-	ltr(GSEL(GPROC0_SEL, SEL_KPL));
 
 	PCPU_SET(fsgs_gdt, &gdt[GUFS_SEL].sd);
 	PCPU_SET(tss_gdt, &gdt[GPROC0_SEL].sd);
 	PCPU_SET(common_tssd, *PCPU_GET(tss_gdt));
 	PCPU_SET(common_tssp, tss);
+	ltr(GSEL(GPROC0_SEL, SEL_KPL));
 
 	trampoline = pmap_trm_alloc(end_exceptions - start_exceptions,
 	    M_NOWAIT);
@@ -2553,14 +2550,6 @@ machdep_init_trampoline(void)
 	/* Re-initialize new IDT since the handlers were relocated */
 	setidt_disp = trampoline - start_exceptions;
 	fixup_idt();
-
-	tramp_idleptd_reloced = (u_int *)((uintptr_t)&tramp_idleptd +
-	    setidt_disp);
-#if defined(PAE) || defined(PAE_TABLES)
-	*tramp_idleptd_reloced = (u_int)IdlePDPT;
-#else
-	*tramp_idleptd_reloced = (u_int)IdlePTD;
-#endif
 
 	r_idt.rd_limit = sizeof(struct gate_descriptor) * NIDT - 1;
 	r_idt.rd_base = (int)idt;
