@@ -10,11 +10,8 @@ PROG=	local-unbound-checkconf
 SRCS=	ub_event.c unbound-checkconf.c worker_cb.c
 CFLAGS+=	-I${UNBOUNDDIR} -I${LDNSDIR}
 LIBADD=	unbound pthread
-<<<<<<< HEAD
-MAN=	unbound-checkconf.8
-CFI_OVERRIDE=-fno-sanitize=cfi-icall
-=======
 MAN=	local-unbound-checkconf.8
->>>>>>> origin/freebsd/current/master
+
+CFI_OVERRIDE=-fno-sanitize=cfi-icall
 
 .include <bsd.prog.mk>

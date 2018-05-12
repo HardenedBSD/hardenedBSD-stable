@@ -11,11 +11,8 @@ SRCS=	acl_list.c cachedump.c daemon.c remote.c shm_main.c stats.c \
 	ub_event.c unbound.c worker.c
 CFLAGS+=	-I${UNBOUNDDIR} -I${LDNSDIR}
 LIBADD=	unbound util ssl crypto pthread
-<<<<<<< HEAD
-MAN=	unbound.8 unbound.conf.5
-NOCFI=	yes
-=======
 MAN=	local-unbound.8 local-unbound.conf.5
->>>>>>> origin/freebsd/current/master
+
+NOCFI=	yes
 
 .include <bsd.prog.mk>
