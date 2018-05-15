@@ -112,6 +112,8 @@
         ..
         bsdinstall
         ..
+        dwatch
+        ..
         hyperv
         ..
         lpr
@@ -324,6 +326,8 @@
             dma
             ..
             drivers
+            ..
+            dwatch
             ..
             etc
                 defaults
