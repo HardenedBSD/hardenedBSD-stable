@@ -29,6 +29,7 @@
 
 #include <err.h>
 #include <fcntl.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -76,8 +77,10 @@ static void
 dump_header(const struct microcode_update_header *hdr)
 {
 	char buf[16];
+	int i;
+	bool platformid_printed;
 
-	printf("version\t\t0x%x\n", hdr->header_version);
+	printf("header version\t0x%x\n", hdr->header_version);
 	printf("revision\t0x%x\n", hdr->update_revision);
 	printf("date\t\t0x%x\t%04x-%02x-%02x\n", hdr->date,
 	    hdr->date & 0xffff, (hdr->date & 0xff000000) >> 24,
@@ -86,7 +89,15 @@ dump_header(const struct microcode_update_header *hdr)
 	    format_signature(buf, hdr->processor_signature));
 	printf("checksum\t0x%x\n", hdr->checksum);
 	printf("loader revision\t0x%x\n", hdr->loader_revision);
-	printf("processor flags\t0x%x\n", hdr->processor_flags);
+	printf("processor flags\t0x%x", hdr->processor_flags);
+	platformid_printed = false;
+	for (i = 0; i < 8; i++) {
+		if (hdr->processor_flags & 1 << i) {
+			printf("%s%d", platformid_printed ? ", " : "\t\t", i);
+			platformid_printed = true;
+		}
+	}
+	printf("\n");
 	printf("datasize\t0x%x\t\t0x%x\n", hdr->data_size,
 	    hdr->data_size != 0 ? hdr->data_size : 2000);
 	printf("size\t\t0x%x\t\t0x%x\n", hdr->total_size,
@@ -97,7 +108,7 @@ static void
 usage(void)
 {
 
-	printf("ucode-split microcode_file\n");
+	printf("ucode-split [-v] microcode_file\n");
 	exit(1);
 }
 
@@ -109,12 +120,26 @@ main(int argc, char *argv[])
 	char *buf;
 	size_t len, resid;
 	ssize_t rv;
-	int ifd, ofd;
+	int c, ifd, ofd;
+	bool vflag;
 
-	if (argc != 2)
+	vflag = false;
+	while ((c = getopt(argc, argv, "v")) != -1) {
+		switch (c) {
+		case 'v':
+			vflag = true;
+			break;
+		default:
+			usage();
+		}
+	}
+	argc -= optind;
+	argv += optind;
+
+	if (argc != 1)
 		usage();
 
-	ifd = open(argv[1], O_RDONLY);
+	ifd = open(argv[0], O_RDONLY);
 	if (ifd < 0)
 		err(1, "open");
 
@@ -132,8 +157,11 @@ main(int argc, char *argv[])
 		} else if (rv < (ssize_t)sizeof(hdr)) {
 			errx(1, "invalid microcode header");
 		}
+		if (hdr.header_version != 1)
+			errx(1, "invalid header version");
 
-		dump_header(&hdr);
+		if (vflag)
+			dump_header(&hdr);
 
 		format_signature(output_file, hdr.processor_signature);
 		sprintf(output_file + strlen(output_file), ".%02x",
@@ -163,7 +191,8 @@ main(int argc, char *argv[])
 				err(1, "write");
 			resid -= len;
 		}
-		printf("written to %s\n\n", output_file);
+		if (vflag)
+			printf("written to %s\n\n", output_file);
 		close(ofd);
 	}
 }
