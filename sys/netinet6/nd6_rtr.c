@@ -483,7 +483,7 @@ nd6_rtmsg(int cmd, struct rtentry *rt)
 	ifp = rt->rt_ifp;
 	if (ifp != NULL) {
 		IF_ADDR_RLOCK(ifp);
-		ifa = TAILQ_FIRST(&ifp->if_addrhead);
+		ifa = CK_STAILQ_FIRST(&ifp->if_addrhead);
 		info.rti_info[RTAX_IFP] = ifa->ifa_addr;
 		ifa_ref(ifa);
 		IF_ADDR_RUNLOCK(ifp);
@@ -1352,7 +1352,7 @@ prelist_update(struct nd_prefixctl *new, struct nd_defrouter *dr,
 	 * "address".
 	 */
 	IF_ADDR_RLOCK(ifp);
-	TAILQ_FOREACH(ifa, &ifp->if_addrhead, ifa_link) {
+	CK_STAILQ_FOREACH(ifa, &ifp->if_addrhead, ifa_link) {
 		struct in6_ifaddr *ifa6;
 		u_int32_t remaininglifetime;
 
@@ -1724,7 +1724,7 @@ restart:
 	 * The precise detection logic is same as the one for prefixes.
 	 */
 	IN6_IFADDR_RLOCK(&in6_ifa_tracker);
-	TAILQ_FOREACH(ifa, &V_in6_ifaddrhead, ia_link) {
+	CK_STAILQ_FOREACH(ifa, &V_in6_ifaddrhead, ia_link) {
 		if (!(ifa->ia6_flags & IN6_IFF_AUTOCONF))
 			continue;
 
@@ -1741,7 +1741,7 @@ restart:
 			break;
 	}
 	if (ifa) {
-		TAILQ_FOREACH(ifa, &V_in6_ifaddrhead, ia_link) {
+		CK_STAILQ_FOREACH(ifa, &V_in6_ifaddrhead, ia_link) {
 			if ((ifa->ia6_flags & IN6_IFF_AUTOCONF) == 0)
 				continue;
 
@@ -1759,7 +1759,7 @@ restart:
 			}
 		}
 	} else {
-		TAILQ_FOREACH(ifa, &V_in6_ifaddrhead, ia_link) {
+		CK_STAILQ_FOREACH(ifa, &V_in6_ifaddrhead, ia_link) {
 			if ((ifa->ia6_flags & IN6_IFF_AUTOCONF) == 0)
 				continue;
 
@@ -1913,7 +1913,7 @@ nd6_prefix_onlink(struct nd_prefix *pr)
 	if (ifa == NULL) {
 		/* XXX: freebsd does not have ifa_ifwithaf */
 		IF_ADDR_RLOCK(ifp);
-		TAILQ_FOREACH(ifa, &ifp->if_addrhead, ifa_link) {
+		CK_STAILQ_FOREACH(ifa, &ifp->if_addrhead, ifa_link) {
 			if (ifa->ifa_addr->sa_family == AF_INET6) {
 				ifa_ref(ifa);
 				break;
