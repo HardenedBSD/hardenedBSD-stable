@@ -751,7 +751,7 @@ static void
 filt_timerdetach(struct knote *kn)
 {
 	struct kq_timer_cb_data *kc;
-	unsigned int old;
+	unsigned int old __unused;
 
 	kc = kn->kn_ptr.p_v;
 	callout_drain(&kc->c);
