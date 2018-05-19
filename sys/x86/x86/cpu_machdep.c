@@ -167,11 +167,11 @@ acpi_cpu_idle_mwait(uint32_t mwait_hint)
 	KASSERT(atomic_load_int(state) == STATE_SLEEPING,
 	    ("cpu_mwait_cx: wrong monitorbuf state"));
 	atomic_store_int(state, STATE_MWAIT);
-	handle_ibrs_entry();
+	handle_ibrs_exit();
 	cpu_monitor(state, 0, 0);
 	if (atomic_load_int(state) == STATE_MWAIT)
 		cpu_mwait(MWAIT_INTRBREAK, mwait_hint);
-	handle_ibrs_exit();
+	handle_ibrs_entry();
 
 	/*
 	 * We should exit on any event that interrupts mwait, because
@@ -778,11 +778,11 @@ hw_ibrs_recalculate(void)
 
 	if ((cpu_ia32_arch_caps & IA32_ARCH_CAP_IBRS_ALL) != 0) {
 		if (hw_ibrs_disable) {
-			v= rdmsr(MSR_IA32_SPEC_CTRL);
+			v = rdmsr(MSR_IA32_SPEC_CTRL);
 			v &= ~(uint64_t)IA32_SPEC_CTRL_IBRS;
 			wrmsr(MSR_IA32_SPEC_CTRL, v);
 		} else {
-			v= rdmsr(MSR_IA32_SPEC_CTRL);
+			v = rdmsr(MSR_IA32_SPEC_CTRL);
 			v |= IA32_SPEC_CTRL_IBRS;
 			wrmsr(MSR_IA32_SPEC_CTRL, v);
 		}
