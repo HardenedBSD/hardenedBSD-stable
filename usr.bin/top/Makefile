@@ -4,17 +4,11 @@ PROG=	top
 SRCS=	commands.c display.c machine.c screen.c top.c \
 	username.c utils.c
 SRCS+=	sigdesc.h top.local.h
-<<<<<<< HEAD
-CFLAGS+= -DHAVE_GETOPT -DHAVE_STRERROR -DORDER
-CFLAGS+= -I${.CURDIR} -I${TOPDIR} -I.
 
-CFI_OVERRIDE=-fno-sanitize=cfi-icall
-
-WARNS?=	0
-=======
 CFLAGS+= -I ${.OBJDIR}
 MAN=	top.1
->>>>>>> origin/freebsd/current/master
+
+CFI_OVERRIDE=-fno-sanitize=cfi-icall
 
 WARNS?=	1
 
