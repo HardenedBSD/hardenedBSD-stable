@@ -8,8 +8,6 @@ SRCS+=	sigdesc.h top.local.h
 CFLAGS+= -I ${.OBJDIR}
 MAN=	top.1
 
-CFI_OVERRIDE=-fno-sanitize=cfi-icall
-
 WARNS?=	1
 
 LIBADD=	ncursesw m kvm jail
