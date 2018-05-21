@@ -2,13 +2,7 @@
 
 PROG=	top
 SRCS=	commands.c display.c machine.c screen.c top.c \
-<<<<<<< HEAD
-	username.c utils.c
-SRCS+=	sigdesc.h top.local.h
-
-=======
 	username.c utils.c sigdesc.h
->>>>>>> origin/freebsd/current/master
 CFLAGS+= -I ${.OBJDIR}
 MAN=	top.1
 
