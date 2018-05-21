@@ -1,6 +1,5 @@
 /*
  *  Top users/processes display for Unix
- *  Version 3
  *
  *  This program may be freely redistributed,
  *  but this entire comment MUST remain intact.
@@ -18,14 +17,15 @@
  *  "top" (i.e.:  changing the number of processes to display).
  */
 
-#include "os.h"
-
 #include <sys/time.h>
 #include <sys/resource.h>
 
 #include <ctype.h>
 #include <errno.h>
 #include <signal.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "commands.h"
@@ -35,15 +35,20 @@
 #include "utils.h"
 #include "machine.h"
 
-extern int  errno;
-
 extern char *copyright;
 
 /* imported from screen.c */
 extern int overstrike;
 
-int err_compar();
-char *err_string();
+static int err_compar(const void *p1, const void *p2);
+
+struct errs		/* structure for a system-call error */
+{
+    int  errnum;	/* value of errno (that is, the actual error) */
+    char *arg;		/* argument that caused the error */
+};
+
+char *err_string(void);
 static int str_adderr(char *str, int len, int err);
 static int str_addarg(char *str, int len, char *arg, int first);
 
@@ -56,7 +61,7 @@ void
 show_help()
 
 {
-    printf("Top version %s, %s\n", version_string(), copyright);
+    printf("Top version FreeBSD, %s\n", copyright);
     fputs("\n\n\
 A top users display for Unix\n\
 \n\
@@ -86,7 +91,6 @@ J       - display processes for only one jail (+ selects all jails)\n\
 k       - kill processes; send a signal to a list of processes\n\
 m       - toggle the display between 'cpu' and 'io' modes\n\
 n or #  - change number of processes to display\n", stdout);
-#ifdef ORDER
 	if (displaymode == DISP_CPU)
 		fputs("\
 o       - specify sort order (pri, size, res, cpu, time, threads, jid, pid)\n",
@@ -95,7 +99,6 @@ o       - specify sort order (pri, size, res, cpu, time, threads, jid, pid)\n",
 		fputs("\
 o       - specify sort order (vcsw, ivcsw, read, write, fault, total, jid, pid)\n",
 	    stdout);
-#endif
 	fputs("\
 P       - toggle the displaying of per-CPU statistics\n\
 r       - renice a process\n\
@@ -115,10 +118,8 @@ z       - toggle the displaying of the system idle process\n\
  *  Utility routines that help with some of the commands.
  */
 
-char *next_field(str)
-
-register char *str;
-
+static char *
+next_field(char *str)
 {
     if ((str = strchr(str, ' ')) == NULL)
     {
@@ -132,15 +133,15 @@ register char *str;
     return(*str == '\0' ? NULL : str);
 }
 
-int
+static int
 scanint(str, intp)
 
 char *str;
 int  *intp;
 
 {
-    register int val = 0;
-    register char ch;
+    int val = 0;
+    char ch;
 
     /* if there is nothing left of the string, flag it as an error */
     /* This fix is dedicated to Greg Earle */
@@ -179,12 +180,6 @@ int  *intp;
 
 #define ERRMAX 20
 
-struct errs		/* structure for a system-call error */
-{
-    int  errnum;	/* value of errno (that is, the actual error) */
-    char *arg;		/* argument that caused the error */
-};
-
 static struct errs errs[ERRMAX];
 static int errcnt;
 static char *err_toomany = " too many errors occurred";
@@ -213,12 +208,11 @@ static char *err_listem =
 #define STRMAX 80
 
 char *err_string()
-
 {
-    register struct errs *errp;
-    register int  cnt = 0;
-    register int  first = Yes;
-    register int  currerr = -1;
+    struct errs *errp;
+    int  cnt = 0;
+    int  first = Yes;
+    int  currerr = -1;
     int stringlen;		/* characters still available in "string" */
     static char string[STRMAX];
 
@@ -280,10 +274,10 @@ int len;
 int err;
 
 {
-    register char *msg;
-    register int  msglen;
+    char *msg;
+    int  msglen;
 
-    msg = err == 0 ? "Not a number" : errmsg(err);
+    msg = err == 0 ? "Not a number" : strerror(err);
     msglen = strlen(msg) + 2;
     if (len <= msglen)
     {
@@ -309,7 +303,7 @@ char *arg;
 int  first;
 
 {
-    register int arglen;
+    int arglen;
 
     arglen = strlen(arg);
     if (!first)
@@ -333,17 +327,18 @@ int  first;
  *	for sorting errors.
  */
 
-int
-err_compar(p1, p2)
-
-register struct errs *p1, *p2;
-
+static int
+err_compar(const void *p1, const void *p2)
 {
-    register int result;
+    int result;
+    struct errs * g1 = (struct errs *)p1;
+    struct errs * g2 = (struct errs *)p2;
 
-    if ((result = p1->errnum - p2->errnum) == 0)
+
+
+    if ((result = g1->errnum - g2->errnum) == 0)
     {
-	return(strcmp(p1->arg, p2->arg));
+	return(strcmp(g1->arg, g2->arg));
     }
     return(result);
 }
@@ -367,14 +362,14 @@ void
 show_errors()
 
 {
-    register int cnt = 0;
-    register struct errs *errp = errs;
+    int cnt = 0;
+    struct errs *errp = errs;
 
     printf("%d error%s:\n\n", errcnt, errcnt == 1 ? "" : "s");
     while (cnt++ < errcnt)
     {
 	printf("%5s: %s\n", errp->arg,
-	    errp->errnum == 0 ? "Not a number" : errmsg(errp->errnum));
+	    errp->errnum == 0 ? "Not a number" : strerror(errp->errnum));
 	errp++;
     }
 }
@@ -384,12 +379,10 @@ show_errors()
  *		command does; invoked in response to 'k'.
  */
 
-char *kill_procs(str)
-
-char *str;
-
+char *
+kill_procs(char *str)
 {
-    register char *nptr;
+    char *nptr;
     int signum = SIGTERM;	/* default */
     int procnum;
     struct sigdesc *sigp;
@@ -474,12 +467,10 @@ char *str;
  *		"renice" command does; invoked in response to 'r'.
  */
 
-char *renice_procs(str)
-
-char *str;
-
+char *
+renice_procs(char *str)
 {
-    register char negate;
+    char negate;
     int prio;
     int procnum;
     int uid;

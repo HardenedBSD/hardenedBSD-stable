@@ -282,7 +282,7 @@ static struct mtx	unp_defers_lock;
 #define UNP_REF_LIST_UNLOCK()		UNP_DEFERRED_UNLOCK();
 
 #define UNP_PCB_LOCK_INIT(unp)		mtx_init(&(unp)->unp_mtx,	\
-					    "unp_mtx", "unp_mtx",	\
+					    "unp", "unp",	\
 					    MTX_DUPOK|MTX_DEF)
 #define	UNP_PCB_LOCK_DESTROY(unp)	mtx_destroy(&(unp)->unp_mtx)
 #define	UNP_PCB_LOCK(unp)		mtx_lock(&(unp)->unp_mtx)
@@ -1559,7 +1559,6 @@ unp_connectat(int fd, struct socket *so, struct sockaddr *nam,
 		error = EPROTOTYPE;
 		goto bad2;
 	}
-	unp_pcb_lock2(unp, unp2);
 	if (so->so_proto->pr_flags & PR_CONNREQUIRED) {
 		if (so2->so_options & SO_ACCEPTCONN) {
 			CURVNET_SET(so2->so_vnet);
@@ -1569,12 +1568,10 @@ unp_connectat(int fd, struct socket *so, struct sockaddr *nam,
 			so2 = NULL;
 		if (so2 == NULL) {
 			error = ECONNREFUSED;
-			goto bad3;
+			goto bad2;
 		}
 		unp3 = sotounpcb(so2);
-		UNP_PCB_UNLOCK(unp);
-		unp_pcb_owned_lock2(unp2, unp3, freed);
-		MPASS(!freed);
+		unp_pcb_lock2(unp2, unp3);
 		if (unp2->unp_addr != NULL) {
 			bcopy(unp2->unp_addr, sa, unp2->unp_addr->sun_len);
 			unp3->unp_addr = (struct sockaddr_un *) sa;
@@ -1602,18 +1599,22 @@ unp_connectat(int fd, struct socket *so, struct sockaddr *nam,
 		UNP_PCB_UNLOCK(unp2);
 		unp2 = unp3;
 		unp_pcb_owned_lock2(unp2, unp, freed);
-		MPASS(!freed);
+		if (__predict_false(freed)) {
+			UNP_PCB_UNLOCK(unp2);
+			error = ECONNREFUSED;
+			goto bad2;
+		}
 #ifdef MAC
 		mac_socketpeer_set_from_socket(so, so2);
 		mac_socketpeer_set_from_socket(so2, so);
 #endif
-	}
+	} else
+		unp_pcb_lock2(unp, unp2);
 
 	KASSERT(unp2 != NULL && so2 != NULL && unp2->unp_socket == so2 &&
 	    sotounpcb(so2) == unp2,
 	    ("%s: unp2 %p so2 %p", __func__, unp2, so2));
 	error = unp_connect2(so, so2, PRU_CONNECT);
-bad3:
 	UNP_PCB_UNLOCK(unp2);
 	UNP_PCB_UNLOCK(unp);
 bad2:

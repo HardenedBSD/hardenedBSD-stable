@@ -1,19 +1,11 @@
 /*
  * top - a top users display for Unix
  *
- * SYNOPSIS:  For FreeBSD-2.x and later
- *
  * DESCRIPTION:
  * Originally written for BSD4.4 system by Christos Zoulas.
  * Ported to FreeBSD 2.x by Steven Wallace && Wolfram Schneider
  * Order support hacked in from top-3.5beta6/machine/m_aix41.c
  *   by Monte Mitzelfelt (for latest top see http://www.groupsys.com/topinfo/)
- *
- * This is the machine-dependent module for FreeBSD 2.2
- * Works for:
- *	FreeBSD 2.2.x, 3.x, 4.x, and probably FreeBSD 2.1.x
- *
- * LIBS: -lkvm
  *
  * AUTHOR:  Christos Zoulas <christos@ee.cornell.edu>
  *          Steven Wallace  <swallace@freebsd.org>
@@ -243,7 +235,6 @@ static int pageshift;		/* log base 2 of the pagesize */
 /* useful externals */
 long percentages(int cnt, int *out, long *new, long *old, long *diffs);
 
-#ifdef ORDER
 /*
  * Sorting orders.  The first element is the default.
  */
@@ -252,7 +243,6 @@ char *ordernames[] = {
 	"total", "read", "write", "fault", "vcsw", "ivcsw",
 	"jid", "swap", "pid", NULL
 };
-#endif
 
 /* Per-cpu time states */
 static int maxcpu;
@@ -400,9 +390,7 @@ machine_init(struct statics *statics, char do_unames)
 	else
 		statics->carc_names = NULL;
 	statics->swap_names = swapnames;
-#ifdef ORDER
 	statics->order_names = ordernames;
-#endif
 
 	/* Allocate state for per-CPU stats. */
 	cpumask = 0;
@@ -491,7 +479,6 @@ extern struct timeval timeout;
 void
 get_system_info(struct system_info *si)
 {
-	long total;
 	struct loadavg sysload;
 	int mib[2];
 	struct timeval boottime;
@@ -585,7 +572,7 @@ get_system_info(struct system_info *si)
 		arc_stats[3] = arc_stat >> 10;
 		GETSYSCTL("kstat.zfs.misc.arcstats.hdr_size", arc_stat);
 		GETSYSCTL("kstat.zfs.misc.arcstats.l2_hdr_size", arc_stat2);
-		arc_stats[4] = arc_stat + arc_stat2 >> 10;
+		arc_stats[4] = (arc_stat + arc_stat2) >> 10;
 		GETSYSCTL("kstat.zfs.misc.arcstats.other_size", arc_stat);
 		arc_stats[5] = arc_stat >> 10;
 		si->arc = arc_stats;
@@ -943,7 +930,7 @@ get_process_info(struct system_info *si, struct process_select *sel,
 static char fmt[512];	/* static area where result is built */
 
 char *
-format_next_process(caddr_t handle, char *(*get_userid)(int), int flags)
+format_next_process(caddr_t xhandle, char *(*get_userid)(int), int flags)
 {
 	struct kinfo_proc *pp;
 	const struct kinfo_proc *oldp;
@@ -961,7 +948,7 @@ format_next_process(caddr_t handle, char *(*get_userid)(int), int flags)
 	const int cmdlen = 128;
 
 	/* find and remember the next proc structure */
-	hp = (struct handle *)handle;
+	hp = (struct handle *)xhandle;
 	pp = *(hp->next_proc++);
 	hp->remaining--;
 
@@ -1006,11 +993,8 @@ format_next_process(caddr_t handle, char *(*get_userid)(int), int flags)
 		}
 		/* fall through */
 	case SSLEEP:
-		if (pp->ki_wmesg != NULL) {
-			sprintf(status, "%.6s", pp->ki_wmesg);
-			break;
-		}
-		/* FALLTHROUGH */
+		sprintf(status, "%.6s", pp->ki_wmesg);
+		break;
 	default:
 
 		if (state >= 0 &&
@@ -1382,11 +1366,7 @@ static int sorted_state[] = {
 /* compare_cpu - the comparison function for sorting by cpu percentage */
 
 int
-#ifdef ORDER
 compare_cpu(void *arg1, void *arg2)
-#else
-proc_compare(void *arg1, void *arg2)
-#endif
 {
 	struct kinfo_proc *p1 = *(struct kinfo_proc **)arg1;
 	struct kinfo_proc *p2 = *(struct kinfo_proc **)arg2;
@@ -1401,7 +1381,6 @@ proc_compare(void *arg1, void *arg2)
 	return (0);
 }
 
-#ifdef ORDER
 /* "cpu" compare routines */
 int compare_size(), compare_res(), compare_time(), compare_prio(),
     compare_threads();
@@ -1556,16 +1535,11 @@ compare_swap(const void *arg1, const void *arg2)
 
 	return (0);
 }
-#endif /* ORDER */
 
 /* assorted comparison functions for sorting by i/o */
 
 int
-#ifdef ORDER
 compare_iototal(void *arg1, void *arg2)
-#else
-io_compare(void *arg1, void *arg2)
-#endif
 {
 	struct kinfo_proc *p1 = *(struct kinfo_proc **)arg1;
 	struct kinfo_proc *p2 = *(struct kinfo_proc **)arg2;
@@ -1573,7 +1547,6 @@ io_compare(void *arg1, void *arg2)
 	return (get_io_total(p2) - get_io_total(p1));
 }
 
-#ifdef ORDER
 int
 compare_ioread(void *arg1, void *arg2)
 {
@@ -1638,7 +1611,6 @@ compare_ivcsw(void *arg1, void *arg2)
 
 	return (flp2 - flp1);
 }
-#endif /* ORDER */
 
 /*
  * proc_owner(pid) - returns the uid that owns process "pid", or -1 if
