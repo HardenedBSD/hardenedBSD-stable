@@ -91,7 +91,7 @@ enum {
 
 #define	MULTI_DEFAULT_VENDOR_ID		USB_TEMPLATE_VENDOR
 #define	MULTI_DEFAULT_PRODUCT_ID	0x05dc
-#define	MULTI_DEFAULT_MODEM		"Virtual serial console"
+#define	MULTI_DEFAULT_MODEM		"Virtual serial port"
 #define	MULTI_DEFAULT_ETH_MAC		"2A02030405060789AB"
 #define	MULTI_DEFAULT_ETH_CONTROL	"Ethernet Comm Interface"
 #define	MULTI_DEFAULT_ETH_DATA		"Ethernet Data Interface"
@@ -99,7 +99,13 @@ enum {
 #define	MULTI_DEFAULT_CONFIGURATION	"Default configuration"
 #define	MULTI_DEFAULT_MANUFACTURER	USB_TEMPLATE_MANUFACTURER
 #define	MULTI_DEFAULT_PRODUCT		"Multifunction Device"
-#define	MULTI_DEFAULT_SERIAL_NUMBER	"May 2018"
+/*
+ * The reason for this being called like this is that OSX
+ * derives the device node name from it, resulting in a somewhat
+ * user-friendly "/dev/cu.usbmodemFreeBSD1".  And yes, the "1"
+ * needs to be there, otherwise OSX will mangle it.
+ */
+#define MULTI_DEFAULT_SERIAL_NUMBER	"FreeBSD1"
 
 static struct usb_string_descriptor	multi_modem;
 static struct usb_string_descriptor	multi_eth_mac;

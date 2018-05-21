@@ -78,10 +78,16 @@ enum {
 
 #define	MODEM_DEFAULT_VENDOR_ID		USB_TEMPLATE_VENDOR
 #define	MODEM_DEFAULT_PRODUCT_ID	0x27dd
-#define	MODEM_DEFAULT_INTERFACE		"Modem interface"
+#define	MODEM_DEFAULT_INTERFACE		"Virtual serial port"
 #define	MODEM_DEFAULT_MANUFACTURER	USB_TEMPLATE_MANUFACTURER
-#define	MODEM_DEFAULT_PRODUCT		"Modem Test Device"
-#define	MODEM_DEFAULT_SERIAL_NUMBER	"March 2008"
+#define	MODEM_DEFAULT_PRODUCT		"Virtual serial port"
+/*
+ * The reason for this being called like this is that OSX
+ * derives the device node name from it, resulting in a somewhat
+ * user-friendly "/dev/cu.usbmodemFreeBSD1".  And yes, the "1"
+ * needs to be there, otherwise OSX will mangle it.
+ */
+#define	MODEM_DEFAULT_SERIAL_NUMBER	"FreeBSD1"
 
 static struct usb_string_descriptor	modem_interface;
 static struct usb_string_descriptor	modem_manufacturer;
@@ -284,7 +290,7 @@ modem_init(void *arg __unused)
 	parent = SYSCTL_ADD_NODE(&modem_ctx_list,
 	    SYSCTL_STATIC_CHILDREN(_hw_usb_templates), OID_AUTO,
 	    parent_name, CTLFLAG_RW,
-	    0, "USB Modem device side template");
+	    0, "Virtual serial port device side template");
 	SYSCTL_ADD_U16(&modem_ctx_list, SYSCTL_CHILDREN(parent), OID_AUTO,
 	    "vendor_id", CTLFLAG_RWTUN,
 	    &usb_template_modem.idVendor, 1, "Vendor identifier");
