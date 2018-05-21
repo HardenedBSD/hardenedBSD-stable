@@ -414,12 +414,16 @@ int invpcid_works = 0;
 SYSCTL_INT(_vm_pmap, OID_AUTO, invpcid_works, CTLFLAG_RD, &invpcid_works, 0,
     "Is the invpcid instruction available ?");
 
+<<<<<<< HEAD
 #ifdef PAX
 /* The related part of code is in x86/identcpu.c - see pti_get_default() */
 int pti = 1;
 #else
 int pti = 0;
 #endif
+=======
+int __read_frequently pti = 0;
+>>>>>>> origin/freebsd/current/master
 SYSCTL_INT(_vm_pmap, OID_AUTO, pti, CTLFLAG_RDTUN | CTLFLAG_NOFETCH,
     &pti, 0,
     "Page Table Isolation enabled");

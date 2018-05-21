@@ -35,11 +35,6 @@
 #include "utils.h"
 #include "machine.h"
 
-extern char *copyright;
-
-/* imported from screen.c */
-extern int overstrike;
-
 static int err_compar(const void *p1, const void *p2);
 
 struct errs		/* structure for a system-call error */
@@ -48,7 +43,7 @@ struct errs		/* structure for a system-call error */
     char *arg;		/* argument that caused the error */
 };
 
-char *err_string(void);
+static char *err_string(void);
 static int str_adderr(char *str, int len, int err);
 static int str_addarg(char *str, int len, char *arg, int first);
 
@@ -182,8 +177,8 @@ int  *intp;
 
 static struct errs errs[ERRMAX];
 static int errcnt;
-static char *err_toomany = " too many errors occurred";
-static char *err_listem = 
+static char err_toomany[] = " too many errors occurred";
+static char err_listem[] = 
 	" Many errors occurred.  Press `e' to display the list of errors.";
 
 /* These macros get used to reset and log the errors */
@@ -242,7 +237,7 @@ char *err_string()
 		{
 		    return(err_listem);
 		}
-		(void) strcat(string, "; ");	  /* we know there's more */
+		strcat(string, "; ");	  /* we know there's more */
 	    }
 	    currerr = errp->errnum;
 	    first = Yes;
@@ -267,15 +262,10 @@ char *err_string()
  */
 
 static int
-str_adderr(str, len, err)
-
-char *str;
-int len;
-int err;
-
+str_adderr(char *str, int len, int err)
 {
-    char *msg;
-    int  msglen;
+    const char *msg;
+    int msglen;
 
     msg = err == 0 ? "Not a number" : strerror(err);
     msglen = strlen(msg) + 2;
@@ -283,8 +273,8 @@ int err;
     {
 	return(0);
     }
-    (void) strcat(str, ": ");
-    (void) strcat(str, msg);
+    strcat(str, ": ");
+    strcat(str, msg);
     return(len - msglen);
 }
 
@@ -316,9 +306,9 @@ int  first;
     }
     if (!first)
     {
-	(void) strcat(str, ", ");
+	strcat(str, ", ");
     }
-    (void) strcat(str, arg);
+    strcat(str, arg);
     return(len - arglen);
 }
 
@@ -331,8 +321,8 @@ static int
 err_compar(const void *p1, const void *p2)
 {
     int result;
-    struct errs * g1 = (struct errs *)p1;
-    struct errs * g2 = (struct errs *)p2;
+    const struct errs * const g1 = (const struct errs * const)p1;
+    const struct errs * const g2 = (const struct errs * const)p2;
 
 
 
@@ -374,6 +364,11 @@ show_errors()
     }
 }
 
+static char no_proc_specified[] = " no processes specified";
+static char invalid_signal_number[] = " invalid_signal_number";
+static char bad_signal_name[] = " bad signal name";
+static char bad_pri_value[] = " bad priority value";
+
 /*
  *  kill_procs(str) - send signals to processes, much like the "kill"
  *		command does; invoked in response to 'k'.
@@ -402,15 +397,15 @@ kill_procs(char *str)
 	/* explicit signal specified */
 	if ((nptr = next_field(str)) == NULL)
 	{
-	    return(" kill: no processes specified");
+	    return(no_proc_specified);
 	}
 
 	if (isdigit(str[1]))
 	{
-	    (void) scanint(str + 1, &signum);
+	    scanint(str + 1, &signum);
 	    if (signum <= 0 || signum >= NSIG)
 	    {
-		return(" invalid signal number");
+		return(invalid_signal_number);
 	    }
 	}
 	else 
@@ -428,7 +423,7 @@ kill_procs(char *str)
 	    /* was it ever found */
 	    if (sigp->name == NULL)
 	    {
-		return(" bad signal name");
+		return(bad_signal_name);
 	    }
 	}
 	/* put the new pointer in place */
@@ -494,18 +489,16 @@ renice_procs(char *str)
 	prio = -prio;
     }
 
-#if defined(PRIO_MIN) && defined(PRIO_MAX)
     /* check for validity */
     if (procnum == -1 || prio < PRIO_MIN || prio > PRIO_MAX)
     {
-	return(" bad priority value");
+	return(bad_pri_value);
     }
-#endif
 
     /* move to the first process number */
     if ((str = next_field(str)) == NULL)
     {
-	return(" no processes specified");
+	return(no_proc_specified);
     }
 
     /* loop thru the process numbers, renicing each one */

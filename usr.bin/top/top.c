@@ -1,9 +1,5 @@
-char *copyright =
-    "Copyright (c) 1984 through 1996, William LeFebvre";
-
 /*
  *  Top users/processes display for Unix
- *  Version 3
  *
  *  This program may be freely redistributed,
  *  but this entire comment MUST remain intact.
@@ -14,23 +10,6 @@ char *copyright =
  *  Copyright (c) 1996, William LeFebvre, Group sys Consulting
  *
  * $FreeBSD$
- */
-
-/*
- *  See the file "Changes" for information on version-to-version changes.
- */
-
-/*
- *  This file contains "main" and other high-level routines.
- */
-
-/*
- * The following preprocessor variables, when defined, are used to
- * distinguish between different Unix implementations:
- *
- *	SIGHOLD  - use SVR4 sighold function when defined
- *	SIGRELSE - use SVR4 sigrelse function when defined
- *	FD_SET   - macros FD_SET and FD_ZERO are used when defined
  */
 
 #include <sys/types.h>
@@ -48,12 +27,10 @@ char *copyright =
 #include <string.h>
 #include <unistd.h>
 
-/* includes specific to top */
 #include "commands.h"
 #include "display.h"		/* interface to display package */
 #include "screen.h"		/* interface to screen package */
 #include "top.h"
-#include "top.local.h"
 #include "boolean.h"
 #include "machine.h"
 #include "utils.h"
@@ -62,72 +39,59 @@ char *copyright =
 /* Size of the stdio buffer given to stdout */
 #define Buffersize	2048
 
+char copyright[] =
+    "Copyright (c) 1984 through 1996, William LeFebvre";
+
 typedef void sigret_t;
 
 /* The buffer that stdio will use */
-char stdoutbuf[Buffersize];
+static char stdoutbuf[Buffersize];
 
 /* build Signal masks */
 #define Smask(s)	(1 << ((s) - 1))
 
-/* for getopt: */
-extern int  optind;
-extern char *optarg;
-
-/* imported from screen.c */
-extern int overstrike;
 
 static int fmt_flags = 0;
 int pcpu_stats = No;
 
 /* signal handling routines */
-sigret_t leave();
-sigret_t tstop();
-sigret_t top_winch(int);
+static sigret_t leave(int);
+static sigret_t tstop(int);
+static sigret_t top_winch(int);
 
-volatile sig_atomic_t leaveflag;
-volatile sig_atomic_t tstopflag;
-volatile sig_atomic_t winchflag;
-
-/* internal routines */
-void quit();
+static volatile sig_atomic_t leaveflag;
+static volatile sig_atomic_t tstopflag;
+static volatile sig_atomic_t winchflag;
 
 /* values which need to be accessed by signal handlers */
 static int max_topn;		/* maximum displayable processes */
 
 /* miscellaneous things */
 struct process_select ps;
-char *myname = "top";
-jmp_buf jmp_int;
+const char * myname = "top";
 
-/* routines that don't return int */
+char *username(int);
 
-char *username();
-
-extern int (*compares[])();
-time_t time();
-
-caddr_t get_process_info(struct system_info *si, struct process_select *sel,
-    int (*compare)(const void *, const void *));
+time_t time(time_t *tloc);
 
 /* different routines for displaying the user's identification */
 /* (values assigned to get_userid) */
-char *username();
-char *itoa7();
+char *username(int);
+char *itoa7(int);
 
 /* pointers to display routines */
-void (*d_loadave)(int mpid, double *avenrun) = i_loadave;
-void (*d_procstates)(int total, int *brkdn) = i_procstates;
-void (*d_cpustates)(int *states) = i_cpustates;
-void (*d_memory)(int *stats) = i_memory;
-void (*d_arc)(int *stats) = i_arc;
-void (*d_carc)(int *stats) = i_carc;
-void (*d_swap)(int *stats) = i_swap;
-void (*d_message)(void) = i_message;
-void (*d_header)(char *text) = i_header;
-void (*d_process)(int line, char *thisline) = i_process;
+static void (*d_loadave)(int mpid, double *avenrun) = i_loadave;
+static void (*d_procstates)(int total, int *brkdn) = i_procstates;
+static void (*d_cpustates)(int *states) = i_cpustates;
+static void (*d_memory)(int *stats) = i_memory;
+static void (*d_arc)(int *stats) = i_arc;
+static void (*d_carc)(int *stats) = i_carc;
+static void (*d_swap)(int *stats) = i_swap;
+static void (*d_message)(void) = i_message;
+static void (*d_header)(char *text) = i_header;
+static void (*d_process)(int line, char *thisline) = i_process;
 
-void reset_display(void);
+static void reset_display(void);
 
 static void
 reset_uids()
@@ -246,17 +210,17 @@ char *argv[];
 
     struct system_info system_info;
     struct statics statics;
-    caddr_t processes;
+    void * processes;
 
     static char tempbuf1[50];
     static char tempbuf2[50];
     int old_sigmask;		/* only used for BSD-style signals */
-    int topn = Default_TOPN;
+    int topn = Infinity;
     int delay = Default_DELAY;
     int displays = 0;		/* indicates unspecified */
     int sel_ret = 0;
     time_t curr_time;
-    char *(*get_userid)() = username;
+    char *(*get_userid)(int) = username;
     char *uname_field = "USERNAME";
     char *header_text;
     char *env_top;
@@ -268,9 +232,7 @@ char *argv[];
     char do_unames = Yes;
     char interactive = Maybe;
     char warnings = 0;
-#if Default_TOPN == Infinity
     char topn_specified = No;
-#endif
     char ch;
     char *iptr;
     char no_command = 1;
@@ -440,7 +402,7 @@ char *argv[];
 		if (getuid() == 0)
 		{
 		    /* be very un-nice! */
-		    (void) nice(-20);
+		    nice(-20);
 		}
 		else
 		{
@@ -525,12 +487,10 @@ char *argv[];
 			myname);
 		warnings++;
 	    }
-#if Default_TOPN == Infinity
             else
 	    {
 		topn_specified = Yes;
 	    }
-#endif
 	}
 
 	/* tricky:  remember old value of preset_argc & set preset_argc = 0 */
@@ -548,7 +508,7 @@ char *argv[];
     }
 
     /* initialize the kernel memory interface */
-    if (machine_init(&statics, do_unames) == -1)
+    if (machine_init(&statics) == -1)
     {
 	exit(1);
     }
@@ -572,14 +532,6 @@ char *argv[];
 	    exit(1);
 	}
     }
-
-#ifdef no_initialization_needed
-    /* initialize the hashing stuff */
-    if (do_unames)
-    {
-	init_hash();
-    }
-#endif
 
     /* initialize termcap */
     init_termcap(interactive);
@@ -616,12 +568,8 @@ char *argv[];
 	 *  and the default is Infinity, then (and only then) we use
 	 *  "Nominal_TOPN" instead.
 	 */
-#if Default_TOPN == Infinity
 	topn = smart_terminal ? Largest :
 		    (topn_specified ? Largest : Nominal_TOPN);
-#else
-	topn = Largest;
-#endif
     }
 
     /* set header display accordingly */
@@ -640,25 +588,13 @@ char *argv[];
     }
 
     /* hold interrupt signals while setting up the screen and the handlers */
-#ifdef SIGHOLD
-    sighold(SIGINT);
-    sighold(SIGQUIT);
-    sighold(SIGTSTP);
-#else
     old_sigmask = sigblock(Smask(SIGINT) | Smask(SIGQUIT) | Smask(SIGTSTP));
-#endif
     init_screen();
-    (void) signal(SIGINT, leave);
-    (void) signal(SIGQUIT, leave);
-    (void) signal(SIGTSTP, tstop);
-    (void) signal(SIGWINCH, top_winch);
-#ifdef SIGRELSE
-    sigrelse(SIGINT);
-    sigrelse(SIGQUIT);
-    sigrelse(SIGTSTP);
-#else
-    (void) sigsetmask(old_sigmask);
-#endif
+    signal(SIGINT, leave);
+    signal(SIGQUIT, leave);
+    signal(SIGTSTP, tstop);
+    signal(SIGWINCH, top_winch);
+    sigsetmask(old_sigmask);
     if (warnings)
     {
 	fputs("....", stderr);
@@ -676,7 +612,7 @@ restart:
 
     while ((displays == -1) || (displays-- > 0))
     {
-	int (*compare)();
+	int (*compare)(const void * const, const void * const);
 
 	    
 	/* get the current stats */
@@ -740,7 +676,7 @@ restart:
 	    /* determine number of processes to actually display */
 	    /* this number will be the smallest of:  active processes,
 	       number user requested, number current screen accomodates */
-	    active_procs = system_info.P_ACTIVE;
+	    active_procs = system_info.p_pactive;
 	    if (active_procs > topn)
 	    {
 		active_procs = topn;
@@ -830,18 +766,14 @@ restart:
 		    fflush(stdout);
 
 		    /* default the signal handler action */
-		    (void) signal(SIGTSTP, SIG_DFL);
+		    signal(SIGTSTP, SIG_DFL);
 
 		    /* unblock the signal and send ourselves one */
-#ifdef SIGRELSE
-		    sigrelse(SIGTSTP);
-#else
-		    (void) sigsetmask(sigblock(0) & ~(1 << (SIGTSTP - 1)));
-#endif
-		    (void) kill(0, SIGTSTP);
+		    sigsetmask(sigblock(0) & ~(1 << (SIGTSTP - 1)));
+		    kill(0, SIGTSTP);
 
 		    /* reset the signal handler */
-		    (void) signal(SIGTSTP, tstop);
+		    signal(SIGTSTP, tstop);
 
 		    /* reinit screen */
 		    reinit_screen();
@@ -858,7 +790,7 @@ restart:
 		    max_topn = display_resize();
 
 		    /* reset the signal handler */
-		    (void) signal(SIGWINCH, top_winch);
+		    signal(SIGWINCH, top_winch);
 
 		    reset_display();
 		    winchflag = 0;
@@ -936,7 +868,7 @@ restart:
 				show_help();
 				top_standout("Hit any key to continue: ");
 				fflush(stdout);
-				(void) read(0, &ch, 1);
+				read(0, &ch, 1);
 				break;
 	
 			    case CMD_errors:	/* show errors */
@@ -954,7 +886,7 @@ restart:
 				    show_errors();
 				    top_standout("Hit any key to continue: ");
 				    fflush(stdout);
-				    (void) read(0, &ch, 1);
+				    read(0, &ch, 1);
 				}
 				break;
 	
@@ -1224,7 +1156,7 @@ restart:
  *	screen will get redrawn.
  */
 
-void
+static void
 reset_display()
 
 {
@@ -1244,30 +1176,30 @@ reset_display()
  *  signal handlers
  */
 
-sigret_t leave()	/* exit under normal conditions -- INT handler */
+static sigret_t
+leave(int i __unused)	/* exit under normal conditions -- INT handler */
 {
 
     leaveflag = 1;
 }
 
-sigret_t tstop(int i __unused)	/* SIGTSTP handler */
+static sigret_t
+tstop(int i __unused)	/* SIGTSTP handler */
 {
 
     tstopflag = 1;
 }
 
-sigret_t top_winch(int i __unused)		/* SIGWINCH handler */
+static sigret_t
+top_winch(int i __unused)		/* SIGWINCH handler */
 {
 
     winchflag = 1;
 }
 
-void quit(status)		/* exit under duress */
-
-int status;
-
+void
+quit(int status)		/* exit under duress */
 {
     end_screen();
     exit(status);
-    /*NOTREACHED*/
 }
