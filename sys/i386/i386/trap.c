@@ -337,8 +337,14 @@ user_trctrap_out:
 			signo = SIGTRAP;
 			ucode = TRAP_TRACE;
 			dr6 = rdr6();
-			if (dr6 & DBREG_DR6_BS)
-				frame->tf_eflags &= ~PSL_T;
+			if ((dr6 & DBREG_DR6_BS) != 0) {
+				PROC_LOCK(td->td_proc);
+				if ((td->td_dbgflags & TDB_STEP) != 0) {
+					td->td_frame->tf_eflags &= ~PSL_T;
+					td->td_dbgflags &= ~TDB_STEP;
+				}
+				PROC_UNLOCK(td->td_proc);
+			}
 			break;
 
 		case T_ARITHTRAP:	/* arithmetic trap */
@@ -357,7 +363,6 @@ user_trctrap_out:
 			if (frame->tf_eflags & PSL_VM) {
 				signo = vm86_emulate((struct vm86frame *)frame);
 				if (signo == SIGTRAP) {
-					type = T_TRCTRAP;
 					load_dr6(rdr6() | 0x4000);
 					goto user_trctrap_out;
 				}
