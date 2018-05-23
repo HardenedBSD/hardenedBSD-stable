@@ -6,16 +6,16 @@
 # Enable various levels of compiler warning checks.  These may be
 # overridden (e.g. if using a non-gcc compiler) by defining MK_WARNS=no.
 
-# for GCC:   http://gcc.gnu.org/onlinedocs/gcc-4.2.1/gcc/Warning-Options.html
+# for 4.2.1 GCC:   http://gcc.gnu.org/onlinedocs/gcc-4.2.1/gcc/Warning-Options.html
+# for current GCC: https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html
+# for clang: https://clang.llvm.org/docs/DiagnosticsReference.html
 
 .include <bsd.compiler.mk>
 
 # the default is gnu99 for now
 CSTD?=		gnu99
 
-.if ${CSTD} == "k&r"
-CFLAGS+=	-traditional
-.elif ${CSTD} == "c89" || ${CSTD} == "c90"
+.if ${CSTD} == "c89" || ${CSTD} == "c90"
 CFLAGS+=	-std=iso9899:1990
 .elif ${CSTD} == "c94" || ${CSTD} == "c95"
 CFLAGS+=	-std=iso9899:199409
@@ -28,7 +28,7 @@ CFLAGS+=	-std=${CSTD}
 #CFLAGS+=	-pedantic
 .if defined(WARNS)
 .if ${WARNS} >= 1
-CWARNFLAGS+=	-Wsystem-headers
+CWARNFLAGS+=	-Wsystem-headers -Wmain
 .if !defined(NO_WERROR) && !defined(NO_WERROR.${COMPILER_TYPE})
 CWARNFLAGS+=	-Werror
 .endif # !NO_WERROR && !NO_WERROR.${COMPILER_TYPE}
@@ -47,7 +47,6 @@ CWARNFLAGS+=	-Wreturn-type -Wcast-qual -Wwrite-strings -Wswitch -Wshadow\
 CWARNFLAGS+=	-Wcast-align
 .endif # !NO_WCAST_ALIGN !NO_WCAST_ALIGN.${COMPILER_TYPE}
 .endif # WARNS >= 4
-# BDECFLAGS
 .if ${WARNS} >= 6
 CWARNFLAGS+=	-Wchar-subscripts -Winline -Wnested-externs -Wredundant-decls\
 		-Wold-style-definition
