@@ -2680,7 +2680,7 @@ prison_hold_locked(struct prison *pr)
 
 	mtx_assert(&pr->pr_mtx, MA_OWNED);
 	KASSERT(pr->pr_ref > 0,
-	    ("Trying to hold dead prison (jid=%d).", pr->pr_id));
+	    ("Trying to hold dead prison %p (jid=%d).", pr, pr->pr_id));
 	pr->pr_ref++;
 }
 
@@ -3560,7 +3560,7 @@ sysctl_jail_vnet(SYSCTL_HANDLER_ARGS)
 
 SYSCTL_PROC(_security_jail, OID_AUTO, vnet,
     CTLTYPE_INT | CTLFLAG_RD | CTLFLAG_MPSAFE, NULL, 0,
-    sysctl_jail_vnet, "I", "Jail owns VNET?");
+    sysctl_jail_vnet, "I", "Jail owns vnet?");
 
 #if defined(INET) || defined(INET6)
 SYSCTL_UINT(_security_jail, OID_AUTO, jail_max_af_ips, CTLFLAG_RW,
