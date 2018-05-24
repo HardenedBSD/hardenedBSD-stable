@@ -290,6 +290,7 @@ cpl_handler_t set_tcb_rpl_handlers[NUM_CPL_COOKIES];
 cpl_handler_t l2t_write_rpl_handlers[NUM_CPL_COOKIES];
 cpl_handler_t act_open_rpl_handlers[NUM_CPL_COOKIES];
 cpl_handler_t abort_rpl_rss_handlers[NUM_CPL_COOKIES];
+cpl_handler_t fw4_ack_handlers[NUM_CPL_COOKIES];
 
 void
 t4_register_an_handler(an_handler_t h)
@@ -402,6 +403,23 @@ abort_rpl_rss_handler(struct sge_iq *iq, const struct rss_header *rss,
 	return (abort_rpl_rss_handlers[cookie](iq, rss, m));
 }
 
+static int
+fw4_ack_handler(struct sge_iq *iq, const struct rss_header *rss, struct mbuf *m)
+{
+	struct adapter *sc = iq->adapter;
+	const struct cpl_fw4_ack *cpl = (const void *)(rss + 1);
+	unsigned int tid = G_CPL_FW4_ACK_FLOWID(be32toh(OPCODE_TID(cpl)));
+	u_int cookie;
+
+	MPASS(m == NULL);
+	if (is_etid(sc, tid))
+		cookie = CPL_COOKIE_ETHOFLD;
+	else
+		cookie = CPL_COOKIE_TOM;
+
+	return (fw4_ack_handlers[cookie](iq, rss, m));
+}
+
 static void
 t4_init_shared_cpl_handlers(void)
 {
@@ -410,6 +428,7 @@ t4_init_shared_cpl_handlers(void)
 	t4_register_cpl_handler(CPL_L2T_WRITE_RPL, l2t_write_rpl_handler);
 	t4_register_cpl_handler(CPL_ACT_OPEN_RPL, act_open_rpl_handler);
 	t4_register_cpl_handler(CPL_ABORT_RPL_RSS, abort_rpl_rss_handler);
+	t4_register_cpl_handler(CPL_FW4_ACK, fw4_ack_handler);
 }
 
 void
@@ -434,6 +453,9 @@ t4_register_shared_cpl_handler(int opcode, cpl_handler_t h, int cookie)
 		break;
 	case CPL_ABORT_RPL_RSS:
 		loc = (uintptr_t *)&abort_rpl_rss_handlers[cookie];
+		break;
+	case CPL_FW4_ACK:
+		loc = (uintptr_t *)&fw4_ack_handlers[cookie];
 		break;
 	default:
 		MPASS(0);
@@ -2062,14 +2084,7 @@ needs_tso(struct mbuf *m)
 
 	M_ASSERTPKTHDR(m);
 
-	if (m->m_pkthdr.csum_flags & CSUM_TSO) {
-		KASSERT(m->m_pkthdr.tso_segsz > 0,
-		    ("%s: TSO requested in mbuf %p but MSS not provided",
-		    __func__, m));
-		return (1);
-	}
-
-	return (0);
+	return (m->m_pkthdr.csum_flags & CSUM_TSO);
 }
 
 static inline int
@@ -2078,9 +2093,7 @@ needs_l3_csum(struct mbuf *m)
 
 	M_ASSERTPKTHDR(m);
 
-	if (m->m_pkthdr.csum_flags & (CSUM_IP | CSUM_TSO))
-		return (1);
-	return (0);
+	return (m->m_pkthdr.csum_flags & (CSUM_IP | CSUM_TSO));
 }
 
 static inline int
@@ -2089,10 +2102,8 @@ needs_l4_csum(struct mbuf *m)
 
 	M_ASSERTPKTHDR(m);
 
-	if (m->m_pkthdr.csum_flags & (CSUM_TCP | CSUM_UDP | CSUM_UDP_IPV6 |
-	    CSUM_TCP_IPV6 | CSUM_TSO))
-		return (1);
-	return (0);
+	return (m->m_pkthdr.csum_flags & (CSUM_TCP | CSUM_UDP | CSUM_UDP_IPV6 |
+	    CSUM_TCP_IPV6 | CSUM_TSO));
 }
 
 static inline int
@@ -2101,13 +2112,7 @@ needs_vlan_insertion(struct mbuf *m)
 
 	M_ASSERTPKTHDR(m);
 
-	if (m->m_flags & M_VLANTAG) {
-		KASSERT(m->m_pkthdr.ether_vtag != 0,
-		    ("%s: HWVLAN requested in mbuf %p but tag not provided",
-		    __func__, m));
-		return (1);
-	}
-	return (0);
+	return (m->m_flags & M_VLANTAG);
 }
 
 static void *
@@ -2367,9 +2372,29 @@ commit_wrq_wr(struct sge_wrq *wrq, void *w, struct wrq_cookie *cookie)
 	next = TAILQ_NEXT(cookie, link);
 	if (prev == NULL) {
 		MPASS(pidx == eq->dbidx);
-		if (next == NULL || ndesc >= 16)
+		if (next == NULL || ndesc >= 16) {
+			int available;
+			struct fw_eth_tx_pkt_wr *dst;	/* any fw WR struct will do */
+
+			/*
+			 * Note that the WR via which we'll request tx updates
+			 * is at pidx and not eq->pidx, which has moved on
+			 * already.
+			 */
+			dst = (void *)&eq->desc[pidx];
+			available = IDXDIFF(eq->cidx, eq->pidx, eq->sidx) - 1;
+			if (available < eq->sidx / 4 &&
+			    atomic_cmpset_int(&eq->equiq, 0, 1)) {
+				dst->equiq_to_len16 |= htobe32(F_FW_WR_EQUIQ |
+				    F_FW_WR_EQUEQ);
+				eq->equeqidx = pidx;
+			} else if (IDXDIFF(eq->pidx, eq->equeqidx, eq->sidx) >= 32) {
+				dst->equiq_to_len16 |= htobe32(F_FW_WR_EQUEQ);
+				eq->equeqidx = pidx;
+			}
+
 			ring_eq_db(wrq->adapter, eq, ndesc);
-		else {
+		} else {
 			MPASS(IDXDIFF(next->pidx, pidx, eq->sidx) == ndesc);
 			next->pidx = pidx;
 			next->ndesc += ndesc;
