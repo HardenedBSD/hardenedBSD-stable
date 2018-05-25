@@ -458,11 +458,9 @@ DB_SHOW_COMMAND(proc, db_show_proc)
 		}
 		db_printf("\n");
 	}
-<<<<<<< HEAD
 #ifdef PAX
 	pax_db_printf_flags(p, PAX_LOG_DEFAULT);
 #endif
-=======
 	db_printf(" repear: %p reapsubtree: %d\n",
 	    p->p_reaper, p->p_reapsubtree);
 	db_printf(" sigparent: %d\n", p->p_sigparent);
@@ -473,7 +471,6 @@ DB_SHOW_COMMAND(proc, db_show_proc)
 	    (p->p_vmspace != NULL) ? &p->p_vmspace->vm_map.pmap : 0);
 	db_printf("   (pmap %p)\n",
 	    (p->p_vmspace != NULL) ? &p->p_vmspace->vm_pmap : 0);
->>>>>>> origin/freebsd/current/master
 	db_printf(" threads: %d\n", p->p_numthreads);
 	FOREACH_THREAD_IN_PROC(p, td) {
 		dumpthread(p, td, 1);
