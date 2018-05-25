@@ -808,7 +808,7 @@ _cleanobj_fast_depend_hack: .PHONY
 # 20180404  r332048  sigreturn
 # 20180405  r332080  shmat
 # 20180406  r332119  setlogin
-# 20170411  r332443  exect
+# 20180411  r332443  exect
 .for f in exect fstat fstatat fstatfs getdirentries getfsstat setlogin shmat sigreturn statfs
 .if exists(${OBJTOP}/lib/libc/.depend.${f}.o)
 	@if egrep -qw '${f}\.[sS]' \
@@ -2029,8 +2029,7 @@ _tcsh=bin/csh
 _libmagic=lib/libmagic
 .endif
 
-.if (${MACHINE_CPUARCH} == "aarch64" || ${MACHINE_CPUARCH} == "amd64" || \
-	${MACHINE_CPUARCH} == "powerpc")
+.if ${MACHINE_CPUARCH} == "amd64"
 _jevents=lib/libpmcstat/pmu-events
 .endif
 
