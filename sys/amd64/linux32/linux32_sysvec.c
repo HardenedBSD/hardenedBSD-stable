@@ -213,17 +213,10 @@ linux_fixup_elf(register_t **stack_base, struct image_params *imgp)
 	    M_WAITOK | M_ZERO);
 
 	issetugid = imgp->proc->p_flag & P_SUGID ? 1 : 0;
-<<<<<<< HEAD
-	AUXARGS_ENTRY_32(pos, LINUX_AT_SYSINFO_EHDR,
-	    imgp->proc->p_shared_page_base);
-	AUXARGS_ENTRY_32(pos, LINUX_AT_SYSINFO, linux32_vsyscall);
-	AUXARGS_ENTRY_32(pos, LINUX_AT_HWCAP, cpu_feature);
-=======
 	AUXARGS_ENTRY(pos, LINUX_AT_SYSINFO_EHDR,
-	    imgp->proc->p_sysent->sv_shared_page_base);
+	    imgp->proc->p_shared_page_base);
 	AUXARGS_ENTRY(pos, LINUX_AT_SYSINFO, linux32_vsyscall);
 	AUXARGS_ENTRY(pos, LINUX_AT_HWCAP, cpu_feature);
->>>>>>> origin/freebsd/current/master
 
 	/*
 	 * Do not export AT_CLKTCK when emulating Linux kernel prior to 2.4.0,
