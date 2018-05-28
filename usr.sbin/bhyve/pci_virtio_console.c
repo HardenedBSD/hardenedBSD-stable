@@ -306,7 +306,7 @@ pci_vtcon_sock_add(struct pci_vtcon_softc *sc, const char *name,
 	sun.sun_family = AF_UNIX;
 	sun.sun_len = sizeof(struct sockaddr_un);
 	strcpy(pathcopy, path);
-	strncpy(sun.sun_path, basename(pathcopy), sizeof(sun.sun_path));
+	strlcpy(sun.sun_path, basename(pathcopy), sizeof(sun.sun_path));
 	free(pathcopy);
 
 	if (bindat(fd, s, (struct sockaddr *)&sun, sun.sun_len) < 0) {
@@ -651,7 +651,7 @@ pci_vtcon_init(struct vmctx *ctx, struct pci_devinst *pi, char *opts)
 
 	while ((opt = strsep(&opts, ",")) != NULL) {
 		portname = strsep(&opt, "=");
-		portpath = strdup(opt);
+		portpath = opt;
 
 		/* create port */
 		if (pci_vtcon_sock_add(sc, portname, portpath) < 0) {

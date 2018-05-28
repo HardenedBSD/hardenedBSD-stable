@@ -47,7 +47,7 @@ DTRACE_PRAGMA="
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 1.2 $' # -V
+VERSION='$Version: 1.3 $' # -V
 
 pgm="${0##*/}" # Program basename
 
@@ -1057,10 +1057,6 @@ PSARGS_ACTION=$( cat <&9 )
 					slen = length(sprintf("%u", start))
 					elen = length(sprintf("%u", end))
 					N = elen > slen ? elen : slen
-					for (i = start; i <= end; i++) {
-						ti[i] = "\033[2m"
-						te[i] = "\033[22m"
-					}
 					ti[line] = "\033[31m"
 					te[line] = "\033[39m"
 					fmt = "%s%*u %s%s\n"
@@ -1353,7 +1349,7 @@ $ACTIONS
 }
 /*********************************************************/
 
-$PROBE${EVENT_TEST:+ /$EVENT_TEST/} /* probe ID $ID */
+$PROBE${EVENT_TEST:+ / $EVENT_TEST /} /* probe ID $ID */
 {${TRACE:+
 	printf("<$ID>");
 }
