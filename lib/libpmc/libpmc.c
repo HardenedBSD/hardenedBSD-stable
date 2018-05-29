@@ -2781,7 +2781,8 @@ pmc_allocate(const char *ctrspec, enum pmc_mode mode,
 
 	if (mode != PMC_MODE_SS && mode != PMC_MODE_TS &&
 	    mode != PMC_MODE_SC && mode != PMC_MODE_TC) {
-		return (EINVAL);
+		errno = EINVAL;
+		goto out;
 	}
 	bzero(&pmc_config, sizeof(pmc_config));
 	pmc_config.pm_cpu   = cpu;
@@ -2795,10 +2796,12 @@ pmc_allocate(const char *ctrspec, enum pmc_mode mode,
 	r = spec_copy = strdup(ctrspec);
 	ctrname = strsep(&r, ",");
 	if (pmc_pmu_pmcallocate(ctrname, &pmc_config) == 0) {
-		if (PMC_CALL(PMCALLOCATE, &pmc_config) < 0)
-			return (errno);
+		if (PMC_CALL(PMCALLOCATE, &pmc_config) < 0) {
+			goto out;
+		}
+		retval = 0;
 		*pmcid = pmc_config.pm_pmcid;
-		return (0);
+		goto out;
 	} else {
 		free(spec_copy);
 		spec_copy = NULL;
