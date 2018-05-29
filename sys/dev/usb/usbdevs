@@ -507,7 +507,7 @@ vendor HAL		0x0b41	HAL Corporation
 vendor EMS		0x0b43	EMS Production
 vendor NEC2		0x0b62	NEC
 vendor ADLINK		0x0b63	ADLINK Technoligy, Inc.
-vendor ATI2		0x0b6f	ATI
+vendor ATI2		0x0b6f	ATI Technologies
 vendor ZEEVO		0x0b7a	Zeevo, Inc.
 vendor KURUSUGAWA	0x0b7e	Kurusugawa Electronics, Inc.
 vendor SMART		0x0b8c	Smart Technologies
@@ -579,6 +579,7 @@ vendor MOTOROLA4	0x100d	Motorola
 vendor HP3		0x103c	Hewlett Packard
 vendor AIRPLUS		0x1011  Airplus
 vendor DESKNOTE		0x1019	Desknote
+vendor AMD2		0x1022  Advanced Micro Devices
 vendor NEC3		0x1033	NEC
 vendor TTI		0x103e	Thurlby Thandar Instruments
 vendor GIGABYTE		0x1044	GIGABYTE
@@ -2200,9 +2201,12 @@ product GENESYS GL620USB	0x0501	GL620USB Host-Host interface
 product GENESYS GL650		0x0604	GL650 HUB
 product GENESYS GL606		0x0606	GL606 USB 2.0 HUB
 product GENESYS GL850G		0x0608	GL850G USB 2.0 HUB
+product GENESYS GL3520_2	0x0610	GL3520 4-Port USB 2.0 DataPath
+product GENESYS GL3520_SS	0x0616	GL3520 4-Port USB 3.0 DataPath
 product GENESYS GL641USB	0x0700	GL641USB CompactFlash Card Reader
 product GENESYS GL641USB2IDE_2	0x0701	GL641USB USB-IDE Bridge No 2
 product GENESYS GL641USB2IDE	0x0702	GL641USB USB-IDE Bridge
+product GENESYS GL3233		0x0743	GL3233 USB 3.0 AiO Card Reader
 product GENESYS GL641USB_2	0x0760	GL641USB 6-in-1 Card Reader
 
 /* GIGABYTE products */
@@ -2521,6 +2525,10 @@ product INTEL2 IRMH        	0x0020	Integrated Rate Matching Hub
 product INTEL2 IRMH2        	0x0024	Integrated Rate Matching Hub
 product INTEL2 IRMH3        	0x8000	Integrated Rate Matching Hub
 product INTEL2 IRMH4        	0x8008	Integrated Rate Matching Hub
+product INTEL2 SFP		0x0aa7  Sandy Peak (3168) Bluetooth Module
+product INTEL2 JFP		0x0aaa	Jefferson Peak (9460/9560) Bluetooth Module
+product INTEL2 THP 		0x0025	Thunder Peak (9160/9260) Bluetooth Module
+product INTEL2 HSP 		0x0026	Harrison Peak (22560) Bluetooth Module
 
 /* Interbiometric products */
 product INTERBIOMETRICS IOBOARD		0x1002	FTDI compatible adapter
@@ -3592,6 +3600,7 @@ product PHILIPS DSS		0x0104	DSS XXX Digital Speaker System
 product PHILIPS HUB		0x0201	hub
 product PHILIPS PCA646VC	0x0303	PCA646VC PC Camera
 product PHILIPS PCVC680K	0x0308	PCVC680K Vesta Pro PC Camera
+product PHILIPS SPC900NC	0x0329  SPC 900NC CCD PC Camera
 product PHILIPS DSS150		0x0471	DSS 150 Digital Speaker System
 product PHILIPS ACE1001		0x066a	AKTAKOM ACE-1001 cable
 product PHILIPS SPE3030CC	0x083a	USB 2.0 External Disk
