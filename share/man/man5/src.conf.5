@@ -404,6 +404,8 @@ When set, it enforces these options:
 .It
 .Va WITHOUT_BINUTILS_BOOTSTRAP
 .It
+.Va WITHOUT_CFI
+.It
 .Va WITHOUT_CLANG_BOOTSTRAP
 .It
 .Va WITHOUT_ELFTOOLCHAIN_BOOTSTRAP
@@ -411,6 +413,8 @@ When set, it enforces these options:
 .Va WITHOUT_GCC_BOOTSTRAP
 .It
 .Va WITHOUT_LLD_BOOTSTRAP
+.It
+.Va WITHOUT_RETPOLINE
 .El
 .It Va WITHOUT_CRYPT
 Set to not build any crypto code.
@@ -1037,7 +1041,6 @@ Set to use GNU binutils ld as the system linker, instead of LLVM's LLD.
 .Pp
 This is a default setting on
 arm/arm, arm/armeb, arm/armv6, arm/armv7, i386/i386, mips/mipsel, mips/mips, mips/mips64el, mips/mips64, mips/mipsn32, mips/mipselhf, mips/mipshf, mips/mips64elhf, mips/mips64hf, powerpc/powerpc, powerpc/powerpc64, powerpc/powerpcspe, riscv/riscv64, riscv/riscv64sf and sparc64/sparc64.
-<<<<<<< HEAD
 When set, it enforces these options:
 .Pp
 .Bl -item -compact
@@ -1046,8 +1049,6 @@ When set, it enforces these options:
 .It
 .Va WITHOUT_RETPOLINE
 .El
-=======
->>>>>>> origin/freebsd/current/master
 .It Va WITH_LLD_IS_LD
 Set to use LLVM's LLD as the system linker, instead of GNU binutils ld.
 .Pp
@@ -1368,12 +1369,6 @@ and related programs.
 Set to build or install
 .Xr portsnap 8
 and related files.
-When set, it enforces these options:
-.Pp
-.Bl -item -compact
-.It
-.Va WITHOUT_FREEBSD_UPDATE
-.El
 .It Va WITHOUT_PPP
 Set to not build
 .Xr ppp 8
