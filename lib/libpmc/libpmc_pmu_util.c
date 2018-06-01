@@ -40,7 +40,7 @@
 #include <libpmcstat.h>
 #include "pmu-events/pmu-events.h"
 
-#if defined(__amd64__)
+#if defined(__amd64__) || defined(__i386__)
 struct pmu_alias {
 	const char *pa_alias;
 	const char *pa_name;
@@ -60,6 +60,12 @@ static struct pmu_alias pmu_alias_table[] = {
 	{"BRANCH-INSTRUCTION-RETIRED", "BR_INST_RETIRED.ALL_BRANCHES"},
 	{"BRANCH_MISSES_RETIRED", "BR_MISP_RETIRED.ALL_BRANCHES"},
 	{"BRANCH-MISSES-RETIRED", "BR_MISP_RETIRED.ALL_BRANCHES"},
+	{"cycles", "tsc-tsc"},
+	{"instructions", "inst-retired.any_p"},
+	{"branch-mispredicts", "br_misp_retired.all_branches" },
+	{"branches", "br_inst_retired.all_branches" },
+	{"interrupts", "hw_interrupts.received"},
+	{"ic-misses", "frontend_retired.l1i_miss"},
 	{NULL, NULL},
 };
 
@@ -229,7 +235,7 @@ pmc_pmu_enabled(void)
 }
 
 void
-pmc_pmu_print_counters(void)
+pmc_pmu_print_counters(const char *event_name)
 {
 	const struct pmu_events_map *pme;
 	const struct pmu_event *pe;
@@ -246,6 +252,8 @@ pmc_pmu_print_counters(void)
 		return;
 	for (pe = pme->table; pe->name || pe->desc || pe->event; pe++) {
 		if (pe->name == NULL)
+			continue;
+		if (event_name != NULL && strcasestr(pe->name, event_name) == NULL)
 			continue;
 		printf("\t%s\n", pe->name);
 		if (do_debug)
@@ -290,6 +298,43 @@ pmc_pmu_print_counter_desc_long(const char *ev)
 	}
 }
 
+void
+pmc_pmu_print_counter_full(const char *ev)
+{
+	const struct pmu_events_map *pme;
+	const struct pmu_event *pe;
+
+	if ((pme = pmu_events_map_get()) == NULL)
+		return;
+	for (pe = pme->table; pe->name || pe->desc || pe->event; pe++) {
+		if (pe->name == NULL)
+			continue;
+		if (strcasestr(pe->name, ev) == NULL)
+			continue;
+		printf("name: %s\n", pe->name);
+		if (pe->long_desc != NULL)
+			printf("desc: %s\n", pe->long_desc);
+		else if (pe->desc != NULL)
+			printf("desc: %s\n", pe->desc);
+		if (pe->event != NULL)
+			printf("event: %s\n", pe->event);
+		if (pe->topic != NULL)
+			printf("topic: %s\n", pe->topic);
+		if (pe->pmu != NULL)
+			printf("pmu: %s\n", pe->pmu);
+		if (pe->unit != NULL)
+			printf("unit: %s\n", pe->unit);
+		if (pe->perpkg != NULL)
+			printf("perpkg: %s\n", pe->perpkg);
+		if (pe->metric_expr != NULL)
+			printf("metric_expr: %s\n", pe->metric_expr);
+		if (pe->metric_name != NULL)
+			printf("metric_name: %s\n", pe->metric_name);
+		if (pe->metric_group != NULL)
+			printf("metric_group: %s\n", pe->metric_group);
+	}
+}
+
 int
 pmc_pmu_pmcallocate(const char *event_name, struct pmc_op_pmcallocate *pm)
 {
@@ -300,7 +345,6 @@ pmc_pmu_pmcallocate(const char *event_name, struct pmc_op_pmcallocate *pm)
 	int idx, isfixed;
 
 	iap = &pm->pm_md.pm_iap;
-	iaf = &pm->pm_md.pm_iaf;
 	isfixed = 0;
 	bzero(iap, sizeof(*iap));
 	event_name = pmu_alias_get(event_name);
@@ -318,6 +362,8 @@ pmc_pmu_pmcallocate(const char *event_name, struct pmc_op_pmcallocate *pm)
 		if (strcmp(fixed_mode_cntrs[idx], event_name) == 0)
 			isfixed = 1;
 	if (isfixed) {
+		iaf = &pm->pm_md.pm_iaf;
+		pm->pm_class = PMC_CLASS_IAF;
 		if (strcasestr(pe->desc, "retired") != NULL)
 			pm->pm_ev = PMC_EV_IAF_INSTR_RETIRED_ANY;
 		else if (strcasestr(pe->desc, "core") != NULL ||
@@ -330,11 +376,14 @@ pmc_pmu_pmcallocate(const char *event_name, struct pmc_op_pmcallocate *pm)
 			iaf->pm_iaf_flags |= IAF_ANY;
 		if (pm->pm_caps & PMC_CAP_INTERRUPT)
 			iaf->pm_iaf_flags |= IAF_PMI;
-		pm->pm_class = PMC_CLASS_IAF;
 		return (0);
+	} else if (strcasestr(event_name, "UNC_") == event_name ||
+			   strcasestr(event_name, "uncore") != NULL) {
+		pm->pm_class = PMC_CLASS_UCP;
+	} else {
+		pm->pm_caps |= PMC_CAP_QUALIFIER;
+		pm->pm_class = PMC_CLASS_IAP;
 	}
-	pm->pm_caps |= PMC_CAP_QUALIFIER;
-	pm->pm_class = PMC_CLASS_IAP;
 	pm->pm_ev = idx;
 	iap->pm_iap_config |= IAP_EVSEL(ped.ped_event);
 	iap->pm_iap_config |= IAP_UMASK(ped.ped_umask);
@@ -384,7 +433,7 @@ pmc_pmu_sample_rate_get(const char *event_name __unused)
 }
 
 void
-pmc_pmu_print_counters(void)
+pmc_pmu_print_counters(const char *event_name __unused)
 {
 }
 
@@ -396,6 +445,12 @@ pmc_pmu_print_counter_desc(const char *e __unused)
 void
 pmc_pmu_print_counter_desc_long(const char *e __unused)
 {
+}
+
+void
+pmc_pmu_print_counter_full(const char *e __unused)
+{
+
 }
 
 int
