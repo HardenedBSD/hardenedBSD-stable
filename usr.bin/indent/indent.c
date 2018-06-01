@@ -542,17 +542,8 @@ check_type:
 		    nitems(ps.paren_indents));
 		ps.p_l_follow--;
 	    }
-	    if (ps.want_blank && *token != '[' &&
-		    ((ps.last_token != ident && ps.last_token != funcname) ||
-		    proc_calls_space ||
-		    /* offsetof (1) is never allowed a space; sizeof (2) gets
-		     * one iff -bs; all other keywords (>2) always get a space
-		     * before lparen */
-		    ps.keyword + Bill_Shannon > 2))
-		*e_code++ = ' ';
-	    ps.want_blank = false;
 	    if (ps.in_decl && !ps.block_init && !ps.dumped_decl_indent &&
-		!is_procname) {
+		!is_procname && ps.paren_level == 0) {
 		/* function pointer declarations */
 		if (troff) {
 		    sprintf(e_code, "\n.Du %dp+\200p \"%s\"\n", dec_ind * 7, token);
@@ -563,9 +554,17 @@ check_type:
 		}
 		ps.dumped_decl_indent = true;
 	    }
+	    else if (ps.want_blank && *token != '[' &&
+		    ((ps.last_token != ident && ps.last_token != funcname) ||
+		    /* offsetof (1) is never allowed a space; sizeof (2) gets
+		     * one iff -bs; all other keywords (>2) always get a space
+		     * before lparen */
+			ps.keyword + Bill_Shannon > 2))
+		*e_code++ = ' ';
+	    ps.want_blank = false;
 	    if (!troff)
 		*e_code++ = token[0];
-	    ps.paren_indents[ps.p_l_follow - 1] = e_code - s_code;
+	    ps.paren_indents[ps.p_l_follow - 1] = count_spaces_until(1, s_code, e_code) - 1;
 	    if (sp_sw && ps.p_l_follow == 1 && extra_expression_indent
 		    && ps.paren_indents[0] < 2 * ps.ind_size)
 		ps.paren_indents[0] = 2 * ps.ind_size;
@@ -620,7 +619,7 @@ check_type:
 
 	case unary_op:		/* this could be any unary operation */
 	    if (!ps.dumped_decl_indent && ps.in_decl && !is_procname &&
-		!ps.block_init) {
+		!ps.block_init && ps.paren_level == 0) {
 		/* pointer declarations */
 		if (troff) {
 		    if (ps.want_blank)
@@ -755,7 +754,7 @@ check_type:
 	    ps.just_saw_decl--;
 
 	    if (ps.in_decl && s_code == e_code && !ps.block_init &&
-		!ps.dumped_decl_indent) {
+		!ps.dumped_decl_indent && ps.paren_level == 0) {
 		/* indent stray semicolons in declarations */
 		indent_declaration(dec_ind - 1, tabs_to_var);
 		ps.dumped_decl_indent = true;
@@ -937,6 +936,7 @@ check_type:
 	    }
 	    goto copy_id;	/* move the token into line */
 
+	case type_def:
 	case storage:
 	    prefix_blankline_requested = 0;
 	    goto copy_id;
@@ -955,7 +955,7 @@ check_type:
 	    }
 	    ps.in_or_st = true;	/* this might be a structure or initialization
 				 * declaration */
-	    ps.in_decl = ps.decl_on_line = true;
+	    ps.in_decl = ps.decl_on_line = ps.last_token != type_def;
 	    if ( /* !ps.in_or_st && */ ps.dec_nest <= 0)
 		ps.just_saw_decl = 2;
 	    prefix_blankline_requested = 0;
@@ -977,7 +977,7 @@ check_type:
 	    if (ps.in_decl) {	/* if we are in a declaration, we must indent
 				 * identifier */
 		if (type_code != funcname || !procnames_start_line) {
-		    if (!ps.block_init && !ps.dumped_decl_indent) {
+		    if (!ps.block_init && !ps.dumped_decl_indent && ps.paren_level == 0) {
 			if (troff) {
 			    if (ps.want_blank)
 				*e_code++ = ' ';
@@ -1049,7 +1049,7 @@ check_type:
 						 * if comma does not start the
 						 * line */
 	    if (ps.in_decl && is_procname == 0 && !ps.block_init &&
-		!ps.dumped_decl_indent) {
+		!ps.dumped_decl_indent && ps.paren_level == 0) {
 		/* indent leading commas and not the actual identifiers */
 		indent_declaration(dec_ind - 1, tabs_to_var);
 		ps.dumped_decl_indent = true;
@@ -1058,7 +1058,9 @@ check_type:
 	    if (ps.p_l_follow == 0) {
 		if (ps.block_init_level <= 0)
 		    ps.block_init = 0;
-		if (break_comma && (!ps.leave_comma || compute_code_target() + (e_code - s_code) > max_col - tabsize))
+		if (break_comma && (!ps.leave_comma ||
+		    count_spaces_until(compute_code_target(), s_code, e_code) >
+		    max_col - tabsize))
 		    force_nl = true;
 	    }
 	    break;
