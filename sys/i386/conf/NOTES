@@ -906,18 +906,6 @@ options 	NKPT=31
 #####################################################################
 # ABI Emulation
 
-<<<<<<< HEAD
-=======
-# Enable iBCS2 runtime support for SCO and ISC binaries
-#options 	IBCS2
-
-# Emulate spx device for client side of SVR3 local X interface
-options 	SPX_HACK
-
-# Enable (32-bit) a.out binary support
-options 	COMPAT_AOUT
-
->>>>>>> origin/freebsd/current/master
 # Enable 32-bit runtime support for CloudABI binaries.
 options 	COMPAT_CLOUDABI32
 
