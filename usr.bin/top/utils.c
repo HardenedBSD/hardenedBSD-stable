@@ -15,12 +15,21 @@
 #include "top.h"
 #include "utils.h"
 
+#include <sys/param.h>
+#include <sys/sysctl.h>
+#include <sys/user.h>
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <fcntl.h>
+#include <paths.h>
+#include <kvm.h>
+
+void quit(int);
 
 int
-atoiwi(char *str)
+atoiwi(const char *str)
 {
     int len;
 
@@ -131,23 +140,11 @@ int digits(int val)
 }
 
 /*
- *  strecpy(to, from) - copy string "from" into "to" and return a pointer
- *	to the END of the string "to".
- */
-
-char *
-strecpy(char *to, char *from)
-{
-    while ((*to++ = *from++) != '\0');
-    return(--to);
-}
-
-/*
  * string_index(string, array) - find string in array and return index
  */
 
 int
-string_index(char *string, char *array[])
+string_index(const char *string, char *array[])
 {
     size_t i = 0;
 
@@ -170,9 +167,10 @@ string_index(char *string, char *array[])
  *	squat about quotes.
  */
 
-char **argparse(char *line, int *cntp)
+char **
+argparse(char *line, int *cntp)
 {
-    char *from;
+    const char *from;
     char *to;
     int cnt;
     int ch;
@@ -392,7 +390,7 @@ char *format_k(int amt)
 	}
     }
 
-    p = strecpy(p, itoa(amt));
+    p = stpcpy(p, itoa(amt));
     *p++ = tag;
     *p = '\0';
 
@@ -422,9 +420,37 @@ format_k2(unsigned long long amt)
 	}
     }
 
-    p = strecpy(p, itoa((int)amt));
+    p = stpcpy(p, itoa((int)amt));
     *p++ = tag;
     *p = '\0';
 
     return(ret);
+}
+
+int
+find_pid(pid_t pid)
+{
+	kvm_t *kd = NULL;
+	struct kinfo_proc *pbase = NULL;
+	int nproc;
+	int ret = 0;
+
+	kd = kvm_open(NULL, _PATH_DEVNULL, NULL, O_RDONLY, NULL);
+	if (kd == NULL) {
+		fprintf(stderr, "top: kvm_open() failed.\n");
+		quit(TOP_EX_SYS_ERROR);
+	}
+
+	pbase = kvm_getprocs(kd, KERN_PROC_PID, pid, &nproc);
+	if (pbase == NULL) {
+		goto done;
+	}
+
+	if ((nproc == 1) && (pbase->ki_pid == pid)) {
+		ret = 1;
+	}
+
+done:
+	kvm_close(kd);	
+	return ret;
 }

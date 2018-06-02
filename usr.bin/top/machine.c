@@ -119,7 +119,7 @@ static char up_header_tid_only[] =
 /* the extra nulls in the string "run" are for adding a slash and
    the processor number when needed */
 
-static char *state_abbrev[] = {
+static const char *state_abbrev[] = {
 	"", "START", "RUN\0\0\0", "SLEEP", "STOP", "ZOMB", "WAIT", "LOCK"
 };
 
@@ -401,6 +401,7 @@ machine_init(struct statics *statics)
 		}
 	}
 	size = sizeof(long) * ncpus * CPUSTATES;
+	assert(size > 0);
 	pcpu_cp_old = calloc(1, size);
 	pcpu_cp_diff = calloc(1, size);
 	pcpu_cpu_states = calloc(1, size);
@@ -763,6 +764,7 @@ get_process_info(struct system_info *si, struct process_select *sel,
 	int show_self;
 	int show_system;
 	int show_uid;
+	int show_pid;
 	int show_kidle;
 
 	/*
@@ -782,7 +784,7 @@ get_process_info(struct system_info *si, struct process_select *sel,
 		previous_pref = malloc(nproc * sizeof(*previous_pref));
 		if (previous_procs == NULL || previous_pref == NULL) {
 			(void) fprintf(stderr, "top: Out of memory.\n");
-			quit(23);
+			quit(TOP_EX_SYS_ERROR);
 		}
 		previous_proc_count_max = nproc;
 	}
@@ -821,7 +823,7 @@ get_process_info(struct system_info *si, struct process_select *sel,
 	}
 	if (pref == NULL || pbase == NULL || pcpu == NULL) {
 		(void) fprintf(stderr, "top: Out of memory.\n");
-		quit(23);
+		quit(TOP_EX_SYS_ERROR);
 	}
 	/* get a pointer to the states summary array */
 	si->procstates = process_states;
@@ -832,6 +834,7 @@ get_process_info(struct system_info *si, struct process_select *sel,
 	show_self = sel->self == -1;
 	show_system = sel->system;
 	show_uid = sel->uid[0] != -1;
+	show_pid = sel->pid != -1;
 	show_kidle = sel->kidle;
 
 	/* count up process states and get pointers to interesting procs */
@@ -840,7 +843,7 @@ get_process_info(struct system_info *si, struct process_select *sel,
 	total_inblock = 0;
 	total_oublock = 0;
 	total_majflt = 0;
-	memset((char *)process_states, 0, sizeof(process_states));
+	memset(process_states, 0, sizeof(process_states));
 	prefp = pref;
 	for (pp = pbase, i = 0; i < nproc; pp++, i++) {
 
@@ -891,6 +894,9 @@ get_process_info(struct system_info *si, struct process_select *sel,
 
 		if (show_uid && !find_uid(pp->ki_ruid, sel->uid))
 			/* skip proc. that don't belong to the selected UID */
+			continue;
+
+		if (show_pid && pp->ki_pid != sel->pid)
 			continue;
 
 		*prefp++ = pp;
@@ -1176,12 +1182,12 @@ getsysctl(const char *name, void *ptr, size_t len)
 	if (sysctlbyname(name, ptr, &nlen, NULL, 0) == -1) {
 		fprintf(stderr, "top: sysctl(%s...) failed: %s\n", name,
 		    strerror(errno));
-		quit(23);
+		quit(TOP_EX_SYS_ERROR);
 	}
 	if (nlen != len) {
 		fprintf(stderr, "top: sysctl(%s...) expected %lu, got %lu\n",
 		    name, (unsigned long)len, (unsigned long)nlen);
-		quit(23);
+		quit(TOP_EX_SYS_ERROR);
 	}
 }
 
@@ -1353,8 +1359,8 @@ static int sorted_state[] = {
 static int
 compare_cpu(const void *arg1, const void *arg2)
 {
-	struct kinfo_proc *p1 = *(struct kinfo_proc **)arg1;
-	struct kinfo_proc *p2 = *(struct kinfo_proc **)arg2;
+	const struct kinfo_proc *p1 = *(const struct kinfo_proc * const *)arg1;
+	const struct kinfo_proc *p2 = *(const struct kinfo_proc * const *)arg2;
 
 	ORDERKEY_PCTCPU(p1, p2);
 	ORDERKEY_CPTICKS(p1, p2);
@@ -1407,8 +1413,8 @@ int (*compares[])(const void *arg1, const void *arg2) = {
 int
 compare_size(const void *arg1, const void *arg2)
 {
-	struct kinfo_proc *p1 = *(struct kinfo_proc **)arg1;
-	struct kinfo_proc *p2 = *(struct kinfo_proc **)arg2;
+	const struct kinfo_proc *p1 = *(const struct kinfo_proc * const *)arg1;
+	const struct kinfo_proc *p2 = *(const struct kinfo_proc * const *)arg2;
 
 	ORDERKEY_MEM(p1, p2);
 	ORDERKEY_RSSIZE(p1, p2);
@@ -1425,8 +1431,8 @@ compare_size(const void *arg1, const void *arg2)
 int
 compare_res(const void *arg1, const void *arg2)
 {
-	struct kinfo_proc *p1 = *(struct kinfo_proc **)arg1;
-	struct kinfo_proc *p2 = *(struct kinfo_proc **)arg2;
+	const struct kinfo_proc *p1 = *(const struct kinfo_proc * const *)arg1;
+	const struct kinfo_proc *p2 = *(const struct kinfo_proc * const *)arg2;
 
 	ORDERKEY_RSSIZE(p1, p2);
 	ORDERKEY_MEM(p1, p2);
@@ -1443,8 +1449,8 @@ compare_res(const void *arg1, const void *arg2)
 int
 compare_time(const void *arg1, const void *arg2)
 {
-	struct kinfo_proc *p1 = *(struct kinfo_proc **)arg1;
-	struct kinfo_proc *p2 = *(struct kinfo_proc **)arg2;
+	const struct kinfo_proc *p1 = *(const struct kinfo_proc * const  *)arg1;
+	const struct kinfo_proc *p2 = *(const struct kinfo_proc * const *) arg2;
 
 	ORDERKEY_CPTICKS(p1, p2);
 	ORDERKEY_PCTCPU(p1, p2);
@@ -1461,8 +1467,8 @@ compare_time(const void *arg1, const void *arg2)
 int
 compare_prio(const void *arg1, const void *arg2)
 {
-	struct kinfo_proc *p1 = *(struct kinfo_proc **)arg1;
-	struct kinfo_proc *p2 = *(struct kinfo_proc **)arg2;
+	const struct kinfo_proc *p1 = *(const struct kinfo_proc * const *)arg1;
+	const struct kinfo_proc *p2 = *(const struct kinfo_proc * const *)arg2;
 
 	ORDERKEY_PRIO(p1, p2);
 	ORDERKEY_CPTICKS(p1, p2);
@@ -1478,8 +1484,8 @@ compare_prio(const void *arg1, const void *arg2)
 static int
 compare_threads(const void *arg1, const void *arg2)
 {
-	struct kinfo_proc *p1 = *(struct kinfo_proc **)arg1;
-	struct kinfo_proc *p2 = *(struct kinfo_proc **)arg2;
+	const struct kinfo_proc *p1 = *(const struct kinfo_proc * const *)arg1;
+	const struct kinfo_proc *p2 = *(const struct kinfo_proc * const *)arg2;
 
 	ORDERKEY_THREADS(p1, p2);
 	ORDERKEY_PCTCPU(p1, p2);
@@ -1496,8 +1502,8 @@ compare_threads(const void *arg1, const void *arg2)
 static int
 compare_jid(const void *arg1, const void *arg2)
 {
-	struct kinfo_proc *p1 = *(struct kinfo_proc **)arg1;
-	struct kinfo_proc *p2 = *(struct kinfo_proc **)arg2;
+	const struct kinfo_proc *p1 = *(const struct kinfo_proc * const *)arg1;
+	const struct kinfo_proc *p2 = *(const struct kinfo_proc * const *)arg2;
 
 	ORDERKEY_JID(p1, p2);
 	ORDERKEY_PCTCPU(p1, p2);
@@ -1514,8 +1520,8 @@ compare_jid(const void *arg1, const void *arg2)
 static int
 compare_swap(const void *arg1, const void *arg2)
 {
-	struct kinfo_proc *p1 = *(struct kinfo_proc **)arg1;
-	struct kinfo_proc *p2 = *(struct kinfo_proc **)arg2;
+	const struct kinfo_proc *p1 = *(const struct kinfo_proc **)arg1;
+	const struct kinfo_proc *p2 = *(const struct kinfo_proc **)arg2;
 
 	ORDERKEY_SWAP(p1, p2);
 	ORDERKEY_PCTCPU(p1, p2);
@@ -1533,8 +1539,8 @@ compare_swap(const void *arg1, const void *arg2)
 int
 compare_iototal(const void *arg1, const void *arg2)
 {
-	struct kinfo_proc *p1 = *(struct kinfo_proc **)arg1;
-	struct kinfo_proc *p2 = *(struct kinfo_proc **)arg2;
+	struct kinfo_proc * const p1 = *(struct kinfo_proc **)arg1;
+	struct kinfo_proc * const p2 = *(struct kinfo_proc **)arg2;
 
 	return (get_io_total(p2) - get_io_total(p1));
 }
