@@ -206,7 +206,7 @@ main(int argc, char *argv[])
     int displays = 0;		/* indicates unspecified */
     int sel_ret = 0;
     time_t curr_time;
-    char *(*get_userid)(uid_t) = username;
+    char *(*get_userid)(int) = username;
     char *uname_field = "USERNAME";
     char *header_text;
     char *env_top;
@@ -259,15 +259,6 @@ main(int argc, char *argv[])
 #define CMD_swaptog	25
 #define CMD_order	26
 #define CMD_pid		27
-
-    /*
-     * Since top(1) is often long running and
-     * doesn't typically care about where its running from
-     * chdir to the root to allow unmounting of its
-     * original wd. Failure is alright as this is
-     * just a courtesy for users.
-     */
-    chdir("/");
 
     /* set the buffer for stdout */
 #ifdef DEBUG

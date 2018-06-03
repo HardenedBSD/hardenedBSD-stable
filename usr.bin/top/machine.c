@@ -229,7 +229,7 @@ static int pageshift;		/* log base 2 of the pagesize */
 /*
  * Sorting orders.  The first element is the default.
  */
-char *ordernames[] = {
+static const char *ordernames[] = {
 	"cpu", "size", "res", "time", "pri", "threads",
 	"total", "read", "write", "fault", "vcsw", "ivcsw",
 	"jid", "swap", "pid", NULL
@@ -918,7 +918,7 @@ get_process_info(struct system_info *si, struct process_select *sel,
 static char fmt[512];	/* static area where result is built */
 
 char *
-format_next_process(caddr_t xhandle, char *(*get_userid)(uid_t), int flags)
+format_next_process(caddr_t xhandle, char *(*get_userid)(int), int flags)
 {
 	struct kinfo_proc *pp;
 	const struct kinfo_proc *oldp;
