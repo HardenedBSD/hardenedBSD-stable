@@ -74,11 +74,17 @@ struct templ {
  */
 struct templ specials[] =
 {
+    {"_Bool", 4},
+    {"_Complex", 4},
+    {"_Imaginary", 4},
     {"auto", 10},
+    {"bool", 4},
     {"break", 9},
     {"case", 8},
     {"char", 4},
+    {"complex", 4},
     {"const", 4},
+    {"continue", 12},
     {"default", 8},
     {"do", 6},
     {"double", 4},
@@ -90,12 +96,16 @@ struct templ specials[] =
     {"global", 4},
     {"goto", 9},
     {"if", 5},
+    {"imaginary", 4},
+    {"inline", 12},
     {"int", 4},
     {"long", 4},
     {"offsetof", 1},
     {"register", 10},
+    {"restrict", 12},
     {"return", 9},
     {"short", 4},
+    {"signed", 4},
     {"sizeof", 2},
     {"static", 10},
     {"struct", 3},
@@ -145,8 +155,6 @@ lexi(struct parser_state *state)
 {
     int         unary_delim;	/* this is set to 1 if the current token
 				 * forces a following operator to be unary */
-    static int  last_code;	/* the last token type returned */
-    static int  l_struct;	/* set to 1 if the last token was 'struct' */
     int         code;		/* internal code to be returned */
     char        qchar;		/* the delimiter character for a string */
 
@@ -165,54 +173,41 @@ lexi(struct parser_state *state)
     }
 
     /* Scan an alphanumeric token */
-    if (chartype[(int)*buf_ptr] == alphanum || (buf_ptr[0] == '.' && isdigit(buf_ptr[1]))) {
+    if (chartype[*buf_ptr & 127] == alphanum ||
+	(buf_ptr[0] == '.' && isdigit((unsigned char)buf_ptr[1]))) {
 	/*
 	 * we have a character or number
 	 */
 	struct templ *p;
 
-	if (isdigit(*buf_ptr) || (buf_ptr[0] == '.' && isdigit(buf_ptr[1]))) {
-	    enum base {
-		BASE_2, BASE_8, BASE_10, BASE_16
-	    };
+	if (isdigit((unsigned char)*buf_ptr) ||
+	    (buf_ptr[0] == '.' && isdigit((unsigned char)buf_ptr[1]))) {
 	    int         seendot = 0,
 	                seenexp = 0,
 			seensfx = 0;
-	    enum base	in_base = BASE_10;
 
-	    if (*buf_ptr == '0') {
+	    /*
+	     * base 2, base 8, base 16:
+	     */
+	    if (buf_ptr[0] == '0' && buf_ptr[1] != '.') {
+		int len;
+
 		if (buf_ptr[1] == 'b' || buf_ptr[1] == 'B')
-		    in_base = BASE_2;
+		    len = strspn(buf_ptr + 2, "01") + 2;
 		else if (buf_ptr[1] == 'x' || buf_ptr[1] == 'X')
-		    in_base = BASE_16;
-		else if (isdigit(buf_ptr[1]))
-		    in_base = BASE_8;
+		    len = strspn(buf_ptr + 2, "0123456789ABCDEFabcdef") + 2;
+		else
+		    len = strspn(buf_ptr + 1, "012345678") + 1;
+		if (len > 0) {
+		    CHECK_SIZE_TOKEN(len);
+		    memcpy(e_token, buf_ptr, len);
+		    e_token += len;
+		    buf_ptr += len;
+		}
+		else
+		    diag2(1, "Unterminated literal");
 	    }
-	    switch (in_base) {
-	    case BASE_2:
-		*e_token++ = *buf_ptr++;
-		*e_token++ = *buf_ptr++;
-		while (*buf_ptr == '0' || *buf_ptr == '1') {
-		    CHECK_SIZE_TOKEN;
-		    *e_token++ = *buf_ptr++;
-		}
-		break;
-	    case BASE_8:
-		*e_token++ = *buf_ptr++;
-		while (*buf_ptr >= '0' && *buf_ptr <= '8') {
-		    CHECK_SIZE_TOKEN;
-		    *e_token++ = *buf_ptr++;
-		}
-		break;
-	    case BASE_16:
-		*e_token++ = *buf_ptr++;
-		*e_token++ = *buf_ptr++;
-		while (isxdigit(*buf_ptr)) {
-		    CHECK_SIZE_TOKEN;
-		    *e_token++ = *buf_ptr++;
-		}
-		break;
-	    case BASE_10:
+	    else		/* base 10: */
 		while (1) {
 		    if (*buf_ptr == '.') {
 			if (seendot)
@@ -220,32 +215,29 @@ lexi(struct parser_state *state)
 			else
 			    seendot++;
 		    }
-		    CHECK_SIZE_TOKEN;
+		    CHECK_SIZE_TOKEN(3);
 		    *e_token++ = *buf_ptr++;
-		    if (!isdigit(*buf_ptr) && *buf_ptr != '.') {
+		    if (!isdigit((unsigned char)*buf_ptr) && *buf_ptr != '.') {
 			if ((*buf_ptr != 'E' && *buf_ptr != 'e') || seenexp)
 			    break;
 			else {
 			    seenexp++;
 			    seendot++;
-			    CHECK_SIZE_TOKEN;
 			    *e_token++ = *buf_ptr++;
 			    if (*buf_ptr == '+' || *buf_ptr == '-')
 				*e_token++ = *buf_ptr++;
 			}
 		    }
 		}
-		break;
-	    }
+
 	    while (1) {
+		CHECK_SIZE_TOKEN(2);
 		if (!(seensfx & 1) && (*buf_ptr == 'U' || *buf_ptr == 'u')) {
-		    CHECK_SIZE_TOKEN;
 		    *e_token++ = *buf_ptr++;
 		    seensfx |= 1;
 		    continue;
 		}
 		if (!(seensfx & 2) && (strchr("fFlL", *buf_ptr) != NULL)) {
-		    CHECK_SIZE_TOKEN;
 		    if (buf_ptr[1] == buf_ptr[0])
 		        *e_token++ = *buf_ptr++;
 		    *e_token++ = *buf_ptr++;
@@ -256,7 +248,7 @@ lexi(struct parser_state *state)
 	    }
 	}
 	else
-	    while (chartype[(int)*buf_ptr] == alphanum || *buf_ptr == BACKSLASH) {
+	    while (chartype[*buf_ptr & 127] == alphanum || *buf_ptr == BACKSLASH) {
 		/* fill_buffer() terminates buffer with newline */
 		if (*buf_ptr == BACKSLASH) {
 		    if (*(buf_ptr + 1) == '\n') {
@@ -266,13 +258,13 @@ lexi(struct parser_state *state)
 			} else
 			    break;
 		}
-		CHECK_SIZE_TOKEN;
+		CHECK_SIZE_TOKEN(1);
 		/* copy it over */
 		*e_token++ = *buf_ptr++;
 		if (buf_ptr >= buf_end)
 		    fill_buffer();
 	    }
-	*e_token++ = '\0';
+	*e_token = '\0';
 
 	if (s_token[0] == 'L' && s_token[1] == '\0' &&
 	      (*buf_ptr == '"' || *buf_ptr == '\''))
@@ -283,21 +275,17 @@ lexi(struct parser_state *state)
 		fill_buffer();
 	}
 	state->keyword = 0;
-	if (l_struct && !state->p_l_follow) {
+	if (state->last_token == structure && !state->p_l_follow) {
 				/* if last token was 'struct' and we're not
 				 * in parentheses, then this token
 				 * should be treated as a declaration */
-	    l_struct = false;
-	    last_code = ident;
 	    state->last_u_d = true;
 	    return (decl);
 	}
-	state->last_u_d = l_struct;	/* Operator after identifier is
-					 * binary unless last token was
-					 * 'struct' */
-	l_struct = false;
-	last_code = ident;	/* Remember that this is the code we will
-				 * return */
+	/*
+	 * Operator after identifier is binary unless last token was 'struct'
+	 */
+	state->last_u_d = (state->last_token == structure);
 
 	p = bsearch(s_token,
 	    specials,
@@ -326,21 +314,21 @@ lexi(struct parser_state *state)
 		return (casestmt);
 
 	    case 3:		/* a "struct" */
-		/*
-		 * Next time around, we will want to know that we have had a
-		 * 'struct'
-		 */
-		l_struct = true;
 		/* FALLTHROUGH */
-
 	    case 4:		/* one of the declaration keywords */
 	    found_typename:
 		if (state->p_l_follow) {
 		    /* inside parens: cast, param list, offsetof or sizeof */
 		    state->cast_mask |= (1 << state->p_l_follow) & ~state->not_cast_mask;
+		}
+		if (state->last_token == period || state->last_token == unary_op) {
+		    state->keyword = 0;
 		    break;
 		}
-		last_code = decl;
+		if (p != NULL && p->rwcode == 3)
+		    return (structure);
+		if (state->p_l_follow)
+		    break;
 		return (decl);
 
 	    case 5:		/* if, while, for */
@@ -369,7 +357,7 @@ lexi(struct parser_state *state)
 	    strncpy(state->procname, token, sizeof state->procname - 1);
 	    if (state->in_decl)
 		state->in_parameter_declaration = 1;
-	    return (last_code = funcname);
+	    return (funcname);
     not_proc:;
 	}
 	/*
@@ -377,26 +365,25 @@ lexi(struct parser_state *state)
 	 * token is in fact a declaration keyword -- one that has been
 	 * typedefd
 	 */
-	if (((*buf_ptr == '*' && buf_ptr[1] != '=') || isalpha(*buf_ptr) || *buf_ptr == '_')
-		&& !state->p_l_follow
-	        && !state->block_init
-		&& (state->last_token == rparen || state->last_token == semicolon ||
-		    state->last_token == decl ||
-		    state->last_token == lbrace || state->last_token == rbrace)) {
+	else if (!state->p_l_follow && !state->block_init &&
+	    !state->in_stmt &&
+	    ((*buf_ptr == '*' && buf_ptr[1] != '=') ||
+		isalpha((unsigned char)*buf_ptr)) &&
+	    (state->last_token == semicolon || state->last_token == lbrace ||
+		state->last_token == rbrace)) {
 	    state->keyword = 4;	/* a type name */
 	    state->last_u_d = true;
-	    last_code = decl;
 	    return decl;
 	}
-	if (last_code == decl)	/* if this is a declared variable, then
-				 * following sign is unary */
+	if (state->last_token == decl)	/* if this is a declared variable,
+					 * then following sign is unary */
 	    state->last_u_d = true;	/* will make "int a -1" work */
-	last_code = ident;
 	return (ident);		/* the ident is not in the list */
     }				/* end of procesing for alpanum character */
 
     /* Scan a non-alphanumeric token */
 
+    CHECK_SIZE_TOKEN(3);		/* things like "<<=" */
     *e_token++ = *buf_ptr;		/* if it is only a one-character token, it is
 				 * moved here */
     *e_token = '\0';
@@ -418,32 +405,19 @@ lexi(struct parser_state *state)
     case '\'':			/* start of quoted character */
     case '"':			/* start of string */
 	qchar = *token;
-	if (troff) {
-	    e_token[-1] = '`';
-	    if (qchar == '"')
-		*e_token++ = '`';
-	    e_token = chfont(&bodyf, &stringf, e_token);
-	}
 	do {			/* copy the string */
 	    while (1) {		/* move one character or [/<char>]<char> */
 		if (*buf_ptr == '\n') {
 		    diag2(1, "Unterminated literal");
 		    goto stop_lit;
 		}
-		CHECK_SIZE_TOKEN;	/* Only have to do this once in this loop,
-					 * since CHECK_SIZE guarantees that there
-					 * are at least 5 entries left */
+		CHECK_SIZE_TOKEN(2);
 		*e_token = *buf_ptr++;
 		if (buf_ptr >= buf_end)
 		    fill_buffer();
 		if (*e_token == BACKSLASH) {	/* if escape, copy extra char */
 		    if (*buf_ptr == '\n')	/* check for escaped newline */
 			++line_no;
-		    if (troff) {
-			*++e_token = BACKSLASH;
-			if (*buf_ptr == BACKSLASH)
-			    *++e_token = BACKSLASH;
-		    }
 		    *++e_token = *buf_ptr++;
 		    ++e_token;	/* we must increment this again because we
 				 * copied two chars */
@@ -454,11 +428,6 @@ lexi(struct parser_state *state)
 		    break;	/* we copied one character */
 	    }			/* end of while (1) */
 	} while (*e_token++ != qchar);
-	if (troff) {
-	    e_token = chfont(&stringf, &bodyf, e_token - 1);
-	    if (qchar == '"')
-		*e_token++ = '\'';
-	}
 stop_lit:
 	code = ident;
 	break;
@@ -536,7 +505,7 @@ stop_lit:
 	    /* check for doubled character */
 	    *e_token++ = *buf_ptr++;
 	    /* buffer overflow will be checked at end of loop */
-	    if (last_code == ident || last_code == rparen) {
+	    if (state->last_token == ident || state->last_token == rparen) {
 		code = (state->last_u_d ? unary_op : postop);
 		/* check for following ++ or -- */
 		unary_delim = false;
@@ -559,7 +528,7 @@ stop_lit:
 	if (state->in_or_st)
 	    state->block_init = 1;
 #ifdef undef
-	if (chartype[*buf_ptr] == opchar) {	/* we have two char assignment */
+	if (chartype[*buf_ptr & 127] == opchar) {	/* we have two char assignment */
 	    e_token[-1] = *buf_ptr++;
 	    if ((e_token[-1] == '<' || e_token[-1] == '>') && e_token[-1] == *buf_ptr)
 		*e_token++ = *buf_ptr++;
@@ -592,6 +561,36 @@ stop_lit:
 	unary_delim = true;
 	break;
 
+    case '*':
+	unary_delim = true;
+	if (!state->last_u_d) {
+	    if (*buf_ptr == '=')
+		*e_token++ = *buf_ptr++;
+	    code = binary_op;
+	    break;
+	}
+	while (*buf_ptr == '*' || isspace((unsigned char)*buf_ptr)) {
+	    if (*buf_ptr == '*') {
+		CHECK_SIZE_TOKEN(1);
+		*e_token++ = *buf_ptr;
+	    }
+	    if (++buf_ptr >= buf_end)
+		fill_buffer();
+	}
+	if (ps.in_decl) {
+	    char *tp = buf_ptr;
+
+	    while (isalpha((unsigned char)*tp) ||
+		   isspace((unsigned char)*tp)) {
+		if (++tp >= buf_end)
+		    fill_buffer();
+	    }
+	    if (*tp == '(')
+		ps.procname[0] = ' ';
+	}
+	code = unary_op;
+	break;
+
     default:
 	if (token[0] == '/' && *buf_ptr == '*') {
 	    /* it is start of comment */
@@ -608,6 +607,7 @@ stop_lit:
 	    /*
 	     * handle ||, &&, etc, and also things as in int *****i
 	     */
+	    CHECK_SIZE_TOKEN(1);
 	    *e_token++ = *buf_ptr;
 	    if (++buf_ptr >= buf_end)
 		fill_buffer();
@@ -617,13 +617,10 @@ stop_lit:
 
 
     }				/* end of switch */
-    if (code != newline) {
-	l_struct = false;
-	last_code = code;
-    }
     if (buf_ptr >= buf_end)	/* check for input buffer empty */
 	fill_buffer();
     state->last_u_d = unary_delim;
+    CHECK_SIZE_TOKEN(1);
     *e_token = '\0';		/* null terminate the token */
     return (code);
 }

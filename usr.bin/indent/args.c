@@ -62,7 +62,6 @@ __FBSDID("$FreeBSD$");
 #define	PRO_SPECIAL	1	/* special case */
 #define	PRO_BOOL	2	/* boolean */
 #define	PRO_INT		3	/* integer */
-#define PRO_FONT	4	/* troff font */
 
 /* profile specials for booleans */
 #define	ON		1	/* turn it on */
@@ -119,19 +118,14 @@ struct pro {
     {"d", PRO_INT, 0, 0, &ps.unindent_displace},
     {"eei", PRO_BOOL, false, ON, &extra_expression_indent},
     {"ei", PRO_BOOL, true, ON, &ps.else_if},
-    {"fbc", PRO_FONT, 0, 0, (int *) &blkcomf},
     {"fbs", PRO_BOOL, true, ON, &function_brace_split},
-    {"fbx", PRO_FONT, 0, 0, (int *) &boxcomf},
-    {"fb", PRO_FONT, 0, 0, (int *) &bodyf},
     {"fc1", PRO_BOOL, true, ON, &format_col1_comments},
     {"fcb", PRO_BOOL, true, ON, &format_block_comments},
-    {"fc", PRO_FONT, 0, 0, (int *) &scomf},
-    {"fk", PRO_FONT, 0, 0, (int *) &keywordf},
-    {"fs", PRO_FONT, 0, 0, (int *) &stringf},
     {"ip", PRO_BOOL, true, ON, &ps.indent_parameters},
     {"i", PRO_INT, 8, 0, &ps.ind_size},
     {"lc", PRO_INT, 0, 0, &block_comment_max_col},
     {"ldi", PRO_INT, -1, 0, &ps.local_decl_indent},
+    {"lpl", PRO_BOOL, false, ON, &lineup_to_parens_always},
     {"lp", PRO_BOOL, true, ON, &lineup_to_parens},
     {"l", PRO_INT, 78, 0, &max_col},
     {"nbacc", PRO_BOOL, false, OFF, &blanklines_around_conditional_compilation},
@@ -150,6 +144,7 @@ struct pro {
     {"nfc1", PRO_BOOL, true, OFF, &format_col1_comments},
     {"nfcb", PRO_BOOL, true, OFF, &format_block_comments},
     {"nip", PRO_BOOL, true, OFF, &ps.indent_parameters},
+    {"nlpl", PRO_BOOL, false, OFF, &lineup_to_parens_always},
     {"nlp", PRO_BOOL, true, OFF, &lineup_to_parens},
     {"npcs", PRO_BOOL, false, OFF, &proc_calls_space},
     {"npro", PRO_SPECIAL, 0, IGN, 0},
@@ -167,7 +162,6 @@ struct pro {
     {"st", PRO_SPECIAL, 0, STDIN, 0},
     {"ta", PRO_BOOL, false, ON, &auto_typedefs},
     {"ts", PRO_INT, 8, 0, &tabsize},
-    {"troff", PRO_BOOL, false, ON, &troff},
     {"ut", PRO_BOOL, true, ON, &use_tabs},
     {"v", PRO_BOOL, false, ON, &verbose},
     /* whew! */
@@ -217,7 +211,7 @@ scan_profile(FILE *f)
 	    } else if (i == '/' && comment && p > buf && p[-1] == '*') {
 		p = buf + comment - 1;
 		comment = 0;
-	    } else if (isspace(i)) {
+	    } else if (isspace((unsigned char)i)) {
 		if (p > buf && !comment)
 		    break;
 	    } else {
@@ -259,7 +253,7 @@ set_defaults(void)
      */
     ps.case_indent = 0.0;	/* -cli0.0 */
     for (p = pro; p->p_name; p++)
-	if (p->p_type != PRO_SPECIAL && p->p_type != PRO_FONT)
+	if (p->p_type != PRO_SPECIAL)
 	    *p->p_obj = p->p_default;
 }
 
@@ -321,15 +315,11 @@ found:
 	break;
 
     case PRO_INT:
-	if (!isdigit(*param_start)) {
+	if (!isdigit((unsigned char)*param_start)) {
     need_param:
 	    errx(1, "%s: ``%s'' requires a parameter", option_source, p->p_name);
 	}
 	*p->p_obj = atoi(param_start);
-	break;
-
-    case PRO_FONT:
-	parsefont((struct fstate *) p->p_obj, param_start);
 	break;
 
     default:

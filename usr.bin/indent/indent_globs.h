@@ -52,9 +52,9 @@
 FILE       *input;		/* the fid for the input file */
 FILE       *output;		/* the output file */
 
-#define CHECK_SIZE_CODE \
-	if (e_code >= l_code) { \
-	    int nsize = l_code-s_code+400; \
+#define CHECK_SIZE_CODE(desired_size) \
+	if (e_code + (desired_size) >= l_code) { \
+	    int nsize = l_code-s_code + 400 + desired_size; \
 	    int code_len = e_code-s_code; \
 	    codebuf = (char *) realloc(codebuf, nsize); \
 	    if (codebuf == NULL) \
@@ -63,22 +63,27 @@ FILE       *output;		/* the output file */
 	    l_code = codebuf + nsize - 5; \
 	    s_code = codebuf + 1; \
 	}
-#define CHECK_SIZE_COM \
-	if (e_com >= l_com) { \
-	    int nsize = l_com-s_com+400; \
+#define CHECK_SIZE_COM(desired_size) \
+	if (e_com + (desired_size) >= l_com) { \
+	    int nsize = l_com-s_com + 400 + desired_size; \
 	    int com_len = e_com - s_com; \
-	    int blank_pos = last_bl - s_com; \
+	    int blank_pos; \
+	    if (last_bl != NULL) \
+		blank_pos = last_bl - combuf; \
+	    else \
+		blank_pos = -1; \
 	    combuf = (char *) realloc(combuf, nsize); \
 	    if (combuf == NULL) \
 		err(1, NULL); \
 	    e_com = combuf + com_len + 1; \
-	    last_bl = combuf + blank_pos + 1; \
+	    if (blank_pos > 0) \
+		last_bl = combuf + blank_pos; \
 	    l_com = combuf + nsize - 5; \
 	    s_com = combuf + 1; \
 	}
-#define CHECK_SIZE_LAB \
-	if (e_lab >= l_lab) { \
-	    int nsize = l_lab-s_lab+400; \
+#define CHECK_SIZE_LAB(desired_size) \
+	if (e_lab + (desired_size) >= l_lab) { \
+	    int nsize = l_lab-s_lab + 400 + desired_size; \
 	    int label_len = e_lab - s_lab; \
 	    labbuf = (char *) realloc(labbuf, nsize); \
 	    if (labbuf == NULL) \
@@ -87,9 +92,9 @@ FILE       *output;		/* the output file */
 	    l_lab = labbuf + nsize - 5; \
 	    s_lab = labbuf + 1; \
 	}
-#define CHECK_SIZE_TOKEN \
-	if (e_token >= l_token) { \
-	    int nsize = l_token-s_token+400; \
+#define CHECK_SIZE_TOKEN(desired_size) \
+	if (e_token + (desired_size) >= l_token) { \
+	    int nsize = l_token-s_token + 400 + desired_size; \
 	    int token_len = e_token - s_token; \
 	    tokenbuf = (char *) realloc(tokenbuf, nsize); \
 	    if (tokenbuf == NULL) \
@@ -161,7 +166,6 @@ int         cuddle_else;	/* true if else should cuddle up to '}' */
 int         star_comment_cont;	/* true iff comment continuation lines should
 				 * have stars at the beginning of each line. */
 int         comment_delimiter_on_blankline;
-int         troff;		/* true iff were generating troff input */
 int         procnames_start_line;	/* if true, the names of procedures
 					 * being defined get placed in column
 					 * 1 (ie. a newline is placed between
@@ -182,6 +186,8 @@ int         continuation_indent;/* set to the indentation between the edge of
 				 * code and continuation lines */
 int         lineup_to_parens;	/* if true, continued code within parens will
 				 * be lined up to the open paren */
+int         lineup_to_parens_always;	/* if true, do not attempt to keep
+					 * lined-up code within the margin */
 int         Bill_Shannon;	/* true iff a blank should always be inserted
 				 * after sizeof */
 int         blanklines_after_declarations_at_proctop;	/* This is vaguely
@@ -213,29 +219,10 @@ int	    auto_typedefs;		/* set true to recognize identifiers
 int	    space_after_cast;		/* "b = (int) a" vs "b = (int)a" */
 int	    tabsize;			/* the size of a tab */
 
-/* -troff font state information */
-
-struct fstate {
-    char        font[4];
-    char        size;
-    int         allcaps:1;
-} __aligned(sizeof(int));
-char       *chfont(struct fstate *, struct fstate *, char *);
-
-struct fstate
-            keywordf,		/* keyword font */
-            stringf,		/* string font */
-            boxcomf,		/* Box comment font */
-            blkcomf,		/* Block comment font */
-            scomf,		/* Same line comment font */
-            bodyf;		/* major body font */
-
-
 #define	STACKSIZE 256
 
 struct parser_state {
     int         last_token;
-    struct fstate cfont;	/* Current font */
     int         p_stack[STACKSIZE];	/* this is the parsers stack */
     int         il[STACKSIZE];	/* this stack stores indentation levels */
     float       cstk[STACKSIZE];/* used to store case stmt indentation levels */
