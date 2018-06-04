@@ -35,14 +35,6 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
-static const char copyright[] =
-"@(#) Copyright (c) 1985 Sun Microsystems, Inc.\n\
-@(#) Copyright (c) 1976 Board of Trustees of the University of Illinois.\n\
-@(#) Copyright (c) 1980, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n";
-#endif /* not lint */
-
 #if 0
 #ifndef lint
 static char sccsid[] = "@(#)indent.c	5.17 (Berkeley) 6/7/93";
@@ -1136,7 +1128,7 @@ check_type:
 		    }
 		    if (sc_end - save_com + com_end - com_start > sc_size)
 			errx(1, "input too long");
-		    bcopy(s_lab + com_start, sc_end, com_end - com_start);
+		    memmove(sc_end, s_lab + com_start, com_end - com_start);
 		    sc_end += com_end - com_start;
 		    e_lab = s_lab + com_start;
 		    while (e_lab > s_lab && (e_lab[-1] == ' ' || e_lab[-1] == '\t'))
