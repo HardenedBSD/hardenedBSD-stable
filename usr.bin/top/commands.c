@@ -18,6 +18,7 @@
  */
 
 #include <sys/resource.h>
+#include <sys/signal.h>
 
 #include <ctype.h>
 #include <errno.h>
@@ -63,7 +64,7 @@ These single-character commands are available:\n\
 q       - quit\n\
 h or ?  - help; show this text\n", stdout);
 
-    /* not all commands are availalbe with overstrike terminals */
+    /* not all commands are available with overstrike terminals */
     if (overstrike)
     {
 	fputs("\n\
