@@ -61,12 +61,16 @@
  *
  * The patch version is incremented for every bug fix.
  */
-#define	PMC_VERSION_MAJOR	0x05
+#define	PMC_VERSION_MAJOR	0x06
 #define	PMC_VERSION_MINOR	0x01
 #define	PMC_VERSION_PATCH	0x0000
 
 #define	PMC_VERSION		(PMC_VERSION_MAJOR << 24 |		\
 	PMC_VERSION_MINOR << 16 | PMC_VERSION_PATCH)
+
+#define PMC_CPUID_LEN 64
+/* cpu model name for pmu lookup */
+extern char pmc_cpuid[PMC_CPUID_LEN];
 
 /*
  * Kinds of CPUs known.
@@ -360,22 +364,23 @@ enum pmc_ops {
  * Flags used in operations on PMCs.
  */
 
-#define	PMC_F_FORCE		0x00000001 /*OP ADMIN force operation */
+#define	PMC_F_UNUSED1		0x00000001 /* unused */
 #define	PMC_F_DESCENDANTS	0x00000002 /*OP ALLOCATE track descendants */
 #define	PMC_F_LOG_PROCCSW	0x00000004 /*OP ALLOCATE track ctx switches */
 #define	PMC_F_LOG_PROCEXIT	0x00000008 /*OP ALLOCATE log proc exits */
 #define	PMC_F_NEWVALUE		0x00000010 /*OP RW write new value */
 #define	PMC_F_OLDVALUE		0x00000020 /*OP RW get old value */
-#define	PMC_F_KGMON		0x00000040 /*OP ALLOCATE kgmon(8) profiling */
+
 /* V2 API */
 #define	PMC_F_CALLCHAIN		0x00000080 /*OP ALLOCATE capture callchains */
+#define	PMC_F_USERCALLCHAIN	0x00000100 /*OP ALLOCATE use userspace stack */
 
 /* internal flags */
 #define	PMC_F_ATTACHED_TO_OWNER	0x00010000 /*attached to owner*/
 #define	PMC_F_NEEDS_LOGFILE	0x00020000 /*needs log file */
 #define	PMC_F_ATTACH_DONE	0x00040000 /*attached at least once */
 
-#define	PMC_CALLCHAIN_DEPTH_MAX	128
+#define	PMC_CALLCHAIN_DEPTH_MAX	512
 
 #define	PMC_CC_F_USERSPACE	0x01	   /*userspace callchain*/
 
@@ -391,15 +396,15 @@ typedef uint64_t	pmc_value_t;
 /*
  * PMC IDs have the following format:
  *
- * +--------+----------+-----------+-----------+
- * |   CPU  | PMC MODE | PMC CLASS | ROW INDEX |
- * +--------+----------+-----------+-----------+
+ * +-----------------------+-------+-----------+
+ * |   CPU      | PMC MODE | CLASS | ROW INDEX |
+ * +-----------------------+-------+-----------+
  *
- * where each field is 8 bits wide.  Field 'CPU' is set to the
- * requested CPU for system-wide PMCs or PMC_CPU_ANY for process-mode
- * PMCs.  Field 'PMC MODE' is the allocated PMC mode.  Field 'PMC
- * CLASS' is the class of the PMC.  Field 'ROW INDEX' is the row index
- * for the PMC.
+ * where CPU is 12 bits, MODE 8, CLASS 4, and ROW INDEX 8  Field 'CPU'
+ * is set to the requested CPU for system-wide PMCs or PMC_CPU_ANY for
+ * process-mode PMCs.  Field 'PMC MODE' is the allocated PMC mode.
+ * Field 'PMC CLASS' is the class of the PMC.  Field 'ROW INDEX' is the
+ * row index for the PMC.
  *
  * The 'ROW INDEX' ranges over 0..NWPMCS where NHWPMCS is the total
  * number of hardware PMCs on this cpu.
@@ -407,12 +412,12 @@ typedef uint64_t	pmc_value_t;
 
 
 #define	PMC_ID_TO_ROWINDEX(ID)	((ID) & 0xFF)
-#define	PMC_ID_TO_CLASS(ID)	(((ID) & 0xFF00) >> 8)
-#define	PMC_ID_TO_MODE(ID)	(((ID) & 0xFF0000) >> 16)
-#define	PMC_ID_TO_CPU(ID)	(((ID) & 0xFF000000) >> 24)
+#define	PMC_ID_TO_CLASS(ID)	(((ID) & 0xF00) >> 8)
+#define	PMC_ID_TO_MODE(ID)	(((ID) & 0xFF000) >> 12)
+#define	PMC_ID_TO_CPU(ID)	(((ID) & 0xFFF00000) >> 20)
 #define	PMC_ID_MAKE_ID(CPU,MODE,CLASS,ROWINDEX)			\
-	((((CPU) & 0xFF) << 24) | (((MODE) & 0xFF) << 16) |	\
-	(((CLASS) & 0xFF) << 8) | ((ROWINDEX) & 0xFF))
+	((((CPU) & 0xFFF) << 20) | (((MODE) & 0xFF) << 12) |	\
+	(((CLASS) & 0xF) << 8) | ((ROWINDEX) & 0xFF))
 
 /*
  * Data structures for system calls supported by the pmc driver.
@@ -568,6 +573,8 @@ struct pmc_driverstats {
 	counter_u64_t	pm_buffer_requests_failed; /* #failed buffer requests */
 	counter_u64_t	pm_log_sweeps;		/* #sample buffer processing
 						   passes */
+	counter_u64_t	pm_merges;		/* merged k+u */
+	counter_u64_t	pm_overwrites;		/* UR overwrites */
 };
 #endif
 
@@ -643,11 +650,11 @@ struct pmc_op_getdyneventinfo {
 
 #define	PMC_HASH_SIZE				1024
 #define	PMC_MTXPOOL_SIZE			2048
-#define	PMC_LOG_BUFFER_SIZE			128
-#define	PMC_NLOGBUFFERS_PCPU		8
-#define	PMC_NSAMPLES				64
-#define	PMC_CALLCHAIN_DEPTH			32
-#define	PMC_THREADLIST_MAX			64
+#define	PMC_LOG_BUFFER_SIZE			256
+#define	PMC_NLOGBUFFERS_PCPU			32
+#define	PMC_NSAMPLES				256
+#define	PMC_CALLCHAIN_DEPTH			128
+#define	PMC_THREADLIST_MAX			128
 
 #define PMC_SYSCTL_NAME_PREFIX "kern." PMC_MODULE_NAME "."
 
@@ -923,9 +930,9 @@ struct pmc_hw {
 
 struct pmc_sample {
 	uint16_t		ps_nsamples;	/* callchain depth */
+	uint16_t		ps_nsamples_actual;
 	uint16_t		ps_cpu;		/* cpu number */
 	uint16_t		ps_flags;	/* other flags */
-	uint8_t			ps_pad[2];
 	lwpid_t			ps_tid;		/* thread id */
 	pid_t			ps_pid;		/* process PID or -1 */
 	struct thread		*ps_td;		/* which thread */
@@ -954,7 +961,7 @@ struct pmc_samplebuffer {
 
 struct pmc_cpu {
 	uint32_t	pc_state;	/* physical cpu number + flags */
-	struct pmc_samplebuffer *pc_sb[2]; /* space for samples */
+	struct pmc_samplebuffer *pc_sb[3]; /* space for samples */
 	struct pmc_hw	*pc_hwpmcs[];	/* 'npmc' pointers */
 };
 
@@ -1061,9 +1068,6 @@ extern struct pmc_cpu **pmc_pcpu;
 
 /* driver statistics */
 extern struct pmc_driverstats pmc_stats;
-
-/* cpu model name for pmu lookup */
-extern char pmc_cpuid[64];
 
 #if	defined(HWPMC_DEBUG)
 #include <sys/ktr.h>
@@ -1203,7 +1207,7 @@ MALLOC_DECLARE(M_PMC);
 struct pmc_mdep *pmc_md_initialize(void);	/* MD init function */
 void	pmc_md_finalize(struct pmc_mdep *_md);	/* MD fini function */
 int	pmc_getrowdisp(int _ri);
-int	pmc_process_interrupt(int _cpu, int _soft, struct pmc *_pm,
+int	pmc_process_interrupt(int _cpu, int _ring, struct pmc *_pm,
     struct trapframe *_tf, int _inuserspace);
 int	pmc_save_kernel_callchain(uintptr_t *_cc, int _maxsamples,
     struct trapframe *_tf);
@@ -1211,5 +1215,6 @@ int	pmc_save_user_callchain(uintptr_t *_cc, int _maxsamples,
     struct trapframe *_tf);
 struct pmc_mdep *pmc_mdep_alloc(int nclasses);
 void pmc_mdep_free(struct pmc_mdep *md);
+void pmc_flush_samples(int cpu);
 #endif /* _KERNEL */
 #endif /* _SYS_PMC_H_ */
