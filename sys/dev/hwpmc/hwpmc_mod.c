@@ -809,6 +809,19 @@ pmc_force_context_switch(void)
 	pause("pmcctx", 1);
 }
 
+uint64_t
+pmc_rdtsc(void)
+{
+#if defined(__i386__) || defined(__amd64__)
+	if (__predict_true(amd_feature & AMDID_RDTSCP))
+		return rdtscp();
+	else
+		return rdtsc();
+#else
+	return get_cyclecount();
+#endif
+}
+
 /*
  * Get the file name for an executable.  This is a simple wrapper
  * around vn_fullpath(9).
@@ -1821,7 +1834,8 @@ pmc_log_kernel_mappings(struct pmc *pm)
 
 	if (po->po_flags & PMC_PO_INITIAL_MAPPINGS_DONE)
 		return;
-
+	if (PMC_TO_MODE(pm) == PMC_MODE_SS)
+		pmc_process_allproc(pm);
 	/*
 	 * Log the current set of kernel modules.
 	 */
@@ -4041,8 +4055,7 @@ pmc_syscall_handler(struct thread *td, void *syscall_args)
 			pmc = NULL;
 			break;
 		}
-		if (mode == PMC_MODE_SS)
-			pmc_process_allproc(pmc);
+
 
 		/*
 		 * Return the allocated index.
@@ -4676,6 +4689,8 @@ pmc_add_sample(int cpu, int ring, struct pmc *pm, struct trapframe *tf,
 	ps->ps_td = td;
 	ps->ps_pid = td->td_proc->p_pid;
 	ps->ps_tid = td->td_tid;
+	ps->ps_tsc = pmc_rdtsc();
+
 	ps->ps_cpu = cpu;
 	ps->ps_flags = inuserspace ? PMC_CC_F_USERSPACE : 0;
 
