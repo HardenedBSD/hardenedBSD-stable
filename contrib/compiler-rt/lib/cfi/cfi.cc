@@ -17,6 +17,10 @@
 #include <string.h>
 #include <sys/mman.h>
 
+#ifdef __FreeBSD__
+#define	ElfW	__ElfN
+#endif
+
 typedef ElfW(Phdr) Elf_Phdr;
 typedef ElfW(Ehdr) Elf_Ehdr;
 
@@ -159,6 +163,32 @@ void ShadowBuilder::Install() {
     void *res = mremap((void *)shadow_, GetShadowSize(), GetShadowSize(),
                        MREMAP_MAYMOVE | MREMAP_FIXED, (void *)main_shadow);
     CHECK(res != MAP_FAILED);
+  } else {
+    // Initial setup.
+    CHECK_EQ(kCfiShadowLimitsStorageSize, GetPageSizeCached());
+    CHECK_EQ(0, GetShadow());
+    cfi_shadow_limits_storage.limits.start = shadow_;
+    MprotectReadOnly((uptr)&cfi_shadow_limits_storage,
+                     sizeof(cfi_shadow_limits_storage));
+    CHECK_EQ(shadow_, GetShadow());
+  }
+}
+#elif SANITIZER_FREEBSD
+void ShadowBuilder::Install() {
+  unsigned char *dst, *src, t;
+  size_t sz;
+  sz = GetShadowSize();
+  MprotectReadOnly(shadow_, sz);
+  uptr main_shadow = GetShadow();
+  if (main_shadow) {
+    // Update.
+    dst = (unsigned char *)main_shadow;
+    src = (unsigned char *)shadow_;
+
+    while ((dst - (unsigned char *)shadow_) < sz) {
+      t = *src++;
+      *dst++ = t;
+    }
   } else {
     // Initial setup.
     CHECK_EQ(kCfiShadowLimitsStorageSize, GetPageSizeCached());
@@ -388,8 +418,10 @@ __cfi_slowpath_diag(u64 CallSiteTypeId, void *Ptr, void *DiagData) {
 // We could insert a high-priority constructor into the library, but that would
 // not help with the uninstrumented libraries.
 INTERCEPTOR(void*, dlopen, const char *filename, int flag) {
+  void *(*rdlo)(const char *, int);
   EnterLoader();
-  void *handle = REAL(dlopen)(filename, flag);
+  rdlo = REAL(dlopen);
+  void *handle = rdlo(filename, flag);
   ExitLoader();
   return handle;
 }
