@@ -57,20 +57,6 @@ __FBSDID("$FreeBSD$");
 static bool	 first_match = true;
 
 /*
- * Parsing context; used to hold things like matches made and
- * other useful bits
- */
-struct parsec {
-	regmatch_t	matches[MAX_MATCHES];		/* Matches made */
-	/* XXX TODO: This should be a chunk, not a line */
-	struct str	ln;				/* Current line */
-	size_t		lnstart;			/* Position in line */
-	size_t		matchidx;			/* Latest match index */
-	int		printed;			/* Metadata printed? */
-	bool		binary;				/* Binary file? */
-};
-
-/*
  * Match printing context
  */
 struct mprintc {
@@ -139,17 +125,18 @@ dir_matching(const char *dname)
  * Processes a directory when a recursive search is performed with
  * the -R option.  Each appropriate file is passed to procfile().
  */
-int
+bool
 grep_tree(char **argv)
 {
 	FTS *fts;
 	FTSENT *p;
-	int c, fts_flags;
-	bool ok;
+	int fts_flags;
+	bool matched, ok;
 	const char *wd[] = { ".", NULL };
 
-	c = fts_flags = 0;
+	matched = false;
 
+	/* This switch effectively initializes 'fts_flags' */
 	switch(linkbehave) {
 	case LINK_EXPLICIT:
 		fts_flags = FTS_COMFOLLOW;
@@ -195,14 +182,14 @@ grep_tree(char **argv)
 			if (fexclude || finclude)
 				ok &= file_matching(p->fts_path);
 
-			if (ok)
-				c += procfile(p->fts_path);
+			if (ok && procfile(p->fts_path))
+				matched = true;
 			break;
 		}
 	}
 
 	fts_close(fts);
-	return (c);
+	return (matched);
 }
 
 static void
@@ -275,7 +262,7 @@ procmatches(struct mprintc *mc, struct parsec *pc, bool matched)
 		if (mflag) {
 			/* XXX TODO: Decrement by number of matched lines */
 			mcount -= 1;
-			if (mflag && mcount <= 0)
+			if (mcount <= 0)
 				return (false);
 		}
 	} else if (mc->doctx)
@@ -288,7 +275,7 @@ procmatches(struct mprintc *mc, struct parsec *pc, bool matched)
  * Opens a file and processes it.  Each file is processed line-by-line
  * passing the lines to procline().
  */
-int
+bool
 procfile(const char *fn)
 {
 	struct parsec pc;
@@ -296,7 +283,7 @@ procfile(const char *fn)
 	struct file *f;
 	struct stat sb;
 	mode_t s;
-	int c, t;
+	int lines, t;
 
 	if (strcmp(fn, "-") == 0) {
 		fn = label != NULL ? label : errstr[1];
@@ -306,10 +293,10 @@ procfile(const char *fn)
 			/* Check if we need to process the file */
 			s = sb.st_mode & S_IFMT;
 			if (dirbehave == DIR_SKIP && s == S_IFDIR)
-				return (0);
+				return (false);
 			if (devbehave == DEV_SKIP && (s == S_IFIFO ||
 			    s == S_IFCHR || s == S_IFBLK || s == S_IFSOCK))
-				return (0);
+				return (false);
 		}
 		f = grep_open(fn);
 	}
@@ -317,7 +304,7 @@ procfile(const char *fn)
 		file_err = true;
 		if (!sflag)
 			warn("%s", fn);
-		return (0);
+		return (false);
 	}
 
 	pc.ln.file = grep_strdup(fn);
@@ -326,6 +313,7 @@ procfile(const char *fn)
 	pc.ln.boff = 0;
 	pc.ln.off = -1;
 	pc.binary = f->binary;
+	pc.cntlines = false;
 	memset(&mc, 0, sizeof(mc));
 	mc.printmatch = true;
 	if ((pc.binary && binbehave == BINFILE_BIN) || cflag || qflag ||
@@ -333,9 +321,11 @@ procfile(const char *fn)
 		mc.printmatch = false;
 	if (mc.printmatch && (Aflag != 0 || Bflag != 0))
 		mc.doctx = true;
+	if (mc.printmatch && (Aflag != 0 || Bflag != 0 || mflag || nflag))
+		pc.cntlines = true;
 	mcount = mlimit;
 
-	for (c = 0;  c == 0 || !(lflag || qflag); ) {
+	for (lines = 0; lines == 0 || !(lflag || qflag); ) {
 		/*
 		 * XXX TODO: We need to revisit this in a chunking world. We're
 		 * not going to be doing per-line statistics because of the
@@ -348,7 +338,7 @@ procfile(const char *fn)
 		pc.ln.boff = 0;
 		pc.ln.off += pc.ln.len + 1;
 		/* XXX TODO: Grab a chunk */
-		if ((pc.ln.dat = grep_fgetln(f, &pc.ln.len)) == NULL ||
+		if ((pc.ln.dat = grep_fgetln(f, &pc)) == NULL ||
 		    pc.ln.len == 0)
 			break;
 
@@ -365,7 +355,7 @@ procfile(const char *fn)
 		}
 
 		if ((t = procline(&pc)) == 0)
-			++c;
+			++lines;
 
 		/* Halt processing if we hit our match limit */
 		if (!procmatches(&mc, &pc, t == 0))
@@ -378,19 +368,19 @@ procfile(const char *fn)
 	if (cflag) {
 		if (!hflag)
 			printf("%s:", pc.ln.file);
-		printf("%u\n", c);
+		printf("%u\n", lines);
 	}
-	if (lflag && !qflag && c != 0)
+	if (lflag && !qflag && lines != 0)
 		printf("%s%c", fn, nullflag ? 0 : '\n');
-	if (Lflag && !qflag && c == 0)
+	if (Lflag && !qflag && lines == 0)
 		printf("%s%c", fn, nullflag ? 0 : '\n');
-	if (c && !cflag && !lflag && !Lflag &&
+	if (lines != 0 && !cflag && !lflag && !Lflag &&
 	    binbehave == BINFILE_BIN && f->binary && !qflag)
 		printf(errstr[7], fn);
 
 	free(pc.ln.file);
 	free(f);
-	return (c);
+	return (lines != 0);
 }
 
 #ifdef WITH_INTERNAL_NOSPEC

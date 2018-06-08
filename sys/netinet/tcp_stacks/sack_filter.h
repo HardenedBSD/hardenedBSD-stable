@@ -1,5 +1,9 @@
+#ifndef __sack_filter_h__
+#define __sack_filter_h__
 /*-
- * Copyright (c) 2016-2018 Netflix Inc.
+ * Copyright (c) 2017
+ *	Netflix Inc.
+ *      All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -22,21 +26,33 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD$
+ * __FBSDID("$FreeBSD$");
  */
-#ifndef __kern_prefetch_h__
-#define __kern_prefetch_h__
+
+/*
+ * Seven entry's is carefully choosen to
+ * fit in one cache line. We can easily
+ * change this to 15 (but it gets very
+ * little extra filtering). To change it
+ * to be larger than 15 would require either
+ * sf_bits becoming a uint32_t and then you
+ * could go to 31.. or change it to a full
+ * bitstring.. It is really doubtful you
+ * will get much benefit beyond 7, in testing
+ * there was a small amount but very very small.
+ */
+#define SACK_FILTER_BLOCKS 7
+
+struct sack_filter {
+	tcp_seq sf_ack;
+	uint16_t sf_bits;
+	uint8_t sf_cur;
+	uint8_t sf_used;
+	struct sackblk sf_blks[SACK_FILTER_BLOCKS];
+};
 #ifdef _KERNEL
+void sack_filter_clear(struct sack_filter *sf, tcp_seq seq);
+int sack_filter_blks(struct sack_filter *sf, struct sackblk *in, int numblks, tcp_seq th_ack);
 
-static __inline void
-kern_prefetch(const volatile void *addr, void* before)
-{
-#if defined(__amd64__)
-	__asm __volatile("prefetcht1 (%1)":"=rm"(*((int32_t *)before)):"r"(addr):);
-#else
-/*	__builtin_prefetch(addr);*/
 #endif
-}
-
-#endif /* _KERNEL */
-#endif /* __kern_prefetch_h__ */
+#endif
