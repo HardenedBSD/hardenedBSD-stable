@@ -87,12 +87,13 @@ static void (*d_process)(int line, char *thisline) = i_process;
 
 static void reset_display(void);
 
-
 static const struct option longopts[] = {
     { "cpu-display-mode", no_argument, NULL, 'C' }, /* differs from orignal */
     /* D reserved */
     { "thread", no_argument, NULL, 'H' },
     { "idle-procs", no_argument, NULL, 'I' },
+	{ "jail", required_argument, NULL, 'J' },
+	{ "per-cpu", no_argument, NULL, 'P' },
     { "system-procs", no_argument, NULL, 'S' },
     { "thread-id", no_argument, NULL, 'T' }, /* differs from orignal */
     { "user", required_argument, NULL, 'U' },
@@ -111,6 +112,7 @@ static const struct option longopts[] = {
     { "threads", no_argument, NULL, 't' },
     { "uids", no_argument, NULL, 'u' },
     { "version", no_argument, NULL, 'v' },
+	{ "swap", no_argument, NULL, 'w' },
 	{ "system-idle-procs", no_argument, NULL, 'z' }
 };
 
@@ -233,7 +235,7 @@ main(int argc, char *argv[])
     static char tempbuf2[50];
     int old_sigmask;		/* only used for BSD-style signals */
     int topn = Infinity;
-    int delay = Default_DELAY;
+    double delay = 2;
     int displays = 0;		/* indicates unspecified */
     int sel_ret = 0;
     time_t curr_time;
@@ -257,7 +259,6 @@ main(int argc, char *argv[])
     char *order_name = NULL;
     int order_index = 0;
     fd_set readfds;
-    char old_system = false;
 
     static const char command_chars[] = "\f qh?en#sdkriIutHmSCajzPJwopT";
 /* these defines enumerate the "strchr"s of the commands in command_chars */
@@ -379,7 +380,6 @@ _Static_assert(sizeof(command_chars) == CMD_toggletid + 2, "command chars size")
 
 	      case 'S':			/* show system processes */
 		ps.system = true;
-		old_system = true;
 		break;
 
 	      case 'I':                   /* show idle processes */
@@ -426,15 +426,16 @@ _Static_assert(sizeof(command_chars) == CMD_toggletid + 2, "command chars size")
 		break;
 	      }
 
-	      case 's':
-		if ((delay = atoi(optarg)) < 0 || (delay == 0 && getuid() != 0))
-		{
-		    fprintf(stderr,
-			"%s: warning: seconds delay should be positive -- using default\n",
-			myname);
-		    delay = Default_DELAY;
-		    warnings++;
-		}
+		  case 's':
+			delay = strtod(optarg, NULL);
+			if (delay < 0) {
+				fprintf(stderr,
+						"%s: warning: seconds delay should be positive -- using default\n",
+						myname);
+				delay = 2;
+				warnings++;
+			}
+
 		break;
 
 	      case 'q':		/* be quick about it */
@@ -781,7 +782,7 @@ restart:
 	    no_command = true;
 	    if (!interactive)
 	    {
-		sleep(delay);
+		usleep(delay * 1e6);
 		if (leaveflag) {
 		    end_screen();
 		    exit(0);
@@ -1084,7 +1085,6 @@ restart:
 				break;
 			    case CMD_viewsys:
 				ps.system = !ps.system;
-				old_system = ps.system;
 				break;
 			    case CMD_showargs:
 				fmt_flags ^= FMT_SHOWARGS;
@@ -1191,7 +1191,6 @@ restart:
 					if (tempbuf2[0] == '+' &&
                    			    tempbuf2[1] == '\0') {
 						ps.pid = (pid_t)-1;
-						ps.system = old_system;
 					} else {
 						unsigned long long num;
 						const char *errstr;
@@ -1204,10 +1203,7 @@ restart:
 								tempbuf2);
 							no_command = true;
 						} else {
-							if (ps.system == false)
-								old_system = false;
 							ps.pid = (pid_t)num;
-							ps.system = true;
 						}
 					}
 					putchar('\r');
