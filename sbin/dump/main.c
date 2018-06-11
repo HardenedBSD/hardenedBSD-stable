@@ -433,7 +433,6 @@ main(int argc, char *argv[])
 		msgtail("to %s\n", tape);
 
 	sync();
-	sblock = NULL;
 	if ((ret = sbget(diskfd, &sblock, -1)) != 0) {
 		switch (ret) {
 		case ENOENT:
