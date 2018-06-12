@@ -58,7 +58,8 @@ start_pr(char *file1, char *file2)
 	signal(SIGPIPE, SIG_IGN);
 	fflush(stdout);
 	rewind(stdout);
-	pipe(pfd);
+	if (pipe(pfd) == -1)
+		err(2, "pipe");
 	switch ((pid = pdfork(&pr_pd, PD_CLOEXEC))) {
 	case -1:
 		status |= 2;
@@ -116,6 +117,7 @@ stop_pr(struct pr *pr)
 		err(2, "kevent");
 	wstatus = pr->e[0].data;
 	close(pr->kq);
+	free(pr);
 	if (WIFEXITED(wstatus) && WEXITSTATUS(wstatus) != 0)
 		errx(2, "pr exited abnormally");
 	else if (WIFSIGNALED(wstatus))
