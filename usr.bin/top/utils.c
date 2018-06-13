@@ -2,6 +2,7 @@
  *  This program may be freely redistributed,
  *  but this entire comment MUST remain intact.
  *
+ *  Copyright (c) 2018, Eitan Adler
  *  Copyright (c) 1984, 1989, William LeFebvre, Rice University
  *  Copyright (c) 1989, 1990, 1992, William LeFebvre, Northwestern University
  *
@@ -19,6 +20,7 @@
 #include <sys/sysctl.h>
 #include <sys/user.h>
 
+#include <libutil.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -46,7 +48,7 @@ atoiwi(const char *str)
 	}
 	else
 	{
-	    return(atoi(str));
+		return((int)strtol(str, NULL, 10));
 	}
     }
     return(0);
@@ -69,24 +71,13 @@ _Static_assert(sizeof(int) <= 4, "buffer too small for this sized int");
 char *
 itoa(unsigned int val)
 {
-    char *ptr;
     static char buffer[16];	/* result is built here */
     				/* 16 is sufficient since the largest number
 				   we will ever convert will be 2^32-1,
 				   which is 10 digits. */
 
-    ptr = buffer + sizeof(buffer);
-    *--ptr = '\0';
-    if (val == 0)
-    {
-	*--ptr = '0';
-    }
-    else while (val != 0)
-    {
-	*--ptr = (val % 10) + '0';
-	val /= 10;
-    }
-    return(ptr);
+	sprintf(buffer, "%u", val);
+    return (buffer);
 }
 
 /*
@@ -98,28 +89,13 @@ itoa(unsigned int val)
 char *
 itoa7(int val)
 {
-    char *ptr;
     static char buffer[16];	/* result is built here */
     				/* 16 is sufficient since the largest number
 				   we will ever convert will be 2^32-1,
 				   which is 10 digits. */
 
-    ptr = buffer + sizeof(buffer);
-    *--ptr = '\0';
-    if (val == 0)
-    {
-	*--ptr = '0';
-    }
-    else while (val != 0)
-    {
-	*--ptr = (val % 10) + '0';
-	val /= 10;
-    }
-    while (ptr > buffer + sizeof(buffer) - 7)
-    {
-	*--ptr = ' ';
-    }
-    return(ptr);
+	sprintf(buffer, "%6u", val);
+    return (buffer);
 }
 
 /*
@@ -146,7 +122,7 @@ digits(int val)
  * string_index(string, array) - find string in array and return index
  */
 
-int
+int __pure
 string_index(const char *string, const char * const *array)
 {
     size_t i = 0;
@@ -199,7 +175,7 @@ argparse(char *line, int *cntp)
  *	useful on for calculating cpu state percentages.
  */
 
-long
+long __pure
 percentages(int cnt, int *out, long *new, long *old, long *diffs)
 {
     int i;
@@ -262,35 +238,34 @@ percentages(int cnt, int *out, long *new, long *old, long *diffs)
    exceed 9999.9, we use "???".
  */
 
-char *
+const char *
 format_time(long seconds)
 {
-    static char result[10];
+	static char result[10];
 
-    /* sanity protection */
-    if (seconds < 0 || seconds > (99999l * 360l))
-    {
-	strcpy(result, "   ???");
-    }
-    else if (seconds >= (1000l * 60l))
-    {
-	/* alternate (slow) method displaying hours and tenths */
-	sprintf(result, "%5.1fH", (double)seconds / (double)(60l * 60l));
+	/* sanity protection */
+	if (seconds < 0 || seconds > (99999l * 360l))
+	{
+		strcpy(result, "   ???");
+	}
+	else if (seconds >= (1000l * 60l))
+	{
+		/* alternate (slow) method displaying hours and tenths */
+		sprintf(result, "%5.1fH", (double)seconds / (double)(60l * 60l));
 
-	/* It is possible that the sprintf took more than 6 characters.
-	   If so, then the "H" appears as result[6].  If not, then there
-	   is a \0 in result[6].  Either way, it is safe to step on.
-	 */
-	result[6] = '\0';
-    }
-    else
-    {
-	/* standard method produces MMM:SS */
-	/* we avoid printf as must as possible to make this quick */
-	sprintf(result, "%3ld:%02ld",
-	    (long)(seconds / 60), (long)(seconds % 60));
-    }
-    return(result);
+		/* It is possible that the sprintf took more than 6 characters.
+		   If so, then the "H" appears as result[6].  If not, then there
+		   is a \0 in result[6].  Either way, it is safe to step on.
+		   */
+		result[6] = '\0';
+	}
+	else
+	{
+		/* standard method produces MMM:SS */
+		sprintf(result, "%3ld:%02ld",
+				seconds / 60l, seconds % 60l);
+	}
+	return(result);
 }
 
 /*
@@ -319,63 +294,16 @@ format_time(long seconds)
 #define NUM_STRINGS 8
 
 char *
-format_k(long amt)
+format_k(int64_t amt)
 {
     static char retarray[NUM_STRINGS][16];
     static int index = 0;
-    char *p;
     char *ret;
-    char tag = 'K';
 
-    p = ret = retarray[index];
-    index = (index + 1) % NUM_STRINGS;
-
-    if (amt >= 10000)
-    {
-	amt = (amt + 512) / 1024;
-	tag = 'M';
-	if (amt >= 10000)
-	{
-	    amt = (amt + 512) / 1024;
-	    tag = 'G';
-	}
-    }
-
-    p = stpcpy(p, itoa(amt));
-    *p++ = tag;
-    *p = '\0';
-
-    return(ret);
-}
-
-char *
-format_k2(unsigned long long amt)
-{
-    static char retarray[NUM_STRINGS][16];
-    static int index = 0;
-    char *p;
-    char *ret;
-    char tag = 'K';
-
-    p = ret = retarray[index];
-    index = (index + 1) % NUM_STRINGS;
-
-    if (amt >= 100000)
-    {
-	amt = (amt + 512) / 1024;
-	tag = 'M';
-	if (amt >= 100000)
-	{
-	    amt = (amt + 512) / 1024;
-	    tag = 'G';
-	}
-    }
-
-    p = stpcpy(p, itoa((int)amt));
-    *p++ = tag;
-    *p = '\0';
-
-    return(ret);
+    ret = retarray[index];
+	index = (index + 1) % NUM_STRINGS;
+	humanize_number(ret, 6, amt * 1024, "", HN_AUTOSCALE, HN_NOSPACE);
+	return (ret);
 }
 
 int
