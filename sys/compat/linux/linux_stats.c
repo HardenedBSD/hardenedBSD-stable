@@ -128,13 +128,32 @@ translate_fd_major_minor(struct thread *td, int fd, struct stat *buf)
 	fdrop(fp, td);
 }
 
+/*
+ * l_dev_t has the same encoding as dev_t in the latter's low 16 bits, so
+ * truncation of a dev_t to 16 bits gives the same result as unpacking
+ * using major() and minor() and repacking in the l_dev_t format.  This
+ * detail is hidden in dev_to_ldev().  Overflow in conversions of dev_t's
+ * are not checked for, as for other fields.
+ *
+ * dev_to_ldev() is only used for translating st_dev.  When we convert
+ * st_rdev for copying it out, it isn't really a dev_t, but has already
+ * been translated to an l_dev_t in a nontrivial way.  Translating it
+ * again would be illogical but would have no effect since the low 16
+ * bits have the same encoding.
+ *
+ * The nontrivial translation for st_rdev renumbers some devices, but not
+ * ones that can be mounted on, so it is consistent with the translation
+ * for st_dev except when the renumbering or truncation causes conflicts.
+ */
+#define	dev_to_ldev(d)	((uint16_t)(d))
+
 static int
 newstat_copyout(struct stat *buf, void *ubuf)
 {
 	struct l_newstat tbuf;
 
 	bzero(&tbuf, sizeof(tbuf));
-	tbuf.st_dev = minor(buf->st_dev) | (major(buf->st_dev) << 8);
+	tbuf.st_dev = dev_to_ldev(buf->st_dev);
 	tbuf.st_ino = buf->st_ino;
 	tbuf.st_mode = buf->st_mode;
 	tbuf.st_nlink = buf->st_nlink;
@@ -222,7 +241,7 @@ stat_copyout(struct stat *buf, void *ubuf)
 	struct l_stat lbuf;
 
 	bzero(&lbuf, sizeof(lbuf));
-	lbuf.st_dev = buf->st_dev;
+	lbuf.st_dev = dev_to_ldev(buf->st_dev);
 	lbuf.st_ino = buf->st_ino;
 	lbuf.st_mode = buf->st_mode;
 	lbuf.st_nlink = buf->st_nlink;
@@ -524,7 +543,7 @@ stat64_copyout(struct stat *buf, void *ubuf)
 	struct l_stat64 lbuf;
 
 	bzero(&lbuf, sizeof(lbuf));
-	lbuf.st_dev = minor(buf->st_dev) | (major(buf->st_dev) << 8);
+	lbuf.st_dev = dev_to_ldev(buf->st_dev);
 	lbuf.st_ino = buf->st_ino;
 	lbuf.st_mode = buf->st_mode;
 	lbuf.st_nlink = buf->st_nlink;

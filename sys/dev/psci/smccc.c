@@ -2,7 +2,6 @@
  * SPDX-License-Identifier: BSD-2-Clause
  *
  * Copyright (c) 2018 Andrew Turner
- * All rights reserved.
  *
  * This software was developed by SRI International and the University of
  * Cambridge Computer Laboratory under DARPA/AFRL contract FA8750-10-C-0237
@@ -30,79 +29,65 @@
  * SUCH DAMAGE.
  */
 
+#include "opt_acpi.h"
 #include "opt_platform.h"
 
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
 #include <sys/param.h>
+#include <sys/systm.h>
 #include <sys/kernel.h>
-#include <sys/pcpu.h>
 
-#include <machine/cpu.h>
-
+#include <dev/psci/psci.h>
 #include <dev/psci/smccc.h>
 
-typedef void (cpu_quirk_install)(void);
-struct cpu_quirks {
-	cpu_quirk_install *quirk_install;
-	u_int		midr_mask;
-	u_int		midr_value;
-};
+#define	SMCCC_VERSION_1_0	0x10000
 
-static cpu_quirk_install install_psci_bp_hardening;
-
-static struct cpu_quirks cpu_quirks[] = {
-	{
-		.midr_mask = CPU_IMPL_MASK | CPU_PART_MASK,
-		.midr_value = CPU_ID_RAW(CPU_IMPL_ARM, CPU_PART_CORTEX_A57,0,0),
-		.quirk_install = install_psci_bp_hardening,
-	},
-	{
-		.midr_mask = CPU_IMPL_MASK | CPU_PART_MASK,
-		.midr_value = CPU_ID_RAW(CPU_IMPL_ARM, CPU_PART_CORTEX_A72,0,0),
-		.quirk_install = install_psci_bp_hardening,
-	},
-	{
-		.midr_mask = CPU_IMPL_MASK | CPU_PART_MASK,
-		.midr_value = CPU_ID_RAW(CPU_IMPL_ARM, CPU_PART_CORTEX_A73,0,0),
-		.quirk_install = install_psci_bp_hardening,
-	},
-	{
-		.midr_mask = CPU_IMPL_MASK | CPU_PART_MASK,
-		.midr_value = CPU_ID_RAW(CPU_IMPL_ARM, CPU_PART_CORTEX_A75,0,0),
-		.quirk_install = install_psci_bp_hardening,
-	},
-	{
-		.midr_mask = CPU_IMPL_MASK | CPU_PART_MASK,
-		.midr_value =
-		    CPU_ID_RAW(CPU_IMPL_CAVIUM, CPU_PART_THUNDERX2, 0,0),
-		.quirk_install = install_psci_bp_hardening,
-	},
-};
+/* Assume 1.0 until we detect a later version */
+static uint32_t	smccc_version = SMCCC_VERSION_1_0;
 
 static void
-install_psci_bp_hardening(void)
+smccc_init(void *dummy)
+{
+	int32_t features;
+	uint32_t ret;
+
+	features = psci_features(SMCCC_VERSION);
+	if (features != PSCI_RETVAL_NOT_SUPPORTED) {
+		ret = psci_call(SMCCC_VERSION, 0, 0, 0);
+		/* This should always be the case as we checked it above */
+		if (ret > 0)
+			smccc_version = ret;
+	}
+
+	if (bootverbose) {
+		printf("Found SMCCC version %u.%u\n",
+		    SMCCC_VERSION_MAJOR(smccc_version),
+		    SMCCC_VERSION_MINOR(smccc_version));
+	}
+}
+SYSINIT(smccc_start, SI_SUB_DRIVERS, SI_ORDER_ANY, smccc_init, NULL);
+
+int32_t
+smccc_arch_features(uint32_t smccc_func_id)
 {
 
-	if (smccc_arch_features(SMCCC_ARCH_WORKAROUND_1) != SMCCC_RET_SUCCESS)
-		return;
+	if (smccc_version == SMCCC_VERSION_1_0)
+		return (PSCI_RETVAL_NOT_SUPPORTED);
 
-	PCPU_SET(bp_harden, smccc_arch_workaround_1);
+	return (psci_call(SMCCC_ARCH_FEATURES, smccc_func_id, 0, 0));
 }
 
-void
-install_cpu_errata(void)
+/*
+ * The SMCCC handler for Spectre variant 2: Branch target injection.
+ * (CVE-2017-5715)
+ */
+int
+smccc_arch_workaround_1(void)
 {
-	u_int midr;
-	size_t i;
 
-	midr = get_midr();
-
-	for (i = 0; i < nitems(cpu_quirks); i++) {
-		if ((midr & cpu_quirks[i].midr_mask) ==
-		    cpu_quirks[i].midr_value) {
-			cpu_quirks[i].quirk_install();
-		}
-	}
+	KASSERT(smccc_version != SMCCC_VERSION_1_0,
+	    ("SMCCC arch workaround 1 called with an invalid SMCCC interface"));
+	return (psci_call(SMCCC_ARCH_WORKAROUND_1, 0, 0, 0));
 }
