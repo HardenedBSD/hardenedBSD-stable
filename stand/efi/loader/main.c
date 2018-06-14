@@ -53,8 +53,6 @@ __FBSDID("$FreeBSD$");
 
 #include "loader_efi.h"
 
-extern char bootprog_info[];
-
 struct arch_switch archsw;	/* MI/MD interface boundary */
 
 EFI_GUID acpi = ACPI_TABLE_GUID;
@@ -415,7 +413,8 @@ main(int argc, CHAR16 *argv[])
 {
 	char var[128];
 	EFI_GUID *guid;
-	int i, j, vargood, howto;
+	int i, j, howto;
+	bool vargood;
 	UINTN k;
 	int has_kbd;
 	char *s;
@@ -532,14 +531,14 @@ main(int argc, CHAR16 *argv[])
 				}
 			}
 		} else {
-			vargood = 0;
+			vargood = false;
 			for (j = 0; argv[i][j] != 0; j++) {
 				if (j == sizeof(var)) {
-					vargood = 0;
+					vargood = false;
 					break;
 				}
 				if (j > 0 && argv[i][j] == '=')
-					vargood = 1;
+					vargood = true;
 				var[j] = (char)argv[i][j];
 			}
 			if (vargood) {
