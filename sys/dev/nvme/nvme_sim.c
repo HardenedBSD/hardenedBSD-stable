@@ -76,6 +76,7 @@ nvme_sim_nvmeio_done(void *ccb_arg, const struct nvme_completion *cpl)
 	 * it means. Make our best guess, though for the status code.
 	 */
 	memcpy(&ccb->nvmeio.cpl, cpl, sizeof(*cpl));
+	ccb->ccb_h.status &= ~CAM_SIM_QUEUED;
 	if (nvme_completion_is_error(cpl)) {
 		ccb->ccb_h.status = CAM_REQ_CMP_ERR;
 		xpt_done(ccb);
@@ -114,6 +115,7 @@ nvme_sim_nvmeio(struct cam_sim *sim, union ccb *ccb)
 		xpt_done(ccb);
 		return;
 	}
+	ccb->ccb_h.status |= CAM_SIM_QUEUED;
 
 	memcpy(&req->cmd, &ccb->nvmeio.cmd, sizeof(ccb->nvmeio.cmd));
 
@@ -121,8 +123,6 @@ nvme_sim_nvmeio(struct cam_sim *sim, union ccb *ccb)
 		nvme_ctrlr_submit_io_request(ctrlr, req);
 	else
 		nvme_ctrlr_submit_admin_request(ctrlr, req);
-
-	ccb->ccb_h.status |= CAM_SIM_QUEUED;
 }
 
 static void
@@ -153,14 +153,6 @@ nvme_sim_action(struct cam_sim *sim, union ccb *ccb)
 		 */
 		/*FALLTHROUGH*/
 	case XPT_ABORT:			/* Abort the specified CCB */
-	case XPT_EN_LUN:		/* Enable LUN as a target */
-	case XPT_TARGET_IO:		/* Execute target I/O request */
-	case XPT_ACCEPT_TARGET_IO:	/* Accept Host Target Mode CDB */
-	case XPT_CONT_TARGET_IO:	/* Continue Host Target I/O Connection*/
-		/*
-		 * Only target mode generates these, and only for SCSI. They are
-		 * all invalid/unsupported for NVMe.
-		 */
 		ccb->ccb_h.status = CAM_REQ_INVALID;
 		break;
 	case XPT_SET_TRAN_SETTINGS:
@@ -196,10 +188,10 @@ nvme_sim_action(struct cam_sim *sim, union ccb *ccb)
 		strncpy(cpi->hba_vid, "NVMe", HBA_IDLEN);
 		strncpy(cpi->dev_name, cam_sim_name(sim), DEV_IDLEN);
 		cpi->unit_number = cam_sim_unit(sim);
-                cpi->transport = XPORT_NVME;		/* XXX XPORT_PCIE ? */
-                cpi->transport_version = 1;		/* XXX Get PCIe spec ? */
-                cpi->protocol = PROTO_NVME;
-                cpi->protocol_version = NVME_REV_1;	/* Groks all 1.x NVMe cards */
+		cpi->transport = XPORT_NVME;		/* XXX XPORT_PCIE ? */
+		cpi->transport_version = 1;		/* XXX Get PCIe spec ? */
+		cpi->protocol = PROTO_NVME;
+		cpi->protocol_version = NVME_REV_1;	/* Groks all 1.x NVMe cards */
 		cpi->xport_specific.nvme.nsid = ns->id;
 		cpi->xport_specific.nvme.domain = pci_get_domain(dev);
 		cpi->xport_specific.nvme.bus = pci_get_bus(dev);
