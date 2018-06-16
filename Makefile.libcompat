@@ -214,13 +214,9 @@ build${libcompat}: .PHONY
 	    OBJROOT='$${OBJTOP}/' \
 	    MAKEOBJDIRPREFIX= \
 	    DIRPRFX=${_dir}/ -DNO_LINT -DNO_CPU_CFLAGS MK_WARNS=no MK_CTF=no \
-<<<<<<< HEAD
 	    MK_RETPOLINE=no \
-	    build-tools
-=======
 	    ${_t}
 .endfor
->>>>>>> origin/freebsd/current/master
 .endfor
 	${_+_}cd ${.CURDIR}; \
 	    ${LIBCOMPATWMAKE} -f Makefile.inc1 -DNO_FSCHG libraries
