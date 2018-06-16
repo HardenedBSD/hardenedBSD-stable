@@ -89,6 +89,9 @@ MK_GCC_BOOTSTRAP=	no
 .if make(installworld) || make(install) || make(distributeworld) || \
     make(stageworld)
 .-include "${OBJTOP}/compiler-metadata.mk"
+.if !defined(_LOADED_COMPILER_METADATA)
+.error A build is required first.  You may have the wrong MAKEOBJDIRPREFIX set.
+.endif
 .endif
 
 # Pull in COMPILER_TYPE and COMPILER_FREEBSD_VERSION early. Pull it from the
@@ -195,6 +198,7 @@ compiler-metadata.mk: .PHONY .META
 	@: > ${.TARGET}
 	@echo ".info Using cached compiler metadata from build at $$(hostname) on $$(date)" \
 	    > ${.TARGET}
+	@echo "_LOADED_COMPILER_METADATA=t" >> ${.TARGET}
 .for v in ${_COMPILER_METADATA_VARS}
 	@echo "${v}=${${v}}" >> ${.TARGET}
 .endfor
@@ -269,9 +273,6 @@ SUBDIR+=stand
 SUBDIR+=sys usr.bin usr.sbin
 .if ${MK_TESTS} != "no"
 SUBDIR+=	tests
-.endif
-.if ${MK_OFED} != "no"
-SUBDIR+=contrib/ofed
 .endif
 
 # Local directories are built in parallel with the base system directories.
@@ -2033,7 +2034,8 @@ _tcsh=bin/csh
 _libmagic=lib/libmagic
 .endif
 
-.if ${TARGET_ARCH} == "amd64" || ${TARGET_ARCH} == "i386"
+.if ${MK_PMC} != "no" && \
+    (${TARGET_ARCH} == "amd64" || ${TARGET_ARCH} == "i386")
 _jevents=lib/libpmc/pmu-events
 .endif
 
@@ -2457,24 +2459,16 @@ _lib_libradius=	lib/libradius
 .endif
 
 .if ${MK_OFED} != "no"
-#
-# The OFED libraries are built in four steps
-# as reflected below, due to interdependencies.
-#
-# NOTE: Depending on contrib/ofed/include is only needed for
-# the lib32 compat build.
-#
-_ofed_lib= \
-contrib/ofed/include \
-contrib/ofed/usr.lib/0 \
-contrib/ofed/usr.lib/1 \
-contrib/ofed/usr.lib/2 \
-contrib/ofed/usr.lib/3
+_prebuild_libs+= \
+	lib/ofed/libibverbs \
+	lib/ofed/libibmad \
+	lib/ofed/libibumad \
+	lib/ofed/complib \
+	lib/ofed/libmlx5
 
-contrib/ofed/usr.lib/0__L: contrib/ofed/include__L lib/libthr__L
-contrib/ofed/usr.lib/1__L: contrib/ofed/usr.lib/0__L
-contrib/ofed/usr.lib/2__L: contrib/ofed/usr.lib/1__L
-contrib/ofed/usr.lib/3__L: contrib/ofed/usr.lib/2__L
+lib/ofed/libibmad__L:	lib/ofed/libibumad__L
+lib/ofed/complib__L:	lib/libthr__L
+lib/ofed/libmlx5__L:	lib/ofed/libibverbs__L lib/libthr__L
 .endif
 
 .if ${MK_CASPER} != "no"
@@ -2485,7 +2479,7 @@ lib/libpjdlog__L: lib/libutil__L
 lib/libcasper__L: lib/libnv__L
 lib/liblzma__L: lib/libthr__L
 
-_generic_libs=	${_cddl_lib} gnu/lib ${_kerberos5_lib} lib ${_secure_lib} usr.bin/lex/lib ${_ofed_lib}
+_generic_libs=	${_cddl_lib} gnu/lib ${_kerberos5_lib} lib ${_secure_lib} usr.bin/lex/lib
 .if ${MK_IPFILTER} != "no"
 _generic_libs+=	sbin/ipf/libipf
 .endif
