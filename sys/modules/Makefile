@@ -203,7 +203,6 @@ SUBDIR=	\
 	${_ix} \
 	${_ixv} \
 	${_ixl} \
-	${_ixlv} \
 	jme \
 	joy \
 	kbdmux \
