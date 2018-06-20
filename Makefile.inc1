@@ -138,10 +138,10 @@ WANT_COMPILER_VERSION!= \
 .if ${MK_SYSTEM_COMPILER} == "yes" && \
     (${MK_CLANG_BOOTSTRAP} == "yes" || ${MK_GCC_BOOTSTRAP} == "yes") && \
     !make(showconfig) && !make(xdev*) && \
-    ${WANT_COMPILER_TYPE} == ${COMPILER_TYPE} && \
-    (${COMPILER_TYPE} == "clang" || ${TARGET_ARCH} == ${MACHINE_ARCH}) && \
-    ${COMPILER_VERSION} == ${WANT_COMPILER_VERSION} && \
-    ${COMPILER_FREEBSD_VERSION} == ${WANT_COMPILER_FREEBSD_VERSION}
+    ${X_COMPILER_TYPE} == ${WANT_COMPILER_TYPE} && \
+    (${X_COMPILER_TYPE} == "clang" || ${TARGET_ARCH} == ${MACHINE_ARCH}) && \
+    ${X_COMPILER_VERSION} == ${WANT_COMPILER_VERSION} && \
+    ${X_COMPILER_FREEBSD_VERSION} == ${WANT_COMPILER_FREEBSD_VERSION}
 # Everything matches, disable the bootstrap compiler.
 MK_CLANG_BOOTSTRAP=	no
 MK_GCC_BOOTSTRAP=	no
@@ -169,22 +169,6 @@ test-system-compiler: .PHONY
 .info SYSTEM_COMPILER: Determined that CC=${CC} matches the source tree.  Not bootstrapping a cross-compiler.
 .endif
 
-# For installworld need to ensure that the looked-up compiler metadata is
-# passed along rather than trying to run cc from the restricted
-# STRICTTMPPATH.
-.if ${MK_CLANG_BOOTSTRAP} == "no" && ${MK_GCC_BOOTSTRAP} == "no"
-.if !defined(X_COMPILER_TYPE)
-CROSSENV+=	COMPILER_VERSION=${COMPILER_VERSION} \
-		COMPILER_TYPE=${COMPILER_TYPE} \
-		COMPILER_FEATURES="${COMPILER_FEATURES}" \
-		COMPILER_FREEBSD_VERSION=${COMPILER_FREEBSD_VERSION}
-.else
-CROSSENV+=	COMPILER_VERSION=${X_COMPILER_VERSION} \
-		COMPILER_FEATURES="${X_COMPILER_FEATURES}" \
-		COMPILER_TYPE=${X_COMPILER_TYPE} \
-		COMPILER_FREEBSD_VERSION=${X_COMPILER_FREEBSD_VERSION}
-.endif
-.endif
 # Store some compiler metadata for use in installworld where we don't
 # want to invoke CC at all.
 _COMPILER_METADATA_VARS=	COMPILER_VERSION \
@@ -201,8 +185,32 @@ compiler-metadata.mk: .PHONY .META
 	@echo "_LOADED_COMPILER_METADATA=t" >> ${.TARGET}
 .for v in ${_COMPILER_METADATA_VARS}
 	@echo "${v}=${${v}}" >> ${.TARGET}
+	@echo "X_${v}=${X_${v}}" >> ${.TARGET}
 .endfor
 	@echo ".export ${_COMPILER_METADATA_VARS}" >> ${.TARGET}
+	@echo ".export ${_COMPILER_METADATA_VARS:C,^,X_,}" >> ${.TARGET}
+
+.if ${TARGET} == ${MACHINE}
+TARGET_CPUTYPE?=${CPUTYPE}
+.else
+TARGET_CPUTYPE?=
+.endif
+.if !empty(TARGET_CPUTYPE)
+_TARGET_CPUTYPE=${TARGET_CPUTYPE}
+.else
+_TARGET_CPUTYPE=dummy
+.endif
+.if ${TARGET} == "arm"
+.if ${TARGET_ARCH:Marmv[67]*} != "" && ${TARGET_CPUTYPE:M*soft*} == ""
+TARGET_ABI=	gnueabihf
+.else
+TARGET_ABI=	gnueabi
+.endif
+.endif
+MACHINE_ABI?=	unknown
+MACHINE_TRIPLE?=${MACHINE_ARCH:S/amd64/x86_64/:C/hf$//:S/mipsn32/mips64/}-${MACHINE_ABI}-freebsd12.0
+TARGET_ABI?=	unknown
+TARGET_TRIPLE?=	${TARGET_ARCH:S/amd64/x86_64/:C/hf$//:S/mipsn32/mips64/}-${TARGET_ABI}-freebsd12.0
 
 # Handle external binutils.
 .if defined(CROSS_TOOLCHAIN_PREFIX)
@@ -216,7 +224,7 @@ CROSS_BINUTILS_PREFIX?=${CROSS_TOOLCHAIN_PREFIX}
 .if !empty(BROKEN_OPTIONS:MBINUTILS_BOOTSTRAP) && \
     ${MK_LLD_BOOTSTRAP} == "no" && \
     !defined(CROSS_BINUTILS_PREFIX)
-CROSS_BINUTILS_PREFIX=/usr/local/${TARGET_ARCH}-freebsd/bin/
+CROSS_BINUTILS_PREFIX=/usr/local/${TARGET_TRIPLE}/bin/
 .if !exists(${CROSS_BINUTILS_PREFIX})
 .error In-tree binutils does not support the ${TARGET_ARCH} architecture. Install the ${TARGET_ARCH}-binutils port or package or set CROSS_BINUTILS_PREFIX.
 .endif
@@ -225,8 +233,8 @@ CROSS_BINUTILS_PREFIX=/usr/local/${TARGET_ARCH}-freebsd/bin/
 XBINUTILS=	AS AR LD NM OBJCOPY RANLIB SIZE STRINGS
 .for BINUTIL in ${XBINUTILS}
 .if defined(CROSS_BINUTILS_PREFIX) && \
-    exists(${CROSS_BINUTILS_PREFIX}${${BINUTIL}})
-X${BINUTIL}?=	${CROSS_BINUTILS_PREFIX}${${BINUTIL}}
+    exists(${CROSS_BINUTILS_PREFIX}/${${BINUTIL}})
+X${BINUTIL}?=	${CROSS_BINUTILS_PREFIX:C,/*$,,}/${${BINUTIL}}
 .else
 X${BINUTIL}?=	${${BINUTIL}}
 .endif
@@ -454,17 +462,6 @@ _t=		${TARGET_ARCH}/${TARGET}
 .endif
 .endfor
 
-.if ${TARGET} == ${MACHINE}
-TARGET_CPUTYPE?=${CPUTYPE}
-.else
-TARGET_CPUTYPE?=
-.endif
-
-.if !empty(TARGET_CPUTYPE)
-_TARGET_CPUTYPE=${TARGET_CPUTYPE}
-.else
-_TARGET_CPUTYPE=dummy
-.endif
 _CPUTYPE!=	MAKEFLAGS= CPUTYPE=${_TARGET_CPUTYPE} ${MAKE} -f /dev/null \
 		-m ${.CURDIR}/share/mk MK_AUTO_OBJ=no -V CPUTYPE
 .if ${_CPUTYPE} != ${_TARGET_CPUTYPE}
@@ -648,13 +645,6 @@ BFLAGS+=	-B${CROSS_BINUTILS_PREFIX}
 .if !defined(CROSS_BINUTILS_PREFIX) || !exists(${CROSS_BINUTILS_PREFIX})
 BFLAGS+=	-B${WORLDTMP}/usr/bin
 .endif
-.if ${TARGET} == "arm"
-.if ${TARGET_ARCH:Marmv[67]*} != "" && ${TARGET_CPUTYPE:M*soft*} == ""
-TARGET_ABI=	gnueabihf
-.else
-TARGET_ABI=	gnueabi
-.endif
-.endif
 .if ${WANT_COMPILER_TYPE} == gcc || \
     (defined(X_COMPILER_TYPE) && ${X_COMPILER_TYPE} == gcc)
 # GCC requires -isystem and -L when using a cross-compiler.  --sysroot
@@ -672,10 +662,6 @@ XCXXFLAGS+=	-isystem ${WORLDTMP}/usr/include/c++/v1 -std=c++11 \
 .endif
 .elif ${WANT_COMPILER_TYPE} == clang || \
     (defined(X_COMPILER_TYPE) && ${X_COMPILER_TYPE} == clang)
-MACHINE_ABI?=	unknown
-MACHINE_TRIPLE?=${MACHINE_ARCH:S/amd64/x86_64/:C/hf$//:S/mipsn32/mips64/}-${MACHINE_ABI}-freebsd12.0
-TARGET_ABI?=	unknown
-TARGET_TRIPLE?=	${TARGET_ARCH:S/amd64/x86_64/:C/hf$//:S/mipsn32/mips64/}-${TARGET_ABI}-freebsd12.0
 XCFLAGS+=	-target ${TARGET_TRIPLE}
 .endif
 XCFLAGS+=	--sysroot=${WORLDTMP}
