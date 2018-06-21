@@ -3058,3 +3058,6 @@ options 	UINPUT_DEBUG	# enable uinput debug msgs
 
 # Encrypted kernel crash dumps.
 options 	EKCD
+
+# Enable legacy /dev/spigenN name aliases for /dev/spigenX.Y devices.
+options 	SPIGEN_LEGACY_CDEVNAME # legacy device names for spigen
