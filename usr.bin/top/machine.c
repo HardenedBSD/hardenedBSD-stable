@@ -90,7 +90,7 @@ static const char io_Proc_format[] =
     "%5d%*s %-*.*s %6ld %6ld %6ld %6ld %6ld %6ld %6.2f%% %.*s";
 
 static const char smp_Proc_format[] =
-    "%5d%*s %-*.*s %s%3d %4s%6s %5s%*.*s %-6.6s %2d%7s %6.2f%% %.*s";
+    "%5d%*s %-*.*s %s%3d %4s%6s %5s%*.*s %-6.6s %3d%7s %6.2f%% %.*s";
 
 static char up_Proc_format[] =
     "%5d%*s %-*.*s %s%3d %4s%6s %5s%*.*s %-6.6s%.0d%7s %6.2f%% %.*s";
@@ -406,7 +406,7 @@ format_header(const char *uname_field)
 		sbuf_cat(header, "  THR PRI NICE  SIZE   RES");
 		sbuf_printf(header, "%*s", ps.swap ? TOP_SWAP_LEN : 0,
 									ps.swap ? "   SWAP" : "");
-		sbuf_printf(header, "%s", smpmode ? " STATE   C   " : " STATE    ");
+		sbuf_printf(header, "%s", smpmode ? " STATE    C   " : " STATE    ");
 		sbuf_cat(header, "TIME");
 		sbuf_printf(header, " %7s", ps.wcpu ? "WCPU" : "CPU");
 		sbuf_cat(header, " COMMAND");
@@ -871,13 +871,12 @@ get_process_info(struct system_info *si, struct process_select *sel,
 static char fmt[512];	/* static area where result is built */
 
 char *
-format_next_process(void* xhandle, char *(*get_userid)(int), int flags)
+format_next_process(struct handle * xhandle, char *(*get_userid)(int), int flags)
 {
 	struct kinfo_proc *pp;
 	const struct kinfo_proc *oldp;
 	long cputime;
 	double pct;
-	struct handle *hp;
 	char status[22];
 	int cpu;
 	size_t state;
@@ -891,9 +890,8 @@ format_next_process(void* xhandle, char *(*get_userid)(int), int flags)
 	const int cmdlen = 128;
 
 	/* find and remember the next proc structure */
-	hp = (struct handle *)xhandle;
-	pp = *(hp->next_proc++);
-	hp->remaining--;
+	pp = *(xhandle->next_proc++);
+	xhandle->remaining--;
 
 	/* get the process's command name */
 	if ((pp->ki_flag & P_INMEM) == 0) {
@@ -1544,28 +1542,6 @@ int (*compares[])(const void *arg1, const void *arg2) = {
 	NULL
 };
 
-
-/*
- * proc_owner(pid) - returns the uid that owns process "pid", or -1 if
- *		the process does not exist.
- */
-
-int
-proc_owner(int pid)
-{
-	int cnt;
-	struct kinfo_proc **prefp;
-	struct kinfo_proc *pp;
-
-	prefp = pref;
-	cnt = pref_len;
-	while (--cnt >= 0) {
-		pp = *prefp++;
-		if (pp->ki_pid == (pid_t)pid)
-			return ((int)pp->ki_ruid);
-	}
-	return (-1);
-}
 
 static int
 swapmode(int *retavail, int *retfree)
