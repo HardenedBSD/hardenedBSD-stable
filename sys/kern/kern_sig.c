@@ -3436,29 +3436,6 @@ out:
 	return (0);
 }
 
-<<<<<<< HEAD
-#ifdef PAX_INSECURE_MODE
-static int
-coredump_sanitise_path(const char *path)
-{
-	size_t i;
-
-	/*
-	 * Only send a subset of ASCII to devd(8) because it
-	 * might pass these strings to sh -c.
-	 */
-	for (i = 0; path[i]; i++)
-		if (!(isalpha(path[i]) || isdigit(path[i])) &&
-		    path[i] != '/' && path[i] != '.' &&
-		    path[i] != '-')
-			return (0);
-
-	return (1);
-}
-#endif /* PAX_INSECURE_MODE */
-
-=======
->>>>>>> origin/freebsd/current/master
 /*
  * Dump a process' core.  The main routine does some
  * policy checking, and creates the name of the coredump;
@@ -3479,18 +3456,8 @@ coredump(struct thread *td)
 	char *name;			/* name of corefile */
 	void *rl_cookie;
 	off_t limit;
-<<<<<<< HEAD
-#ifdef PAX_INSECURE_MODE
-	char *data = NULL;
-	char *fullpath, *freepath = NULL;
-	size_t len;
-	static const char comm_name[] = "comm=";
-	static const char core_name[] = "core=";
-#endif /* PAX_INSECURE_MODE */
-=======
 	char *fullpath, *freepath = NULL;
 	struct sbuf *sb;
->>>>>>> origin/freebsd/current/master
 
 	PROC_LOCK_ASSERT(p, MA_OWNED);
 	MPASS((p->p_flag & P_HADTHREADS) == 0 || p->p_singlethread == td);
@@ -3567,7 +3534,6 @@ coredump(struct thread *td)
 	}
 	vn_rangelock_unlock(vp, rl_cookie);
 
-#ifdef PAX_INSECURE_MODE
 	/*
 	 * Notify the userland helper that a process triggered a core dump.
 	 * This allows the helper to run an automated debugging session.
@@ -3580,17 +3546,6 @@ coredump(struct thread *td)
 	sbuf_printf(sb, "comm=\"");
 	devctl_safe_quote_sb(sb, fullpath);
 	free(freepath, M_TEMP);
-<<<<<<< HEAD
-	freepath = NULL;
-	if (vn_fullpath_global(td, vp, &fullpath, &freepath) != 0)
-		goto out;
-	if (!coredump_sanitise_path(fullpath))
-		goto out;
-	strlcat(data, core_name, len);
-	strlcat(data, fullpath, len);
-	devctl_notify("kernel", "signal", "coredump", data);
-#endif /* PAX_INSECURE_MODE */
-=======
 	sbuf_printf(sb, "\" core=\"");
 
 	/*
@@ -3614,7 +3569,6 @@ coredump(struct thread *td)
 		devctl_notify("kernel", "signal", "coredump", sbuf_data(sb));
 out2:
 	sbuf_delete(sb);
->>>>>>> origin/freebsd/current/master
 out:
 	error1 = vn_close(vp, FWRITE, cred, td);
 	if (error == 0)
@@ -3622,13 +3576,6 @@ out:
 #ifdef AUDIT
 	audit_proc_coredump(td, name, error);
 #endif
-<<<<<<< HEAD
-#ifdef PAX_INSECURE_MODE
-	free(freepath, M_TEMP);
-	free(data, M_TEMP);
-#endif /* PAX_INSECURE_MODE */
-=======
->>>>>>> origin/freebsd/current/master
 	free(name, M_TEMP);
 	return (error);
 }
