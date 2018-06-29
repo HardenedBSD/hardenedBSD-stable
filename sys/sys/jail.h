@@ -234,7 +234,8 @@ struct prison_racct {
 #define	PR_ALLOW_SOCKET_AF		0x00000040
 #define	PR_ALLOW_RESERVED_PORTS		0x00008000
 #define	PR_ALLOW_KMEM_ACCESS		0x00010000	/* reserved, not used yet */
-#define	PR_ALLOW_ALL_STATIC		0x0001807f
+#define	PR_ALLOW_VMM			0x00020000
+#define	PR_ALLOW_ALL_STATIC		0x0003807f
 
 /*
  * OSD methods
