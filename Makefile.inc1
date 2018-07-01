@@ -1146,7 +1146,13 @@ kernel-toolchain: ${KERNEL_TOOLCHAIN_TGTS} .PHONY
 #
 installcheck: _installcheck_world _installcheck_kernel .PHONY
 _installcheck_world: .PHONY
+	@echo "--------------------------------------------------------------"
+	@echo ">>> Install check world"
+	@echo "--------------------------------------------------------------"
 _installcheck_kernel: .PHONY
+	@echo "--------------------------------------------------------------"
+	@echo ">>> Install check kernel"
+	@echo "--------------------------------------------------------------"
 
 #
 # Require DESTDIR to be set if installing for a different architecture or
@@ -1413,12 +1419,15 @@ restage reinstall: .MAKE .PHONY
 .endif
 	@echo
 	@echo "--------------------------------------------------------------"
-	@echo ">>> Installing everything"
+	@echo ">>> Installing everything started on `LC_ALL=C date`"
 	@echo "--------------------------------------------------------------"
 	${_+_}cd ${.CURDIR}; ${MAKE} -f Makefile.inc1 install
 .if defined(LIBCOMPAT)
 	${_+_}cd ${.CURDIR}; ${MAKE} -f Makefile.inc1 install${libcompat}
 .endif
+	@echo "--------------------------------------------------------------"
+	@echo ">>> Installing everything completed on `LC_ALL=C date`"
+	@echo "--------------------------------------------------------------"
 
 redistribute: .MAKE .PHONY
 	@echo "--------------------------------------------------------------"
