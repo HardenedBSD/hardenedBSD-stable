@@ -2,6 +2,9 @@
 
 # $FreeBSD$
 
+passphrase=passphrase
+iterations=50000
+
 do_boot1_efi=0
 
 #
@@ -394,8 +397,8 @@ mk_geli_gpt_ufs_legacy() {
     gpart add -t freebsd-boot -s 400k -a 4k	${md}	# <= ~540k
     gpart add -t freebsd-ufs -l root $md
     # install-boot will make this bootable
-    echo passphrase | geli init -bg -e AES-XTS -i 50000 -J - -l 256 -s 4096 ${md}p2
-    echo passphrase | geli attach -j - ${md}p2
+    echo ${passphrase} | geli init -bg -e AES-XTS -i ${iterations} -J - -l 256 -s 4096 ${md}p2
+    echo ${passphrase} | geli attach -j - ${md}p2
     newfs /dev/${md}p2.eli
     mount /dev/${md}p2.eli ${mntpt}
     cpsys ${src} ${mntpt}
@@ -430,8 +433,8 @@ mk_geli_gpt_ufs_uefi() {
     gpart add -t efi -s 800k -a 4k ${md}
     gpart add -t freebsd-ufs -l root $md
     # install-boot will make this bootable
-    echo passphrase | geli init -bg -e AES-XTS -i 50000 -J - -l 256 -s 4096 ${md}p2
-    echo passphrase | geli attach -j - ${md}p2
+    echo ${passphrase} | geli init -bg -e AES-XTS -i ${iterations} -J - -l 256 -s 4096 ${md}p2
+    echo ${passphrase} | geli attach -j - ${md}p2
     newfs /dev/${md}p2.eli
     mount /dev/${md}p2.eli ${mntpt}
     cpsys ${src} ${mntpt}
@@ -467,8 +470,8 @@ mk_geli_gpt_ufs_both() {
     gpart add -t freebsd-boot -s 400k -a 4k	${md}	# <= ~540k
     gpart add -t freebsd-ufs -l root $md
     # install-boot will make this bootable
-    echo passphrase | geli init -bg -e AES-XTS -i 50000 -J - -l 256 -s 4096 ${md}p3
-    echo passphrase | geli attach -j - ${md}p3
+    echo ${passphrase} | geli init -bg -e AES-XTS -i ${iterations} -J - -l 256 -s 4096 ${md}p3
+    echo ${passphrase} | geli attach -j - ${md}p3
     newfs /dev/${md}p3.eli
     mount /dev/${md}p3.eli ${mntpt}
     cpsys ${src} ${mntpt}
@@ -504,8 +507,8 @@ mk_geli_gpt_zfs_legacy() {
     gpart add -t freebsd-boot -s 400k -a 4k	${md}	# <= ~540k
     gpart add -t freebsd-zfs -l root $md
     # install-boot will make this bootable
-    echo passphrase | geli init -bg -e AES-XTS -i 50000 -J - -l 256 -s 4096 ${md}p2
-    echo passphrase | geli attach -j - ${md}p2
+    echo ${passphrase} | geli init -bg -e AES-XTS -i ${iterations} -J - -l 256 -s 4096 ${md}p2
+    echo ${passphrase} | geli attach -j - ${md}p2
     zpool create -O mountpoint=none -R ${mntpt} ${pool} ${md}p2.eli
     zpool set bootfs=${pool} ${pool}
     zfs create -po mountpoint=/ ${pool}/ROOT/default
@@ -547,8 +550,8 @@ mk_geli_gpt_zfs_uefi() {
     gpart add -t efi -s 800k -a 4k ${md}
     gpart add -t freebsd-zfs -l root $md
     # install-boot will make this bootable
-    echo passphrase | geli init -bg -e AES-XTS -i 50000 -J - -l 256 -s 4096 ${md}p2
-    echo passphrase | geli attach -j - ${md}p2
+    echo ${passphrase} | geli init -bg -e AES-XTS -i ${iterations} -J - -l 256 -s 4096 ${md}p2
+    echo ${passphrase} | geli attach -j - ${md}p2
     zpool create -O mountpoint=none -R ${mntpt} ${pool} ${md}p2.eli
     zpool set bootfs=${pool} ${pool}
     zfs create -po mountpoint=/ ${pool}/ROOT/default
@@ -591,8 +594,8 @@ mk_geli_gpt_zfs_both() {
     gpart add -t freebsd-boot -s 400k -a 4k	${md}	# <= ~540k
     gpart add -t freebsd-zfs -l root $md
     # install-boot will make this bootable
-    echo passphrase | geli init -bg -e AES-XTS -i 50000 -J - -l 256 -s 4096 ${md}p3
-    echo passphrase | geli attach -j - ${md}p3
+    echo ${passphrase} | geli init -bg -e AES-XTS -i ${iterations} -J - -l 256 -s 4096 ${md}p3
+    echo ${passphrase} | geli attach -j - ${md}p3
     zpool create -O mountpoint=none -R ${mntpt} ${pool} ${md}p3.eli
     zpool set bootfs=${pool} ${pool}
     zfs create -po mountpoint=/ ${pool}/ROOT/default
@@ -740,6 +743,25 @@ qemu_i386_both()
     echo "qemu-system-i386 -bios ~/bios/OVMF-X32.fd --drive file=${img},format=raw ${qser}" >> $sh
 }
 
+make_one_image()
+{
+    local arch=${1?}
+    local geli=${2?}
+    local scheme=${3?}
+    local fs=${4?}
+    local bios=${5?}
+
+    # Create sparse file and mount newly created filesystem(s) on it
+    img=${IMGDIR}/${arch}-${geli}-${scheme}-${fs}-${bios}.img
+    sh=${IMGDIR}/${arch}-${geli}-${scheme}-${fs}-${bios}.sh
+    echo "vvvvvvvvvvvvvv   Creating $img  vvvvvvvvvvvvvvv"
+    rm -f ${img}*
+    eval mk_${geli}_${scheme}_${fs}_${bios} ${DESTDIR} ${img} ${MNTPT} ${geli} ${scheme} ${fs} ${bios}
+    eval qemu_${arch}_${bios} ${img} ${sh}
+    [ -n "${SUDO_USER}" ] && chown ${SUDO_USER} ${img}*
+    echo "^^^^^^^^^^^^^^   Created $img   ^^^^^^^^^^^^^^^"
+}
+
 # mips
 # qemu-system-mips -kernel /path/to/rootfs/boot/kernel/kernel -nographic -hda /path/to/disk.img -m 2048
 
@@ -791,6 +813,13 @@ echo "RC COMMAND RUNNING -- SUCCESS!!!!!"
 halt -p
 EOF
 
+# If we were given exactly 5 args, go make that one image.
+
+if [ $# -eq 5 ]; then
+    make_one_image $*
+    exit
+fi
+
 # OK. Let the games begin
 
 for arch in amd64; do
@@ -798,15 +827,7 @@ for arch in amd64; do
 	for scheme in gpt mbr; do
 	    for fs in ufs zfs; do
 		for bios in legacy uefi both; do
-		    # Create sparse file and mount newly created filesystem(s) on it
-		    img=${IMGDIR}/${arch}-${geli}-${scheme}-${fs}-${bios}.img
-		    sh=${IMGDIR}/${arch}-${geli}-${scheme}-${fs}-${bios}.sh
-		    echo "vvvvvvvvvvvvvvvvvvvvvv   Creating $img  vvvvvvvvvvvvvvvvvvvvvvv"
-		    rm -f ${img}*
-		    eval mk_${geli}_${scheme}_${fs}_${bios} ${DESTDIR} ${img} ${MNTPT} ${geli} ${scheme} ${fs} ${bios}
-		    eval qemu_${arch}_${bios} ${img} ${sh}
-		    [ -n "${SUDO_USER}" ] && chown ${SUDO_USER} ${img}*
-		    echo "^^^^^^^^^^^^^^^^^^^^^^   Creating $img  ^^^^^^^^^^^^^^^^^^^^^^^"
+		    make_one_image ${arch} ${geli} ${scheme} ${fs} ${bios}
 		done
 	    done
 	done
@@ -824,15 +845,7 @@ for arch in i386; do
 	for scheme in gpt mbr; do
 	    for fs in ufs zfs; do
 		for bios in legacy; do
-		    # Create sparse file and mount newly created filesystem(s) on it
-		    img=${IMGDIR}/${arch}-${geli}-${scheme}-${fs}-${bios}.img
-		    sh=${IMGDIR}/${arch}-${geli}-${scheme}-${fs}-${bios}.sh
-		    echo "vvvvvvvvvvvvvvvvvvvvvv   Creating $img  vvvvvvvvvvvvvvvvvvvvvvv"
-		    rm -f ${img}*
-		    eval mk_${geli}_${scheme}_${fs}_${bios} ${DESTDIR} ${img} ${MNTPT} ${geli} ${scheme} ${fs} ${bios}
-		    eval qemu_${arch}_${bios} ${img} ${sh}
-		    [ -n "${SUDO_USER}" ] && chown ${SUDO_USER} ${img}*
-		    echo "^^^^^^^^^^^^^^^^^^^^^^   Creating $img  ^^^^^^^^^^^^^^^^^^^^^^^"
+		    make_one_image ${arch} ${geli} ${scheme} ${fs} ${bios}
 		done
 	    done
 	done
@@ -843,15 +856,7 @@ for arch in arm aarch64; do
     for scheme in gpt mbr; do
 	fs=ufs
 	for bios in uboot efi; do
-	    # Create sparse file and mount newly created filesystem(s) on it
-	    img=${IMGDIR}/${arch}-${geli}-${scheme}-${fs}-${bios}.img
-	    sh=${IMGDIR}/${arch}-${geli}-${scheme}-${fs}-${bios}.sh
-	    echo "vvvvvvvvvvvvvvvvvvvvvv   Creating $img  vvvvvvvvvvvvvvvvvvvvvvv"
-	    rm -f ${img}*
-	    eval mk_${geli}_${scheme}_${fs}_${bios} ${DESTDIR} ${img} ${MNTPT} ${geli} ${scheme} ${fs} ${bios}
-	    eval qemu_${arch}_${bios} ${img} ${sh}
-	    [ -n "${SUDO_USER}" ] && chown ${SUDO_USER} ${img}*
-	    echo "^^^^^^^^^^^^^^^^^^^^^^   Creating $img  ^^^^^^^^^^^^^^^^^^^^^^^"
+	    make_one_image ${arch} ${geli} ${scheme} ${fs} ${bios}
 	done
     done
 done
@@ -860,15 +865,7 @@ for arch in powerpc powerpc64; do
     for scheme in ppc-wtf; do
 	fs=ufs
 	for bios in ofw uboot chrp; do
-	    # Create sparse file and mount newly created filesystem(s) on it
-	    img=${IMGDIR}/${arch}-${geli}-${scheme}-${fs}-${bios}.img
-	    sh=${IMGDIR}/${arch}-${geli}-${scheme}-${fs}-${bios}.sh
-	    echo "vvvvvvvvvvvvvvvvvvvvvv   Creating $img  vvvvvvvvvvvvvvvvvvvvvvv"
-	    rm -f ${img}*
-	    eval mk_${geli}_${scheme}_${fs}_${bios} ${DESTDIR} ${img} ${MNTPT} ${geli} ${scheme} ${fs} ${bios}
-	    eval qemu_${arch}_${bios} ${img} ${sh}
-	    [ -n "${SUDO_USER}" ] && chown ${SUDO_USER} ${img}*
-	    echo "^^^^^^^^^^^^^^^^^^^^^^   Creating $img  ^^^^^^^^^^^^^^^^^^^^^^^"
+	    make_one_image ${arch} ${geli} ${scheme} ${fs} ${bios}
 	done
     done
 done
@@ -878,15 +875,7 @@ for arch in sparc64; do
 	for scheme in vtoc8; do
 	    for fs in ufs; do
 		for bios in ofw; do
-		    # Create sparse file and mount newly created filesystem(s) on it
-		    img=${IMGDIR}/${arch}-${geli}-${scheme}-${fs}-${bios}.img
-		    sh=${IMGDIR}/${arch}-${geli}-${scheme}-${fs}-${bios}.sh
-		    echo "vvvvvvvvvvvvvvvvvvvvvv   Creating $img  vvvvvvvvvvvvvvvvvvvvvvv"
-		    rm -f ${img}*
-		    eval mk_${arch}_${geli}_${scheme}_${fs}_${bios} ${DESTDIR} ${img} ${MNTPT} ${geli} ${scheme} ${fs} ${bios}
-		    eval qemu_${arch}_${bios} ${img} ${sh}
-		    [ -n "${SUDO_USER}" ] && chown ${SUDO_USER} ${img}*
-		    echo "^^^^^^^^^^^^^^^^^^^^^^   Creating $img  ^^^^^^^^^^^^^^^^^^^^^^^"
+		    make_one_image ${arch} ${geli} ${scheme} ${fs} ${bios}
 		done
 	    done
 	done
