@@ -468,8 +468,17 @@ acpi_quirks.h: ${SYSDIR}/tools/acpi_quirks2h.awk ${SYSDIR}/dev/acpica/acpi_quirk
 .endif
 
 .if !empty(SRCS:Massym.inc) || !empty(DPSRCS:Massym.inc)
-CLEANFILES+=	assym.inc genassym.o genoffset.o
-DEPENDOBJS+=	genassym.o genoffset.o
+CLEANFILES+=	assym.inc
+DEPENDOBJS+=	genassym.o
+DPSRCS+=	offset.inc
+.endif
+.if defined(MODULE_TIED)
+DPSRCS+=	offset.inc
+.endif
+.if !empty(SRCS:Moffset.inc) || !empty(DPSRCS:Moffset.inc)
+CLEANFILES+=	offset.inc genoffset.o
+DEPENDOBJS+=	genoffset.o
+.endif
 assym.inc: genassym.o
 offset.inc: genoffset.o
 .if defined(KERNBUILDDIR)
@@ -477,17 +486,16 @@ genassym.o: opt_global.h
 .endif
 assym.inc: ${SYSDIR}/kern/genassym.sh
 	sh ${SYSDIR}/kern/genassym.sh genassym.o > ${.TARGET}
-genassym.o: ${SYSDIR}/${MACHINE}/${MACHINE}/genassym.c
+genassym.o: ${SYSDIR}/${MACHINE}/${MACHINE}/genassym.c offset.inc
 genassym.o: ${SRCS:Mopt_*.h}
 	${CC} -c ${CFLAGS:N-flto:N-fno-common} \
 	    ${SYSDIR}/${MACHINE}/${MACHINE}/genassym.c
 offset.inc: ${SYSDIR}/kern/genoffset.sh genoffset.o
 	sh ${SYSDIR}/kern/genoffset.sh genoffset.o > ${.TARGET}
-genoffset.o: ${SYSDIR}/${MACHINE}/${MACHINE}/genoffset.c
+genoffset.o: ${SYSDIR}/kern/genoffset.c
 genoffset.o: ${SRCS:Mopt_*.h}
 	${CC} -c ${CFLAGS:N-flto:N-fno-common} \
-	    ${SYSDIR}/${MACHINE}/${MACHINE}/genoffset.c
-.endif
+	    ${SYSDIR}/kern/genoffset.c
 
 .if defined(KERNBUILDDIR)
 ${OBJS}: opt_global.h
