@@ -1,6 +1,6 @@
 #!/bin/sh
 #-
-# Copyright (c) 2015,2017 HardenedBSD
+# Copyright (c) 2015-2018 HardenedBSD
 # Author: Shawn Webb <shawn.webb@hardenedbsd.org>
 #
 # This work originally sponsored by G2, Inc
@@ -169,6 +169,27 @@ build_source() {
 		return ${res}
 	fi
 
+	debug_print "[*] Building mtree dists"
+	if [ -d ${CHROOTDIR}/tmp/mtree ]; then
+		chmod -R noschg ${CHROOTDIR}/tmp/mtree
+		rm -rf ${CHROOTDIR}/tmp/mtree
+	fi
+
+	mkdir ${CHROOTDIR}/tmp/mtree
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		return ${res}
+	fi
+
+	chroot ${CHROOTDIR} /bin/sh -c \
+		'(unset SHELL; cd /usr/src; \
+			echo "(cd etc/mtree; make install \
+			DESTDIR=/tmp/mtree)" | make buildenv)'
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		return ${res}
+	fi
+
 	for kernel in $(echo ${KERNELS}); do
 		debug_print "[*] Building kernel ${kernel}"
 		if [ ! -z "${KERNCONFIGFILE}" ]; then
@@ -309,6 +330,12 @@ build_base_archive() {
 		return ${res}
 	fi
 
+	build_mtree
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		return ${res}
+	fi
+
 	return 0
 }
 
@@ -383,6 +410,23 @@ build_src_tarball() {
 	chroot ${CHROOTDIR} make -sC /usr/src/release \
 		src.txz
 	return ${?}
+}
+
+build_mtree() {
+	local res
+
+	res=0
+
+	if [ -d ${CHROOTDIR}/tmp/mtree/etc/mtree ]; then
+		(
+			cd ${CHROOTDIR}/tmp/mtree/etc/mtree
+			tar -cf ${STAGEDIR}/mtree.tar *.dist
+			exit ${?}
+		)
+		res=${?}
+	fi
+
+	return ${res}
 }
 
 add_extra_files() {
@@ -549,7 +593,7 @@ sign_artifacts() {
 		fi
 	fi
 
-	for file in $(find ${STAGEDIR} -name \*.txz -o -name \*.tbz); do
+	for file in $(find ${STAGEDIR} -name \*.txz -o -name \*.tbz -o name \*.tar); do
 		sha512 -q ${file} | ${SIGNBIN} rsautl \
 			-sign \
 			-inkey ${PRIVKEY} \
