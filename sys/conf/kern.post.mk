@@ -14,6 +14,7 @@ MKMODULESENV+=	DESTDIR="${DESTDIR}"
 .endif
 SYSDIR?= ${S:C;^[^/];${.CURDIR}/&;:tA}
 MKMODULESENV+=	KERNBUILDDIR="${.CURDIR}" SYSDIR="${SYSDIR}"
+MKMODULESENV+=  MODULE_TIED=yes
 
 .if defined(CONF_CFLAGS)
 MKMODULESENV+=	CONF_CFLAGS="${CONF_CFLAGS}"
@@ -204,7 +205,8 @@ assym.inc: $S/kern/genassym.sh genassym.o genoffset_test.o
 genassym.o: $S/$M/$M/genassym.c  offset.inc
 	${CC} -c ${CFLAGS:N-flto:N-fno-common} $S/$M/$M/genassym.c
 
-${SYSTEM_OBJS} genoffset.o genassym.o vers.o: opt_global.h
+OBJS_DEPEND_GUESS+= opt_global.h
+genoffset.o genassym.o vers.o: opt_global.h
 
 .if !empty(.MAKE.MODE:Unormal:Mmeta) && empty(.MAKE.MODE:Unormal:Mnofilemon)
 _meta_filemon=	1
