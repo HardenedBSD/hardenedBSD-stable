@@ -60,6 +60,7 @@ update_hash=""
 
 AWK="/usr/bin/awk"
 BEADM="/usr/local/sbin/beadm"
+CAT="/bin/cat"
 CHFLAGS="/bin/chflags"
 DRILL="/usr/bin/drill"
 ETCUPDATE="/usr/sbin/etcupdate"
@@ -156,11 +157,11 @@ get_last_field() {
 }
 
 dnssec_check() {
+	local resolver_flag
+	local is_secure
+	local rec
 	local res
 	local val
-	local rec
-	local is_secure
-	local resolver_flag
 
 	if [ ${local_resolver} -gt 0 ]; then
 		resolver_flag="-r"
@@ -168,14 +169,17 @@ dnssec_check() {
 
 	case "${dnssec}" in
 		[yY]*)
-			debug_print "[*] Looking up version info with DNSSEC enabled."
-			val=$(${UNBOUND_HOST} \
+			if [ ${verbose} -gt 0 ]; then
+				debug_print "[*] Looking up version info with DNSSEC enabled."
+			fi
+			${UNBOUND_HOST} \
 				${resolver_flag} \
 				-v \
 				-t txt \
 				-f ${mountpoint}/${dnssec_key} \
-				${dnsrec} | ${TAIL} -n 1)
+				${dnsrec} > ${tmpdir}/resolver.txt
 
+			val=$(${TAIL} -n 1 ${tmpdir}/resolver.txt)
 			if ! echo ${val} | grep -qF 'has TXT record'; then
 				debug_print "[-] Could not get DNS record."
 				return 2
@@ -980,9 +984,11 @@ check_sanity() {
 }
 
 report_version() {
+	get_tmpdir > /dev/null
 	get_version > /dev/null 2>&1
 	if [ ! ${?} -eq 0 ]; then
 		echo "[-] Could not get remote version number" >&2
+		cleanup
 		exit 1
 	fi
 
@@ -998,6 +1004,7 @@ report_version() {
 
 	echo
 
+	cleanup
 	exit 0
 }
 
@@ -1115,10 +1122,14 @@ main() {
 		get_tmpdir > /dev/null
 	fi
 
-	get_version > /dev/null 2>&1
+	get_version
 	res=${?}
 	if [ ${res} -gt 0 ]; then
 		debug_print "[*] Could not get the version number"
+		if [ -f ${tmpdir}/resolver.txt ]; then
+			debug_print "[*] Raw DNS result:"
+			${CAT} ${tmpdir}/resolver.txt
+		fi
 		cleanup
 		exit 1
 	fi
