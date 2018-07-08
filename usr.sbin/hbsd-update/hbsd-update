@@ -400,6 +400,50 @@ check_pubkey_validity() {
 	return ${res}
 }
 
+validate_file() {
+	local res
+	local expected_hash
+	local computed_hash
+	local file
+	local defaulterror
+
+	file="${1}"
+	defaulterror=1
+	if [ ! -z "${2}" ]; then
+		defaulterror=${2}
+	fi
+
+	if [ -z "${file}" ]; then
+		debug_print "[-] validate_file: No file specified."
+		return 1
+	fi
+
+	if [ ! -f ${tmpdir}/${file} ]; then
+		return ${defaulterror}
+	fi
+
+	if [ ! -f ${tmpdir}/${file}.sig ]; then
+		return ${defaulterror}
+	fi
+
+	expected_hash=$(${OPENSSL} rsautl \
+	    -verify \
+	    -in ${tmpdir}/${file}.sig \
+	    -pubin \
+	    -inkey ${tmpdir}/pubkey.rsa.pem)
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		return ${defaulterror}
+	fi
+
+	computed_hash=$(${SHA512} -q ${tmpdir}/${file})
+	if [ ! "${expected_hash}" = "${computed_hash}" ]; then
+		return 1
+	fi
+
+	return 0
+}
+
 check_set_validity() {
 	local res
 	local checkfiles
@@ -407,7 +451,7 @@ check_set_validity() {
 	local signedhash
 	local computedhash
 
-	checkfiles="base.txz etcupdate.tbz skip.txt"
+	checkfiles="base.txz etcupdate.tbz skip.txt mtree.tar"
 	extrafiles="ObsoleteFiles.txt ObsoleteDirs.txt script.sh"
 
 	if [ ${no_kernel} -eq 0 ]; then
@@ -442,53 +486,92 @@ check_set_validity() {
 			debug_print "[*] Checking the validity of ${file}"
 		fi
 
-		signedhash=$(${OPENSSL} rsautl \
-			-verify \
-			-in ${tmpdir}/${file}.sig \
-			-pubin \
-			-inkey ${tmpdir}/pubkey.rsa.pem)
-
-		computedhash=$(${SHA512} -q ${tmpdir}/${file})
-		res=${?}
-		if [ ${res} -gt 0 ]; then
-			return 1
-		fi
-
-		if [ ! "${signedhash}" = "${computedhash}" ]; then
-			debug_print "[-] Hashes don't match for ${file}. Signed: ${signedhash}. Computed ${computedhash}."
+		if ! validate_file ${file}; then
+			debug_print "[-] ${file} failed to validate"
 			return 1
 		fi
 	done
 
+	# Extra files are optional files that we only care about if
+	# they exist. They must be signed if they exist.
 	for file in ${extrafiles}; do
-		if [ ! -f ${tmpdir}/${file} ]; then
-			if [ "$file"} != "script.sh" ]; then
-				debug_print "[-] Warning: Could not find extra file ${file}.  Skipping validity checks for that file."
-			fi
-			continue
-		fi
-
 		if [ ${verbose} -gt 0 ]; then
 			debug_print "[*] Checking the validity of ${file}"
 		fi
 
-		signedhash=$(${OPENSSL} rsautl \
-			-verify \
-			-in ${tmpdir}/${file}.sig \
-			-pubin \
-			-inkey ${tmpdir}/pubkey.rsa.pem)
-
-		computedhash=$(${SHA512} -q ${tmpdir}/${file})
-		res=${?}
-		if [ ${res} -gt 0 ]; then
-			return 1
-		fi
-
-		if [ ! "${signedhash}" = "${computedhash}" ]; then
-			debug_print "[-] Hashes don't match for ${file}. Signed: ${signedhash}. Computed ${computedhash}."
+		if ! validate_file ${file} 0; then
+			debug_print "[-] ${file} failed to validate"
 			return 1
 		fi
 	done
+
+	return 0
+}
+
+apply_mtree() {
+	local res
+
+	if [ ${verbose} -gt 0 ]; then
+		debug_print "[*] Applying the mtree"
+	fi
+
+	if [ ! -f ${tmpdir}/mtree.tar ]; then
+		return 0
+	fi
+
+	mkdir ${tmpdir}/mtree
+	if [ ${?} -gt 0 ]; then
+		return 1
+	fi
+
+	tar -xf ${tmpdir}/mtree.tar -C ${tmpdir}/mtree
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		return 1
+	fi
+
+	mtree -eU \
+	    -f ${tmpdir}/mtree/BSD.root.dist \
+	    -p ${mountpoint}
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		return 1
+	fi
+
+	mtree -eU \
+	    -f ${tmpdir}/mtree/BSD.usr.dist \
+	    -p ${mountpoint}/usr
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		return 1
+	fi
+
+	mtree -eU \
+	    -f ${tmpdir}/mtree/BSD.include.dist \
+	    -p ${mountpoint}/usr/include
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		return 1
+	fi
+
+	mtree -eU \
+	    -f ${tmpdir}/mtree/BSD.var.dist \
+	    -p ${mountpoint}/var
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		return 1
+	fi
+
+	if [ -f ${tmpdir}/mtree/BSD.tests.dist ]; then
+		mkdir -p ${mountpoint}/usr/tests
+		mtree -eU \
+		    -f ${tmpdir}/mtree/BSD.tests.dist \
+		    -p ${mountpoint}/usr/tests
+	fi
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		return 1
+	fi
 
 	return 0
 }
@@ -497,6 +580,7 @@ apply_base() {
 	local needsresolve
 	local dirs
 	local dir
+	local res
 	local d
 
 	needsresolve=0
@@ -1107,6 +1191,14 @@ main() {
 	trap 'sigint_handler 1' INT
 
 	if [ ${nobase} -eq 0 ]; then
+		apply_mtree
+		res=${?}
+		if [ ${res} -gt 0 ]; then
+			cleanup
+			destroy_be
+			exit 1
+		fi
+
 		apply_base
 		res=${?}
 		if [ ${res} -gt 0 ]; then
