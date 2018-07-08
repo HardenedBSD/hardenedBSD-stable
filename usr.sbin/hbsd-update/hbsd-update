@@ -427,7 +427,7 @@ validate_file() {
 	fi
 
 	if [ ! -f ${tmpdir}/${file}.sig ]; then
-		return ${defaulterror}
+		return 1
 	fi
 
 	expected_hash=$(${OPENSSL} rsautl \
@@ -437,7 +437,7 @@ validate_file() {
 	    -inkey ${tmpdir}/pubkey.rsa.pem)
 	res=${?}
 	if [ ${res} -gt 0 ]; then
-		return ${defaulterror}
+		return 1
 	fi
 
 	computed_hash=$(${SHA512} -q ${tmpdir}/${file})
