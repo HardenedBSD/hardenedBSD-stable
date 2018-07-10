@@ -593,7 +593,7 @@ sign_artifacts() {
 		fi
 	fi
 
-	for file in $(find ${STAGEDIR} -name \*.txz -o -name \*.tbz -o name \*.tar); do
+	for file in $(find ${STAGEDIR} -name \*.txz -o -name \*.tbz -o -name \*.tar); do
 		sha512 -q ${file} | ${SIGNBIN} rsautl \
 			-sign \
 			-inkey ${PRIVKEY} \
@@ -723,6 +723,18 @@ sanity_check_archive() {
 	if [ ${UNSIGNED} -eq 0 ]; then
 		if [ ! -f ${STAGEDIR}/skip.txt.sig ]; then
 			debug_print "[-] Could not find ${STAGEDIR}/skip.txt.sig"
+			return 1
+		fi
+	fi
+
+	if [ ! -f ${STAGEDIR}/mtree.tar ]; then
+		debug_print "[-] Could not find ${STAGEDIR}/mtree.tar"
+		return 1
+	fi
+
+	if [ ${UNSIGNED} -eq 0 ]; then
+		if [ ! -f ${STAGEDIR}/mtree.tar.sig ]; then
+			debug_print "[-] Could not find ${STAGEDIR}/mtree.tar.sig"
 			return 1
 		fi
 	fi
