@@ -351,6 +351,7 @@ BROKEN_OPTIONS+=SSP
 .if ${__T:Mmips*} || ${__T:Mpowerpc*} || ${__T:Msparc64} || ${__T:Mriscv*}
 BROKEN_OPTIONS+=EFI
 .endif
+<<<<<<< HEAD
 
 .if ${__T} == "amd64" || ${__T} == "i386" || ${__T} == "aarch64"
 __DEFAULT_YES_OPTIONS+=PIE
@@ -390,6 +391,8 @@ __DEFAULT_NO_OPTIONS+=LLVM_OBJDUMP_IS_OBJDUMP
 .if ${__T} != "i386" && ${__T} != "amd64"
 BROKEN_OPTIONS+=LOADER_GELI
 .endif
+=======
+>>>>>>> origin/freebsd/current/master
 # OFW is only for powerpc and sparc64, exclude others
 .if ${__T:Mpowerpc*} == "" && ${__T:Msparc64} == ""
 BROKEN_OPTIONS+=LOADER_OFW

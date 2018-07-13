@@ -34,6 +34,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/param.h>
 #include <sys/linker.h>
 #include <sys/reboot.h>
+#include <sys/boot.h>
 #include <machine/cpufunc.h>
 #include <machine/elf.h>
 #include <machine/metadata.h>
@@ -55,15 +56,13 @@ __FBSDID("$FreeBSD$");
 #include <fdt_platform.h>
 #endif
 
+#ifdef LOADER_GELI_SUPPORT
+#include "geliboot.h"
+#endif
+
 int bi_load(char *args, vm_offset_t *modulep, vm_offset_t *kernendp);
 
 extern EFI_SYSTEM_TABLE	*ST;
-
-static const char howto_switches[] = "aCdrgDmphsv";
-static int howto_masks[] = {
-	RB_ASKNAME, RB_CDROM, RB_KDB, RB_DFLTROOT, RB_GDB, RB_MULTIPLE,
-	RB_MUTE, RB_PAUSE, RB_SERIAL, RB_SINGLE, RB_VERBOSE
-};
 
 static int
 bi_getboothowto(char *kargs)
@@ -73,7 +72,8 @@ bi_getboothowto(char *kargs)
 	char *console;
 	int howto;
 
-	howto = bootenv_flags();
+	howto = boot_parse_cmdline(kargs);
+	howto |= boot_env_to_howto();
 
 	console = getenv("console");
 	if (console != NULL) {
@@ -81,21 +81,6 @@ bi_getboothowto(char *kargs)
 			howto |= RB_SERIAL;
 		if (strcmp(console, "nullconsole") == 0)
 			howto |= RB_MUTE;
-	}
-
-	/* Parse kargs */
-	if (kargs == NULL)
-		return (howto);
-
-	opts = strchr(kargs, '-');
-	while (opts != NULL) {
-		while (*(++opts) != '\0') {
-			sw = strchr(howto_switches, *opts);
-			if (sw == NULL)
-				break;
-			howto |= howto_masks[sw - howto_switches];
-		}
-		opts = strchr(opts, '-');
 	}
 
 	return (howto);
@@ -471,7 +456,9 @@ bi_load(char *args, vm_offset_t *modulep, vm_offset_t *kernendp)
 #endif
 	file_addmetadata(kfp, MODINFOMD_KERNEND, sizeof kernend, &kernend);
 	file_addmetadata(kfp, MODINFOMD_FW_HANDLE, sizeof ST, &ST);
-
+#ifdef LOADER_GELI_SUPPORT
+	geli_export_key_metadata(kfp);
+#endif
 	bi_load_efi_data(kfp);
 
 	/* Figure out the size and location of the metadata. */
