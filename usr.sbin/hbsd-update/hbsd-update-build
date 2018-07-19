@@ -68,6 +68,8 @@ setup_environment() {
 	TARGET_ARCH=$(uname -p)
 	NEED_CROSS_UTILS=1
 	SCRIPTFILE=""
+	SILENT=""
+	JOBS=$(sysctl -n hw.ncpu)
 }
 
 cleanup_chroot() {
@@ -98,6 +100,8 @@ setup_directories() {
 }
 
 setup_chroot() {
+	local res
+
 	if ! mount | grep -q ${CHROOTDIR}/dev; then
 		if [ ! -d ${CHROOTDIR}/dev ]; then
 			mkdir -p ${CHROOTDIR}/dev
@@ -119,6 +123,8 @@ setup_chroot() {
 }
 
 clone_source() {
+	local res
+
 	if [ ! -d ${CHROOTDIR}/usr/src/.git ]; then
 		git clone ${REPO} ${CHROOTDIR}/usr/src
 		res=${?}
@@ -148,10 +154,13 @@ clone_source() {
 }
 
 build_source() {
+	local res
+
 	debug_print "[*] Building world"
 	chroot ${CHROOTDIR} make \
 		-C /usr/src \
-		-sj$(sysctl -n hw.ncpu) \
+		${SILENT} \
+		-j${JOBS} \
 		$(echo ${DEVMODE} | sed 's/yes/-DNO_CLEAN/') \
 		buildworld
 
@@ -168,7 +177,8 @@ build_source() {
 				chroot ${CHROOTDIR} make \
 					-C /usr/src \
 					KERNCONF=${kernel} \
-					-sj$(sysctl -n hw.ncpu) \
+					${SILENT} \
+					-j${JOBS} \
 					$(echo ${DEVMODE} | \
 						sed 's/yes/-DNO_KERNELCLEAN/') \
 					buildkernel
@@ -268,19 +278,12 @@ prep_release() {
 		return ${res}
 	fi
 
-	RELEASEDIR="/usr/obj/usr/src/release"
-	if [ ! -d ${CHROOTDIR}${RELEASEDIR} ]; then
-		RELEASEDIR="/usr/obj/usr/src/${TARGET}.${TARGET_ARCH}/release"
-		if [ ! -d ${CHROOTDIR}${RELEASEDIR} ]; then
-			debug_print "[-] Unable to find the release directory."
-			res=1
-		fi
-	fi
-
 	return ${res}
 }
 
 build_base_archive() {
+	local res
+
 	debug_print "[*] Making base.txz in /usr/src/release"
 	chroot ${CHROOTDIR} \
 		make -s \
@@ -291,14 +294,18 @@ build_base_archive() {
 		return ${res}
 	fi
 
-	mv ${CHROOTDIR}${RELEASEDIR}/base.txz ${STAGEDIR}
+	mv ${CHROOTDIR}/usr/obj/usr/src/release/base.txz ${STAGEDIR}
 	res=${?}
 	if [ ${res} -gt 0 ]; then
 		return ${res}
 	fi
+
+	return 0
 }
 
 build_etcupdate_archive() {
+	local res
+
 	debug_print "[*] Making etcupdate archive"
 	chroot ${CHROOTDIR} etcupdate build \
 		-B \
@@ -318,6 +325,8 @@ build_etcupdate_archive() {
 }
 
 build_kernel_archives() {
+	local res
+
 	for kernel in $(echo ${KERNELS}); do
 		chroot ${CHROOTDIR} make -sC /usr/src/release \
 			kernel.txz KERNCONF=${kernel}
@@ -326,25 +335,39 @@ build_kernel_archives() {
 			return ${res}
 		fi
 
-		mv ${CHROOTDIR}${RELEASEDIR}/kernel.txz \
+		mv ${CHROOTDIR}/usr/obj/usr/src/release/kernel.txz \
 			${STAGEDIR}/kernel-${kernel}.txz
 		res=${?}
 		if [ ${res} -gt 0 ]; then
 			return ${res}
 		fi
 	done
+
+	return 0
 }
 
 build_obsolete() {
+	local res
+
 	chroot ${CHROOTDIR} make -C /usr/src \
 		-f Makefile.inc1 \
 		-V OLD_FILES -V OLD_LIBS \
 		check-old > ${STAGEDIR}/ObsoleteFiles.txt
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		return ${res}
+	fi
 
 	chroot ${CHROOTDIR} make -C /usr/src \
 		-f Makefile.inc1 \
 		-V OLD_DIRS \
 		check-old > ${STAGEDIR}/ObsoleteDirs.txt
+	res=${?}
+	if [ ${res} -gt 0 ]; then
+		return ${res}
+	fi
+
+	return 0
 }
 
 build_src_tarball() {
@@ -382,7 +405,7 @@ EOF
 			return ${res}
 		fi
 
-		cp ${CHROOTDIR}${RELEASEDIR}/src.txz \
+		cp ${CHROOTDIR}/usr/obj/usr/src/release/src.txz \
 			${STAGEDIR}
 	fi
 
@@ -495,6 +518,8 @@ EOF
 	done
 
 	rm -f ${tmpfile}
+
+	return 0
 }
 
 sign_artifacts() {
@@ -539,11 +564,15 @@ sign_artifacts() {
 	if [ -f ${PUBKEY} ]; then
 		cp ${PUBKEY} ${STAGEDIR}/pubkey.pem
 	fi
+
+	return 0
 }
 
 git_version() {
 	cd ${CHROOTDIR}/usr/src
 	git log -n 1 --format=format:%H
+
+	return 0
 }
 
 hbsd_version() {
@@ -553,14 +582,18 @@ hbsd_version() {
 		    awk '/#define[[:space:]]__HardenedBSD_version/{print $3}' | \
 		    sed -e 's/UL$//g'
 	)
+
+	return 0
 }
 
 full_version() {
 	echo "hbsd-v$(hbsd_version)-$(git_version)"
+	return 0
 }
 
 update_filename() {
 	echo "${OUTPUTDIR}/update-$(full_version).tar"
+	return 0
 }
 
 build_update_archive() {
@@ -586,6 +619,8 @@ sanity_check() {
 		echo "       If you feel this is in error, remove the lockfile at ${STAGEDIR}/lock" >&2
 		exit 1
 	fi
+
+	return 0
 }
 
 sanity_check_archive() {
@@ -650,6 +685,8 @@ log_build() {
 	else
 		cat >& 2
 	fi
+
+	return 0
 }
 
 main() {
