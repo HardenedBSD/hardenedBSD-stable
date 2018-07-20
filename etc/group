@@ -29,11 +29,7 @@ dialer:*:68:
 network:*:69:
 audit:*:77:
 www:*:80:
-<<<<<<< HEAD
-_ntp:*:123:
-=======
 ntpd:*:123:
->>>>>>> origin/freebsd/current/master
 _ypldap:*:160:
 hast:*:845:
 nogroup:*:65533:
