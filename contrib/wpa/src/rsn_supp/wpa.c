@@ -860,7 +860,7 @@ static int wpa_supplicant_pairwise_gtk(struct wpa_sm *sm,
 	    (wpa_supplicant_check_group_cipher(sm, sm->group_cipher,
 					       gtk_len, gtk_len,
 					       &gd.key_rsc_len, &gd.alg) ||
-	     wpa_supplicant_install_gtk(sm, &gd, key->key_rsc, 0))) {
+	     wpa_supplicant_install_gtk(sm, &gd, key_rsc, 0))) {
 		wpa_dbg(sm->ctx->msg_ctx, MSG_DEBUG,
 			"RSN: Failed to install GTK");
 		os_memset(&gd, 0, sizeof(gd));
@@ -942,15 +942,6 @@ static int ieee80211w_set_keys(struct wpa_sm *sm,
 			return -1;
 
 		igtk = (const struct wpa_igtk_kde *) ie->igtk;
-		keyidx = WPA_GET_LE16(igtk->keyid);
-		wpa_dbg(sm->ctx->msg_ctx, MSG_DEBUG, "WPA: IGTK keyid %d "
-			"pn %02x%02x%02x%02x%02x%02x",
-			keyidx, MAC2STR(igtk->pn));
-		wpa_hexdump_key(MSG_DEBUG, "WPA: IGTK",
-				igtk->igtk, len);
-		if (keyidx > 4095) {
-			wpa_msg(sm->ctx->msg_ctx, MSG_WARNING,
-				"WPA: Invalid IGTK KeyID %d", keyidx);
 		if (wpa_supplicant_install_igtk(sm, igtk, 0) < 0)
 			return -1;
 	}
@@ -1601,13 +1592,13 @@ static void wpa_supplicant_process_1_of_2(struct wpa_sm *sm,
 	if (wpa_supplicant_rsc_relaxation(sm, key->key_rsc))
 		key_rsc = null_rsc;
 
-	if (wpa_supplicant_install_gtk(sm, &gd, key->key_rsc, 0) ||
-	    wpa_supplicant_send_2_of_2(sm, key, ver, key_info))
+	if (wpa_supplicant_install_gtk(sm, &gd, key_rsc, 0) ||
+	    wpa_supplicant_send_2_of_2(sm, key, ver, key_info) < 0)
 		goto failed;
 	os_memset(&gd, 0, sizeof(gd));
 
 	if (rekey) {
-		wpa_msg(sm->ctx->msg_ctx, MSG_DEBUG, "WPA: Group rekeying "
+		wpa_msg(sm->ctx->msg_ctx, MSG_INFO, "WPA: Group rekeying "
 			"completed with " MACSTR " [GTK=%s]",
 			MAC2STR(sm->bssid), wpa_cipher_txt(sm->group_cipher));
 		wpa_sm_cancel_auth_timeout(sm);
@@ -3031,23 +3022,6 @@ int wpa_wnmsleep_install_key(struct wpa_sm *sm, u8 subelem_id, u8 *buf)
 	} else if (subelem_id == WNM_SLEEP_SUBELEM_IGTK) {
 		const struct wpa_igtk_kde *igtk;
 
-		os_memset(&igd, 0, sizeof(igd));
-		keylen = wpa_cipher_key_len(sm->mgmt_group_cipher);
-		os_memcpy(igd.keyid, buf + 2, 2);
-		os_memcpy(igd.pn, buf + 4, 6);
-
-		keyidx = WPA_GET_LE16(igd.keyid);
-		os_memcpy(igd.igtk, buf + 10, keylen);
-
-		wpa_hexdump_key(MSG_DEBUG, "Install IGTK (WNM SLEEP)",
-				igd.igtk, keylen);
-		if (wpa_sm_set_key(sm, wpa_cipher_to_alg(sm->mgmt_group_cipher),
-				   broadcast_ether_addr,
-				   keyidx, 0, igd.pn, sizeof(igd.pn),
-				   igd.igtk, keylen) < 0) {
-			wpa_printf(MSG_DEBUG, "Failed to install the IGTK in "
-				   "WNM mode");
-			os_memset(&igd, 0, sizeof(igd));
 		igtk = (const struct wpa_igtk_kde *) (buf + 2);
 		if (wpa_supplicant_install_igtk(sm, igtk, 1) < 0)
 			return -1;
