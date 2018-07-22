@@ -175,7 +175,7 @@ build_source() {
 		rm -rf ${CHROOTDIR}/tmp/mtree
 	fi
 
-	mkdir ${CHROOTDIR}/tmp/mtree
+	mkdir -p ${CHROOTDIR}/tmp/mtree/etc/mtree
 	res=${?}
 	if [ ${res} -gt 0 ]; then
 		return ${res}
