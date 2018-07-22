@@ -189,6 +189,7 @@ void ShadowBuilder::Install() {
       t = *src++;
       *dst++ = t;
     }
+    UnmapOrDie((void *)shadow_, sz);
   } else {
     // Initial setup.
     CHECK_EQ(kCfiShadowLimitsStorageSize, GetPageSizeCached());
