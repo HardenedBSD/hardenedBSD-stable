@@ -128,7 +128,7 @@ static struct sx addrsel_sxlock;
 #define	ADDRSEL_XUNLOCK()	sx_xunlock(&addrsel_sxlock)
 
 #define ADDR_LABEL_NOTAPP (-1)
-static VNET_DEFINE(struct in6_addrpolicy, defaultaddrpolicy);
+VNET_DEFINE_STATIC(struct in6_addrpolicy, defaultaddrpolicy);
 #define	V_defaultaddrpolicy		VNET(defaultaddrpolicy)
 
 #ifdef PAX_HARDENING
@@ -1099,7 +1099,7 @@ struct addrsel_policyent {
 
 TAILQ_HEAD(addrsel_policyhead, addrsel_policyent);
 
-static VNET_DEFINE(struct addrsel_policyhead, addrsel_policytab);
+VNET_DEFINE_STATIC(struct addrsel_policyhead, addrsel_policytab);
 #define	V_addrsel_policytab		VNET(addrsel_policytab)
 
 static void
