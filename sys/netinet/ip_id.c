@@ -100,19 +100,12 @@ __FBSDID("$FreeBSD$");
  * suggested by RFC6864.  We use per-CPU counter for that, or if
  * user wants to, we can turn on random ID generation.
  */
-<<<<<<< HEAD
-static VNET_DEFINE(int, ip_rfc6864) = 1;
-
-#ifdef PAX_HARDENING
-static VNET_DEFINE(int, ip_do_randomid) = 1;
-#else
-static VNET_DEFINE(int, ip_do_randomid) = 0;
-#endif
-
-=======
 VNET_DEFINE_STATIC(int, ip_rfc6864) = 1;
+#ifdef PAX_HARDENING
+VNET_DEFINE_STATIC(int, ip_do_randomid) = 1;
+#else
 VNET_DEFINE_STATIC(int, ip_do_randomid) = 0;
->>>>>>> origin/freebsd/current/master
+#endif
 #define	V_ip_rfc6864		VNET(ip_rfc6864)
 #define	V_ip_do_randomid	VNET(ip_do_randomid)
 
