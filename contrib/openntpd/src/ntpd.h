@@ -36,7 +36,7 @@
 #define MAXIMUM(a, b)	((a) > (b) ? (a) : (b))
 
 #ifndef NTPD_USER
-#define	NTPD_USER	"_ntp"
+#define	NTPD_USER	"ntpd"
 #endif
 
 #ifndef	SYSCONFDIR
