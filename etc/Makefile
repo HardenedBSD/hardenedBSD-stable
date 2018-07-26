@@ -76,12 +76,6 @@ BSM_ETC_DIR=			${DESTDIR}/etc/security
 BIN1+= amd.map
 .endif
 
-.if ${MACHINE} == "i386"
-.if ${MK_APM} != "no"
-BIN1+= apmd.conf
-.endif
-.endif
-
 .if ${MK_AUTOFS} != "no"
 BIN1+=	auto_master
 .endif
@@ -304,8 +298,6 @@ distribution:
 		${INSTALL_SYMLINK} mail/aliases ${DESTDIR}/etc/aliases; \
 	fi
 .endif
-	${INSTALL} -o ${BINOWN} -g operator -m 664 /dev/null \
-	    ${DESTDIR}/etc/dumpdates
 .if ${MK_LOCATE} != "no"
 	${INSTALL} -o nobody -g ${BINGRP} -m 644 /dev/null \
 	    ${DESTDIR}/var/db/locate.database
