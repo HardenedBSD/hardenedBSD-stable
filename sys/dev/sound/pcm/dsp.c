@@ -2212,25 +2212,7 @@ dsp_mmap_single(struct cdev *i_dev, vm_ooffset_t *offset,
 	struct snddev_info *d;
 	struct pcm_channel *wrch, *rdch, *c;
 
-<<<<<<< HEAD
 	if (nprot & PROT_EXEC)
-=======
-	/*
-	 * Reject PROT_EXEC by default. It just doesn't makes sense.
-	 * Unfortunately, we have to give up this one due to linux_mmap
-	 * changes.
-	 *
-	 * https://lists.freebsd.org/pipermail/freebsd-emulation/2007-June/003698.html
-	 *
-	 */
-#ifdef SV_ABI_LINUX
-	if ((nprot & PROT_EXEC) && (dsp_mmap_allow_prot_exec < 0 ||
-	    (dsp_mmap_allow_prot_exec == 0 &&
-	    SV_CURPROC_ABI() != SV_ABI_LINUX)))
-#else
-	if ((nprot & PROT_EXEC) && dsp_mmap_allow_prot_exec < 1)
-#endif
->>>>>>> origin/freebsd/current/master
 		return (EINVAL);
 
 	/*
