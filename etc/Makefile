@@ -31,23 +31,17 @@ BIN1=	crontab \
 	mac.conf \
 	motd \
 	netconfig \
-	network.subr \
 	networks \
 	newsyslog.conf \
 	nsswitch.conf \
 	phones \
 	profile \
 	protocols \
-	rc \
 	rc.bsdextended \
 	rc.firewall \
-	rc.initdiskless \
-	rc.shutdown \
-	rc.subr \
 	remote \
 	rpc \
 	services \
-	shells \
 	sysctl.conf \
 	syslog.conf \
 	termcap.small
@@ -153,9 +147,6 @@ BIN1+= csh.cshrc csh.login csh.logout
 BIN1+= regdomain.xml
 .endif
 
-# -rwxr-xr-x root:wheel, for the new cron root:wheel
-BIN2=	netstart pccard_ether rc.suspend rc.resume
-
 .if ${MK_SENDMAIL} == "no"
 ETCMAIL=mailer.conf aliases
 .else
@@ -196,8 +187,6 @@ distribution:
 	    ${INSTALL} -o ${BINOWN} -g ${BINGRP} -m 644 \
 		${BIN1} ${DESTDIR}/etc; \
 	    cap_mkdb ${CAP_MKDB_ENDIAN} ${DESTDIR}/etc/login.conf; \
-	    ${INSTALL} -o ${BINOWN} -g ${BINGRP} -m 755 \
-		${BIN2} ${DESTDIR}/etc; \
 	    ${INSTALL} -o ${BINOWN} -g ${BINGRP} -m 600 \
 		master.passwd nsmb.conf opieaccess ${DESTDIR}/etc;
 
@@ -244,7 +233,6 @@ distribution:
 .if ${MK_PKGBOOTSTRAP} != "no"
 	${_+_}cd ${.CURDIR}/pkg; ${MAKE} install
 .endif
-	${_+_}cd ${.CURDIR}/rc.d; ${MAKE} install
 	${_+_}cd ${SRCTOP}/share/termcap; ${MAKE} etc-termcap
 	${_+_}cd ${.CURDIR}/syslog.d; ${MAKE} install
 	${_+_}cd ${SRCTOP}/usr.sbin/rmt; ${MAKE} etc-rmt
