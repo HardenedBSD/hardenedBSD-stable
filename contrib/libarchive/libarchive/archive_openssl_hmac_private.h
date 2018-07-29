@@ -28,7 +28,12 @@
 #include <openssl/hmac.h>
 #include <openssl/opensslv.h>
 
+<<<<<<< HEAD
 #if OPENSSL_VERSION_NUMBER < 0x10100000L || ( defined(LIBRESSL_VERSION_NUMBER) && LIBRESSL_VERSION_NUMBER < 0x20700000L )
+=======
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || \
+	(defined(LIBRESSL_VERSION_NUMBER) && LIBRESSL_VERSION_NUMBER < 0x20700000L)
+>>>>>>> origin/freebsd/current/master
 #include <stdlib.h> /* malloc, free */
 #include <string.h> /* memset */
 static inline HMAC_CTX *HMAC_CTX_new(void)
