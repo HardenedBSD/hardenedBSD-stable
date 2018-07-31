@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011, 2016 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2017 by Delphix. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2012 Martin Matuska <mm@FreeBSD.org>.  All rights reserved.
  * Copyright (c) 2013 Steven Hartland. All rights reserved.
@@ -195,6 +195,7 @@ extern uint64_t zfs_deadman_synctime_ms;
 extern int metaslab_preload_limit;
 extern boolean_t zfs_compressed_arc_enabled;
 extern boolean_t zfs_abd_scatter_enabled;
+extern boolean_t zfs_force_some_double_word_sm_entries;
 
 static ztest_shared_opts_t *ztest_shared_opts;
 static ztest_shared_opts_t ztest_opts;
@@ -437,6 +438,7 @@ static ztest_ds_t *ztest_ds;
 
 static kmutex_t ztest_vdev_lock;
 static kmutex_t ztest_checkpoint_lock;
+static boolean_t ztest_device_removal_active = B_FALSE;
 
 /*
  * The ztest_name_lock protects the pool and dataset namespace used by
@@ -2881,7 +2883,7 @@ ztest_vdev_attach_detach(ztest_ds_t *zd, uint64_t id)
 	 * value.  Don't bother trying to attach while we are in the middle
 	 * of removal.
 	 */
-	if (spa->spa_vdev_removal != NULL) {
+	if (ztest_device_removal_active) {
 		spa_config_exit(spa, SCL_ALL, FTAG);
 		mutex_exit(&ztest_vdev_lock);
 		return;
@@ -3056,16 +3058,49 @@ ztest_device_removal(ztest_ds_t *zd, uint64_t id)
 	spa_t *spa = ztest_spa;
 	vdev_t *vd;
 	uint64_t guid;
+	int error;
 
 	mutex_enter(&ztest_vdev_lock);
 
+	if (ztest_device_removal_active) {
+		mutex_exit(&ztest_vdev_lock);
+		return;
+	}
+
+	/*
+	 * Remove a random top-level vdev and wait for removal to finish.
+	 */
 	spa_config_enter(spa, SCL_VDEV, FTAG, RW_READER);
 	vd = vdev_lookup_top(spa, ztest_random_vdev_top(spa, B_FALSE));
 	guid = vd->vdev_guid;
 	spa_config_exit(spa, SCL_VDEV, FTAG);
 
-	(void) spa_vdev_remove(spa, guid, B_FALSE);
+	error = spa_vdev_remove(spa, guid, B_FALSE);
+	if (error == 0) {
+		ztest_device_removal_active = B_TRUE;
+		mutex_exit(&ztest_vdev_lock);
 
+		while (spa->spa_vdev_removal != NULL)
+			txg_wait_synced(spa_get_dsl(spa), 0);
+	} else {
+		mutex_exit(&ztest_vdev_lock);
+		return;
+	}
+
+	/*
+	 * The pool needs to be scrubbed after completing device removal.
+	 * Failure to do so may result in checksum errors due to the
+	 * strategy employed by ztest_fault_inject() when selecting which
+	 * offset are redundant and can be damaged.
+	 */
+	error = spa_scan(spa, POOL_SCAN_SCRUB);
+	if (error == 0) {
+		while (dsl_scan_scrubbing(spa_get_dsl(spa)))
+			txg_wait_synced(spa_get_dsl(spa), 0);
+	}
+
+	mutex_enter(&ztest_vdev_lock);
+	ztest_device_removal_active = B_FALSE;
 	mutex_exit(&ztest_vdev_lock);
 }
 
@@ -3204,7 +3239,7 @@ ztest_vdev_LUN_growth(ztest_ds_t *zd, uint64_t id)
 	 * that the metaslab_class space increased (because it decreases
 	 * when the device removal completes).
 	 */
-	if (spa->spa_vdev_removal != NULL) {
+	if (ztest_device_removal_active) {
 		spa_config_exit(spa, SCL_STATE, spa);
 		mutex_exit(&ztest_vdev_lock);
 		mutex_exit(&ztest_checkpoint_lock);
@@ -4985,6 +5020,18 @@ ztest_fault_inject(ztest_ds_t *zd, uint64_t id)
 	boolean_t islog = B_FALSE;
 
 	mutex_enter(&ztest_vdev_lock);
+
+	/*
+	 * Device removal is in progress, fault injection must be disabled
+	 * until it completes and the pool is scrubbed.  The fault injection
+	 * strategy for damaging blocks does not take in to account evacuated
+	 * blocks which may have already been damaged.
+	 */
+	if (ztest_device_removal_active) {
+		mutex_exit(&ztest_vdev_lock);
+		return;
+	}
+
 	maxfaults = MAXFAULTS();
 	leaves = MAX(zs->zs_mirrors, 1) * ztest_opts.zo_raidz;
 	mirror_save = zs->zs_mirrors;
@@ -5329,6 +5376,12 @@ void
 ztest_scrub(ztest_ds_t *zd, uint64_t id)
 {
 	spa_t *spa = ztest_spa;
+
+	/*
+	 * Scrub in progress by device removal.
+	 */
+	if (ztest_device_removal_active)
+		return;
 
 	(void) spa_scan(spa, POOL_SCAN_SCRUB);
 	(void) poll(NULL, 0, 100); /* wait a moment, then force a restart */
@@ -5868,7 +5921,6 @@ ztest_run(ztest_shared_t *zs)
 	 */
 	kernel_init(FREAD | FWRITE);
 	VERIFY0(spa_open(ztest_opts.zo_pool, &spa, FTAG));
-	spa->spa_debug = B_TRUE;
 	metaslab_preload_limit = ztest_random(20) + 1;
 	ztest_spa = spa;
 
@@ -6025,7 +6077,6 @@ ztest_freeze(void)
 	kernel_init(FREAD | FWRITE);
 	VERIFY3U(0, ==, spa_open(ztest_opts.zo_pool, &spa, FTAG));
 	VERIFY3U(0, ==, ztest_dataset_open(0));
-	spa->spa_debug = B_TRUE;
 	ztest_spa = spa;
 
 	/*
@@ -6096,7 +6147,6 @@ ztest_freeze(void)
 	VERIFY3U(0, ==, ztest_dataset_open(0));
 	ztest_dataset_close(0);
 
-	spa->spa_debug = B_TRUE;
 	ztest_spa = spa;
 	txg_wait_synced(spa_get_dsl(spa), 0);
 	ztest_reguid(NULL, 0);
@@ -6397,6 +6447,12 @@ main(int argc, char **argv)
 
 	dprintf_setup(&argc, argv);
 	zfs_deadman_synctime_ms = 300000;
+	/*
+	 * As two-word space map entries may not come up often (especially
+	 * if pool and vdev sizes are small) we want to force at least some
+	 * of them so the feature get tested.
+	 */
+	zfs_force_some_double_word_sm_entries = B_TRUE;
 
 	ztest_fd_rand = open("/dev/urandom", O_RDONLY);
 	ASSERT3S(ztest_fd_rand, >=, 0);

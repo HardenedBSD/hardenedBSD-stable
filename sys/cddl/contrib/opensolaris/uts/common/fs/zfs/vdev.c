@@ -752,7 +752,8 @@ vdev_alloc(spa_t *spa, vdev_t **vdp, nvlist_t *nv, vdev_t *parent, uint_t id,
 		    alloctype == VDEV_ALLOC_SPLIT ||
 		    alloctype == VDEV_ALLOC_ROOTPOOL);
 		vd->vdev_mg = metaslab_group_create(islog ?
-		    spa_log_class(spa) : spa_normal_class(spa), vd);
+		    spa_log_class(spa) : spa_normal_class(spa), vd,
+		    spa->spa_alloc_count);
 	}
 
 	if (vd->vdev_ops->vdev_op_leaf &&
@@ -987,6 +988,32 @@ vdev_top_transfer(vdev_t *svd, vdev_t *tvd)
 	svd->vdev_stat.vs_space = 0;
 	svd->vdev_stat.vs_dspace = 0;
 
+	/*
+	 * State which may be set on a top-level vdev that's in the
+	 * process of being removed.
+	 */
+	ASSERT0(tvd->vdev_indirect_config.vic_births_object);
+	ASSERT0(tvd->vdev_indirect_config.vic_mapping_object);
+	ASSERT3U(tvd->vdev_indirect_config.vic_prev_indirect_vdev, ==, -1ULL);
+	ASSERT3P(tvd->vdev_indirect_mapping, ==, NULL);
+	ASSERT3P(tvd->vdev_indirect_births, ==, NULL);
+	ASSERT3P(tvd->vdev_obsolete_sm, ==, NULL);
+	ASSERT0(tvd->vdev_removing);
+	tvd->vdev_removing = svd->vdev_removing;
+	tvd->vdev_indirect_config = svd->vdev_indirect_config;
+	tvd->vdev_indirect_mapping = svd->vdev_indirect_mapping;
+	tvd->vdev_indirect_births = svd->vdev_indirect_births;
+	range_tree_swap(&svd->vdev_obsolete_segments,
+	    &tvd->vdev_obsolete_segments);
+	tvd->vdev_obsolete_sm = svd->vdev_obsolete_sm;
+	svd->vdev_indirect_config.vic_mapping_object = 0;
+	svd->vdev_indirect_config.vic_births_object = 0;
+	svd->vdev_indirect_config.vic_prev_indirect_vdev = -1ULL;
+	svd->vdev_indirect_mapping = NULL;
+	svd->vdev_indirect_births = NULL;
+	svd->vdev_obsolete_sm = NULL;
+	svd->vdev_removing = 0;
+
 	for (t = 0; t < TXG_SIZE; t++) {
 		while ((msp = txg_list_remove(&svd->vdev_ms_list, t)) != NULL)
 			(void) txg_list_add(&tvd->vdev_ms_list, msp, t);
@@ -1140,7 +1167,6 @@ vdev_metaslab_init(vdev_t *vd, uint64_t txg)
 
 	vd->vdev_ms = mspp;
 	vd->vdev_ms_count = newc;
-
 	for (m = oldc; m < newc; m++) {
 		uint64_t object = 0;
 
@@ -2648,7 +2674,7 @@ vdev_dtl_sync(vdev_t *vd, uint64_t txg)
 	mutex_exit(&vd->vdev_dtl_lock);
 
 	space_map_truncate(vd->vdev_dtl_sm, vdev_dtl_sm_blksz, tx);
-	space_map_write(vd->vdev_dtl_sm, rtsync, SM_ALLOC, tx);
+	space_map_write(vd->vdev_dtl_sm, rtsync, SM_ALLOC, SM_NO_VDEVID, tx);
 	range_tree_vacate(rtsync, NULL, NULL);
 
 	range_tree_destroy(rtsync);
