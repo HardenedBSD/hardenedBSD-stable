@@ -98,30 +98,10 @@ static void devmem_destroy(void *arg);
 static int
 vmm_priv_check(struct ucred *ucred)
 {
-<<<<<<< HEAD
-	struct prison *prison;
-
-	if (jailed(ucred)) {
-		/*
-		 * XXX This should not happen. But, we should check in
-		 * case `struct prison`.pr_allow does indeed fill up
-		 * later on. In case that happens, fail closed.
-		 */
-		if (pr_allow_flag == 0)
-			return (EPERM);
-
-		prison = ucred->cr_prison;
-		if ((prison->pr_allow & pr_allow_flag) !=
-		    pr_allow_flag) {
-			return (EPERM);
-		}
-	}
-=======
 
 	if (jailed(ucred) &&
 	    !(ucred->cr_prison->pr_allow & pr_allow_flag))
 		return (EPERM);
->>>>>>> origin/freebsd/current/master
 
 	return (0);
 }
