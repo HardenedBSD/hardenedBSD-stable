@@ -1,6 +1,6 @@
 # $FreeBSD$
 
-CONFS=	FreeBSD.conf
+CONFS=	FreeBSD.conf HardenedBSD.conf
 CONFSDIR=	/etc/pkg
 CONFSMODE=	644
 PROG=	pkg
