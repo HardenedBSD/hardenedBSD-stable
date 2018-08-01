@@ -343,13 +343,8 @@ linux_copyout_strings(struct image_params *imgp)
 		execpath_len = 0;
 
 	p = imgp->proc;
-<<<<<<< HEAD
 	arginfo = (struct ps_strings *)p->p_psstrings;
-	destp =	(caddr_t)arginfo - SPARE_USRSPACE -
-=======
-	arginfo = (struct ps_strings *)p->p_sysent->sv_psstrings;
 	destp = (caddr_t)arginfo - SPARE_USRSPACE -
->>>>>>> origin/freebsd/11-stable/master
 	    roundup(sizeof(canary), sizeof(char *)) -
 	    roundup(execpath_len, sizeof(char *)) -
 	    roundup(ARG_MAX - imgp->args->stringspace, sizeof(char *));
