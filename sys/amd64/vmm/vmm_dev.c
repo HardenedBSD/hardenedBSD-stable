@@ -98,6 +98,7 @@ static void devmem_destroy(void *arg);
 static int
 vmm_priv_check(struct ucred *ucred)
 {
+<<<<<<< HEAD
 	struct prison *prison;
 
 	if (jailed(ucred)) {
@@ -115,6 +116,12 @@ vmm_priv_check(struct ucred *ucred)
 			return (EPERM);
 		}
 	}
+=======
+
+	if (jailed(ucred) &&
+	    !(ucred->cr_prison->pr_allow & pr_allow_flag))
+		return (EPERM);
+>>>>>>> origin/freebsd/current/master
 
 	return (0);
 }
