@@ -58,6 +58,7 @@ FILES=	\
 	bsd.sys.mk \
 	bsd.test.mk \
 	dirdeps.mk \
+	dirdeps-options.mk \
 	gendirdeps.mk \
 	install-new.mk \
 	meta.autodep.mk \
