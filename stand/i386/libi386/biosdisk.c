@@ -50,10 +50,6 @@ __FBSDID("$FreeBSD$");
 #include "disk.h"
 #include "libi386.h"
 
-#ifdef LOADER_GELI_SUPPORT
-#include "geliboot.h"
-#endif /* LOADER_GELI_SUPPORT */
-
 #define BIOS_NUMDRIVES		0x475
 #define BIOSDISK_SECSIZE	512
 #define BUFSIZE			(1 * BIOSDISK_SECSIZE)
@@ -275,7 +271,7 @@ bd_int13probe(struct bdinfo *bd)
 
 		total = (uint64_t)params.cylinders *
 		    params.heads * params.sectors_per_track;
-		if (bd->bd_sectors < total)
+		if (total > 0 && bd->bd_sectors > total)
 			bd->bd_sectors = total;
 
 		ret = 1;
