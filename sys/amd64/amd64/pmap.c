@@ -1007,21 +1007,9 @@ create_pagetables(vm_paddr_t *firstaddr)
 	/* Map from zero to end of allocations under 2M pages */
 	/* This replaces some of the KPTphys entries above */
 	for (i = 0; (i << PDRSHIFT) < *firstaddr; i++)
-<<<<<<< HEAD
-		pd_p[i] = (i << PDRSHIFT) | X86_PG_V | PG_PS | pg_g |
-		    bootaddr_rwx(i << PDRSHIFT);
-
-	/*
-	 * Because we map the physical blocks in 2M pages, adjust firstaddr
-	 * to record the physical blocks we've actually mapped into kernel
-	 * virtual address space.
-	 */
-	*firstaddr = round_2mpage(*firstaddr);
-=======
 		/* Preset PG_M and PG_A because demotion expects it. */
-		pd_p[i] = (i << PDRSHIFT) | X86_PG_RW | X86_PG_V | PG_PS |
-		    X86_PG_M | X86_PG_A | pg_g;
->>>>>>> origin/freebsd/11-stable/master
+		pd_p[i] = (i << PDRSHIFT) | X86_PG_V | PG_PS | pg_g |
+		    X86_PG_M | X86_PG_A | bootaddr_rwx(i << PDRSHIFT);
 
 	/*
 	 * Because we map the physical blocks in 2M pages, adjust firstaddr
