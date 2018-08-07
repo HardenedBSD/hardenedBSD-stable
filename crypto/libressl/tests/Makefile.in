@@ -379,7 +379,7 @@ exptest_DEPENDENCIES = $(abs_top_builddir)/tls/.libs/libtls.a \
 	$(abs_top_builddir)/ssl/.libs/libssl.a \
 	$(abs_top_builddir)/crypto/.libs/libcrypto.a \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) $(am__append_1)
-am_freenull_OBJECTS = freenull-freenull.$(OBJEXT)
+am_freenull_OBJECTS = freenull.$(OBJEXT)
 freenull_OBJECTS = $(am_freenull_OBJECTS)
 freenull_LDADD = $(LDADD)
 freenull_DEPENDENCIES = $(abs_top_builddir)/tls/.libs/libtls.a \
@@ -606,7 +606,7 @@ tls_prf_DEPENDENCIES = $(abs_top_builddir)/tls/.libs/libtls.a \
 	$(abs_top_builddir)/ssl/.libs/libssl.a \
 	$(abs_top_builddir)/crypto/.libs/libcrypto.a \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) $(am__append_1)
-am_tlsexttest_OBJECTS = tlsexttest-tlsexttest.$(OBJEXT)
+am_tlsexttest_OBJECTS = tlsexttest.$(OBJEXT)
 tlsexttest_OBJECTS = $(am_tlsexttest_OBJECTS)
 tlsexttest_LDADD = $(LDADD)
 tlsexttest_DEPENDENCIES = $(abs_top_builddir)/tls/.libs/libtls.a \
@@ -1138,7 +1138,6 @@ evptest_SOURCES = evptest.c
 @HOST_CYGWIN_FALSE@@HOST_WIN_FALSE@	$(am__append_8)
 exptest_CPPFLAGS = $(AM_CPPFLAGS) -ULIBRESSL_INTERNAL
 exptest_SOURCES = exptest.c
-freenull_CPPFLAGS = $(AM_CPPFLAGS) -ULIBRESSL_INTERNAL
 freenull_SOURCES = freenull.c
 gcm128test_SOURCES = gcm128test.c
 gost2814789t_SOURCES = gost2814789t.c
@@ -1169,7 +1168,6 @@ sha512test_SOURCES = sha512test.c
 ssl_versions_SOURCES = ssl_versions.c
 ssltest_SOURCES = ssltest.c
 timingsafe_SOURCES = timingsafe.c
-tlsexttest_CPPFLAGS = $(AM_CPPFLAGS) -ULIBRESSL_INTERNAL
 tlsexttest_SOURCES = tlsexttest.c
 tlstest_SOURCES = tlstest.c $(am__append_15)
 tls_ext_alpn_SOURCES = tls_ext_alpn.c
@@ -1516,7 +1514,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/evptest.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/explicit_bzero.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/exptest-exptest.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/freenull-freenull.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/freenull.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gcm128test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gost2814789t.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hkdf_test.Po@am__quote@
@@ -1548,7 +1546,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/timingsafe.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tls_ext_alpn.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tls_prf.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tlsexttest-tlsexttest.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tlsexttest.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tlstest.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/utf8test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/verifytest.Po@am__quote@
@@ -1607,34 +1605,6 @@ exptest-exptest.obj: exptest.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='exptest.c' object='exptest-exptest.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(exptest_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o exptest-exptest.obj `if test -f 'exptest.c'; then $(CYGPATH_W) 'exptest.c'; else $(CYGPATH_W) '$(srcdir)/exptest.c'; fi`
-
-freenull-freenull.o: freenull.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(freenull_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT freenull-freenull.o -MD -MP -MF $(DEPDIR)/freenull-freenull.Tpo -c -o freenull-freenull.o `test -f 'freenull.c' || echo '$(srcdir)/'`freenull.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/freenull-freenull.Tpo $(DEPDIR)/freenull-freenull.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='freenull.c' object='freenull-freenull.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(freenull_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o freenull-freenull.o `test -f 'freenull.c' || echo '$(srcdir)/'`freenull.c
-
-freenull-freenull.obj: freenull.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(freenull_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT freenull-freenull.obj -MD -MP -MF $(DEPDIR)/freenull-freenull.Tpo -c -o freenull-freenull.obj `if test -f 'freenull.c'; then $(CYGPATH_W) 'freenull.c'; else $(CYGPATH_W) '$(srcdir)/freenull.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/freenull-freenull.Tpo $(DEPDIR)/freenull-freenull.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='freenull.c' object='freenull-freenull.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(freenull_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o freenull-freenull.obj `if test -f 'freenull.c'; then $(CYGPATH_W) 'freenull.c'; else $(CYGPATH_W) '$(srcdir)/freenull.c'; fi`
-
-tlsexttest-tlsexttest.o: tlsexttest.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(tlsexttest_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT tlsexttest-tlsexttest.o -MD -MP -MF $(DEPDIR)/tlsexttest-tlsexttest.Tpo -c -o tlsexttest-tlsexttest.o `test -f 'tlsexttest.c' || echo '$(srcdir)/'`tlsexttest.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/tlsexttest-tlsexttest.Tpo $(DEPDIR)/tlsexttest-tlsexttest.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='tlsexttest.c' object='tlsexttest-tlsexttest.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(tlsexttest_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o tlsexttest-tlsexttest.o `test -f 'tlsexttest.c' || echo '$(srcdir)/'`tlsexttest.c
-
-tlsexttest-tlsexttest.obj: tlsexttest.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(tlsexttest_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT tlsexttest-tlsexttest.obj -MD -MP -MF $(DEPDIR)/tlsexttest-tlsexttest.Tpo -c -o tlsexttest-tlsexttest.obj `if test -f 'tlsexttest.c'; then $(CYGPATH_W) 'tlsexttest.c'; else $(CYGPATH_W) '$(srcdir)/tlsexttest.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/tlsexttest-tlsexttest.Tpo $(DEPDIR)/tlsexttest-tlsexttest.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='tlsexttest.c' object='tlsexttest-tlsexttest.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(tlsexttest_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o tlsexttest-tlsexttest.obj `if test -f 'tlsexttest.c'; then $(CYGPATH_W) 'tlsexttest.c'; else $(CYGPATH_W) '$(srcdir)/tlsexttest.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo
