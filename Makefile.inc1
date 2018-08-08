@@ -85,8 +85,12 @@ OBJTREE=	${MAKEOBJDIRPREFIX}/${TARGET}.${TARGET_ARCH}
 
 # Pull in compiler metadata from buildworld/toolchain if possible to avoid
 # running CC from bsd.compiler.mk.
-.if make(installworld) || make(install)
+.if make(installworld) || make(install) || make(distributeworld) || \
+    make(stageworld)
 .-include "${OBJTREE}${.CURDIR}/compiler-metadata.mk"
+.if !defined(_LOADED_COMPILER_METADATA)
+.error A build is required first.  You may have the wrong MAKEOBJDIRPREFIX set.
+.endif
 .endif
 
 # Pull in COMPILER_TYPE and COMPILER_FREEBSD_VERSION early.
@@ -188,6 +192,7 @@ compiler-metadata.mk: .PHONY .META
 	@: > ${.TARGET}
 	@echo ".info Using cached compiler metadata from build at $$(hostname) on $$(date)" \
 	    > ${.TARGET}
+	@echo "_LOADED_COMPILER_METADATA=t" >> ${.TARGET}
 .for v in ${_COMPILER_METADATA_VARS}
 	@echo "${v}=${${v}}" >> ${.TARGET}
 .endfor
@@ -779,7 +784,7 @@ _cross-tools:
 	@echo "--------------------------------------------------------------"
 	@echo ">>> stage 3: cross tools"
 	@echo "--------------------------------------------------------------"
-	@rm -f ${.OBJDIR}/compiler-metadata.mk
+	@rm -f ${OBJTREE}${.CURDIR}/compiler-metadata.mk
 	${_+_}cd ${.CURDIR}; ${XMAKE} cross-tools
 	${_+_}cd ${.CURDIR}; ${XMAKE} kernel-tools
 _compiler-metadata:
@@ -1442,20 +1447,35 @@ package-pkg: .PHONY
 
 real-packages:	stage-packages create-packages sign-packages .PHONY
 
-stage-packages: .PHONY
-	@mkdir -p ${REPODIR} ${WSTAGEDIR} ${KSTAGEDIR}
+stage-packages-world: .PHONY
+	@mkdir -p ${WSTAGEDIR}
 	${_+_}@cd ${.CURDIR}; \
-		${MAKE} DESTDIR=${WSTAGEDIR} -DNO_ROOT -B stageworld ; \
-		${MAKE} DESTDIR=${KSTAGEDIR} -DNO_ROOT -B stagekernel
+		${MAKE} DESTDIR=${WSTAGEDIR} -DNO_ROOT stageworld
 
-create-packages:	_pkgbootstrap .PHONY
-	@mkdir -p ${REPODIR}
+stage-packages-kernel: .PHONY
+	@mkdir -p ${KSTAGEDIR}
 	${_+_}@cd ${.CURDIR}; \
-		${MAKE} DESTDIR=${WSTAGEDIR} \
-			PKG_VERSION=${PKG_VERSION} create-world-packages ; \
-		${MAKE} DESTDIR=${KSTAGEDIR} \
+		${MAKE} DESTDIR=${KSTAGEDIR} -DNO_ROOT stagekernel
+
+stage-packages: .PHONY stage-packages-world stage-packages-kernel
+
+_repodir: .PHONY
+	@mkdir -p ${REPODIR}
+
+create-packages-world:	_pkgbootstrap _repodir .PHONY
+	${_+_}@cd ${.CURDIR}; \
+		${MAKE} -f Makefile.inc1 \
+			DESTDIR=${WSTAGEDIR} \
+			PKG_VERSION=${PKG_VERSION} create-world-packages
+
+create-packages-kernel:	_pkgbootstrap _repodir .PHONY
+	${_+_}@cd ${.CURDIR}; \
+		${MAKE} -f Makefile.inc1 \
+			DESTDIR=${KSTAGEDIR} \
 			PKG_VERSION=${PKG_VERSION} DISTDIR=kernel \
 			create-kernel-packages
+
+create-packages: .PHONY create-packages-world create-packages-kernel
 
 create-world-packages:	_pkgbootstrap .PHONY
 	@rm -f ${WSTAGEDIR}/*.plist 2>/dev/null || :
@@ -1463,31 +1483,44 @@ create-world-packages:	_pkgbootstrap .PHONY
 		awk -f ${SRCDIR}/release/scripts/mtree-to-plist.awk \
 		${WSTAGEDIR}/METALOG
 	@for plist in ${WSTAGEDIR}/*.plist; do \
-		plist=$${plist##*/} ; \
-		pkgname=$${plist%.plist} ; \
-		sh ${SRCDIR}/release/packages/generate-ucl.sh -o $${pkgname} \
-			-s ${SRCDIR} -u ${WSTAGEDIR}/$${pkgname}.ucl ; \
-	done
-	@for plist in ${WSTAGEDIR}/*.plist; do \
-		plist=$${plist##*/} ; \
-		pkgname=$${plist%.plist} ; \
-		awk -F\" ' \
-			/^name/ { printf("===> Creating %s-", $$2); next } \
-			/^version/ { print $$2; next } \
-			' ${WSTAGEDIR}/$${pkgname}.ucl ; \
-		${PKG_CMD} -o ABI_FILE=${WSTAGEDIR}/bin/sh -o ALLOW_BASE_SHLIBS=yes \
-			create -M ${WSTAGEDIR}/$${pkgname}.ucl \
-			-p ${WSTAGEDIR}/$${pkgname}.plist \
-			-r ${WSTAGEDIR} \
-			-o ${REPODIR}/$$(${PKG_CMD} -o ABI_FILE=${WSTAGEDIR}/bin/sh config ABI)/${PKG_VERSION} ; \
-	done
+	  plist=$${plist##*/} ; \
+	  pkgname=$${plist%.plist} ; \
+	  echo "_PKGS+= $${pkgname}" ; \
+	done > ${WSTAGEDIR}/packages.mk
+	${_+_}@cd ${.CURDIR}; \
+		${MAKE} -f Makefile.inc1 create-world-packages-jobs \
+		.MAKE.JOB.PREFIX=
 
-create-kernel-packages:	_pkgbootstrap .PHONY
-.if exists(${KSTAGEDIR}/kernel.meta)
-.if ${MK_DEBUG_FILES} != "no"
-_debug=-debug
+.if make(create-world-packages-jobs)
+.include "${WSTAGEDIR}/packages.mk"
 .endif
-.for flavor in "" ${_debug}
+
+create-world-packages-jobs: .PHONY
+.for pkgname in ${_PKGS}
+create-world-packages-jobs: create-world-package-${pkgname}
+create-world-package-${pkgname}: .PHONY
+	@sh ${SRCDIR}/release/packages/generate-ucl.sh -o ${pkgname} \
+		-s ${SRCDIR} -u ${WSTAGEDIR}/${pkgname}.ucl
+	@awk -F\" ' \
+		/^name/ { printf("===> Creating %s-", $$2); next } \
+		/^version/ { print $$2; next } \
+		' ${WSTAGEDIR}/${pkgname}.ucl ; \
+	${PKG_CMD} -o ABI_FILE=${WSTAGEDIR}/bin/sh -o ALLOW_BASE_SHLIBS=yes \
+		create -M ${WSTAGEDIR}/${pkgname}.ucl \
+		-p ${WSTAGEDIR}/${pkgname}.plist \
+		-r ${WSTAGEDIR} \
+		-o ${REPODIR}/$$(${PKG_CMD} -o ABI_FILE=${WSTAGEDIR}/bin/sh config ABI)/${PKG_VERSION}
+.endfor
+
+_default_flavor=	-default
+.if exists(${KSTAGEDIR}/kernel.meta)
+. if ${MK_DEBUG_FILES} != "no"
+_debug=-debug
+. endif
+create-kernel-packages:	.PHONY
+. for flavor in "" ${_debug}
+create-kernel-packages: create-kernel-packages-flavor${flavor:C,^""$,${_default_flavor},}
+create-kernel-packages-flavor${flavor:C,^""$,${_default_flavor},}: _pkgbootstrap .PHONY
 	@cd ${KSTAGEDIR}/${DISTDIR} ; \
 	awk -f ${SRCDIR}/release/scripts/mtree-to-plist.awk \
 		-v kernel=yes -v _kernconf=${INSTALLKERNEL} \
@@ -1512,15 +1545,17 @@ _debug=-debug
 		-p ${KSTAGEDIR}/${DISTDIR}/kernel.${INSTALLKERNEL}${flavor}.plist \
 		-r ${KSTAGEDIR}/${DISTDIR} \
 		-o ${REPODIR}/$$(${PKG_CMD} -o ABI_FILE=${WSTAGEDIR}/bin/sh config ABI)/${PKG_VERSION}
-.endfor
+. endfor
 .endif
 .if ${BUILDKERNELS:[#]} > 1 && ${NO_INSTALLEXTRAKERNELS} != "yes"
-.for _kernel in ${BUILDKERNELS:[2..-1]}
-.if exists(${KSTAGEDIR}/kernel.${_kernel}.meta)
-.if ${MK_DEBUG_FILES} != "no"
+. for _kernel in ${BUILDKERNELS:[2..-1]}
+.  if exists(${KSTAGEDIR}/kernel.${_kernel}.meta)
+.   if ${MK_DEBUG_FILES} != "no"
 _debug=-debug
-.endif
-.for flavor in "" ${_debug}
+.   endif
+.   for flavor in "" ${_debug}
+create-kernel-packages: create-kernel-packages-extra-flavor${flavor:C,^""$,${_default_flavor},}-${_kernel}
+create-kernel-packages-extra-flavor${flavor:C,^""$,${_default_flavor},}-${_kernel}: _pkgbootstrap .PHONY
 	@cd ${KSTAGEDIR}/kernel.${_kernel} ; \
 	awk -f ${SRCDIR}/release/scripts/mtree-to-plist.awk \
 		-v kernel=yes -v _kernconf=${_kernel} \
@@ -1545,9 +1580,9 @@ _debug=-debug
 		-p ${KSTAGEDIR}/kernel.${_kernel}/kernel.${_kernel}${flavor}.plist \
 		-r ${KSTAGEDIR}/kernel.${_kernel} \
 		-o ${REPODIR}/$$(${PKG_CMD} -o ABI_FILE=${WSTAGEDIR}/bin/sh config ABI)/${PKG_VERSION}
-.endfor
-.endif
-.endfor
+.   endfor
+.  endif
+. endfor
 .endif
 
 sign-packages:	_pkgbootstrap .PHONY
@@ -2172,11 +2207,12 @@ _cddl_lib_libumem= cddl/lib/libumem
 _cddl_lib_libnvpair= cddl/lib/libnvpair
 _cddl_lib_libavl= cddl/lib/libavl
 _cddl_lib_libuutil= cddl/lib/libuutil
+.if ${MK_ZFS} != "no"
 _cddl_lib_libzfs_core= cddl/lib/libzfs_core
+cddl/lib/libzfs_core__L: cddl/lib/libnvpair__L
+.endif
 _cddl_lib_libctf= cddl/lib/libctf
 _cddl_lib= cddl/lib
-cddl/lib/libzfs_core__L: cddl/lib/libnvpair__L
-cddl/lib/libzfs__L: lib/libgeom__L
 cddl/lib/libctf__L: lib/libz__L
 .endif
 # cddl/lib/libdtrace requires lib/libproc and lib/librtld_db; it's only built

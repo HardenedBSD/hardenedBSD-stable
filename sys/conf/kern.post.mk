@@ -196,7 +196,8 @@ assym.s: $S/kern/genassym.sh genassym.o
 genassym.o: $S/$M/$M/genassym.c
 	${CC} -c ${CFLAGS:N-flto:N-fno-common} $S/$M/$M/genassym.c
 
-${SYSTEM_OBJS} genassym.o vers.o: opt_global.h
+OBJS_DEPEND_GUESS+= opt_global.h
+genassym.o vers.o: opt_global.h
 
 .if !empty(.MAKE.MODE:Unormal:Mmeta) && empty(.MAKE.MODE:Unormal:Mnofilemon)
 _meta_filemon=	1
@@ -219,6 +220,7 @@ SRCS=	assym.s vnode_if.h ${BEFORE_DEPEND} ${CFILES} \
 	${MFILES:T:S/.m$/.h/}
 DEPENDFILES=	.depend .depend.*
 DEPENDOBJS+=	${SYSTEM_OBJS} genassym.o
+DEPENDOBJS+=	${CLEAN:M*.o}
 DEPENDFILES_OBJS=	${DEPENDOBJS:O:u:C/^/.depend./}
 .if ${MAKE_VERSION} < 20160220
 DEPEND_MP?=	-MP

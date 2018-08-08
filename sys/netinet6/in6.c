@@ -2104,9 +2104,6 @@ in6_lltable_free_entry(struct lltable *llt, struct llentry *lle)
 		lltable_unlink_entry(llt, lle);
 	}
 
-	if (callout_stop(&lle->lle_timer) > 0)
-		LLE_REMREF(lle);
-
 	llentry_free(lle);
 }
 
@@ -2146,6 +2143,25 @@ in6_lltable_rtcheck(struct ifnet *ifp,
 		return EINVAL;
 	}
 	return 0;
+}
+
+/*
+ * Called by the datapath to indicate that the entry was used.
+ */
+static void
+in6_lltable_mark_used(struct llentry *lle)
+{
+
+	LLE_REQ_LOCK(lle);
+	lle->r_skip_req = 0;
+
+	/*
+	 * Set the hit time so the callback function
+	 * can determine the remaining time before
+	 * transiting to the DELAY state.
+	 */
+	lle->lle_hittime = time_uptime;
+	LLE_REQ_UNLOCK(lle);
 }
 
 static inline uint32_t
@@ -2380,6 +2396,7 @@ in6_lltattach(struct ifnet *ifp)
 	llt->llt_fill_sa_entry = in6_lltable_fill_sa_entry;
 	llt->llt_free_entry = in6_lltable_free_entry;
 	llt->llt_match_prefix = in6_lltable_match_prefix;
+	llt->llt_mark_used = in6_lltable_mark_used;
  	lltable_link(llt);
 
 	return (llt);
