@@ -116,7 +116,8 @@ typedef enum {
 typedef enum {
 	CAM_USER_DATA_ADDR	= 0x00000002,/* Userspace data pointers */
 	CAM_SG_FORMAT_IOVEC	= 0x00000004,/* iovec instead of busdma S/G*/
-	CAM_UNMAPPED_BUF	= 0x00000008 /* use unmapped I/O */
+	CAM_UNMAPPED_BUF	= 0x00000008,/* use unmapped I/O */
+	CAM_CCB_DUMP		= 0x00000010,/* polled ccb during dump */
 } ccb_xflags;
 
 /* XPT Opcodes for xpt_action */
@@ -1343,48 +1344,6 @@ union ccb {
 	    sizeof(*(ccbp)) - sizeof((ccbp)->ccb_h))
 
 __BEGIN_DECLS
-static __inline void
-cam_fill_csio(struct ccb_scsiio *csio, u_int32_t retries,
-	      void (*cbfcnp)(struct cam_periph *, union ccb *),
-	      u_int32_t flags, u_int8_t tag_action,
-	      u_int8_t *data_ptr, u_int32_t dxfer_len,
-	      u_int8_t sense_len, u_int8_t cdb_len,
-	      u_int32_t timeout);
-
-static __inline void
-cam_fill_nvmeio(struct ccb_nvmeio *nvmeio, u_int32_t retries,
-	      void (*cbfcnp)(struct cam_periph *, union ccb *),
-	      u_int32_t flags, u_int8_t *data_ptr, u_int32_t dxfer_len,
-	      u_int32_t timeout);
-
-static __inline void
-cam_fill_ctio(struct ccb_scsiio *csio, u_int32_t retries,
-	      void (*cbfcnp)(struct cam_periph *, union ccb *),
-	      u_int32_t flags, u_int tag_action, u_int tag_id,
-	      u_int init_id, u_int scsi_status, u_int8_t *data_ptr,
-	      u_int32_t dxfer_len, u_int32_t timeout);
-
-static __inline void
-cam_fill_ataio(struct ccb_ataio *ataio, u_int32_t retries,
-	      void (*cbfcnp)(struct cam_periph *, union ccb *),
-	      u_int32_t flags, u_int tag_action,
-	      u_int8_t *data_ptr, u_int32_t dxfer_len,
-	      u_int32_t timeout);
-
-static __inline void
-cam_fill_smpio(struct ccb_smpio *smpio, uint32_t retries,
-	       void (*cbfcnp)(struct cam_periph *, union ccb *), uint32_t flags,
-	       uint8_t *smp_request, int smp_request_len,
-	       uint8_t *smp_response, int smp_response_len,
-	       uint32_t timeout);
-
-static __inline void
-cam_fill_mmcio(struct ccb_mmcio *mmcio, uint32_t retries,
-	       void (*cbfcnp)(struct cam_periph *, union ccb *), uint32_t flags,
-               uint32_t mmc_opcode, uint32_t mmc_arg, uint32_t mmc_flags,
-	       struct mmc_data *mmc_d,
-	       uint32_t timeout);
-
 static __inline void
 cam_fill_csio(struct ccb_scsiio *csio, u_int32_t retries,
 	      void (*cbfcnp)(struct cam_periph *, union ccb *),
