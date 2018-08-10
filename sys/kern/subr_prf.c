@@ -1079,19 +1079,22 @@ msgbufinit(void *ptr, int size)
 {
 	char *cp;
 	static struct msgbuf *oldp = NULL;
+	bool print_boot_tag;
 
 	size -= sizeof(*msgbufp);
 	cp = (char *)ptr;
+	print_boot_tag = !msgbufmapped;
 	/* Attempt to fetch kern.boot_tag tunable on first mapping */
 	if (!msgbufmapped)
 		TUNABLE_STR_FETCH("kern.boot_tag", current_boot_tag,
 		    sizeof(current_boot_tag));
 	msgbufp = (struct msgbuf *)(cp + size);
 	msgbuf_reinit(msgbufp, cp, size);
-	msgbuf_addstr(msgbufp, -1, current_boot_tag, 0);
 	if (msgbufmapped && oldp != msgbufp)
 		msgbuf_copy(oldp, msgbufp);
 	msgbufmapped = true;
+	if (print_boot_tag)
+		printf("%s\n", current_boot_tag);
 	oldp = msgbufp;
 }
 
