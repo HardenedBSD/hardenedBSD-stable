@@ -63,17 +63,10 @@ BIN1+= amd.map
 BIN1+= ftpusers
 .endif
 
-<<<<<<< HEAD
 .if ${MK_HBSD_UPDATE} != "no"
 BIN1+= hbsd-update.conf
 .endif
 
-.if ${MK_INETD} != "no"
-BIN1+= inetd.conf
-.endif
-
-=======
->>>>>>> origin/freebsd/current/master
 .if ${MK_LOCATE} != "no"
 BIN1+=	${SRCTOP}/usr.bin/locate/locate/locate.rc
 .endif
@@ -86,17 +79,10 @@ BIN1+=	hosts.lpd printcap
 BIN1+=	${SRCTOP}/usr.bin/mail/misc/mail.rc
 .endif
 
-<<<<<<< HEAD
-.if ${MK_NTP} != "no"
-BIN1+=	ntp.conf
-.endif
-
 .if ${MK_OPENNTPD} != "no"
 BIN1+=	ntpd.conf
 .endif
 
-=======
->>>>>>> origin/freebsd/current/master
 .if ${MK_OPENSSH} != "no"
 SSH=	${SRCTOP}/crypto/openssh/ssh_config \
 	${SRCTOP}/crypto/openssh/sshd_config \
