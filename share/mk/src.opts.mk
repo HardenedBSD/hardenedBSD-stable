@@ -202,6 +202,7 @@ __DEFAULT_NO_OPTIONS = \
     LOADER_FORCE_LE \
     NAND \
     OFED \
+    OFED_EXTRA \
     OPENLDAP \
     PORTSNAP \
     REPRODUCIBLE_BUILD \
@@ -419,6 +420,10 @@ MK_NLS_CATALOGS:= no
 .if ${MK_OPENSSL} == "no"
 MK_OPENSSH:=	no
 MK_KERBEROS:=	no
+.endif
+
+.if ${MK_OFED} == "no"
+MK_OFED_EXTRA:=	no
 .endif
 
 .if ${MK_PF} == "no"
