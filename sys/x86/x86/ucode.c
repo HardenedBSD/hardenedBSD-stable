@@ -255,11 +255,15 @@ SYSINIT(ucode_release, SI_SUB_KMEM + 1, SI_ORDER_ANY, ucode_release, NULL);
 void
 ucode_load_ap(int cpu)
 {
-
+#ifdef SMP
 	KASSERT(cpu_info[cpu_apic_ids[cpu]].cpu_present,
 	    ("cpu %d not present", cpu));
 
-	if (ucode_data != NULL && !cpu_info[cpu_apic_ids[cpu]].cpu_hyperthread)
+	if (!cpu_info[cpu_apic_ids[cpu]].cpu_hyperthread)
+		return;
+#endif
+
+	if (ucode_data != NULL)
 		(void)ucode_intel_load(ucode_data, false);
 }
 
@@ -308,8 +312,7 @@ ucode_load_bsp(uintptr_t free)
 	uint8_t *addr, *fileaddr, *match;
 	char *type;
 	caddr_t file;
-	size_t len, ucode_len;
-	int i;
+	size_t i, len, ucode_len;
 
 	KASSERT(free % PAGE_SIZE == 0, ("unaligned boundary %p", (void *)free));
 
@@ -341,7 +344,9 @@ ucode_load_bsp(uintptr_t free)
 		match = loader->match(fileaddr, &len);
 		if (match != NULL) {
 			addr = map_ucode(free, len);
-			memcpy(addr, match, len);
+			/* We can't use memcpy() before ifunc resolution. */
+			for (i = 0; i < len; i++)
+				addr[i] = match[i];
 			match = addr;
 
 			if (loader->load(match, false) == 0) {
