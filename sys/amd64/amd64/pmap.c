@@ -1313,6 +1313,9 @@ pmap_init(void)
 	vm_size_t s;
 	int error, i, pv_npg, ret, skz63;
 
+	/* L1TF, reserve page @0 unconditionally */
+	vm_page_blacklist_add(0, bootverbose);
+
 	/* Detect bare-metal Skylake Server and Skylake-X. */
 	if (vm_guest == VM_GUEST_NO && cpu_vendor_id == CPU_VENDOR_INTEL &&
 	    CPUID_TO_FAMILY(cpu_id) == 0x6 && CPUID_TO_MODEL(cpu_id) == 0x55) {
@@ -2661,9 +2664,7 @@ pmap_pinit0(pmap_t pmap)
 			__pcpu[i].pc_ucr3 = PMAP_NO_CR3;
 		}
 	}
-	PCPU_SET(curpmap, kernel_pmap);
-	pmap_activate(curthread);
-	CPU_FILL(&kernel_pmap->pm_active);
+	pmap_activate_boot(pmap);
 }
 
 void
@@ -7491,7 +7492,7 @@ pmap_activate_sw(struct thread *td)
 		 * pmap_activate_sw(), from the context switch, is
 		 * immune to this race, because interrupts are
 		 * disabled (while the thread lock is owned), and IPI
-		 * happends after curpmap is updated.  Protect other
+		 * happens after curpmap is updated.  Protect other
 		 * callers in a similar way, by disabling interrupts
 		 * around the %cr3 register reload and curpmap
 		 * assignment.
@@ -7535,7 +7536,7 @@ pmap_activate_sw(struct thread *td)
 			intr_restore(rflags);
 		if (cached)
 			PCPU_INC(pm_save_cnt);
-	} else if (cr3 != pmap->pm_cr3) {
+	} else {
 		load_cr3(pmap->pm_cr3);
 		PCPU_SET(curpmap, pmap);
 		if (pti) {
@@ -7563,6 +7564,26 @@ pmap_activate(struct thread *td)
 	critical_enter();
 	pmap_activate_sw(td);
 	critical_exit();
+}
+
+void
+pmap_activate_boot(pmap_t pmap)
+{
+	u_int cpuid;
+
+	/*
+	 * kernel_pmap must be never deactivated, and we ensure that
+	 * by never activating it at all.
+	 */
+	MPASS(pmap != kernel_pmap);
+
+	cpuid = PCPU_GET(cpuid);
+#ifdef SMP
+	CPU_SET_ATOMIC(cpuid, &pmap->pm_active);
+#else
+	CPU_SET(cpuid, &pmap->pm_active);
+#endif
+	PCPU_SET(curpmap, pmap);
 }
 
 void
