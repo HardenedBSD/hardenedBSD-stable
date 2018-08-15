@@ -78,18 +78,10 @@ BIN1+=	hosts.lpd printcap
 BIN1+=	${SRCTOP}/usr.bin/mail/misc/mail.rc
 .endif
 
-<<<<<<< HEAD
 .if ${MK_OPENNTPD} != "no"
 BIN1+=	ntpd.conf
 .endif
 
-.if ${MK_OPENSSH} != "no"
-SSH=	${SRCTOP}/crypto/openssh/ssh_config \
-	${SRCTOP}/crypto/openssh/sshd_config \
-	${SRCTOP}/crypto/openssh/moduli
-.endif
-=======
->>>>>>> origin/freebsd/current/master
 .if ${MK_OPENSSL} != "no"
 SSL=	${SRCTOP}/crypto/openssl/apps/openssl.cnf
 .endif
