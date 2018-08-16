@@ -143,6 +143,10 @@ distribution:
 		${DESTDIR}/etc/services;
 .endif
 
+.if ${MK_TCSH} == "no"
+	sed -i "" -e 's;/bin/csh;/bin/sh;' ${DESTDIR}/etc/master.passwd
+.endif
+	pwd_mkdb -i -p -d ${DESTDIR}/etc ${DESTDIR}/etc/master.passwd
 .if defined(NO_ROOT)
 	( \
 		echo "./etc/login.conf.db type=file mode=0644 uname=root gname=wheel"; \
@@ -179,6 +183,18 @@ distribution:
 	cd ${.CURDIR}/root; \
 	    ${INSTALL} -o ${BINOWN} -g ${BINGRP} -m 644 \
 		dot.k5login ${DESTDIR}/root/.k5login;
+.endif
+	cd ${.CURDIR}/root; \
+	    ${INSTALL} -o ${BINOWN} -g ${BINGRP} -m 644 \
+		dot.profile ${DESTDIR}/root/.profile; \
+	    rm -f ${DESTDIR}/.profile; \
+	    ${INSTALL_LINK} ${DESTDIR}/root/.profile ${DESTDIR}/.profile
+.if ${MK_TCSH} != "no"
+	cd ${.CURDIR}/root; \
+	    ${INSTALL} -o ${BINOWN} -g ${BINGRP} -m 644 \
+		dot.cshrc ${DESTDIR}/root/.cshrc; \
+	    rm -f ${DESTDIR}/.cshrc; \
+	    ${INSTALL_LINK} ${DESTDIR}/root/.cshrc ${DESTDIR}/.cshrc
 .endif
 
 .if ${MK_MAIL} != "no"
