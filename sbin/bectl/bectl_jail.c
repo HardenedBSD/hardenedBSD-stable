@@ -193,7 +193,7 @@ bectl_cmd_jail(int argc, char *argv[])
 	jailparam_add("allow.mount.devfs", "true");
 	jailparam_add("enforce_statfs", "1");
 
-	while ((opt = getopt(argc, argv, "bc:o:u:")) != -1) {
+	while ((opt = getopt(argc, argv, "b:o:u:")) != -1) {
 		switch (opt) {
 		case 'b':
 			interactive = false;
