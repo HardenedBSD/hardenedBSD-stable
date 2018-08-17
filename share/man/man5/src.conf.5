@@ -1056,8 +1056,7 @@ amd64/amd64, arm/armv7, arm64/aarch64 and i386/i386.
 Set to use GNU binutils ld as the system linker, instead of LLVM's LLD.
 .Pp
 This is a default setting on
-<<<<<<< HEAD
-arm/arm, arm/armv6, arm/armv7, i386/i386, mips/mipsel, mips/mips, mips/mips64el, mips/mips64, mips/mipsn32, mips/mipselhf, mips/mipshf, mips/mips64elhf, mips/mips64hf, powerpc/powerpc, powerpc/powerpc64, powerpc/powerpcspe, riscv/riscv64, riscv/riscv64sf and sparc64/sparc64.
+arm/arm, arm/armv6, i386/i386, mips/mipsel, mips/mips, mips/mips64el, mips/mips64, mips/mipsn32, mips/mipselhf, mips/mipshf, mips/mips64elhf, mips/mips64hf, powerpc/powerpc, powerpc/powerpc64, powerpc/powerpcspe, riscv/riscv64, riscv/riscv64sf and sparc64/sparc64.
 When set, it enforces these options:
 .Pp
 .Bl -item -compact
@@ -1066,9 +1065,6 @@ When set, it enforces these options:
 .It
 .Va WITHOUT_RETPOLINE
 .El
-=======
-arm/arm, arm/armv6, i386/i386, mips/mipsel, mips/mips, mips/mips64el, mips/mips64, mips/mipsn32, mips/mipselhf, mips/mipshf, mips/mips64elhf, mips/mips64hf, powerpc/powerpc, powerpc/powerpc64, powerpc/powerpcspe, riscv/riscv64, riscv/riscv64sf and sparc64/sparc64.
->>>>>>> origin/freebsd/current/master
 .It Va WITH_LLD_IS_LD
 Set to use LLVM's LLD as the system linker, instead of GNU binutils ld.
 .Pp
@@ -1241,8 +1237,6 @@ Enable firewire support in /boot/loader on x86. This option is a nop
 on all other platforms.
 .It Va WITHOUT_LOADER_GELI
 Disable inclusion of GELI crypto support in the boot chain binaries.
-.It Va WITH_LOADER_LUA
-Set to build LUA bindings for the boot loader.
 .It Va WITHOUT_LOADER_OFW
 Disable building of openfirmware bootloader components.
 .Pp
