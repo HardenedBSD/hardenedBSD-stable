@@ -32,13 +32,10 @@
 __FBSDID("$FreeBSD$");
 
 #include <sys/param.h>
-<<<<<<< HEAD
 #ifdef HARDENEDBSD
 #include <sys/mman.h>
 #endif
 #include <sys/stat.h>
-=======
->>>>>>> origin/freebsd/current/master
 #include <errno.h>
 #include <limits.h>
 #include <stdio.h>
