@@ -112,6 +112,7 @@ __DEFAULT_YES_OPTIONS = \
     GPIO \
     HAST \
     HBSD_UPDATE \
+    HBSDCONTROL \
     HTML \
     HYPERV \
     ICONV \
