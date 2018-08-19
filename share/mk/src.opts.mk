@@ -108,6 +108,7 @@ __DEFAULT_YES_OPTIONS = \
     GROFF \
     HAST \
     HBSD_UPDATE \
+    HBSDCONTROL \
     HTML \
     HYPERV \
     ICONV \

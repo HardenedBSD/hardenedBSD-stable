@@ -61,6 +61,7 @@ SUBDIR=	${SUBDIR_BOOTSTRAP} \
 	${_libgpio} \
 	${_libgssapi} \
 	${_librpcsec_gss} \
+	${_libhbsdcontrol} \
 	${_libiconv_modules} \
 	libipsec \
 	libjail \
@@ -208,6 +209,10 @@ _libgpio=	libgpio
 .if ${MK_GSSAPI} != "no"
 _libgssapi=	libgssapi
 _librpcsec_gss=	librpcsec_gss
+.endif
+
+.if ${MK_HBSDCONTROL} != "no"
+_libhbsdcontrol= libhbsdcontrol
 .endif
 
 .if ${MK_ICONV} != "no"

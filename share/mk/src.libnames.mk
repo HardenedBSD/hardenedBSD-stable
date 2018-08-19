@@ -187,6 +187,12 @@ _LIBRARIES+= \
 
 .endif
 
+.if ${MK_HBSDCONTROL} != "no"
+_LIBRARIES+= \
+		hbsdcontrol \
+
+.endif
+
 .if ${MK_OFED} != "no"
 _LIBRARIES+= \
 		cxgb4 \
@@ -235,6 +241,9 @@ _DP_cap_grp=	nv
 _DP_cap_pwd=	nv
 _DP_cap_random=	nv
 _DP_cap_sysctl=	nv
+.if ${MK_HBSDCONTROL} != "no"
+_DP_hbsdcontrol=	sbuf
+.endif
 .if ${MK_OFED} != "no"
 _DP_pcap=	ibverbs mlx5
 .endif
@@ -467,6 +476,11 @@ LIBBSNMPTOOLS?=	${LIBBSNMPTOOLSDIR}/libbsnmptools.a
 
 LIBAMUDIR=	${OBJTOP}/usr.sbin/amd/libamu
 LIBAMU?=	${LIBAMUDIR}/libamu.a
+
+.if ${MK_HBSDCONTROL} != "no"
+LIBHBSDCONTROLDIR=	${OBJTOP}/lib/libhbsdcontrol
+LIBHBSDCONTROL?=	${LIBHBSDCONTROLDIR}/libhbsdcontrol.a
+.endif
 
 # Define a directory for each library.  This is useful for adding -L in when
 # not using a --sysroot or for meta mode bootstrapping when there is no

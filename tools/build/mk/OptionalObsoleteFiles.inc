@@ -3162,6 +3162,20 @@ OLD_DIRS+=usr/share/keys/hbsd-update/trusted
 OLD_DIRS+=usr/share/keys/hbsd-update
 .endif
 
+.if ${MK_HBSDCONTROL} == no
+OLD_LIBS+=usr/lib/libhbsdcontrol.a
+OLD_LIBS+=usr/lib/libhbsdcontrol_p.a
+OLD_LIBS+=usr/lib/libhbsdcontrol.so
+OLD_LIBS+=usr/lib/libhbsdcontrol.so.0
+OLD_FILES+=usr/include/libhbsdcontrol.h
+OLD_FILES+=usr/lib/debug/usr/lib/libhbsdcontrol.so.0.debug
+OLD_FILES+=usr/share/man/man3/hbsdcontrol_rm_extattr.3.gz
+OLD_FILES+=usr/share/man/man3/hbsdcontrol_rm_feature_state.3.gz
+OLD_FILES+=usr/share/man/man3/hbsdcontrol_set_extattr.3.gz
+OLD_FILES+=usr/share/man/man3/hbsdcontrol_set_feature_state.3.gz
+OLD_FILES+=usr/share/man/man3/libhbsdcontrol.3.gz
+.endif
+
 .if ${MK_HESIOD} == no
 OLD_FILES+=usr/bin/hesinfo
 OLD_FILES+=usr/include/hesiod.h
