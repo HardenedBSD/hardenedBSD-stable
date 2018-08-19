@@ -1,10 +1,8 @@
 /*-
- * Copyright (c) 2015 Michal Meloun
- * Copyright (c) 2016 The FreeBSD Foundation
- * All rights reserved.
+ * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
  *
- * This software was developed by Andrew Turner under
- * sponsorship from the FreeBSD Foundation.
+ * Copyright (c) 2018 Google LLC
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,40 +28,45 @@
  * $FreeBSD$
  */
 
-#ifndef _DEV_UART_CPU_ACPI_H_
-#define _DEV_UART_CPU_ACPI_H_
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
-#include <sys/linker_set.h>
-
-struct uart_class;
-
-struct acpi_uart_compat_data {
-	const char *cd_hid;
-	struct uart_class *cd_class;
-
-	uint16_t cd_port_subtype;
-	int cd_regshft;
-	int cd_regiowidth;
-	int cd_rclk;
-	int cd_quirks;
-	const char *cd_desc;
-};
+#include <sys/types.h>
+#include <stdbool.h>
+#include <syslog.h>
 
 /*
- * If your UART driver implements only uart_class and uses uart_cpu_acpi.c
- * for device instantiation, then use UART_ACPI_CLASS_AND_DEVICE for its
- * declaration
+ * The following functions were removed from OpenBSD for good reasons:
+ *
+ *  - arc4random_stir()
+ *  - arc4random_addrandom()
+ *
+ * On FreeBSD, for backward ABI compatibility, we provide two wrapper which
+ * logs this event and returns.
  */
-SET_DECLARE(uart_acpi_class_and_device_set, struct acpi_uart_compat_data);
-#define UART_ACPI_CLASS_AND_DEVICE(data)				\
-	DATA_SET(uart_acpi_class_and_device_set, data)
 
-/*
- * If your UART driver implements uart_class and custom device layer,
- * then use UART_ACPI_CLASS for its declaration
- */
-SET_DECLARE(uart_acpi_class_set, struct acpi_uart_compat_data);
-#define UART_ACPI_CLASS(data)				\
-	DATA_SET(uart_acpi_class_set, data)
+void __arc4random_stir_fbsd11(void);
+void __arc4random_addrandom_fbsd11(u_char *, int);
 
-#endif /* _DEV_UART_CPU_ACPI_H_ */
+void
+__arc4random_stir_fbsd11(void)
+{
+	static bool warned = false;
+
+	if (!warned)
+		syslog(LOG_DEBUG, "Deprecated function arc4random_stir() called");
+	warned = true;
+}
+
+void
+__arc4random_addrandom_fbsd11(u_char * dummy1 __unused, int dummy2 __unused)
+{
+	static bool warned = false;
+
+	if (!warned)
+		syslog(LOG_DEBUG, "Deprecated function arc4random_addrandom() called");
+	warned = true;
+}
+
+__sym_compat(arc4random_stir, __arc4random_stir_fbsd11, FBSD_1.0);
+__sym_compat(arc4random_addrandom, __arc4random_addrandom_fbsd11, FBSD_1.0);
