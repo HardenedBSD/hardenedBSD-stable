@@ -323,7 +323,12 @@ __DEFAULT_NO_OPTIONS+=CXGBETOOL
 __DEFAULT_NO_OPTIONS+=MLX5TOOL
 .endif
 
-<<<<<<< HEAD
+.if ${__T} == "amd64"
+__DEFAULT_YES_OPTIONS+=OFED
+.else
+__DEFAULT_NO_OPTIONS+=OFED
+.endif
+
 # HardenedBSD options
 .if ${__T} == "amd64" || ${__T} == "i386" || ${__T} == "aarch64"
 __DEFAULT_YES_OPTIONS+=PIE
@@ -336,14 +341,7 @@ __DEFAULT_YES_OPTIONS+=SAFESTACK
 .else
 __DEFAULT_NO_OPTIONS+=SAFESTACK
 .endif
-=======
-.if ${__T} == "amd64"
-__DEFAULT_YES_OPTIONS+=OFED
-.else
-__DEFAULT_NO_OPTIONS+=OFED
-.endif
 
->>>>>>> origin/freebsd/11-stable/master
 .include <bsd.mkopt.mk>
 
 #
