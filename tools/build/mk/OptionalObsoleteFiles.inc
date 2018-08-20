@@ -1278,7 +1278,9 @@ OLD_FILES+=rescue/zfs
 OLD_FILES+=rescue/zpool
 OLD_FILES+=sbin/zfs
 OLD_FILES+=sbin/zpool
+OLD_FILES+=sbin/zfsbootcfg
 OLD_FILES+=usr/bin/zinject
+OLD_FILES+=usr/bin/zstreamdump
 OLD_FILES+=usr/bin/ztest
 OLD_FILES+=usr/lib/libzfs.a
 OLD_FILES+=usr/lib/libzfs.so
@@ -1301,9 +1303,17 @@ OLD_FILES+=usr/lib32/libzpool.a
 OLD_FILES+=usr/lib32/libzpool.so
 OLD_LIBS+=usr/lib32/libzpool.so.2
 .endif
+OLD_FILES+=usr/sbin/zfsd
+OLD_FILES+=usr/sbin/zhack
 OLD_FILES+=usr/sbin/zdb
+OLD_FILES+=usr/share/man/man8/gptzfsboot.8.gz
 OLD_FILES+=usr/share/man/man8/zdb.8.gz
+OLD_FILES+=usr/share/man/man8/zfs-program.8.gz
 OLD_FILES+=usr/share/man/man8/zfs.8.gz
+OLD_FILES+=usr/share/man/man8/zfsboot.8.gz
+OLD_FILES+=usr/share/man/man8/zfsbootcfg.8.gz
+OLD_FILES+=usr/share/man/man8/zfsd.8.gz
+OLD_FILES+=usr/share/man/man8/zfsloader.8.gz
 OLD_FILES+=usr/share/man/man8/zpool.8.gz
 .endif
 
