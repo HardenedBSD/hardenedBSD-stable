@@ -497,6 +497,19 @@ vm_create_devmem(struct vmctx *ctx, int segid, const char *name, size_t len)
 	if (base == MAP_FAILED)
 		goto done;
 
+	if (mmap(base, VM_MMAP_GUARD_SIZE, PROT_NONE,
+	    MAP_FIXED | MAP_GUARD, -1, 0) == MAP_FAILED) {
+		munmap(base, len2);
+		goto done;
+	}
+
+	if (mmap(base + VM_MMAP_GUARD_SIZE + len, VM_MMAP_GUARD_SIZE,
+	    PROT_NONE, MAP_FIXED | MAP_GUARD,
+	    -1, 0) == MAP_FAILED) {
+		munmap(base, len2);
+		goto done;
+	}
+
 	flags = MAP_SHARED | MAP_FIXED;
 	if ((ctx->memflags & VM_MEM_F_INCORE) == 0)
 		flags |= MAP_NOCORE;
