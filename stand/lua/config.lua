@@ -54,6 +54,8 @@ local MSG_KERNLOADING = "Loading kernel..."
 local MSG_MODLOADING = "Loading configured modules..."
 local MSG_MODLOADFAIL = "Could not load one or more modules!"
 
+local MODULEEXPR = '([%w-_]+)'
+
 local function restoreEnv()
 	-- Examine changed environment variables
 	for k, v in pairs(env_changed) do
@@ -121,14 +123,29 @@ local function processEnvVar(value)
 	return value
 end
 
+-- str in this table is a regex pattern.  It will automatically be anchored to
+-- the beginning of a line and any preceding whitespace will be skipped.  The
+-- pattern should have no more than two captures patterns, which correspond to
+-- the two parameters (usually 'key' and 'value') that are passed to the
+-- process function.  All trailing characters will be validated.
+--
+-- We have two special entries in this table: the first is the first entry,
+-- a full-line comment.  The second is for 'exec' handling.  Both have a single
+-- capture group, but the difference is that the full-line comment pattern will
+-- match the entire line.  This does not run afoul of the later end of line
+-- validation that we'll do after a match.  However, the 'exec' pattern will.
+-- We document the exceptions with a special 'groups' index that indicates
+-- the number of capture groups, if not two.  We'll use this later to do
+-- validation on the proper entry.
 local pattern_table = {
 	{
-		str = "^%s*(#.*)",
+		str = "(#.*)",
 		process = function(_, _)  end,
+		groups = 1,
 	},
 	--  module_load="value"
 	{
-		str = "^%s*([%w_]+)_load%s*=%s*\"([%w%s%p]-)\"%s*(.*)",
+		str = MODULEEXPR .. "_load%s*=%s*\"([%w%s%p]-)\"",
 		process = function(k, v)
 			if modules[k] == nil then
 				modules[k] = {}
@@ -138,58 +155,59 @@ local pattern_table = {
 	},
 	--  module_name="value"
 	{
-		str = "^%s*([%w_]+)_name%s*=%s*\"([%w%s%p]-)\"%s*(.*)",
+		str = MODULEEXPR .. "_name%s*=%s*\"([%w%s%p]-)\"",
 		process = function(k, v)
 			setKey(k, "name", v)
 		end,
 	},
 	--  module_type="value"
 	{
-		str = "^%s*([%w_]+)_type%s*=%s*\"([%w%s%p]-)\"%s*(.*)",
+		str = MODULEEXPR .. "_type%s*=%s*\"([%w%s%p]-)\"",
 		process = function(k, v)
 			setKey(k, "type", v)
 		end,
 	},
 	--  module_flags="value"
 	{
-		str = "^%s*([%w_]+)_flags%s*=%s*\"([%w%s%p]-)\"%s*(.*)",
+		str = MODULEEXPR .. "_flags%s*=%s*\"([%w%s%p]-)\"",
 		process = function(k, v)
 			setKey(k, "flags", v)
 		end,
 	},
 	--  module_before="value"
 	{
-		str = "^%s*([%w_]+)_before%s*=%s*\"([%w%s%p]-)\"%s*(.*)",
+		str = MODULEEXPR .. "_before%s*=%s*\"([%w%s%p]-)\"",
 		process = function(k, v)
 			setKey(k, "before", v)
 		end,
 	},
 	--  module_after="value"
 	{
-		str = "^%s*([%w_]+)_after%s*=%s*\"([%w%s%p]-)\"%s*(.*)",
+		str = MODULEEXPR .. "_after%s*=%s*\"([%w%s%p]-)\"",
 		process = function(k, v)
 			setKey(k, "after", v)
 		end,
 	},
 	--  module_error="value"
 	{
-		str = "^%s*([%w_]+)_error%s*=%s*\"([%w%s%p]-)\"%s*(.*)",
+		str = MODULEEXPR .. "_error%s*=%s*\"([%w%s%p]-)\"",
 		process = function(k, v)
 			setKey(k, "error", v)
 		end,
 	},
 	--  exec="command"
 	{
-		str = "^%s*exec%s*=%s*\"([%w%s%p]-)\"%s*(.*)",
+		str = "exec%s*=%s*\"([%w%s%p]-)\"",
 		process = function(k, _)
 			if cli_execute_unparsed(k) ~= 0 then
 				print(MSG_FAILEXEC:format(k))
 			end
 		end,
+		groups = 1,
 	},
 	--  env_var="value"
 	{
-		str = "^%s*([%w%p]+)%s*=%s*\"([%w%s%p]-)\"%s*(.*)",
+		str = "([%w%p]+)%s*=%s*\"([%w%s%p]-)\"",
 		process = function(k, v)
 			if setEnv(k, processEnvVar(v)) ~= 0 then
 				print(MSG_FAILSETENV:format(k, v))
@@ -198,7 +216,7 @@ local pattern_table = {
 	},
 	--  env_var=num
 	{
-		str = "^%s*([%w%p]+)%s*=%s*(-?%d+)%s*(.*)",
+		str = "([%w%p]+)%s*=%s*(-?%d+)",
 		process = function(k, v)
 			if setEnv(k, processEnvVar(v)) ~= 0 then
 				print(MSG_FAILSETENV:format(k, tostring(v)))
@@ -387,30 +405,30 @@ function config.parse(text)
 
 	for line in text:gmatch("([^\n]+)") do
 		if line:match("^%s*$") == nil then
-			local found = false
-
 			for _, val in ipairs(pattern_table) do
-				local k, v, c = line:match(val.str)
+				local pattern = '^%s*' .. val.str .. '%s*(.*)';
+				local cgroups = val.groups or 2
+				local k, v, c = line:match(pattern)
 				if k ~= nil then
-					found = true
+					-- Offset by one, drats
+					if cgroups == 1 then
+						c = v
+						v = nil
+					end
 
 					if isValidComment(c) then
 						val.process(k, v)
-					else
-						print(MSG_MALFORMED:format(n,
-						    line))
-						status = false
+						goto nextline
 					end
 
 					break
 				end
 			end
 
-			if not found then
-				print(MSG_MALFORMED:format(n, line))
-				status = false
-			end
+			print(MSG_MALFORMED:format(n, line))
+			status = false
 		end
+		::nextline::
 		n = n + 1
 	end
 
