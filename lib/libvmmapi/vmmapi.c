@@ -389,12 +389,20 @@ vm_setup_memory(struct vmctx *ctx, size_t memsize, enum vm_mmap_style vms)
 	 * and the adjoining guard regions.
 	 */
 	len = VM_MMAP_GUARD_SIZE + objsize + VM_MMAP_GUARD_SIZE;
-	flags = MAP_PRIVATE | MAP_ANON | MAP_NOCORE | MAP_ALIGNED_SUPER;
-	ptr = mmap(NULL, len, PROT_NONE, flags, -1, 0);
+	flags = MAP_PRIVATE | MAP_ANON | MAP_NOCORE | MAP_ALIGNED_SUPER
+	    | MAP_FIXED;
+	ptr = mmap(NULL, len, PROT_NONE, MAP_GUARD | MAP_ALIGNED_SUPER,
+	    -1, 0);
 	if (ptr == MAP_FAILED)
 		return (-1);
 
-	baseaddr = ptr + VM_MMAP_GUARD_SIZE;
+	baseaddr = mmap(ptr + VM_MMAP_GUARD_SIZE, objsize, PROT_NONE,
+	    flags, -1, 0);
+	if (baseaddr == MAP_FAILED) {
+		munmap(ptr, len);
+		return (-1);
+	}
+
 	if (ctx->highmem > 0) {
 		gpa = 4*GB;
 		len = ctx->highmem;
@@ -492,10 +500,22 @@ vm_create_devmem(struct vmctx *ctx, int segid, const char *name, size_t len)
 	 * adjoining guard regions.
 	 */
 	len2 = VM_MMAP_GUARD_SIZE + len + VM_MMAP_GUARD_SIZE;
-	flags = MAP_PRIVATE | MAP_ANON | MAP_NOCORE | MAP_ALIGNED_SUPER;
-	base = mmap(NULL, len2, PROT_NONE, flags, -1, 0);
+	flags = MAP_PRIVATE | MAP_ANON | MAP_NOCORE | MAP_ALIGNED_SUPER
+	    | MAP_FIXED;
+
+	/*
+	 * Map the entire region with MAP_GUARD first. Remap the
+	 * device memory post-guard.
+	 */
+	base = mmap(NULL, len2, PROT_NONE,
+	    MAP_GUARD | MAP_ALIGNED_SUPER, -1, 0);
 	if (base == MAP_FAILED)
 		goto done;
+	if (mmap(base + VM_MMAP_GUARD_SIZE, len, PROT_NONE, flags, -1,
+	    0) == MAP_FAILED) {
+		munmap(base, len2);
+		goto done;
+	}
 
 	flags = MAP_SHARED | MAP_FIXED;
 	if ((ctx->memflags & VM_MEM_F_INCORE) == 0)
