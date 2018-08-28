@@ -833,6 +833,12 @@ Set to not build libgssapi.
 Set to not build
 .Xr hastd 8
 and related utilities.
+.It Va WITHOUT_HBSDCONTROL
+.\" $HardenedBSD$
+Set to not build
+.Xr hbsdcontrol 8 
+and
+.Xr libhbsdcontrol 3 .
 .It Va WITHOUT_HBSD_UPDATE
 .\" $HardenedBSD$
 Set to not build
@@ -1237,8 +1243,6 @@ Enable firewire support in /boot/loader on x86. This option is a nop
 on all other platforms.
 .It Va WITHOUT_LOADER_GELI
 Disable inclusion of GELI crypto support in the boot chain binaries.
-<<<<<<< HEAD
-=======
 .Pp
 This is a default setting on
 sparc64/sparc64.
@@ -1247,7 +1251,6 @@ Set to build LUA bindings for the boot loader.
 .Pp
 This is a default setting on
 amd64/amd64, arm/arm, arm/armv6, arm/armv7, arm64/aarch64, i386/i386, mips/mipsel, mips/mips, mips/mips64el, mips/mips64, mips/mipsn32, mips/mipselhf, mips/mipshf, mips/mips64elhf, mips/mips64hf, powerpc/powerpc, powerpc/powerpc64, powerpc/powerpcspe, riscv/riscv64 and riscv/riscv64sf.
->>>>>>> origin/freebsd/current/master
 .It Va WITHOUT_LOADER_OFW
 Disable building of openfirmware bootloader components.
 .Pp
