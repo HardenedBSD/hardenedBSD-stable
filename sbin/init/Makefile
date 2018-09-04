@@ -19,9 +19,6 @@ INSTALLFLAGS=-b -B.bak
 CFLAGS+=-DDEBUGSHELL -DSECURE -DLOGIN_CAP -DCOMPAT_SYSV_INIT
 LIBADD=	util crypt
 
-<<<<<<< HEAD
-NOCFI=	yes
-=======
 CONFTTYSNAME=	ttys
 .if exists(${.CURDIR}/ttys.${MACHINE})
 CONFTTYS+=	ttys.${MACHINE}
@@ -32,7 +29,8 @@ CONFTTYS+=	ttys.${MACHINE_CPUARCH}
 .else
 .error MACHINE.ttys missing
 .endif
->>>>>>> origin/freebsd/current/master
+
+NOCFI=	yes
 
 # Needed for getmntopts.c
 MOUNT=	${SRCTOP}/sbin/mount
