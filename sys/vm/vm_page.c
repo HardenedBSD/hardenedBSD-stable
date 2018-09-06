@@ -2627,7 +2627,7 @@ retry:
 					m_new->dirty = m->dirty;
 					m->flags &= ~PG_ZERO;
 					vm_page_xbusy(m);
-					vm_page_remque(m);
+					vm_page_dequeue(m);
 					vm_page_replace_checked(m_new, object,
 					    m->pindex, m);
 					if (vm_page_free_prep(m))
@@ -2642,7 +2642,7 @@ retry:
 					vm_page_deactivate(m_new);
 				} else {
 					m->flags &= ~PG_ZERO;
-					vm_page_remque(m);
+					vm_page_dequeue(m);
 					vm_page_remove(m);
 					if (vm_page_free_prep(m))
 						SLIST_INSERT_HEAD(&free, m,
@@ -2935,7 +2935,7 @@ vm_wait_count(void)
 	return (vm_severe_waiters + vm_min_waiters + vm_pageproc_waiters);
 }
 
-static void
+void
 vm_wait_doms(const domainset_t *wdoms)
 {
 
@@ -2961,10 +2961,10 @@ vm_wait_doms(const domainset_t *wdoms)
 		mtx_lock(&vm_domainset_lock);
 		if (DOMAINSET_SUBSET(&vm_min_domains, wdoms)) {
 			vm_min_waiters++;
-			msleep(&vm_min_domains, &vm_domainset_lock, PVM,
-			    "vmwait", 0);
-		}
-		mtx_unlock(&vm_domainset_lock);
+			msleep(&vm_min_domains, &vm_domainset_lock,
+			    PVM | PDROP, "vmwait", 0);
+		} else
+			mtx_unlock(&vm_domainset_lock);
 	}
 }
 
@@ -3069,15 +3069,21 @@ vm_domain_alloc_fail(struct vm_domain *vmd, vm_object_t object, int req)
  *	  this balance without careful testing first.
  */
 void
-vm_waitpfault(void)
+vm_waitpfault(struct domainset *dset)
 {
 
+	/*
+	 * XXX Ideally we would wait only until the allocation could
+	 * be satisfied.  This condition can cause new allocators to
+	 * consume all freed pages while old allocators wait.
+	 */
 	mtx_lock(&vm_domainset_lock);
-	if (vm_page_count_min()) {
+	if (DOMAINSET_SUBSET(&vm_min_domains, &dset->ds_mask)) {
 		vm_min_waiters++;
-		msleep(&vm_min_domains, &vm_domainset_lock, PUSER, "pfault", 0);
-	}
-	mtx_unlock(&vm_domainset_lock);
+		msleep(&vm_min_domains, &vm_domainset_lock, PUSER | PDROP,
+		    "pfault", 0);
+	} else
+		mtx_unlock(&vm_domainset_lock);
 }
 
 struct vm_pagequeue *
@@ -3404,7 +3410,7 @@ vm_page_activate(vm_page_t m)
 		return;
 	}
 
-	vm_page_remque(m);
+	vm_page_dequeue(m);
 	if (m->act_count < ACT_INIT)
 		m->act_count = ACT_INIT;
 	vm_page_enqueue(m, PQ_ACTIVE);
@@ -3676,7 +3682,7 @@ vm_page_deactivate(vm_page_t m)
 		return;
 
 	if (!vm_page_inactive(m)) {
-		vm_page_remque(m);
+		vm_page_dequeue(m);
 		vm_page_enqueue(m, PQ_INACTIVE);
 	} else
 		vm_page_requeue(m);
@@ -3699,9 +3705,10 @@ vm_page_deactivate_noreuse(vm_page_t m)
 	if (m->wire_count > 0 || (m->oflags & VPO_UNMANAGED) != 0)
 		return;
 
-	if (!vm_page_inactive(m))
-		vm_page_remque(m);
-	m->queue = PQ_INACTIVE;
+	if (!vm_page_inactive(m)) {
+		vm_page_dequeue(m);
+		m->queue = PQ_INACTIVE;
+	}
 	if ((m->aflags & PGA_REQUEUE_HEAD) == 0)
 		vm_page_aflag_set(m, PGA_REQUEUE_HEAD);
 	vm_pqbatch_submit_page(m, PQ_INACTIVE);
@@ -3723,7 +3730,7 @@ vm_page_launder(vm_page_t m)
 	if (vm_page_in_laundry(m))
 		vm_page_requeue(m);
 	else {
-		vm_page_remque(m);
+		vm_page_dequeue(m);
 		vm_page_enqueue(m, PQ_LAUNDRY);
 	}
 }
@@ -3741,7 +3748,7 @@ vm_page_unswappable(vm_page_t m)
 	KASSERT(m->wire_count == 0 && (m->oflags & VPO_UNMANAGED) == 0,
 	    ("page %p already unswappable", m));
 
-	vm_page_remque(m);
+	vm_page_dequeue(m);
 	vm_page_enqueue(m, PQ_UNSWAPPABLE);
 }
 
