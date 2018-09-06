@@ -389,12 +389,7 @@ vm_setup_memory(struct vmctx *ctx, size_t memsize, enum vm_mmap_style vms)
 	 * and the adjoining guard regions.
 	 */
 	len = VM_MMAP_GUARD_SIZE + objsize + VM_MMAP_GUARD_SIZE;
-<<<<<<< HEAD
-	ptr = mmap(NULL, len, PROT_NONE, MAP_GUARD | MAP_ALIGNED_SUPER,
-	    -1, 0);
-=======
 	ptr = mmap(NULL, len, PROT_NONE, MAP_GUARD | MAP_ALIGNED_SUPER, -1, 0);
->>>>>>> origin/freebsd/current/master
 	if (ptr == MAP_FAILED)
 		return (-1);
 	baseaddr = ptr + VM_MMAP_GUARD_SIZE;
@@ -496,13 +491,8 @@ vm_create_devmem(struct vmctx *ctx, int segid, const char *name, size_t len)
 	 * adjoining guard regions.
 	 */
 	len2 = VM_MMAP_GUARD_SIZE + len + VM_MMAP_GUARD_SIZE;
-<<<<<<< HEAD
-	base = mmap(NULL, len2, PROT_NONE, MAP_GUARD |
-	    MAP_ALIGNED_SUPER, -1, 0);
-=======
 	base = mmap(NULL, len2, PROT_NONE, MAP_GUARD | MAP_ALIGNED_SUPER, -1,
 	    0);
->>>>>>> origin/freebsd/current/master
 	if (base == MAP_FAILED)
 		goto done;
 
