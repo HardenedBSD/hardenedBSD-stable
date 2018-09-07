@@ -704,7 +704,8 @@ S_efi_map(size_t l2, void *p)
 		"ACPIMemoryNVS",
 		"MemoryMappedIO",
 		"MemoryMappedIOPortSpace",
-		"PalCode"
+		"PalCode",
+		"PersistentMemory"
 	};
 
 	/*
@@ -717,7 +718,7 @@ S_efi_map(size_t l2, void *p)
 	}
 	efihdr = p;
 	efisz = (sizeof(struct efi_map_header) + 0xf) & ~0xf;
-	map = (struct efi_md *)((uint8_t *)efihdr + efisz); 
+	map = (struct efi_md *)((uint8_t *)efihdr + efisz);
 
 	if (efihdr->descriptor_size == 0)
 		return (0);
@@ -725,7 +726,7 @@ S_efi_map(size_t l2, void *p)
 		warnx("S_efi_map length mismatch %zu vs %zu", l2, efisz +
 		    efihdr->memory_size);
 		return (1);
-	}		
+	}
 	ndesc = efihdr->memory_size / efihdr->descriptor_size;
 
 	printf("\n%23s %12s %12s %8s %4s",
@@ -733,7 +734,7 @@ S_efi_map(size_t l2, void *p)
 
 	for (i = 0; i < ndesc; i++,
 	    map = efi_next_descriptor(map, efihdr->descriptor_size)) {
-		if (map->md_type <= EFI_MD_TYPE_PALCODE)
+		if (map->md_type <= EFI_MD_TYPE_PERSISTENT)
 			type = types[map->md_type];
 		else
 			type = "<INVALID>";
