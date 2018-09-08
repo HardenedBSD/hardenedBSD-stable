@@ -523,6 +523,10 @@ apply_mtree() {
 		return 0
 	fi
 
+	if [ -d ${tmpdir}/mtree ]; then
+		rm -rf ${tmpdir}/mtree
+	fi
+
 	mkdir ${tmpdir}/mtree
 	if [ ${?} -gt 0 ]; then
 		return 1
