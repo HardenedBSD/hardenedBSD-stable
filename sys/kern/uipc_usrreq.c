@@ -1829,6 +1829,13 @@ unp_externalize(struct mbuf *control, struct mbuf **controlp, int flags)
 				    &fdep[i]->fde_caps);
 				unp_externalize_fp(fdep[i]->fde_file);
 			}
+
+			/*
+			 * The new type indicates that the mbuf data refers to
+			 * kernel resources that may need to be released before
+			 * the mbuf is freed.
+			 */
+			m_chtype(*controlp, MT_EXTCONTROL);
 			FILEDESC_XUNLOCK(fdesc);
 			free(fdep[0], M_FILECAPS);
 		} else {
@@ -1908,6 +1915,7 @@ unp_internalize(struct mbuf **controlp, struct thread *td)
 	struct filedescent *fde, **fdep, *fdev;
 	struct file *fp;
 	struct timeval *tv;
+	struct timespec *ts;
 	int i, *fdp;
 	void *data;
 	socklen_t clen = control->m_len, datalen;
@@ -2026,6 +2034,30 @@ unp_internalize(struct mbuf **controlp, struct thread *td)
 			bt = (struct bintime *)
 			    CMSG_DATA(mtod(*controlp, struct cmsghdr *));
 			bintime(bt);
+			break;
+
+		case SCM_REALTIME:
+			*controlp = sbcreatecontrol(NULL, sizeof(*ts),
+			    SCM_REALTIME, SOL_SOCKET);
+			if (*controlp == NULL) {
+				error = ENOBUFS;
+				goto out;
+			}
+			ts = (struct timespec *)
+			    CMSG_DATA(mtod(*controlp, struct cmsghdr *));
+			nanotime(ts);
+			break;
+
+		case SCM_MONOTONIC:
+			*controlp = sbcreatecontrol(NULL, sizeof(*ts),
+			    SCM_MONOTONIC, SOL_SOCKET);
+			if (*controlp == NULL) {
+				error = ENOBUFS;
+				goto out;
+			}
+			ts = (struct timespec *)
+			    CMSG_DATA(mtod(*controlp, struct cmsghdr *));
+			nanouptime(ts);
 			break;
 
 		default:
