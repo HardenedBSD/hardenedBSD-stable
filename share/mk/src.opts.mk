@@ -159,11 +159,8 @@ __DEFAULT_YES_OPTIONS = \
     QUOTAS \
     RADIUS_SUPPORT \
     RBOOTD \
-<<<<<<< HEAD
     RELRO \
-=======
     REPRODUCIBLE_BUILD \
->>>>>>> origin/freebsd/current/master
     RESCUE \
     ROUTED \
     SENDMAIL \
@@ -212,12 +209,8 @@ __DEFAULT_NO_OPTIONS = \
     OFED \
     OFED_EXTRA \
     OPENLDAP \
-<<<<<<< HEAD
     OPENNTPD \
     PORTSNAP \
-    REPRODUCIBLE_BUILD \
-=======
->>>>>>> origin/freebsd/current/master
     RPCBIND_WARMSTART_SUPPORT \
     SHARED_TOOLCHAIN \
     SORT_THREADS \
