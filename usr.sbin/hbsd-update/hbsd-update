@@ -981,15 +981,24 @@ check_sanity() {
 		exit 1
 	fi
 
+	# FreeBSD / HardenedBSD 12 introduced bectl in base. bectl
+	# provides a beadm-compatible utility for managing ZFS Boot
+	# Environments (BEs). Since the majority of HardenedBSD users
+	# are on 11-STABLE, prefer beadm over bectl. Hopefully, bectl
+	# will one day exist on 11-STABLE.
 	if [ ! -z "${zfsbe}" ] && [ ! -x ${BEADM} ]; then
-		debug_print "[-] Please install sysutils/beadm"
-		exit 1
+		if [ -x /sbin/bectl ]; then
+			BEADM=/sbin/bectl
+		else
+			debug_print "[-] Please install sysutils/beadm"
+			exit 1
+		fi
 	fi
 }
 
 report_version() {
 	get_tmpdir > /dev/null
-	get_version > /dev/null 2>&1
+	get_version
 	if [ ! ${?} -eq 0 ]; then
 		echo "[-] Could not get remote version number" >&2
 		cleanup
