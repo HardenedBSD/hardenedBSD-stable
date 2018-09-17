@@ -16,22 +16,15 @@ BIN1=	\
 	dhclient.conf \
 	disktab \
 	group \
-	hosts \
 	hosts.allow \
-	hosts.equiv \
 	libalias.conf \
 	libmap.conf \
 	login.access \
 	mac.conf \
-	netconfig \
-	networks \
-	nsswitch.conf \
 	phones \
-	protocols \
 	rc.bsdextended \
 	rc.firewall \
 	remote \
-	rpc \
 	termcap.small
 
 # NB: keep these sorted by MK_* knobs
@@ -163,10 +156,6 @@ distribution:
 	    ${SRCTOP}/sys/${MACHINE}/conf/GENERIC.hints \
 	    ${DESTDIR}/boot/device.hints
 .endif
-.endif
-.if ${MK_NIS} == "no"
-	sed -i "" -e 's/.*_compat:/# &/' -e 's/compat$$/files/' \
-		${DESTDIR}/etc/nsswitch.conf
 .endif
 
 MTREE_CMD?=	mtree
