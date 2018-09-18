@@ -13,10 +13,8 @@ SUBDIR+=sendmail
 .endif
 
 BIN1=	\
-	disktab \
 	group \
 	hosts.allow \
-	libalias.conf \
 	login.access \
 	phones \
 	rc.bsdextended \
@@ -26,14 +24,11 @@ BIN1=	\
 
 # NB: keep these sorted by MK_* knobs
 
-.if ${MK_LOCATE} != "no"
-BIN1+=	${SRCTOP}/usr.bin/locate/locate/locate.rc
-.endif
-
 .if ${MK_LPR} != "no"
 BIN1+=	hosts.lpd printcap
 .endif
 
+<<<<<<< HEAD
 .if ${MK_MAIL} != "no"
 BIN1+=	${SRCTOP}/usr.bin/mail/misc/mail.rc
 .endif
@@ -42,6 +37,8 @@ BIN1+=	${SRCTOP}/usr.bin/mail/misc/mail.rc
 BIN1+=	ntpd.conf
 .endif
 
+=======
+>>>>>>> origin/freebsd/current/master
 .if ${MK_OPENSSL} != "no"
 SSL=	${SRCTOP}/crypto/openssl/apps/openssl.cnf
 .endif
