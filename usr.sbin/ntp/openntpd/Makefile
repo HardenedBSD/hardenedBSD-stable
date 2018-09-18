@@ -28,6 +28,10 @@ LINKS=	${BINDIR}/ntpd ${BINDIR}/ntpctl
 MAN5=	ntpd.conf.5
 MAN8=	ntpd.8 ntpctl.8
 
+CONFS=		ntpd.conf
+CONFSDIR=	/etc
+CONFSMODE=	644
+
 .PATH:	${OPENNTPD_SRC}/../compat ${OPENNTPD_SRC}
 
 .include <bsd.prog.mk>
