@@ -1,16 +1,13 @@
 # $FreeBSD$
 
-<<<<<<< HEAD
 .include <src.opts.mk>
 
 CFI_OVERRIDE= -fno-sanitize=cfi-icall
 
 .if ${MK_LIBRESSL} == "no"
 
-=======
 CONFS=	openssl.cnf
 CONFSDIR=	/etc/ssl
->>>>>>> origin/freebsd/current/master
 PROG=	openssl
 
 LIBADD=	ssl crypto
