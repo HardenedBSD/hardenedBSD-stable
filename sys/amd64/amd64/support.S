@@ -116,6 +116,8 @@ ENTRY(memmove_std)
 	cmpq	%rcx,%r8			/* overlapping && src < dst? */
 	jb	2f
 
+	cmpq	$15,%rcx
+	jbe	1f
 	shrq	$3,%rcx				/* copy by 64-bit words */
 	rep
 	movsq
@@ -124,6 +126,7 @@ ENTRY(memmove_std)
 	jne	1f
 	POP_FRAME_POINTER
 	ret
+	ALIGN_TEXT
 1:
 	rep
 	movsb
@@ -191,6 +194,8 @@ ENTRY(memcpy_std)
 	PUSH_FRAME_POINTER
 	movq	%rdi,%rax
 	movq	%rdx,%rcx
+	cmpq	$15,%rcx
+	jbe	1f
 	shrq	$3,%rcx				/* copy by 64-bit words */
 	rep
 	movsq
@@ -199,6 +204,7 @@ ENTRY(memcpy_std)
 	jne	1f
 	POP_FRAME_POINTER
 	ret
+	ALIGN_TEXT
 1:
 	rep
 	movsb
@@ -227,6 +233,8 @@ ENTRY(memset_std)
 	movzbq	%sil,%r8
 	movabs	$0x0101010101010101,%rax
 	imulq	%r8,%rax
+	cmpq	$15,%rcx
+	jbe	1f
 	shrq	$3,%rcx
 	rep
 	stosq
@@ -236,6 +244,7 @@ ENTRY(memset_std)
 	movq	%r9,%rax
 	POP_FRAME_POINTER
 	ret
+	ALIGN_TEXT
 1:
 	rep
 	stosb
@@ -300,9 +309,9 @@ END(fillw)
  */
 .macro	COPYOUT smap erms
 	PUSH_FRAME_POINTER
-	movq	PCPU(CURPCB),%rax
+	movq	PCPU(CURPCB),%r9
 	/* Trap entry clears PSL.AC */
-	movq	$copyout_fault,PCB_ONFAULT(%rax)
+	movq	$copy_fault,PCB_ONFAULT(%r9)
 	testq	%rdx,%rdx			/* anything to do? */
 	jz	2f
 
@@ -318,7 +327,7 @@ END(fillw)
 	 */
 	movq	%rsi,%rax
 	addq	%rdx,%rax
-	jc	copyout_fault
+	jc	copy_fault
 /*
  * XXX STOP USING VM_MAXUSER_ADDRESS.
  * It is an end address, not a max, so every time it is used correctly it
@@ -327,7 +336,7 @@ END(fillw)
  */
 	movq	$VM_MAXUSER_ADDRESS,%rcx
 	cmpq	%rcx,%rax
-	ja	copyout_fault
+	ja	copy_fault
 
 	xchgq	%rdi,%rsi
 	/* bcopy(%rsi, %rdi, %rdx) */
@@ -335,21 +344,27 @@ END(fillw)
 
 	SMAP_DISABLE \smap
 .if	\erms == 0
+	cmpq	$15,%rcx
+	jbe	1f
 	shrq	$3,%rcx
 	rep
 	movsq
 	movb	%dl,%cl
 	andb	$7,%cl
-	je	1f
+	jne	1f
+	SMAP_ENABLE \smap
+	xorl	%eax,%eax
+	movq	%rax,PCB_ONFAULT(%r9)
+	POP_FRAME_POINTER
+	ret
 .endif
+1:
 	rep
 	movsb
-1:
 	SMAP_ENABLE \smap
 2:
 	xorl	%eax,%eax
-	movq	PCPU(CURPCB),%rdx
-	movq	%rax,PCB_ONFAULT(%rdx)
+	movq	%rax,PCB_ONFAULT(%r9)
 	POP_FRAME_POINTER
 	ret
 .endmacro
@@ -370,22 +385,14 @@ ENTRY(copyout_smap_erms)
 	COPYOUT smap=1 erms=1
 END(copyout_smap_erms)
 
-	ALIGN_TEXT
-copyout_fault:
-	movq	PCPU(CURPCB),%rdx
-	movq	$0,PCB_ONFAULT(%rdx)
-	movq	$EFAULT,%rax
-	POP_FRAME_POINTER
-	ret
-
 /*
  * copyin(from_user, to_kernel, len)
  *        %rdi,      %rsi,      %rdx
  */
 .macro	COPYIN smap erms
 	PUSH_FRAME_POINTER
-	movq	PCPU(CURPCB),%rax
-	movq	$copyin_fault,PCB_ONFAULT(%rax)
+	movq	PCPU(CURPCB),%r9
+	movq	$copy_fault,PCB_ONFAULT(%r9)
 	testq	%rdx,%rdx			/* anything to do? */
 	jz	2f
 
@@ -394,10 +401,10 @@ copyout_fault:
 	 */
 	movq	%rdi,%rax
 	addq	%rdx,%rax
-	jc	copyin_fault
+	jc	copy_fault
 	movq	$VM_MAXUSER_ADDRESS,%rcx
 	cmpq	%rcx,%rax
-	ja	copyin_fault
+	ja	copy_fault
 
 	xchgq	%rdi,%rsi
 	movq	%rdx,%rcx
@@ -405,22 +412,28 @@ copyout_fault:
 
 	SMAP_DISABLE \smap
 .if \erms == 0
+	cmpq	$15,%rcx
+	jbe	1f
 	shrq	$3,%rcx				/* copy longword-wise */
 	rep
 	movsq
 	movb	%al,%cl
 	andb	$7,%cl				/* copy remaining bytes */
-	je	1f
+	jne	1f
+	SMAP_ENABLE \smap
+	xorl	%eax,%eax
+	movq	%rax,PCB_ONFAULT(%r9)
+	POP_FRAME_POINTER
+	ret
 .endif
+1:
 	rep
 	movsb
 
-1:
 	SMAP_ENABLE \smap
 2:
 	xorl	%eax,%eax
-	movq	PCPU(CURPCB),%rdx
-	movq	%rax,PCB_ONFAULT(%rdx)
+	movq	%rax,PCB_ONFAULT(%r9)
 	POP_FRAME_POINTER
 	ret
 .endmacro
@@ -442,10 +455,10 @@ ENTRY(copyin_smap_erms)
 END(copyin_smap_erms)
 
 	ALIGN_TEXT
-copyin_fault:
+copy_fault:
 	movq	PCPU(CURPCB),%rdx
 	movq	$0,PCB_ONFAULT(%rdx)
-	movq	$EFAULT,%rax
+	movl	$EFAULT,%eax
 	POP_FRAME_POINTER
 	ret
 
