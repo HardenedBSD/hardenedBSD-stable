@@ -61,6 +61,7 @@ SUBDIR=	${SUBDIR_BOOTSTRAP} \
 	${_libgpio} \
 	${_libgssapi} \
 	${_librpcsec_gss} \
+	${_libhbsdcontrol} \
 	${_libiconv_modules} \
 	libipsec \
 	libjail \
@@ -156,6 +157,9 @@ SUBDIR_DEPEND_libtacplus= libmd
 SUBDIR_DEPEND_libulog= libmd
 SUBDIR_DEPEND_libunbound= ${_libldns}
 SUBDIR_DEPEND_liblzma= ${_libthr}
+.if ${MK_OFED} != "no"
+SUBDIR_DEPEND_libpcap= ofed
+.endif
 
 # NB: keep these sorted by MK_* knobs
 
@@ -205,6 +209,10 @@ _libgpio=	libgpio
 .if ${MK_GSSAPI} != "no"
 _libgssapi=	libgssapi
 _librpcsec_gss=	librpcsec_gss
+.endif
+
+.if ${MK_HBSDCONTROL} != "no"
+_libhbsdcontrol= libhbsdcontrol
 .endif
 
 .if ${MK_ICONV} != "no"
@@ -285,6 +293,7 @@ _libdl=		libdl
 _libproc=	libproc
 _librtld_db=	librtld_db
 .endif
+SUBDIR.${MK_OFED}+=	ofed
 
 .if ${MK_OPENSSL} != "no"
 _libmp=		libmp

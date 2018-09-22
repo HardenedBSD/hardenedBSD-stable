@@ -158,6 +158,20 @@ SYSCTL_INT(_machdep, OID_AUTO, uprintf_signal, CTLFLAG_RWTUN,
     "Print debugging information on trap signal to ctty");
 
 /*
+ * Control L1D flush on return from NMI.
+ *
+ * Tunable  can be set to the following values:
+ * 0 - only enable flush on return from NMI if required by vmm.ko (default)
+ * >1 - always flush on return from NMI.
+ *
+ * Post-boot, the sysctl indicates if flushing is currently enabled.
+ */
+int nmi_flush_l1d_sw;
+SYSCTL_INT(_machdep, OID_AUTO, nmi_flush_l1d_sw, CTLFLAG_RWTUN,
+    &nmi_flush_l1d_sw, 0,
+    "Flush L1 Data Cache on NMI exit, software bhyve L1TF mitigation assist");
+
+/*
  * Exception, fault, and trap interface to the FreeBSD kernel.
  * This common code is called from assembly language IDT gate entry
  * routines that prepare a suitable stack frame, and restore this
@@ -463,11 +477,13 @@ trap(struct trapframe *frame)
 			 */
 			if (frame->tf_rip == (long)doreti_iret) {
 				frame->tf_rip = (long)doreti_iret_fault;
-				if (pti && frame->tf_rsp == (uintptr_t)PCPU_PTR(
-				    pti_stack) + (PC_PTI_STACK_SZ - 5) *
-				    sizeof(register_t))
+				if ((PCPU_GET(curpmap)->pm_ucr3 !=
+				    PMAP_NO_CR3) &&
+				    (frame->tf_rsp == (uintptr_t)PCPU_GET(
+				    pti_rsp0) - 5 * sizeof(register_t))) {
 					frame->tf_rsp = PCPU_GET(rsp0) - 5 *
 					    sizeof(register_t);
+				}
 				return;
 			}
 			if (frame->tf_rip == (long)ld_ds) {
@@ -754,7 +770,8 @@ trap_pfault(struct trapframe *frame, int usermode)
 	 * If nx protection of the usermode portion of kernel page
 	 * tables caused trap, panic.
 	 */
-	if (pti && usermode && pg_nx != 0 && (frame->tf_err & (PGEX_P | PGEX_W |
+	if (usermode && PCPU_GET(curpmap)->pm_ucr3 != PMAP_NO_CR3 &&
+	    pg_nx != 0 && (frame->tf_err & (PGEX_P | PGEX_W |
 	    PGEX_U | PGEX_I)) == (PGEX_P | PGEX_U | PGEX_I) &&
 	    (curpcb->pcb_saved_ucr3 & ~CR3_PCID_MASK)==
 	    (PCPU_GET(curpmap)->pm_cr3 & ~CR3_PCID_MASK))

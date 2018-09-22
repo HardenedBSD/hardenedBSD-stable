@@ -1,3 +1,9 @@
+[20180701] OpenSSL
+__HardenedBSD_version = 1100056
+
+	Switch back to OpenSSL as the default crypto library in base.
+
+
 [20180210] PAX_JAIL_SUPPORT
 __HardenedBSD_version = 1100055
 

@@ -99,6 +99,7 @@ __FBSDID("$FreeBSD$");
 #include <vm/vm_object.h>
 #include <vm/vm_pager.h>
 #include <vm/vm_param.h>
+#include <vm/vm_phys.h>
 
 #ifdef DDB
 #ifndef KDB
@@ -2076,6 +2077,12 @@ getmemsize(int first)
 	basemem = 0;
 
 	/*
+	 * Tell the physical memory allocator about pages used to store
+	 * the kernel and preloaded data.  See kmem_bootstrap_free().
+	 */
+	vm_phys_add_seg((vm_paddr_t)KERNLOAD, trunc_page(first));
+
+	/*
 	 * Check if the loader supplied an SMAP memory map.  If so,
 	 * use that and do not make any VM86 calls.
 	 */
@@ -3004,6 +3011,7 @@ int
 set_fpregs(struct thread *td, struct fpreg *fpregs)
 {
 
+	critical_enter();
 	if (cpu_fxsr)
 		npx_set_fpregs_xmm((struct save87 *)fpregs,
 		    &get_pcb_user_save_td(td)->sv_xmm);
@@ -3011,6 +3019,7 @@ set_fpregs(struct thread *td, struct fpreg *fpregs)
 		bcopy(fpregs, &get_pcb_user_save_td(td)->sv_87,
 		    sizeof(*fpregs));
 	npxuserinited(td);
+	critical_exit();
 	return (0);
 }
 

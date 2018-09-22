@@ -16,5 +16,6 @@ GPATH
 GRTAGS
 GTAGS
 ID
+.tags
 cscope.out
 ?cscope.out

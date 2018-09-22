@@ -2,7 +2,7 @@ HardenedBSD ?.?.?  (UNKNOWN)
 
 +------------------------------------------------------------------------------+
 |                                                                              |
-|                             Welcome to HardenedBSD!                          |
+|                            Welcome to HardenedBSD!                           |
 |                                                                              |
 |       _    _               _                     _ ____   _____ _____        |
 |      | |  | |             | |                   | |  _ \ / ____|  __ \       |
@@ -12,7 +12,7 @@ HardenedBSD ?.?.?  (UNKNOWN)
 |      |_|  |_|\__,_|_|  \__,_|\___|_| |_|\___|\__,_|____/|_____/|_____/       |
 |                                                                              |
 +------------------------------------------------------------------------------+
-|     keyword: sysctl, secadm, git, github.com/hardenedbsd hardenedbsd.org     |
+|  keywords: sysctl, hbsdcontrol, git, github.com/hardenedbsd hardenedbsd.org  |
 +------------------------------------------------------------------------------+
                 Edit /etc/motd to change this login announcement.               
 

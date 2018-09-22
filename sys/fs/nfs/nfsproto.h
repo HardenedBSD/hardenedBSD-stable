@@ -554,6 +554,7 @@
 #define	NFSV4OPEN_WDRESOURCE		0x00080000
 #define	NFSV4OPEN_WDCONTENTION		0x00100000
 #define	NFSV4OPEN_WDNOTWANTED		0x00200000
+#define	NFSV4OPEN_WDSUPPFTYPE		0x00400000
 
 /*
  * NFS V4 File Handle types
@@ -649,6 +650,15 @@
 /* Flags for File Layout. */
 #define	NFSFLAYUTIL_DENSE		0x1
 #define	NFSFLAYUTIL_COMMIT_THRU_MDS	0x2
+
+/* Enum values for Bind Connection to Session. */
+#define	NFSCDFC4_FORE		0x1
+#define	NFSCDFC4_BACK		0x2
+#define	NFSCDFC4_FORE_OR_BOTH	0x3
+#define	NFSCDFC4_BACK_OR_BOTH	0x7
+#define	NFSCDFS4_FORE		0x1
+#define	NFSCDFS4_BACK		0x2
+#define	NFSCDFS4_BOTH		0x3
 
 /* Conversion macros */
 #define	vtonfsv2_mode(t,m) 						\
