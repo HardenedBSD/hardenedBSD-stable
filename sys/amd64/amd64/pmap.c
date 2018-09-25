@@ -1428,7 +1428,7 @@ pmap_init(void)
 		if (ppim->va == 0)
 			continue;
 		/* Make the direct map consistent */
-		if (ppim->pa < dmaplimit && ppim->pa + ppim->sz < dmaplimit) {
+		if (ppim->pa < dmaplimit && ppim->pa + ppim->sz <= dmaplimit) {
 			(void)pmap_change_attr(PHYS_TO_DMAP(ppim->pa),
 			    ppim->sz, ppim->mode);
 		}
@@ -1972,10 +1972,10 @@ pmap_invalidate_all_pcid(pmap_t pmap, bool invpcid_works1)
 			critical_exit();
 		} else
 			pmap->pm_pcids[cpuid].pm_gen = 0;
-	}
-	CPU_FOREACH(i) {
-		if (cpuid != i)
-			pmap->pm_pcids[i].pm_gen = 0;
+		CPU_FOREACH(i) {
+			if (cpuid != i)
+				pmap->pm_pcids[i].pm_gen = 0;
+		}
 	}
 	/* See the comment in pmap_invalidate_page_pcid(). */
 	atomic_thread_fence_seq_cst();
@@ -7061,7 +7061,7 @@ pmap_mapdev_attr(vm_paddr_t pa, vm_size_t size, int mode)
 		 * If the specified range of physical addresses fits within
 		 * the direct map window, use the direct map.
 		 */
-		if (pa < dmaplimit && pa + size < dmaplimit) {
+		if (pa < dmaplimit && pa + size <= dmaplimit) {
 			va = PHYS_TO_DMAP(pa);
 			if (!pmap_change_attr(va, size, mode))
 				return ((void *)(va + offset));
