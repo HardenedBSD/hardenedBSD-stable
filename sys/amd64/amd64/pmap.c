@@ -1813,7 +1813,6 @@ pmap_invalidate_page(pmap_t pmap, vm_offset_t va)
 	    ("pmap_invalidate_page: invalid type %d", pmap->pm_type));
 
 	sched_pin();
-	smp_masked_invlpg(pmap_invalidate_cpu_mask(pmap), va, pmap);
 	if (pmap == kernel_pmap) {
 		invlpg(va);
 	} else {
@@ -1821,6 +1820,7 @@ pmap_invalidate_page(pmap_t pmap, vm_offset_t va)
 			invlpg(va);
 		pmap_invalidate_page_mode(pmap, va);
 	}
+	smp_masked_invlpg(pmap_invalidate_cpu_mask(pmap), va, pmap);
 	sched_unpin();
 }
 
@@ -1916,7 +1916,6 @@ pmap_invalidate_range(pmap_t pmap, vm_offset_t sva, vm_offset_t eva)
 	    ("pmap_invalidate_range: invalid type %d", pmap->pm_type));
 
 	sched_pin();
-	smp_masked_invlpg_range(pmap_invalidate_cpu_mask(pmap), sva, eva, pmap);
 	if (pmap == kernel_pmap) {
 		for (addr = sva; addr < eva; addr += PAGE_SIZE)
 			invlpg(addr);
@@ -1927,6 +1926,7 @@ pmap_invalidate_range(pmap_t pmap, vm_offset_t sva, vm_offset_t eva)
 		}
 		pmap_invalidate_range_mode(pmap, sva, eva);
 	}
+	smp_masked_invlpg_range(pmap_invalidate_cpu_mask(pmap), sva, eva, pmap);
 	sched_unpin();
 }
 
@@ -2027,8 +2027,8 @@ pmap_invalidate_all(pmap_t pmap)
 	    ("pmap_invalidate_all: invalid type %d", pmap->pm_type));
 
 	sched_pin();
-	smp_masked_invltlb(pmap_invalidate_cpu_mask(pmap), pmap);
 	pmap_invalidate_all_mode(pmap);
+	smp_masked_invltlb(pmap_invalidate_cpu_mask(pmap), pmap);
 	sched_unpin();
 }
 
