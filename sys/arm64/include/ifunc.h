@@ -1,7 +1,8 @@
 /*-
- * Copyright (c) 2018 The FreeBSD Foundation
+ * Copyright (c) 2015-2018 The FreeBSD Foundation
+ * All rights reserved.
  *
- * This software was developed by Mateusz Guzik <mjg@FreeBSD.org>
+ * This software was developed by Konstantin Belousov <kib@FreeBSD.org>
  * under sponsorship from the FreeBSD Foundation.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -16,7 +17,7 @@
  * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
  * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
@@ -28,50 +29,23 @@
  * $FreeBSD$
  */
 
-#include <machine/asm.h>
-__FBSDID("$FreeBSD$");
+#ifndef __ARM64_IFUNC_H
+#define	__ARM64_IFUNC_H
 
-.macro MEMSET bzero
-.if \bzero == 1
-	movq	%rsi,%rcx
-	movq	%rsi,%rdx
-	xorl	%eax,%eax
-.else
-	movq	%rdi,%r9
-	movq	%rdx,%rcx
-	movzbq	%sil,%r8
-	movabs	$0x0101010101010101,%rax
-	imulq	%r8,%rax
-.endif
-	cmpq	$15,%rcx
-	jbe	1f
-	shrq	$3,%rcx
-	rep
-	stosq
-	movq	%rdx,%rcx
-	andq	$7,%rcx
-	jne	1f
-.if \bzero == 0
-	movq	%r9,%rax
-.endif
-	ret
-1:
-	rep
-	stosb
-.if \bzero == 0
-	movq	%r9,%rax
-.endif
-	ret
-.endm
+#define	DEFINE_IFUNC(qual, ret_type, name, args, resolver_qual)		\
+    resolver_qual ret_type (*name##_resolver(void))args __used;		\
+    qual ret_type name args __attribute__((ifunc(#name "_resolver")));	\
+    resolver_qual ret_type (*name##_resolver(void))args
 
-#ifndef BZERO
-ENTRY(memset)
-	MEMSET bzero=0
-END(memset)
-#else
-ENTRY(bzero)
-	MEMSET bzero=1
-END(bzero)
+#define	DEFINE_UIFUNC(qual, ret_type, name, args, resolver_qual)	\
+    resolver_qual ret_type (*name##_resolver(uint64_t, uint64_t,	\
+	uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,		\
+	uint64_t))args __used;						\
+    qual ret_type name args __attribute__((ifunc(#name "_resolver")));	\
+    resolver_qual ret_type (*name##_resolver(uint64_t _arg1 __unused,	\
+	uint64_t _arg2 __unused, uint64_t _arg3 __unused,		\
+	uint64_t _arg4 __unused, uint64_t _arg5 __unused,		\
+	uint64_t _arg6 __unused, uint64_t _arg7 __unused,		\
+	uint64_t _arg8 __unused))args
+
 #endif
-
-	.section .note.GNU-stack,"",%progbits
