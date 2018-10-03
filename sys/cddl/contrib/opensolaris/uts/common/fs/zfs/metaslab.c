@@ -541,8 +541,8 @@ metaslab_class_expandable_space(metaslab_class_t *mc)
 static int
 metaslab_compare(const void *x1, const void *x2)
 {
-	const metaslab_t *m1 = x1;
-	const metaslab_t *m2 = x2;
+	const metaslab_t *m1 = (const metaslab_t *)x1;
+	const metaslab_t *m2 = (const metaslab_t *)x2;
 
 	int sort1 = 0;
 	int sort2 = 0;
@@ -568,22 +568,13 @@ metaslab_compare(const void *x1, const void *x2)
 	if (sort1 > sort2)
 		return (1);
 
-	if (m1->ms_weight < m2->ms_weight)
-		return (1);
-	if (m1->ms_weight > m2->ms_weight)
-		return (-1);
+	int cmp = AVL_CMP(m2->ms_weight, m1->ms_weight);
+	if (likely(cmp))
+		return (cmp);
 
-	/*
-	 * If the weights are identical, use the offset to force uniqueness.
-	 */
-	if (m1->ms_start < m2->ms_start)
-		return (-1);
-	if (m1->ms_start > m2->ms_start)
-		return (1);
+	IMPLY(AVL_CMP(m1->ms_start, m2->ms_start) == 0, m1 == m2);
 
-	ASSERT3P(m1, ==, m2);
-
-	return (0);
+	return (AVL_CMP(m1->ms_start, m2->ms_start));
 }
 
 /*
@@ -1090,7 +1081,7 @@ metaslab_group_fragmentation(metaslab_group_t *mg)
  */
 static boolean_t
 metaslab_group_allocatable(metaslab_group_t *mg, metaslab_group_t *rotor,
-    uint64_t psize, int allocator)
+    uint64_t psize, int allocator, int d)
 {
 	spa_t *spa = mg->mg_vd->vdev_spa;
 	metaslab_class_t *mc = mg->mg_class;
@@ -1131,6 +1122,13 @@ metaslab_group_allocatable(metaslab_group_t *mg, metaslab_group_t *rotor,
 		if (mg->mg_no_free_space)
 			return (B_FALSE);
 
+		/*
+		 * Relax allocation throttling for ditto blocks.  Due to
+		 * random imbalances in allocation it tends to push copies
+		 * to one vdev, that looks a bit better at the moment.
+		 */
+		qmax = qmax * (4 + d) / 4;
+
 		qdepth = refcount_count(&mg->mg_alloc_queue_depth[allocator]);
 
 		/*
@@ -1151,7 +1149,7 @@ metaslab_group_allocatable(metaslab_group_t *mg, metaslab_group_t *rotor,
 		 */
 		for (mgp = mg->mg_next; mgp != rotor; mgp = mgp->mg_next) {
 			qmax = mgp->mg_cur_max_alloc_queue_depth[allocator];
-
+			qmax = qmax * (4 + d) / 4;
 			qdepth = refcount_count(
 			    &mgp->mg_alloc_queue_depth[allocator]);
 
@@ -1195,18 +1193,14 @@ metaslab_rangesize_compare(const void *x1, const void *x2)
 	uint64_t rs_size1 = r1->rs_end - r1->rs_start;
 	uint64_t rs_size2 = r2->rs_end - r2->rs_start;
 
-	if (rs_size1 < rs_size2)
-		return (-1);
-	if (rs_size1 > rs_size2)
-		return (1);
+	int cmp = AVL_CMP(rs_size1, rs_size2);
+	if (likely(cmp))
+		return (cmp);
 
 	if (r1->rs_start < r2->rs_start)
 		return (-1);
 
-	if (r1->rs_start > r2->rs_start)
-		return (1);
-
-	return (0);
+	return (AVL_CMP(r1->rs_start, r2->rs_start));
 }
 
 /*
@@ -3094,7 +3088,6 @@ metaslab_group_alloc_normal(metaslab_group_t *mg, zio_alloc_list_t *zal,
 	metaslab_t *msp = NULL;
 	uint64_t offset = -1ULL;
 	uint64_t activation_weight;
-	boolean_t tertiary = B_FALSE;
 
 	activation_weight = METASLAB_WEIGHT_PRIMARY;
 	for (int i = 0; i < d; i++) {
@@ -3103,7 +3096,7 @@ metaslab_group_alloc_normal(metaslab_group_t *mg, zio_alloc_list_t *zal,
 			activation_weight = METASLAB_WEIGHT_SECONDARY;
 		} else if (activation_weight == METASLAB_WEIGHT_SECONDARY &&
 		    DVA_GET_VDEV(&dva[i]) == mg->mg_vd->vdev_id) {
-			tertiary = B_TRUE;
+			activation_weight = METASLAB_WEIGHT_CLAIM;
 			break;
 		}
 	}
@@ -3112,10 +3105,8 @@ metaslab_group_alloc_normal(metaslab_group_t *mg, zio_alloc_list_t *zal,
 	 * If we don't have enough metaslabs active to fill the entire array, we
 	 * just use the 0th slot.
 	 */
-	if (mg->mg_ms_ready < mg->mg_allocators * 2) {
-		tertiary = B_FALSE;
+	if (mg->mg_ms_ready < mg->mg_allocators * 3)
 		allocator = 0;
-	}
 
 	ASSERT3U(mg->mg_vd->vdev_ms_count, >=, 2);
 
@@ -3141,7 +3132,7 @@ metaslab_group_alloc_normal(metaslab_group_t *mg, zio_alloc_list_t *zal,
 			msp = mg->mg_primaries[allocator];
 			was_active = B_TRUE;
 		} else if (activation_weight == METASLAB_WEIGHT_SECONDARY &&
-		    mg->mg_secondaries[allocator] != NULL && !tertiary) {
+		    mg->mg_secondaries[allocator] != NULL) {
 			msp = mg->mg_secondaries[allocator];
 			was_active = B_TRUE;
 		} else {
@@ -3184,7 +3175,8 @@ metaslab_group_alloc_normal(metaslab_group_t *mg, zio_alloc_list_t *zal,
 			continue;
 		}
 
-		if (msp->ms_weight & METASLAB_WEIGHT_CLAIM) {
+		if (msp->ms_weight & METASLAB_WEIGHT_CLAIM &&
+		    activation_weight != METASLAB_WEIGHT_CLAIM) {
 			metaslab_passivate(msp, msp->ms_weight &
 			    ~METASLAB_WEIGHT_CLAIM);
 			mutex_exit(&msp->ms_lock);
@@ -3439,7 +3431,7 @@ top:
 		 */
 		if (allocatable && !GANG_ALLOCATION(flags) && !try_hard) {
 			allocatable = metaslab_group_allocatable(mg, rotor,
-			    psize, allocator);
+			    psize, allocator, d);
 		}
 
 		if (!allocatable) {
