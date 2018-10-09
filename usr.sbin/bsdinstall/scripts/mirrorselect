@@ -41,7 +41,6 @@ DEVEL|PLAYGROUND)
 	_BUILD_BRANCH=`echo ${_HBSD_VERSION} | cut -d ':' -f 2`
 	_BUILD_NUMBER=`echo ${_HBSD_VERSION} | cut -d ':' -f 3`
 
-<<<<<<< HEAD
 	exec 3>&1
 	MIRROR=`dialog --backtitle "HardenedBSD Installer" \
 	    --title "Mirror Selection - development and experimental version" \
@@ -84,11 +83,6 @@ DEVEL|PLAYGROUND)
 		;;
 	11.*)
 		_hbsd_dist_dir="pub/HardenedBSD/releases/`uname -m`/`uname -p`/hardenedbsd-11-stable-LAST"
-=======
-case ${_UNAME_R} in
-	*-ALPHA*|*-CURRENT|*-STABLE|*-PRERELEASE)
-		RELDIR="snapshots"
->>>>>>> origin/freebsd/current/master
 		;;
 	*)
 		_hbsd_dist_dir="pub/HardenedBSD/releases/`uname -m`/`uname -p`/hardenedbsd-master-LAST"
