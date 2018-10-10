@@ -36,13 +36,9 @@ CFLAGS+=	-I${.OBJDIR:H}/libcrypto
 PICFLAG+=	-DOPENSS_PIC
 
 .PATH:	${LCRYPTO_SRC}/ssl \
-<<<<<<< HEAD
-	${.CURDIR}/man
+	${LCRYPTO_SRC}/ssl/record \
+	${LCRYPTO_SRC}/ssl/statem
 
 .else
 .include "Makefile.libressl"
 .endif # ${MK_LIBRESSL} != "no"
-=======
-	${LCRYPTO_SRC}/ssl/record \
-	${LCRYPTO_SRC}/ssl/statem
->>>>>>> origin/freebsd/current/master
