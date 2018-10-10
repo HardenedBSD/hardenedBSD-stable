@@ -63,6 +63,7 @@ seed_something(void)
        we do not have to deal with it. */
     if (RAND_status() != 1) {
 #ifndef _WIN32
+#ifndef OPENSSL_NO_EGD
 	krb5_context context;
 	const char *p;
 
