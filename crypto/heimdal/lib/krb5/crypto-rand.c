@@ -67,7 +67,6 @@ seed_something(void)
 	krb5_context context;
 	const char *p;
 
-#ifndef OPENSSL_NO_EGD
 	/* Try using egd */
 	if (!krb5_init_context(&context)) {
 	    p = krb5_config_get_string(context, NULL, "libdefaults",
