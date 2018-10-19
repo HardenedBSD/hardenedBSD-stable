@@ -2703,11 +2703,9 @@ sysctl_debug_witness_badstacks(SYSCTL_HANDLER_ARGS)
 	struct sbuf *sb;
 	int error;
 
-	if (!unprivileged_read_msgbuf) {
-		error = priv_check(req->td, PRIV_MSGBUF);
-		if (error)
-			return (error);
-	}
+	error = priv_check(req->td, PRIV_MSGBUF);
+	if (error)
+		return (error);
 
 	if (witness_watch < 1) {
 		error = SYSCTL_OUT(req, w_notrunning, sizeof(w_notrunning));
@@ -2795,11 +2793,9 @@ sysctl_debug_witness_fullgraph(SYSCTL_HANDLER_ARGS)
 	struct sbuf *sb;
 	int error;
 
-	if (!unprivileged_read_msgbuf) {
-		error = priv_check(req->td, PRIV_MSGBUF);
-		if (error)
-			return (error);
-	}
+	error = priv_check(req->td, PRIV_MSGBUF);
+	if (error)
+		return (error);
 
 #ifdef __i386__
 	error = SYSCTL_OUT(req, w_notallowed, sizeof(w_notallowed));
