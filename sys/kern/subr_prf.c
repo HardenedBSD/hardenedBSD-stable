@@ -1087,18 +1087,6 @@ msgbufinit(void *ptr, int size)
 	oldp = msgbufp;
 }
 
-<<<<<<< HEAD
-#ifdef PAX_HARDENING
-int unprivileged_read_msgbuf = 0;
-#else
-int unprivileged_read_msgbuf = 1;
-#endif
-SYSCTL_INT(_security_bsd, OID_AUTO, unprivileged_read_msgbuf,
-    CTLFLAG_RW, &unprivileged_read_msgbuf, 0,
-    "Unprivileged processes may read the kernel message buffer");
-
-=======
->>>>>>> origin/freebsd/11-stable/master
 /* Sysctls for accessing/clearing the msgbuf */
 static int
 sysctl_kern_msgbuf(SYSCTL_HANDLER_ARGS)
