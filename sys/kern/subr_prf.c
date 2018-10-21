@@ -1087,6 +1087,7 @@ msgbufinit(void *ptr, int size)
 	oldp = msgbufp;
 }
 
+<<<<<<< HEAD
 #ifdef PAX_HARDENING
 int unprivileged_read_msgbuf = 0;
 #else
@@ -1096,6 +1097,8 @@ SYSCTL_INT(_security_bsd, OID_AUTO, unprivileged_read_msgbuf,
     CTLFLAG_RW, &unprivileged_read_msgbuf, 0,
     "Unprivileged processes may read the kernel message buffer");
 
+=======
+>>>>>>> origin/freebsd/11-stable/master
 /* Sysctls for accessing/clearing the msgbuf */
 static int
 sysctl_kern_msgbuf(SYSCTL_HANDLER_ARGS)
@@ -1104,11 +1107,9 @@ sysctl_kern_msgbuf(SYSCTL_HANDLER_ARGS)
 	u_int seq;
 	int error, len;
 
-	if (!unprivileged_read_msgbuf) {
-		error = priv_check(req->td, PRIV_MSGBUF);
-		if (error)
-			return (error);
-	}
+	error = priv_check(req->td, PRIV_MSGBUF);
+	if (error)
+		return (error);
 
 	/* Read the whole buffer, one chunk at a time. */
 	mtx_lock(&msgbuf_lock);
