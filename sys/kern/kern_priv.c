@@ -63,7 +63,7 @@ SYSCTL_INT(_security_bsd, OID_AUTO, unprivileged_mlock, CTLFLAG_RWTUN,
     &unprivileged_mlock, 0, "Allow non-root users to call mlock(2)");
 
 #ifdef PAX_HARDENING
-static int	unprivileged_read_msgbuf;
+static int	unprivileged_read_msgbuf = 0;
 #else
 static int	unprivileged_read_msgbuf = 1;
 #endif
