@@ -30,6 +30,8 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "opt_compat.h"
+
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 #include "opt_compat.h"
@@ -1137,7 +1139,7 @@ linux_elf_modevent(module_t mod, int type, void *data)
 				error = EINVAL;
 		if (error == 0) {
 			SET_FOREACH(lihp, linux_ioctl_handler_set)
-				linux_ioctl_register_handler(*lihp);
+				linux32_ioctl_register_handler(*lihp);
 			LIST_INIT(&futex_list);
 			mtx_init(&futex_mtx, "ftllk", NULL, MTX_DEF);
 			stclohz = (stathz ? stathz : hz);
@@ -1159,7 +1161,7 @@ linux_elf_modevent(module_t mod, int type, void *data)
 		}
 		if (error == 0) {
 			SET_FOREACH(lihp, linux_ioctl_handler_set)
-				linux_ioctl_unregister_handler(*lihp);
+				linux32_ioctl_unregister_handler(*lihp);
 			mtx_destroy(&futex_mtx);
 			if (bootverbose)
 				printf("Linux ELF exec handler removed\n");
