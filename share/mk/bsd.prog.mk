@@ -108,14 +108,8 @@ LDFLAGS+=	-Wl,-z,retpolineplt
 .endif
 .endif
 
-.if defined(MK_RELRO)
-.if ${MK_RELRO} != "no"
-LDFLAGS+=	-Wl,-z,relro
-.endif
-
-.if ${MK_BIND_NOW} != "no"
+.if defined(MK_BIND_NOW) && ${MK_BIND_NOW} != "no"
 LDFLAGS+=	-Wl,-z,now
-.endif
 .endif
 
 .if defined(MK_LIBRESSL) && ${MK_LIBRESSL} != "no"
