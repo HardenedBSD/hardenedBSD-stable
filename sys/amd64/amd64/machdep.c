@@ -1728,6 +1728,11 @@ hammer_time(u_int64_t modulep, u_int64_t physfree)
 	    != NULL)
 		vty_set_preferred(VTY_VT);
 
+	TUNABLE_INT_FETCH("hw.ibrs_disable", &hw_ibrs_disable);
+	TUNABLE_INT_FETCH("hw.spec_store_bypass_disable", &hw_ssb_disable);
+	TUNABLE_INT_FETCH("machdep.syscall_ret_l1d_flush",
+	    &syscall_ret_l1d_flush_mode);
+
 	finishidentcpu();	/* Final stage of CPU initialization */
 	initializecpu();	/* Initialize CPU registers */
 
@@ -1875,9 +1880,6 @@ hammer_time(u_int64_t modulep, u_int64_t physfree)
 	x86_init_fdt();
 #endif
 	thread0.td_critnest = 0;
-
-	TUNABLE_INT_FETCH("hw.ibrs_disable", &hw_ibrs_disable);
-	TUNABLE_INT_FETCH("hw.spec_store_bypass_disable", &hw_ssb_disable);
 
 	TSEXIT();
 
@@ -2701,25 +2703,31 @@ DEFINE_IFUNC(, void *, memset, (void *, int, size_t), static)
 {
 
 	return ((cpu_stdext_feature & CPUID_STDEXT_ERMS) != 0 ?
-		memset_erms : memset_std);
+	    memset_erms : memset_std);
 }
 
-void    *memmove_std(void * _Nonnull dst, const void * _Nonnull src, size_t len);
-void    *memmove_erms(void * _Nonnull dst, const void * _Nonnull src, size_t len);
-DEFINE_IFUNC(, void *, memmove, (void * _Nonnull, const void * _Nonnull, size_t), static)
+void    *memmove_std(void * _Nonnull dst, const void * _Nonnull src,
+	    size_t len);
+void    *memmove_erms(void * _Nonnull dst, const void * _Nonnull src,
+	    size_t len);
+DEFINE_IFUNC(, void *, memmove, (void * _Nonnull, const void * _Nonnull,
+    size_t), static)
 {
 
 	return ((cpu_stdext_feature & CPUID_STDEXT_ERMS) != 0 ?
-		memmove_erms : memmove_std);
+	    memmove_erms : memmove_std);
 }
 
-void    *memcpy_std(void * _Nonnull dst, const void * _Nonnull src, size_t len);
-void    *memcpy_erms(void * _Nonnull dst, const void * _Nonnull src, size_t len);
-DEFINE_IFUNC(, void *, memcpy, (void * _Nonnull, const void * _Nonnull, size_t), static)
+void    *memcpy_std(void * _Nonnull dst, const void * _Nonnull src,
+	    size_t len);
+void    *memcpy_erms(void * _Nonnull dst, const void * _Nonnull src,
+	    size_t len);
+DEFINE_IFUNC(, void *, memcpy, (void * _Nonnull, const void * _Nonnull,size_t),
+    static)
 {
 
 	return ((cpu_stdext_feature & CPUID_STDEXT_ERMS) != 0 ?
-		memcpy_erms : memcpy_std);
+	    memcpy_erms : memcpy_std);
 }
 
 void	pagezero_std(void *addr);
@@ -2728,5 +2736,5 @@ DEFINE_IFUNC(, void , pagezero, (void *), static)
 {
 
 	return ((cpu_stdext_feature & CPUID_STDEXT_ERMS) != 0 ?
-		pagezero_erms : pagezero_std);
+	    pagezero_erms : pagezero_std);
 }
