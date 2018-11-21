@@ -9,9 +9,12 @@ MK_CFI=	no
 .PATH:	${SRCTOP}/contrib/ntp/ntpd \
 	${.OBJDIR}
 
+DIRS=	ETC_NTP
+ETC_NTP=	/etc/ntp
+ETC_NTP_MODE=	0700
 CONFS=	ntp.conf
 FILES=	leap-seconds
-FILESDIR=	/etc/ntp
+FILESDIR=	ETC_NTP
 FILESMODE=	644
 PROG=	ntpd
 
