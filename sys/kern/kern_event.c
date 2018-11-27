@@ -535,8 +535,9 @@ knote_fork(struct knlist *list, int pid)
 
 	if (list == NULL)
 		return;
-	list->kl_lock(list->kl_lockarg);
 
+	memset(&kev, 0, sizeof(kev));
+	list->kl_lock(list->kl_lockarg);
 	SLIST_FOREACH(kn, &list->kl_list, kn_selnext) {
 		kq = kn->kn_kq;
 		KQ_LOCK(kq);
@@ -602,10 +603,10 @@ knote_fork(struct knlist *list, int pid)
 			kn->kn_fflags |= NOTE_TRACKERR;
 		if (kn->kn_fop->f_event(kn, NOTE_FORK))
 			KNOTE_ACTIVATE(kn, 0);
+		list->kl_lock(list->kl_lockarg);
 		KQ_LOCK(kq);
 		kn_leave_flux(kn);
 		KQ_UNLOCK_FLUX(kq);
-		list->kl_lock(list->kl_lockarg);
 	}
 	list->kl_unlock(list->kl_lockarg);
 }
