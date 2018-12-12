@@ -228,7 +228,6 @@ CFLAGS+=	-fstack-protector
 
 .if defined(MK_RETPOLINE) && ${MK_RETPOLINE} != "no"
 CFLAGS+=	-mretpoline
-LDFLAGS+=	-Wl,-z,retpoline
 .endif
 
 #
