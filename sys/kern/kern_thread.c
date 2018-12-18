@@ -206,7 +206,7 @@ thread_ctor(void *mem, int size, void *arg, int flags)
 
 	td = (struct thread *)mem;
 	td->td_state = TDS_INACTIVE;
-	td->td_oncpu = NOCPU;
+	td->td_lastcpu = td->td_oncpu = NOCPU;
 
 	td->td_tid = tid_alloc();
 
