@@ -25,7 +25,7 @@ options		HZ=100
 
 makeoptions	DEBUG=-g		# Build kernel with gdb(1) debug symbols
 #makeoptions	WITH_CTF=1		# Run ctfconvert(1) for DTrace support
-makeoptions	MODULES_OVERRIDE="usb/umodem usb/u3g usb/umass usb/ucom usb/uplcom urtwn urtwnfw drm2/drm2 drm2/i915kms vmm nmdm if_bridge bridgestp ipfw_nat libalias tmpfs if_tap hwpmc wlan_xauth cd9660"
+makeoptions	MODULES_OVERRIDE="usb/umodem usb/u3g usb/umass usb/ucom usb/uplcom urtwn urtwnfw drm2/drm2 drm2/i915kms drm2/radeonkms drm2/radeonkmsfw/CEDAR_me drm2/radeonkmsfw/CEDAR_pfp drm2/radeonkmsfw/CEDAR_rlc vmm nmdm if_bridge bridgestp ipfw_nat libalias tmpfs if_tap hwpmc wlan_xauth cd9660"
 
 options 	SCHED_ULE		# ULE scheduler
 options 	NUMA			# Non-Uniform Memory Architecture support
