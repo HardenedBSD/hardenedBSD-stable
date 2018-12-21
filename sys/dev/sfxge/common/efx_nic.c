@@ -217,7 +217,8 @@ efx_nic_create(
 		    EFX_FEATURE_MCDI_DMA |
 		    EFX_FEATURE_PIO_BUFFERS |
 		    EFX_FEATURE_FW_ASSISTED_TSO |
-		    EFX_FEATURE_FW_ASSISTED_TSO_V2;
+		    EFX_FEATURE_FW_ASSISTED_TSO_V2 |
+		    EFX_FEATURE_TXQ_CKSUM_OP_DESC;
 		break;
 #endif	/* EFSYS_OPT_HUNTINGTON */
 
@@ -236,7 +237,8 @@ efx_nic_create(
 		    EFX_FEATURE_MAC_HEADER_FILTERS |
 		    EFX_FEATURE_MCDI_DMA |
 		    EFX_FEATURE_PIO_BUFFERS |
-		    EFX_FEATURE_FW_ASSISTED_TSO_V2;
+		    EFX_FEATURE_FW_ASSISTED_TSO_V2 |
+		    EFX_FEATURE_TXQ_CKSUM_OP_DESC;
 		break;
 #endif	/* EFSYS_OPT_MEDFORD */
 
@@ -684,13 +686,12 @@ efx_mcdi_get_loopback_modes(
 {
 	efx_nic_cfg_t *encp = &(enp->en_nic_cfg);
 	efx_mcdi_req_t req;
-	uint8_t payload[MAX(MC_CMD_GET_LOOPBACK_MODES_IN_LEN,
-			    MC_CMD_GET_LOOPBACK_MODES_OUT_LEN)];
+	EFX_MCDI_DECLARE_BUF(payload, MC_CMD_GET_LOOPBACK_MODES_IN_LEN,
+		MC_CMD_GET_LOOPBACK_MODES_OUT_LEN);
 	efx_qword_t mask;
 	efx_qword_t modes;
 	efx_rc_t rc;
 
-	(void) memset(payload, 0, sizeof (payload));
 	req.emr_cmd = MC_CMD_GET_LOOPBACK_MODES;
 	req.emr_in_buf = payload;
 	req.emr_in_length = MC_CMD_GET_LOOPBACK_MODES_IN_LEN;

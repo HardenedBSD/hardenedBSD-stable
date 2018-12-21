@@ -1086,6 +1086,7 @@ efx_bist_stop(
 #define	EFX_FEATURE_PIO_BUFFERS		0x00000800
 #define	EFX_FEATURE_FW_ASSISTED_TSO	0x00001000
 #define	EFX_FEATURE_FW_ASSISTED_TSO_V2	0x00002000
+#define	EFX_FEATURE_TXQ_CKSUM_OP_DESC	0x00008000
 
 typedef enum efx_tunnel_protocol_e {
 	EFX_TUNNEL_PROTOCOL_NONE = 0,
@@ -1999,9 +2000,11 @@ efx_tx_fini(
 
 #define	EFX_TXQ_MAX_BUFS 8 /* Maximum independent of EFX_BUG35388_WORKAROUND. */
 
-#define	EFX_TXQ_CKSUM_IPV4	0x0001
-#define	EFX_TXQ_CKSUM_TCPUDP	0x0002
-#define	EFX_TXQ_FATSOV2		0x0004
+#define	EFX_TXQ_CKSUM_IPV4		0x0001
+#define	EFX_TXQ_CKSUM_TCPUDP		0x0002
+#define	EFX_TXQ_FATSOV2			0x0004
+#define	EFX_TXQ_CKSUM_INNER_IPV4	0x0008
+#define	EFX_TXQ_CKSUM_INNER_TCPUDP	0x0010
 
 extern	__checkReturn	efx_rc_t
 efx_tx_qcreate(
@@ -2108,6 +2111,12 @@ extern	void
 efx_tx_qdesc_vlantci_create(
 	__in	efx_txq_t *etp,
 	__in	uint16_t tci,
+	__out	efx_desc_t *edp);
+
+extern	void
+efx_tx_qdesc_checksum_create(
+	__in	efx_txq_t *etp,
+	__in	uint16_t flags,
 	__out	efx_desc_t *edp);
 
 #if EFSYS_OPT_QSTATS
