@@ -522,7 +522,7 @@ efx_lic_v1v2_find_key(
 	return (found);
 
 fail1:
-	EFSYS_PROBE(fail1);
+	EFSYS_PROBE1(fail1, boolean_t, B_FALSE);
 
 	return (B_FALSE);
 }
@@ -565,7 +565,7 @@ fail3:
 fail2:
 	EFSYS_PROBE(fail2);
 fail1:
-	EFSYS_PROBE(fail1);
+	EFSYS_PROBE1(fail1, boolean_t, B_FALSE);
 
 	return (B_FALSE);
 }
@@ -587,7 +587,7 @@ efx_lic_v1v2_read_key(
 {
 	efx_rc_t rc;
 
-	_NOTE(ARGUNUSED(enp))
+	_NOTE(ARGUNUSED(enp, buffer_size))
 	EFSYS_ASSERT(length <= (EFX_LICENSE_V1V2_PAYLOAD_LENGTH_MAX +
 	    EFX_LICENSE_V1V2_HEADER_LENGTH));
 
@@ -659,7 +659,7 @@ efx_lic_v1v2_delete_key(
 	uint32_t move_start = offset + length;
 	uint32_t move_length = end - move_start;
 
-	_NOTE(ARGUNUSED(enp))
+	_NOTE(ARGUNUSED(enp, buffer_size))
 	EFSYS_ASSERT(end <= buffer_size);
 
 	/* Shift everything after the key down */
@@ -678,7 +678,7 @@ efx_lic_v1v2_create_partition(
 	__in			size_t buffer_size
 	)
 {
-	_NOTE(ARGUNUSED(enp))
+	_NOTE(ARGUNUSED(enp, buffer_size))
 	EFSYS_ASSERT(EFX_LICENSE_V1V2_HEADER_LENGTH <= buffer_size);
 
 	/* Write terminator */
@@ -1187,7 +1187,7 @@ fail3:
 fail2:
 	EFSYS_PROBE(fail2);
 fail1:
-	EFSYS_PROBE(fail1);
+	EFSYS_PROBE1(fail1, boolean_t, B_FALSE);
 
 	return (B_FALSE);
 }

@@ -557,7 +557,7 @@ efx_mcdi_alloc_vis(
 {
 	efx_mcdi_req_t req;
 	uint8_t payload[MAX(MC_CMD_ALLOC_VIS_IN_LEN,
-			    MC_CMD_ALLOC_VIS_OUT_LEN)];
+			    MC_CMD_ALLOC_VIS_EXT_OUT_LEN)];
 	efx_rc_t rc;
 
 	if (vi_countp == NULL) {
@@ -570,7 +570,7 @@ efx_mcdi_alloc_vis(
 	req.emr_in_buf = payload;
 	req.emr_in_length = MC_CMD_ALLOC_VIS_IN_LEN;
 	req.emr_out_buf = payload;
-	req.emr_out_length = MC_CMD_ALLOC_VIS_OUT_LEN;
+	req.emr_out_length = MC_CMD_ALLOC_VIS_EXT_OUT_LEN;
 
 	MCDI_IN_SET_DWORD(req, ALLOC_VIS_IN_MIN_VI_COUNT, min_vi_count);
 	MCDI_IN_SET_DWORD(req, ALLOC_VIS_IN_MAX_VI_COUNT, max_vi_count);
@@ -823,7 +823,7 @@ fail1:
 	for (i = 0; i < enp->en_arch.ef10.ena_piobuf_count; i++) {
 		handlep = &enp->en_arch.ef10.ena_piobuf_handle[i];
 
-		efx_mcdi_free_piobuf(enp, *handlep);
+		(void) efx_mcdi_free_piobuf(enp, *handlep);
 		*handlep = EFX_PIOBUF_HANDLE_INVALID;
 	}
 	enp->en_arch.ef10.ena_piobuf_count = 0;
@@ -840,7 +840,7 @@ ef10_nic_free_piobufs(
 	for (i = 0; i < enp->en_arch.ef10.ena_piobuf_count; i++) {
 		handlep = &enp->en_arch.ef10.ena_piobuf_handle[i];
 
-		efx_mcdi_free_piobuf(enp, *handlep);
+		(void) efx_mcdi_free_piobuf(enp, *handlep);
 		*handlep = EFX_PIOBUF_HANDLE_INVALID;
 	}
 	enp->en_arch.ef10.ena_piobuf_count = 0;
@@ -1116,6 +1116,16 @@ ef10_get_datapath_caps(
 	 */
 	encp->enc_mac_stats_40g_tx_size_bins =
 	    CAP_FLAG2(flags2, MAC_STATS_40G_TX_SIZE_BINS) ? B_TRUE : B_FALSE;
+
+	/*
+	 * Check if firmware supports VXLAN and NVGRE tunnels.
+	 * The capability indicates Geneve protocol support as well.
+	 */
+	if (CAP_FLAG(flags, VXLAN_NVGRE))
+		encp->enc_tunnel_encapsulations_supported =
+		    (1u << EFX_TUNNEL_PROTOCOL_VXLAN) |
+		    (1u << EFX_TUNNEL_PROTOCOL_GENEVE) |
+		    (1u << EFX_TUNNEL_PROTOCOL_NVGRE);
 
 #undef CAP_FLAG
 #undef CAP_FLAG2

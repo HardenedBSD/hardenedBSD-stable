@@ -130,7 +130,7 @@ efx_mcdi_fini_rxq(
 
 	efx_mcdi_execute_quiet(enp, &req);
 
-	if ((req.emr_rc != 0) && (req.emr_rc != MC_CMD_ERR_EALREADY)) {
+	if (req.emr_rc != 0) {
 		rc = req.emr_rc;
 		goto fail1;
 	}
@@ -138,7 +138,12 @@ efx_mcdi_fini_rxq(
 	return (0);
 
 fail1:
-	EFSYS_PROBE1(fail1, efx_rc_t, rc);
+	/*
+	 * EALREADY is not an error, but indicates that the MC has rebooted and
+	 * that the RXQ has already been destroyed.
+	 */
+	if (rc != EALREADY)
+		EFSYS_PROBE1(fail1, efx_rc_t, rc);
 
 	return (rc);
 }
@@ -652,6 +657,8 @@ ef10_rx_qpost(
 	unsigned int offset;
 	unsigned int id;
 
+	_NOTE(ARGUNUSED(completed))
+
 	/* The client driver must not overfill the queue */
 	EFSYS_ASSERT3U(added - completed + n, <=,
 	    EFX_RXQ_LIMIT(erp->er_mask + 1));
@@ -720,7 +727,14 @@ ef10_rx_qflush(
 	return (0);
 
 fail1:
-	EFSYS_PROBE1(fail1, efx_rc_t, rc);
+	/*
+	 * EALREADY is not an error, but indicates that the MC has rebooted and
+	 * that the RXQ has already been destroyed. Callers need to know that
+	 * the RXQ flush has completed to avoid waiting until timeout for a
+	 * flush done event that will not be delivered.
+	 */
+	if (rc != EALREADY)
+		EFSYS_PROBE1(fail1, efx_rc_t, rc);
 
 	return (rc);
 }

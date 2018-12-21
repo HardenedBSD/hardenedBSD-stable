@@ -462,10 +462,11 @@ efx_nvram_validate(
 	if ((rc = envop->envo_type_to_partn(enp, type, &partn)) != 0)
 		goto fail1;
 
-	if (envop->envo_type_to_partn != NULL &&
-	    ((rc = envop->envo_buffer_validate(enp, partn,
-	    partn_data, partn_size)) != 0))
-		goto fail2;
+	if (envop->envo_buffer_validate != NULL) {
+		if ((rc = envop->envo_buffer_validate(enp, partn,
+			    partn_data, partn_size)) != 0)
+			goto fail2;
+	}
 
 	return (0);
 
@@ -859,27 +860,31 @@ efx_mcdi_nvram_write(
 	__in			efx_nic_t *enp,
 	__in			uint32_t partn,
 	__in			uint32_t offset,
-	__out_bcount(size)	caddr_t data,
+	__in_bcount(size)	caddr_t data,
 	__in			size_t size)
 {
 	efx_mcdi_req_t req;
-	uint8_t payload[MAX(MCDI_CTL_SDU_LEN_MAX_V1,
-			    MCDI_CTL_SDU_LEN_MAX_V2)];
+	uint8_t *payload;
 	efx_rc_t rc;
 	size_t max_data_size;
+	size_t payload_len = enp->en_nic_cfg.enc_mcdi_max_payload_length;
 
-	max_data_size = enp->en_nic_cfg.enc_mcdi_max_payload_length
-	    - MC_CMD_NVRAM_WRITE_IN_LEN(0);
-	EFSYS_ASSERT3U(enp->en_nic_cfg.enc_mcdi_max_payload_length, >, 0);
-	EFSYS_ASSERT3U(max_data_size, <,
-		    enp->en_nic_cfg.enc_mcdi_max_payload_length);
+	max_data_size = payload_len - MC_CMD_NVRAM_WRITE_IN_LEN(0);
+	EFSYS_ASSERT3U(payload_len, >, 0);
+	EFSYS_ASSERT3U(max_data_size, <, payload_len);
 
 	if (size > max_data_size) {
 		rc = EINVAL;
 		goto fail1;
 	}
 
-	(void) memset(payload, 0, sizeof (payload));
+	EFSYS_KMEM_ALLOC(enp->en_esip, payload_len, payload);
+	if (payload == NULL) {
+		rc = ENOMEM;
+		goto fail2;
+	}
+
+	(void) memset(payload, 0, payload_len);
 	req.emr_cmd = MC_CMD_NVRAM_WRITE;
 	req.emr_in_buf = payload;
 	req.emr_in_length = MC_CMD_NVRAM_WRITE_IN_LEN(size);
@@ -897,11 +902,16 @@ efx_mcdi_nvram_write(
 
 	if (req.emr_rc != 0) {
 		rc = req.emr_rc;
-		goto fail2;
+		goto fail3;
 	}
+
+	EFSYS_KMEM_FREE(enp->en_esip, payload_len, payload);
 
 	return (0);
 
+fail3:
+	EFSYS_PROBE(fail3);
+	EFSYS_KMEM_FREE(enp->en_esip, payload_len, payload);
 fail2:
 	EFSYS_PROBE(fail2);
 fail1:
@@ -926,7 +936,7 @@ efx_mcdi_nvram_update_finish(
 	efx_mcdi_req_t req;
 	uint8_t payload[MAX(MC_CMD_NVRAM_UPDATE_FINISH_V2_IN_LEN,
 			    MC_CMD_NVRAM_UPDATE_FINISH_V2_OUT_LEN)];
-	uint32_t result = 0; /* FIXME: use MC_CMD_NVRAM_VERIFY_RC_UNKNOWN */
+	uint32_t result = MC_CMD_NVRAM_VERIFY_RC_UNKNOWN;
 	efx_rc_t rc;
 
 	(void) memset(payload, 0, sizeof (payload));

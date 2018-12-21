@@ -67,10 +67,10 @@ efx_mcdi_init_txq(
 	efx_rc_t rc;
 
 	EFSYS_ASSERT(EFX_TXQ_MAX_BUFS >=
-	    EFX_TXQ_NBUFS(EFX_TXQ_MAXNDESCS(&enp->en_nic_cfg)));
+	    EFX_TXQ_NBUFS(enp->en_nic_cfg.enc_txq_max_ndescs));
 
 	npages = EFX_TXQ_NBUFS(size);
-	if (npages > MC_CMD_INIT_TXQ_IN_DMA_ADDR_MAXNUM) {
+	if (MC_CMD_INIT_TXQ_IN_LEN(npages) > sizeof (payload)) {
 		rc = EINVAL;
 		goto fail1;
 	}
@@ -151,7 +151,7 @@ efx_mcdi_fini_txq(
 
 	efx_mcdi_execute_quiet(enp, &req);
 
-	if ((req.emr_rc != 0) && (req.emr_rc != MC_CMD_ERR_EALREADY)) {
+	if (req.emr_rc != 0) {
 		rc = req.emr_rc;
 		goto fail1;
 	}
@@ -159,7 +159,12 @@ efx_mcdi_fini_txq(
 	return (0);
 
 fail1:
-	EFSYS_PROBE1(fail1, efx_rc_t, rc);
+	/*
+	 * EALREADY is not an error, but indicates that the MC has rebooted and
+	 * that the TXQ has already been destroyed.
+	 */
+	if (rc != EALREADY)
+		EFSYS_PROBE1(fail1, efx_rc_t, rc);
 
 	return (rc);
 }
@@ -284,10 +289,10 @@ ef10_tx_qpio_enable(
 
 fail3:
 	EFSYS_PROBE(fail3);
-	ef10_nic_pio_free(enp, etp->et_pio_bufnum, etp->et_pio_blknum);
-	etp->et_pio_size = 0;
+	(void) ef10_nic_pio_free(enp, etp->et_pio_bufnum, etp->et_pio_blknum);
 fail2:
 	EFSYS_PROBE(fail2);
+	etp->et_pio_size = 0;
 fail1:
 	EFSYS_PROBE1(fail1, efx_rc_t, rc);
 
@@ -302,10 +307,12 @@ ef10_tx_qpio_disable(
 
 	if (etp->et_pio_size != 0) {
 		/* Unlink the piobuf from this TXQ */
-		ef10_nic_pio_unlink(enp, etp->et_index);
+		if (ef10_nic_pio_unlink(enp, etp->et_index) != 0)
+			return;
 
 		/* Free the sub-allocated PIO block */
-		ef10_nic_pio_free(enp, etp->et_pio_bufnum, etp->et_pio_blknum);
+		(void) ef10_nic_pio_free(enp, etp->et_pio_bufnum,
+		    etp->et_pio_blknum);
 		etp->et_pio_size = 0;
 		etp->et_pio_write_offset = 0;
 	}
@@ -585,6 +592,8 @@ ef10_tx_qdesc_dma_create(
 	__in	boolean_t eop,
 	__out	efx_desc_t *edp)
 {
+	_NOTE(ARGUNUSED(etp))
+
 	/* No limitations on boundary crossing */
 	EFSYS_ASSERT(size <= etp->et_enp->en_nic_cfg.enc_tx_dma_desc_size_max);
 
@@ -608,6 +617,8 @@ ef10_tx_qdesc_tso_create(
 	__in	uint8_t  tcp_flags,
 	__out	efx_desc_t *edp)
 {
+	_NOTE(ARGUNUSED(etp))
+
 	EFSYS_PROBE4(tx_desc_tso_create, unsigned int, etp->et_index,
 		    uint16_t, ipv4_id, uint32_t, tcp_seq,
 		    uint8_t, tcp_flags);
@@ -630,6 +641,8 @@ ef10_tx_qdesc_tso2_create(
 	__out_ecount(count)	efx_desc_t *edp,
 	__in			int count)
 {
+	_NOTE(ARGUNUSED(etp, count))
+
 	EFSYS_PROBE4(tx_desc_tso2_create, unsigned int, etp->et_index,
 		    uint16_t, ipv4_id, uint32_t, tcp_seq,
 		    uint16_t, tcp_mss);
@@ -659,6 +672,8 @@ ef10_tx_qdesc_vlantci_create(
 	__in	uint16_t  tci,
 	__out	efx_desc_t *edp)
 {
+	_NOTE(ARGUNUSED(etp))
+
 	EFSYS_PROBE2(tx_desc_vlantci_create, unsigned int, etp->et_index,
 		    uint16_t, tci);
 
@@ -690,7 +705,14 @@ ef10_tx_qpace(
 	return (0);
 
 fail1:
-	EFSYS_PROBE1(fail1, efx_rc_t, rc);
+	/*
+	 * EALREADY is not an error, but indicates that the MC has rebooted and
+	 * that the TXQ has already been destroyed. Callers need to know that
+	 * the TXQ flush has completed to avoid waiting until timeout for a
+	 * flush done event that will not be delivered.
+	 */
+	if (rc != EALREADY)
+		EFSYS_PROBE1(fail1, efx_rc_t, rc);
 
 	return (rc);
 }

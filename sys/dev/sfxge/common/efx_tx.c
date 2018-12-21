@@ -303,14 +303,14 @@ efx_tx_qcreate(
 	__out		unsigned int *addedp)
 {
 	const efx_tx_ops_t *etxop = enp->en_etxop;
-	efx_nic_cfg_t *encp = &(enp->en_nic_cfg);
 	efx_txq_t *etp;
 	efx_rc_t rc;
 
 	EFSYS_ASSERT3U(enp->en_magic, ==, EFX_NIC_MAGIC);
 	EFSYS_ASSERT3U(enp->en_mod_flags, &, EFX_MOD_TX);
 
-	EFSYS_ASSERT3U(enp->en_tx_qcount + 1, <, encp->enc_txq_limit);
+	EFSYS_ASSERT3U(enp->en_tx_qcount + 1, <,
+	    enp->en_nic_cfg.enc_txq_limit);
 
 	/* Allocate an TXQ object */
 	EFSYS_KMEM_ALLOC(enp->en_esip, sizeof (efx_txq_t), etp);
@@ -913,7 +913,7 @@ siena_tx_qcreate(
 	    (1 << FRF_AZ_TX_DESCQ_LABEL_WIDTH));
 	EFSYS_ASSERT3U(label, <, EFX_EV_TX_NLABELS);
 
-	EFSYS_ASSERT(ISP2(EFX_TXQ_MAXNDESCS(encp)));
+	EFSYS_ASSERT(ISP2(encp->enc_txq_max_ndescs));
 	EFX_STATIC_ASSERT(ISP2(EFX_TXQ_MINNDESCS));
 
 	if (!ISP2(n) || (n < EFX_TXQ_MINNDESCS) || (n > EFX_EVQ_MAXNEVS)) {
@@ -925,7 +925,7 @@ siena_tx_qcreate(
 		goto fail2;
 	}
 	for (size = 0;
-	    (1 << size) <= (EFX_TXQ_MAXNDESCS(encp) / EFX_TXQ_MINNDESCS);
+	    (1 << size) <= (int)(encp->enc_txq_max_ndescs / EFX_TXQ_MINNDESCS);
 	    size++)
 		if ((1 << size) == (int)(n / EFX_TXQ_MINNDESCS))
 			break;
