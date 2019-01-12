@@ -1168,11 +1168,13 @@ main() {
 		exit 0
 	fi
 
-	set_kernel_config
-	res=${?}
-	if [ ${res} -gt 0 ]; then
-		cleanup
-		exit 1
+	if [ ${no_kernel} -eq 0 ]; then
+		set_kernel_config
+		res=${?}
+		if [ ${res} -gt 0 ]; then
+			cleanup
+			exit 1
+		fi
 	fi
 
 	if [ ${unsigned} -eq 0 ]; then
