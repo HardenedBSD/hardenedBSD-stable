@@ -1,6 +1,7 @@
 /*-
  * Copyright (c) 2017 The FreeBSD Foundation
  * All rights reserved.
+ * Copyright (c) 2018, 2019 Intel Corporation
  *
  * This software was developed by Konstantin Belousov <kib@FreeBSD.org>
  * under sponsorship from the FreeBSD Foundation.
@@ -34,12 +35,20 @@
 
 typedef uint32_t nfit_handle_t;
 
+enum nvdimm_root_ivar {
+	NVDIMM_ROOT_IVAR_ACPI_HANDLE,
+	NVDIMM_ROOT_IVAR_DEVICE_HANDLE,
+	NVDIMM_ROOT_IVAR_MAX,
+};
+__BUS_ACCESSOR(nvdimm_root, acpi_handle, NVDIMM_ROOT, ACPI_HANDLE, ACPI_HANDLE)
+__BUS_ACCESSOR(nvdimm_root, device_handle, NVDIMM_ROOT, DEVICE_HANDLE,
+    nfit_handle_t)
+
 struct nvdimm_dev {
 	device_t	nv_dev;
 	nfit_handle_t	nv_handle;
 	uint64_t	**nv_flush_addr;
 	int		nv_flush_addr_cnt;
-	int		nv_devs_idx;
 };
 
 enum SPA_mapping_type {
@@ -51,6 +60,7 @@ enum SPA_mapping_type {
 	SPA_TYPE_VOLATILE_VIRTUAL_CD	= 5,
 	SPA_TYPE_PERSISTENT_VIRTUAL_DISK= 6,
 	SPA_TYPE_PERSISTENT_VIRTUAL_CD	= 7,
+	SPA_TYPE_UNKNOWN		= 127,
 };
 
 struct SPA_mapping {
@@ -74,16 +84,12 @@ struct SPA_mapping {
 	bool			spa_g_proc_exiting;
 };
 
-struct nvdimm_ns_walk_ctx {
-	ACPI_STATUS	(*func)(ACPI_HANDLE, void *);
-	void		*arg;
-};
-
 extern struct SPA_mapping *spa_mappings;
 extern int spa_mappings_cnt;
 
 MALLOC_DECLARE(M_NVDIMM);
 
+enum SPA_mapping_type nvdimm_spa_type_from_uuid(struct uuid *);
 struct nvdimm_dev *nvdimm_find_by_handle(nfit_handle_t nv_handle);
 int nvdimm_iterate_nfit(ACPI_TABLE_NFIT *nfitbl, enum AcpiNfitType type,
     int (*cb)(void *, void *), void *arg);
