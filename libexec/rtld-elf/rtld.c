@@ -77,14 +77,12 @@ __FBSDID("$FreeBSD$");
 typedef void (*func_ptr_type)(void);
 typedef void * (*path_enum_proc) (const char *path, size_t len, void *arg);
 
-<<<<<<< HEAD
 #ifdef HARDENEDBSD
 struct integriforce_so_check {
 	char	 isc_path[MAXPATHLEN];
 	int	 isc_result;
 };
 #endif
-=======
 
 /* Variables that cannot be static: */
 extern struct r_debug r_debug; /* For GDB */
@@ -92,7 +90,6 @@ extern int _thread_autoinit_dummy_decl;
 extern char* __progname;
 extern void (*__cleanup)(void);
 
->>>>>>> origin/freebsd/12-stable/master
 
 /*
  * Function declarations.
