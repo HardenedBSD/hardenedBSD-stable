@@ -136,7 +136,11 @@ void ShadowBuilder::Start() {
 void ShadowBuilder::AddUnchecked(uptr begin, uptr end) {
   uint16_t *shadow_begin = MemToShadow(begin, shadow_);
   uint16_t *shadow_end = MemToShadow(end - 1, shadow_) + 1;
-  memset(shadow_begin, kUncheckedShadow,
+  // memset takes a byte, so our unchecked shadow value requires both bytes to
+  // be the same. Make sure we're ok during compilation.
+  static_assert((kUncheckedShadow & 0xff) == ((kUncheckedShadow >> 8) & 0xff),
+                "Both bytes of the 16-bit value must be the same!");
+  memset(shadow_begin, kUncheckedShadow & 0xff,
          (shadow_end - shadow_begin) * sizeof(*shadow_begin));
 }
 
@@ -410,6 +414,8 @@ __cfi_slowpath_diag(u64 CallSiteTypeId, void *Ptr, void *DiagData) {
 }
 #endif
 
+static void EnsureInterceptorsInitialized();
+
 // Setup shadow for dlopen()ed libraries.
 // The actual shadow setup happens after dlopen() returns, which means that
 // a library can not be a target of any CFI checks while its constructors are
@@ -419,7 +425,11 @@ __cfi_slowpath_diag(u64 CallSiteTypeId, void *Ptr, void *DiagData) {
 // We could insert a high-priority constructor into the library, but that would
 // not help with the uninstrumented libraries.
 INTERCEPTOR(void*, dlopen, const char *filename, int flag) {
+<<<<<<< HEAD
   void *(*rdlo)(const char *, int);
+=======
+  EnsureInterceptorsInitialized();
+>>>>>>> origin/freebsd/12-stable/master
   EnterLoader();
   rdlo = REAL(dlopen);
   void *handle = rdlo(filename, flag);
@@ -428,10 +438,25 @@ INTERCEPTOR(void*, dlopen, const char *filename, int flag) {
 }
 
 INTERCEPTOR(int, dlclose, void *handle) {
+  EnsureInterceptorsInitialized();
   EnterLoader();
   int res = REAL(dlclose)(handle);
   ExitLoader();
   return res;
+}
+
+static BlockingMutex interceptor_init_lock(LINKER_INITIALIZED);
+static bool interceptors_inited = false;
+
+static void EnsureInterceptorsInitialized() {
+  BlockingMutexLock lock(&interceptor_init_lock);
+  if (interceptors_inited)
+    return;
+
+  INTERCEPT_FUNCTION(dlopen);
+  INTERCEPT_FUNCTION(dlclose);
+
+  interceptors_inited = true;
 }
 
 extern "C" SANITIZER_INTERFACE_ATTRIBUTE
@@ -443,9 +468,6 @@ void __cfi_init() {
   SanitizerToolName = "CFI";
   InitializeFlags();
   InitShadow();
-
-  INTERCEPT_FUNCTION(dlopen);
-  INTERCEPT_FUNCTION(dlclose);
 
 #ifdef CFI_ENABLE_DIAG
   __ubsan::InitAsPlugin();
