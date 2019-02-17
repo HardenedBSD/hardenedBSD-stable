@@ -425,11 +425,8 @@ static void EnsureInterceptorsInitialized();
 // We could insert a high-priority constructor into the library, but that would
 // not help with the uninstrumented libraries.
 INTERCEPTOR(void*, dlopen, const char *filename, int flag) {
-<<<<<<< HEAD
   void *(*rdlo)(const char *, int);
-=======
   EnsureInterceptorsInitialized();
->>>>>>> origin/freebsd/12-stable/master
   EnterLoader();
   rdlo = REAL(dlopen);
   void *handle = rdlo(filename, flag);
