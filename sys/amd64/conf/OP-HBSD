@@ -1,10 +1,10 @@
 #
-# GENERIC -- Generic kernel configuration file for FreeBSD/amd64
+# OP-HBSD -- Generic kernel configuration file for FreeBSD/amd64
 #
 # For more information on this file, please read the config(5) manual page,
 # and/or the handbook section on Kernel Configuration Files:
 #
-#    http://www.FreeBSD.org/doc/en_US.ISO8859-1/books/handbook/kernelconfig-config.html
+#    https://www.FreeBSD.org/doc/en_US.ISO8859-1/books/handbook/kernelconfig-config.html
 #
 # The handbook is also available locally in /usr/share/doc/handbook
 # if you've installed the doc distribution, otherwise always see the
@@ -59,6 +59,7 @@ options 	CD9660			# ISO 9660 Filesystem
 options 	PSEUDOFS		# Pseudo-filesystem framework
 options 	GEOM_RAID		# Soft RAID functionality.
 options 	GEOM_LABEL		# Provides labelization
+options 	EFIRT			# EFI Runtime Services support
 options 	GEOM_ELI		# Disk encryption.
 #options 	COMPAT_FREEBSD32	# Compatible with i386 binaries
 #options 	COMPAT_FREEBSD4		# Compatible with FreeBSD4
@@ -105,6 +106,8 @@ options 	KDB_TRACE		# Print a stack trace for a panic.
 # For full debugger support use (turn off in stable branch):
 options 	DDB			# Support DDB.
 options 	GDB			# Support remote GDB.
+#options 	FULL_BUF_TRACKING	# Track more buffer history
+#options 	GDB			# Support remote GDB.
 #options 	DEADLKRES		# Enable the deadlock resolver
 options 	INVARIANTS		# Enable calls of extra sanity checking
 options 	INVARIANT_SUPPORT	# Extra sanity checks of internal structures, required by INVARIANTS
@@ -245,14 +248,18 @@ device		uart			# Generic UART driver
 
 #device		puc			# Multi I/O cards and multi-channel UARTs
 
-# PCI Ethernet NICs.
-#device		bxe			# Broadcom NetXtreme II BCM5771X/BCM578XX 10GbE
-#device		de			# DEC/Intel DC21x4x (``Tulip'')
+# PCI/PCI-X/PCIe Ethernet NICs that use iflib infrastructure
+device		iflib
 device		em			# Intel PRO/1000 Gigabit Ethernet Family
 #device		ix			# Intel PRO/10GbE PCIE PF Ethernet
 #device		ixv			# Intel PRO/10GbE PCIE VF Ethernet
 #device		ixl			# Intel 700 Series Physical Function
 #device		iavf			# Intel Adaptive Virtual Function
+#device		vmx			# VMware VMXNET3 Ethernet
+
+# PCI Ethernet NICs.
+#device		bxe			# Broadcom NetXtreme II BCM5771X/BCM578XX 10GbE
+#device		de			# DEC/Intel DC21x4x (``Tulip'')
 #device		le			# AMD Am7900 LANCE and Am79C9xx PCnet
 #device		ti			# Alteon Networks Tigon I/II gigabit Ethernet
 #device		txp			# 3Com 3cR990 (``Typhoon'')
@@ -382,15 +389,12 @@ device		snd_hda			# Intel High Definition Audio
 #device		virtio_balloon		# VirtIO Memory Balloon device
 
 # HyperV drivers and enhancement support
-device		hyperv			# HyperV drivers 
+#device		hyperv			# HyperV drivers 
 
 # Xen HVM Guest Optimizations
 # NOTE: XENHVM depends on xenpci.  They must be added or removed together.
 #options 	XENHVM			# Xen HVM kernel infrastructure
 #device		xenpci			# Xen HVM Hypervisor services driver
-
-# VMware support
-#device		vmx			# VMware VMXNET3 Ethernet
 
 # Netmap provides direct access to TX/RX rings on supported NICs
 #device		netmap			# netmap(4) support
@@ -403,7 +407,6 @@ device		hyperv			# HyperV drivers
 # Additonal devices
 device		coretemp
 device		cpuctl
-device		cryptodev		# /dev/crypto for access to h/w
 device		aesni
 
 # sc related
@@ -421,9 +424,6 @@ options		IPSTEALTH
 device 		iic
 device 		iicbus
 device 		iicbb
-
-# efi
-options 	EFIRT
 
 # DRM2
 device 		drm2
