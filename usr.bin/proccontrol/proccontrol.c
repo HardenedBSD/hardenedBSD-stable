@@ -71,12 +71,8 @@ static void __dead2
 usage(void)
 {
 
-<<<<<<< HEAD
-	fprintf(stderr, "Usage: proccontrol -m (trace|trapcap) [-q] "
-=======
-	fprintf(stderr, "Usage: proccontrol -m (aslr|trace|trapcap"
+	fprintf(stderr, "Usage: proccontrol -m (trace|trapcap"
 	    KPTI_USAGE") [-q] "
->>>>>>> origin/freebsd/12-stable/master
 	    "[-s (enable|disable)] [-p pid | command]\n");
 	exit(1);
 }
