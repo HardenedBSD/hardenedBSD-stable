@@ -42,6 +42,9 @@ enum {
 	MODE_INVALID,
 	MODE_TRACE,
 	MODE_TRAPCAP,
+#ifdef PROC_KPTI_CTL
+	MODE_KPTI,
+#endif
 };
 
 static pid_t
@@ -58,11 +61,22 @@ str2pid(const char *str)
 	return (res);
 }
 
+#ifdef PROC_KPTI_CTL
+#define	KPTI_USAGE "|kpti"
+#else
+#define	KPTI_USAGE
+#endif
+
 static void __dead2
 usage(void)
 {
 
+<<<<<<< HEAD
 	fprintf(stderr, "Usage: proccontrol -m (trace|trapcap) [-q] "
+=======
+	fprintf(stderr, "Usage: proccontrol -m (aslr|trace|trapcap"
+	    KPTI_USAGE") [-q] "
+>>>>>>> origin/freebsd/12-stable/master
 	    "[-s (enable|disable)] [-p pid | command]\n");
 	exit(1);
 }
@@ -85,6 +99,10 @@ main(int argc, char *argv[])
 				mode = MODE_TRACE;
 			else if (strcmp(optarg, "trapcap") == 0)
 				mode = MODE_TRAPCAP;
+#ifdef PROC_KPTI_CTL
+			else if (strcmp(optarg, "kpti") == 0)
+				mode = MODE_KPTI;
+#endif
 			else
 				usage();
 			break;
@@ -127,6 +145,11 @@ main(int argc, char *argv[])
 		case MODE_TRAPCAP:
 			error = procctl(P_PID, pid, PROC_TRAPCAP_STATUS, &arg);
 			break;
+#ifdef PROC_KPTI_CTL
+		case MODE_KPTI:
+			error = procctl(P_PID, pid, PROC_KPTI_STATUS, &arg);
+			break;
+#endif
 		default:
 			usage();
 			break;
@@ -152,6 +175,22 @@ main(int argc, char *argv[])
 				break;
 			}
 			break;
+#ifdef PROC_KPTI_CTL
+		case MODE_KPTI:
+			switch (arg & ~PROC_KPTI_STATUS_ACTIVE) {
+			case PROC_KPTI_CTL_ENABLE_ON_EXEC:
+				printf("enabled");
+				break;
+			case PROC_KPTI_CTL_DISABLE_ON_EXEC:
+				printf("disabled");
+				break;
+			}
+			if ((arg & PROC_KPTI_STATUS_ACTIVE) != 0)
+				printf(", active\n");
+			else
+				printf(", not active\n");
+			break;
+#endif
 		}
 	} else {
 		switch (mode) {
@@ -165,6 +204,13 @@ main(int argc, char *argv[])
 			    PROC_TRAPCAP_CTL_DISABLE;
 			error = procctl(P_PID, pid, PROC_TRAPCAP_CTL, &arg);
 			break;
+#ifdef PROC_KPTI_CTL
+		case MODE_KPTI:
+			arg = enable ? PROC_KPTI_CTL_ENABLE_ON_EXEC :
+			    PROC_KPTI_CTL_DISABLE_ON_EXEC;
+			error = procctl(P_PID, pid, PROC_KPTI_CTL, &arg);
+			break;
+#endif
 		default:
 			usage();
 			break;
