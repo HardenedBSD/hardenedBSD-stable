@@ -118,6 +118,10 @@ LDFLAGS+=	-Wl,-z,now
 .endif
 .endif
 
+.if defined(MK_SPECTREV1_FIX) && ${MK_SPECTREV1_FIX} != "no"
+CFLAGS+=	-mspeculative-load-hardening
+.endif
+
 .if defined(MK_LIBRESSL) && ${MK_LIBRESSL} != "no"
 CFLAGS+=	-DHAVE_LIBRESSL
 .endif
