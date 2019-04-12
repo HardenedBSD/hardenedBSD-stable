@@ -191,6 +191,7 @@ __DEFAULT_YES_OPTIONS = \
     ZONEINFO
 
 __DEFAULT_NO_OPTIONS = \
+    BEARSSL \
     BSD_GREP \
     BSD_GREP_FASTMATCH \
     DEVD_PIE \
@@ -222,6 +223,8 @@ __DEFAULT_NO_OPTIONS = \
 __DEFAULT_DEPENDENT_OPTIONS= \
 	CLANG_FULL/CLANG \
 	LLVM_TARGET_ALL/CLANG \
+	LOADER_VERIEXEC/BEARSSL \
+	VERIEXEC/BEARSSL \
 
 # MK_*_SUPPORT options which default to "yes" unless their corresponding
 # MK_* variable is set to "no".
