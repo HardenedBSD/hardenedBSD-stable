@@ -23,14 +23,11 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 
-<<<<<<< HEAD
 #ifdef __FreeBSD__
 #define	ElfW	__ElfN
 #endif
 
-=======
 #if SANITIZER_LINUX
->>>>>>> origin/freebsd/12-stable/master
 typedef ElfW(Phdr) Elf_Phdr;
 typedef ElfW(Ehdr) Elf_Ehdr;
 typedef ElfW(Addr) Elf_Addr;

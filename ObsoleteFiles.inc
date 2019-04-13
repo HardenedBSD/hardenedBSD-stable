@@ -38,10 +38,6 @@
 #   xargs -n1 | sort | uniq -d;
 # done
 
-<<<<<<< HEAD
-# 20190311: libexecinfo move to /lib
-OLD_LIBS+=usr/lib/libexecinfo.so.1
-=======
 # 20190412: new libc++ import which bumps version from 7.0.1 to 8.0.0.
 OLD_FILES+=usr/include/c++/v1/experimental/dynarray
 # 20190412: new clang import which bumps version from 7.0.1 to 8.0.0.
@@ -194,7 +190,8 @@ OLD_FILES+=usr/lib/clang/7.0.1/lib/freebsd/libclang_rt.ubsan_standalone_cxx-x86_
 OLD_DIRS+=usr/lib/clang/7.0.1/lib/freebsd
 OLD_DIRS+=usr/lib/clang/7.0.1/lib
 OLD_DIRS+=usr/lib/clang/7.0.1
->>>>>>> origin/freebsd/12-stable/master
+# 20190311: libexecinfo move to /lib
+OLD_LIBS+=usr/lib/libexecinfo.so.1
 # 20190216: new clang import which bumps version from 6.0.1 to 7.0.1.
 OLD_FILES+=usr/lib/clang/6.0.1/include/sanitizer/allocator_interface.h
 OLD_FILES+=usr/lib/clang/6.0.1/include/sanitizer/asan_interface.h
