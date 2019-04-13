@@ -3,7 +3,6 @@
 .include <src.opts.mk>
 
 PROG_CXX=	llvm-objdump
-MAN=
 
 SRCDIR=		tools/llvm-objdump
 SRCS+=		COFFDump.cpp
