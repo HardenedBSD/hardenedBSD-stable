@@ -1,8 +1,9 @@
 /*-
  * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
  *
- * Copyright (c) 2015-2019 Yandex LLC
- * Copyright (c) 2015-2019 Andrey V. Elsukov <ae@FreeBSD.org>
+ * Copyright (c) 2019 Yandex LLC
+ * Copyright (c) 2019 Andrey V. Elsukov <ae@FreeBSD.org>
+ * Copyright (c) 2019 Boris N. Lytochkin <lytboris@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -50,19 +51,19 @@ __FBSDID("$FreeBSD$");
 #include <netinet6/ip_fw_nat64.h>
 #include <arpa/inet.h>
 
-typedef int (nat64stl_cb_t)(ipfw_nat64stl_cfg *i, const char *name,
+typedef int (nat64clat_cb_t)(ipfw_nat64clat_cfg *i, const char *name,
     uint8_t set);
-static int nat64stl_foreach(nat64stl_cb_t *f, const char *name, uint8_t set,
+static int nat64clat_foreach(nat64clat_cb_t *f, const char *name, uint8_t set,
     int sort);
 
-static void nat64stl_create(const char *name, uint8_t set, int ac, char **av);
-static void nat64stl_config(const char *name, uint8_t set, int ac, char **av);
-static void nat64stl_destroy(const char *name, uint8_t set);
-static void nat64stl_stats(const char *name, uint8_t set);
-static void nat64stl_reset_stats(const char *name, uint8_t set);
-static int nat64stl_show_cb(ipfw_nat64stl_cfg *cfg, const char *name,
+static void nat64clat_create(const char *name, uint8_t set, int ac, char **av);
+static void nat64clat_config(const char *name, uint8_t set, int ac, char **av);
+static void nat64clat_destroy(const char *name, uint8_t set);
+static void nat64clat_stats(const char *name, uint8_t set);
+static void nat64clat_reset_stats(const char *name, uint8_t set);
+static int nat64clat_show_cb(ipfw_nat64clat_cfg *cfg, const char *name,
     uint8_t set);
-static int nat64stl_destroy_cb(ipfw_nat64stl_cfg *cfg, const char *name,
+static int nat64clat_destroy_cb(ipfw_nat64clat_cfg *cfg, const char *name,
     uint8_t set);
 
 static struct _s_x nat64cmds[] = {
@@ -75,54 +76,21 @@ static struct _s_x nat64cmds[] = {
       { NULL, 0 }
 };
 
-#define	IPV6_ADDR_INT32_WKPFX	htonl(0x64ff9b)
-#define	IN6_IS_ADDR_WKPFX(a)					\
-    ((a)->__u6_addr.__u6_addr32[0] == IPV6_ADDR_INT32_WKPFX &&	\
-	(a)->__u6_addr.__u6_addr32[1] == 0 &&			\
-	(a)->__u6_addr.__u6_addr32[2] == 0)
-int
-ipfw_check_nat64prefix(const struct in6_addr *prefix, int length)
-{
-
-	switch (length) {
-	case 32:
-	case 40:
-	case 48:
-	case 56:
-	case 64:
-		/* Well-known prefix has 96 prefix length */
-		if (IN6_IS_ADDR_WKPFX(prefix))
-			return (EINVAL);
-		/* FALLTHROUGH */
-	case 96:
-		/* Bits 64 to 71 must be set to zero */
-		if (prefix->__u6_addr.__u6_addr8[8] != 0)
-			return (EINVAL);
-		/* XXX: looks incorrect */
-		if (IN6_IS_ADDR_MULTICAST(prefix) ||
-		    IN6_IS_ADDR_UNSPECIFIED(prefix) ||
-		    IN6_IS_ADDR_LOOPBACK(prefix))
-			return (EINVAL);
-		return (0);
-	}
-	return (EINVAL);
-}
-
 static struct _s_x nat64statscmds[] = {
       { "reset",	TOK_RESET },
       { NULL, 0 }
 };
 
 /*
- * This one handles all nat64stl-related commands
- *	ipfw [set N] nat64stl NAME {create | config} ...
- *	ipfw [set N] nat64stl NAME stats [reset]
- *	ipfw [set N] nat64stl {NAME | all} destroy
- *	ipfw [set N] nat64stl {NAME | all} {list | show}
+ * This one handles all nat64clat-related commands
+ *	ipfw [set N] nat64clat NAME {create | config} ...
+ *	ipfw [set N] nat64clat NAME stats [reset]
+ *	ipfw [set N] nat64clat {NAME | all} destroy
+ *	ipfw [set N] nat64clat {NAME | all} {list | show}
  */
-#define	nat64stl_check_name	table_check_name
+#define	nat64clat_check_name	table_check_name
 void
-ipfw_nat64stl_handler(int ac, char *av[])
+ipfw_nat64clat_handler(int ac, char *av[])
 {
 	const char *name;
 	int tcmd;
@@ -134,54 +102,54 @@ ipfw_nat64stl_handler(int ac, char *av[])
 		set = 0;
 	ac--; av++;
 
-	NEED1("nat64stl needs instance name");
+	NEED1("nat64clat needs instance name");
 	name = *av;
-	if (nat64stl_check_name(name) != 0) {
+	if (nat64clat_check_name(name) != 0) {
 		if (strcmp(name, "all") == 0)
 			name = NULL;
 		else
-			errx(EX_USAGE, "nat64stl instance name %s is invalid",
+			errx(EX_USAGE, "nat64clat instance name %s is invalid",
 			    name);
 	}
 	ac--; av++;
-	NEED1("nat64stl needs command");
+	NEED1("nat64clat needs command");
 
-	tcmd = get_token(nat64cmds, *av, "nat64stl command");
+	tcmd = get_token(nat64cmds, *av, "nat64clat command");
 	if (name == NULL && tcmd != TOK_DESTROY && tcmd != TOK_LIST)
-		errx(EX_USAGE, "nat64stl instance name required");
+		errx(EX_USAGE, "nat64clat instance name required");
 	switch (tcmd) {
 	case TOK_CREATE:
 		ac--; av++;
-		nat64stl_create(name, set, ac, av);
+		nat64clat_create(name, set, ac, av);
 		break;
 	case TOK_CONFIG:
 		ac--; av++;
-		nat64stl_config(name, set, ac, av);
+		nat64clat_config(name, set, ac, av);
 		break;
 	case TOK_LIST:
-		nat64stl_foreach(nat64stl_show_cb, name, set, 1);
+		nat64clat_foreach(nat64clat_show_cb, name, set, 1);
 		break;
 	case TOK_DESTROY:
 		if (name == NULL)
-			nat64stl_foreach(nat64stl_destroy_cb, NULL, set, 0);
+			nat64clat_foreach(nat64clat_destroy_cb, NULL, set, 0);
 		else
-			nat64stl_destroy(name, set);
+			nat64clat_destroy(name, set);
 		break;
 	case TOK_STATS:
 		ac--; av++;
 		if (ac == 0) {
-			nat64stl_stats(name, set);
+			nat64clat_stats(name, set);
 			break;
 		}
 		tcmd = get_token(nat64statscmds, *av, "stats command");
 		if (tcmd == TOK_RESET)
-			nat64stl_reset_stats(name, set);
+			nat64clat_reset_stats(name, set);
 	}
 }
 
 
 static void
-nat64stl_fill_ntlv(ipfw_obj_ntlv *ntlv, const char *name, uint8_t set)
+nat64clat_fill_ntlv(ipfw_obj_ntlv *ntlv, const char *name, uint8_t set)
 {
 
 	ntlv->head.type = IPFW_TLV_EACTION_NAME(1); /* it doesn't matter */
@@ -192,9 +160,8 @@ nat64stl_fill_ntlv(ipfw_obj_ntlv *ntlv, const char *name, uint8_t set)
 }
 
 static struct _s_x nat64newcmds[] = {
-      { "table4",	TOK_TABLE4 },
-      { "table6",	TOK_TABLE6 },
-      { "prefix6",	TOK_PREFIX6 },
+      { "plat_prefix",	TOK_PLAT_PREFIX },
+      { "clat_prefix",	TOK_CLAT_PREFIX },
       { "log",		TOK_LOG },
       { "-log",		TOK_LOGOFF },
       { "allow_private", TOK_PRIVATE },
@@ -203,61 +170,63 @@ static struct _s_x nat64newcmds[] = {
 };
 
 /*
- * Creates new nat64stl instance
- * ipfw nat64stl <NAME> create table4 <name> table6 <name> [ prefix6 <prefix>]
- * Request: [ ipfw_obj_lheader ipfw_nat64stl_cfg ]
+ * Creates new nat64clat instance
+ * ipfw nat64clat <NAME> create clat_prefix <prefix> plat_prefix <prefix>
+ * Request: [ ipfw_obj_lheader ipfw_nat64clat_cfg ]
  */
-#define	NAT64STL_HAS_TABLE4	0x01
-#define	NAT64STL_HAS_TABLE6	0x02
-#define	NAT64STL_HAS_PREFIX6	0x04
+#define	NAT64CLAT_HAS_CLAT_PREFIX	0x01
+#define	NAT64CLAT_HAS_PLAT_PREFIX	0x02
 static void
-nat64stl_create(const char *name, uint8_t set, int ac, char *av[])
+nat64clat_create(const char *name, uint8_t set, int ac, char *av[])
 {
-	char buf[sizeof(ipfw_obj_lheader) + sizeof(ipfw_nat64stl_cfg)];
-	ipfw_nat64stl_cfg *cfg;
+	char buf[sizeof(ipfw_obj_lheader) + sizeof(ipfw_nat64clat_cfg)];
+	ipfw_nat64clat_cfg *cfg;
 	ipfw_obj_lheader *olh;
 	int tcmd, flags;
 	char *p;
+	struct in6_addr prefix;
+	uint8_t plen;
 
 	memset(buf, 0, sizeof(buf));
 	olh = (ipfw_obj_lheader *)buf;
-	cfg = (ipfw_nat64stl_cfg *)(olh + 1);
+	cfg = (ipfw_nat64clat_cfg *)(olh + 1);
 
 	/* Some reasonable defaults */
-	inet_pton(AF_INET6, "64:ff9b::", &cfg->prefix6);
-	cfg->plen6 = 96;
+	inet_pton(AF_INET6, "64:ff9b::", &cfg->plat_prefix);
+	cfg->plat_plen = 96;
 	cfg->set = set;
-	flags = NAT64STL_HAS_PREFIX6;
+	flags = NAT64CLAT_HAS_PLAT_PREFIX;
 	while (ac > 0) {
 		tcmd = get_token(nat64newcmds, *av, "option");
 		ac--; av++;
 
 		switch (tcmd) {
-		case TOK_TABLE4:
-			NEED1("table name required");
-			table_fill_ntlv(&cfg->ntlv4, *av, set, 4);
-			flags |= NAT64STL_HAS_TABLE4;
-			ac--; av++;
-			break;
-		case TOK_TABLE6:
-			NEED1("table name required");
-			table_fill_ntlv(&cfg->ntlv6, *av, set, 6);
-			flags |= NAT64STL_HAS_TABLE6;
-			ac--; av++;
-			break;
-		case TOK_PREFIX6:
-			NEED1("IPv6 prefix6 required");
+		case TOK_PLAT_PREFIX:
+		case TOK_CLAT_PREFIX:
+			if (tcmd == TOK_PLAT_PREFIX) {
+				NEED1("IPv6 plat_prefix required");
+			} else {
+				NEED1("IPv6 clat_prefix required");
+			}
+
 			if ((p = strchr(*av, '/')) != NULL)
 				*p++ = '\0';
-			if (inet_pton(AF_INET6, *av, &cfg->prefix6) != 1)
+			if (inet_pton(AF_INET6, *av, &prefix) != 1)
 				errx(EX_USAGE,
 				    "Bad prefix: %s", *av);
-			cfg->plen6 = strtol(p, NULL, 10);
-			if (ipfw_check_nat64prefix(&cfg->prefix6,
-			    cfg->plen6) != 0)
+			plen = strtol(p, NULL, 10);
+			if (ipfw_check_nat64prefix(&prefix, plen) != 0)
 				errx(EX_USAGE,
 				    "Bad prefix length: %s", p);
-			flags |= NAT64STL_HAS_PREFIX6;
+			if (tcmd == TOK_PLAT_PREFIX) {
+				flags |= NAT64CLAT_HAS_PLAT_PREFIX;
+				cfg->plat_prefix = prefix;
+				cfg->plat_plen = plen;
+			} else {
+				flags |= NAT64CLAT_HAS_CLAT_PREFIX;
+				cfg->clat_prefix = prefix;
+				cfg->clat_plen = plen;
+			}
 			ac--; av++;
 			break;
 		case TOK_LOG:
@@ -276,45 +245,46 @@ nat64stl_create(const char *name, uint8_t set, int ac, char *av[])
 	}
 
 	/* Check validness */
-	if ((flags & NAT64STL_HAS_TABLE4) != NAT64STL_HAS_TABLE4)
-		errx(EX_USAGE, "table4 required");
-	if ((flags & NAT64STL_HAS_TABLE6) != NAT64STL_HAS_TABLE6)
-		errx(EX_USAGE, "table6 required");
-	if ((flags & NAT64STL_HAS_PREFIX6) != NAT64STL_HAS_PREFIX6)
-		errx(EX_USAGE, "prefix6 required");
+	if ((flags & NAT64CLAT_HAS_PLAT_PREFIX) != NAT64CLAT_HAS_PLAT_PREFIX)
+		errx(EX_USAGE, "plat_prefix required");
+	if ((flags & NAT64CLAT_HAS_CLAT_PREFIX) != NAT64CLAT_HAS_CLAT_PREFIX)
+		errx(EX_USAGE, "clat_prefix required");
 
 	olh->count = 1;
 	olh->objsize = sizeof(*cfg);
 	olh->size = sizeof(buf);
 	strlcpy(cfg->name, name, sizeof(cfg->name));
-	if (do_set3(IP_FW_NAT64STL_CREATE, &olh->opheader, sizeof(buf)) != 0)
-		err(EX_OSERR, "nat64stl instance creation failed");
+	if (do_set3(IP_FW_NAT64CLAT_CREATE, &olh->opheader, sizeof(buf)) != 0)
+		err(EX_OSERR, "nat64clat instance creation failed");
 }
 
 /*
- * Configures existing nat64stl instance
- * ipfw nat64stl <NAME> config <options>
- * Request: [ ipfw_obj_header ipfw_nat64stl_cfg ]
+ * Configures existing nat64clat instance
+ * ipfw nat64clat <NAME> config <options>
+ * Request: [ ipfw_obj_header ipfw_nat64clat_cfg ]
  */
 static void
-nat64stl_config(const char *name, uint8_t set, int ac, char **av)
+nat64clat_config(const char *name, uint8_t set, int ac, char **av)
 {
-	char buf[sizeof(ipfw_obj_header) + sizeof(ipfw_nat64stl_cfg)];
-	ipfw_nat64stl_cfg *cfg;
+	char buf[sizeof(ipfw_obj_header) + sizeof(ipfw_nat64clat_cfg)];
+	ipfw_nat64clat_cfg *cfg;
 	ipfw_obj_header *oh;
 	char *opt;
+	char *p;
 	size_t sz;
 	int tcmd;
+	struct in6_addr prefix;
+	uint8_t plen;
 
 	if (ac == 0)
 		errx(EX_USAGE, "config options required");
 	memset(&buf, 0, sizeof(buf));
 	oh = (ipfw_obj_header *)buf;
-	cfg = (ipfw_nat64stl_cfg *)(oh + 1);
+	cfg = (ipfw_nat64clat_cfg *)(oh + 1);
 	sz = sizeof(buf);
 
-	nat64stl_fill_ntlv(&oh->ntlv, name, set);
-	if (do_get3(IP_FW_NAT64STL_CONFIG, &oh->opheader, &sz) != 0)
+	nat64clat_fill_ntlv(&oh->ntlv, name, set);
+	if (do_get3(IP_FW_NAT64CLAT_CONFIG, &oh->opheader, &sz) != 0)
 		err(EX_OSERR, "failed to get config for instance %s", name);
 
 	while (ac > 0) {
@@ -323,18 +293,32 @@ nat64stl_config(const char *name, uint8_t set, int ac, char **av)
 		ac--; av++;
 
 		switch (tcmd) {
-#if 0
-		case TOK_TABLE4:
-			NEED1("table name required");
-			table_fill_ntlv(&cfg->ntlv4, *av, set, 4);
+		case TOK_PLAT_PREFIX:
+		case TOK_CLAT_PREFIX:
+			if (tcmd == TOK_PLAT_PREFIX) {
+				NEED1("IPv6 plat_prefix required");
+			} else {
+				NEED1("IPv6 clat_prefix required");
+			}
+
+			if ((p = strchr(*av, '/')) != NULL)
+				*p++ = '\0';
+			if (inet_pton(AF_INET6, *av, &prefix) != 1)
+				errx(EX_USAGE,
+				    "Bad prefix: %s", *av);
+			plen = strtol(p, NULL, 10);
+			if (ipfw_check_nat64prefix(&prefix, plen) != 0)
+				errx(EX_USAGE,
+				    "Bad prefix length: %s", p);
+			if (tcmd == TOK_PLAT_PREFIX) {
+				cfg->plat_prefix = prefix;
+				cfg->plat_plen = plen;
+			} else {
+				cfg->clat_prefix = prefix;
+				cfg->clat_plen = plen;
+			}
 			ac--; av++;
 			break;
-		case TOK_TABLE6:
-			NEED1("table name required");
-			table_fill_ntlv(&cfg->ntlv6, *av, set, 6);
-			ac--; av++;
-			break;
-#endif
 		case TOK_LOG:
 			cfg->flags |= NAT64_LOG;
 			break;
@@ -352,33 +336,33 @@ nat64stl_config(const char *name, uint8_t set, int ac, char **av)
 		}
 	}
 
-	if (do_set3(IP_FW_NAT64STL_CONFIG, &oh->opheader, sizeof(buf)) != 0)
-		err(EX_OSERR, "nat64stl instance configuration failed");
+	if (do_set3(IP_FW_NAT64CLAT_CONFIG, &oh->opheader, sizeof(buf)) != 0)
+		err(EX_OSERR, "nat64clat instance configuration failed");
 }
 
 /*
- * Destroys nat64stl instance.
+ * Destroys nat64clat instance.
  * Request: [ ipfw_obj_header ]
  */
 static void
-nat64stl_destroy(const char *name, uint8_t set)
+nat64clat_destroy(const char *name, uint8_t set)
 {
 	ipfw_obj_header oh;
 
 	memset(&oh, 0, sizeof(oh));
-	nat64stl_fill_ntlv(&oh.ntlv, name, set);
-	if (do_set3(IP_FW_NAT64STL_DESTROY, &oh.opheader, sizeof(oh)) != 0)
+	nat64clat_fill_ntlv(&oh.ntlv, name, set);
+	if (do_set3(IP_FW_NAT64CLAT_DESTROY, &oh.opheader, sizeof(oh)) != 0)
 		err(EX_OSERR, "failed to destroy nat instance %s", name);
 }
 
 /*
- * Get nat64stl instance statistics.
+ * Get nat64clat instance statistics.
  * Request: [ ipfw_obj_header ]
  * Reply: [ ipfw_obj_header ipfw_obj_ctlv [ uint64_t x N ] ]
  */
 static int
-nat64stl_get_stats(const char *name, uint8_t set,
-    struct ipfw_nat64stl_stats *stats)
+nat64clat_get_stats(const char *name, uint8_t set,
+    struct ipfw_nat64clat_stats *stats)
 {
 	ipfw_obj_header *oh;
 	ipfw_obj_ctlv *oc;
@@ -386,8 +370,8 @@ nat64stl_get_stats(const char *name, uint8_t set,
 
 	sz = sizeof(*oh) + sizeof(*oc) + sizeof(*stats);
 	oh = calloc(1, sz);
-	nat64stl_fill_ntlv(&oh->ntlv, name, set);
-	if (do_get3(IP_FW_NAT64STL_STATS, &oh->opheader, &sz) == 0) {
+	nat64clat_fill_ntlv(&oh->ntlv, name, set);
+	if (do_get3(IP_FW_NAT64CLAT_STATS, &oh->opheader, &sz) == 0) {
 		oc = (ipfw_obj_ctlv *)(oh + 1);
 		memcpy(stats, oc + 1, sizeof(*stats));
 		free(oh);
@@ -398,16 +382,16 @@ nat64stl_get_stats(const char *name, uint8_t set,
 }
 
 static void
-nat64stl_stats(const char *name, uint8_t set)
+nat64clat_stats(const char *name, uint8_t set)
 {
-	struct ipfw_nat64stl_stats stats;
+	struct ipfw_nat64clat_stats stats;
 
-	if (nat64stl_get_stats(name, set, &stats) != 0)
+	if (nat64clat_get_stats(name, set, &stats) != 0)
 		err(EX_OSERR, "Error retrieving stats");
 
 	if (co.use_set != 0 || set != 0)
 		printf("set %u ", set);
-	printf("nat64stl %s\n", name);
+	printf("nat64clat %s\n", name);
 
 	printf("\t%ju packets translated from IPv6 to IPv4\n",
 	    (uintmax_t)stats.opcnt64);
@@ -432,24 +416,24 @@ nat64stl_stats(const char *name, uint8_t set)
 }
 
 /*
- * Reset nat64stl instance statistics specified by @oh->ntlv.
+ * Reset nat64clat instance statistics specified by @oh->ntlv.
  * Request: [ ipfw_obj_header ]
  */
 static void
-nat64stl_reset_stats(const char *name, uint8_t set)
+nat64clat_reset_stats(const char *name, uint8_t set)
 {
 	ipfw_obj_header oh;
 
 	memset(&oh, 0, sizeof(oh));
-	nat64stl_fill_ntlv(&oh.ntlv, name, set);
-	if (do_set3(IP_FW_NAT64STL_RESET_STATS, &oh.opheader, sizeof(oh)) != 0)
+	nat64clat_fill_ntlv(&oh.ntlv, name, set);
+	if (do_set3(IP_FW_NAT64CLAT_RESET_STATS, &oh.opheader, sizeof(oh)) != 0)
 		err(EX_OSERR, "failed to reset stats for instance %s", name);
 }
 
 static int
-nat64stl_show_cb(ipfw_nat64stl_cfg *cfg, const char *name, uint8_t set)
+nat64clat_show_cb(ipfw_nat64clat_cfg *cfg, const char *name, uint8_t set)
 {
-	char abuf[INET6_ADDRSTRLEN];
+	char plat_buf[INET6_ADDRSTRLEN], clat_buf[INET6_ADDRSTRLEN];
 
 	if (name != NULL && strcmp(cfg->name, name) != 0)
 		return (ESRCH);
@@ -460,10 +444,10 @@ nat64stl_show_cb(ipfw_nat64stl_cfg *cfg, const char *name, uint8_t set)
 	if (co.use_set != 0 || cfg->set != 0)
 		printf("set %u ", cfg->set);
 
-	printf("nat64stl %s table4 %s table6 %s",
-	    cfg->name, cfg->ntlv4.name, cfg->ntlv6.name);
-	inet_ntop(AF_INET6, &cfg->prefix6, abuf, sizeof(abuf));
-	printf(" prefix6 %s/%u", abuf, cfg->plen6);
+	inet_ntop(AF_INET6, &cfg->clat_prefix, clat_buf, sizeof(clat_buf));
+	inet_ntop(AF_INET6, &cfg->plat_prefix, plat_buf, sizeof(plat_buf));
+	printf("nat64clat %s clat_prefix %s/%u plat_prefix %s/%u",
+	    cfg->name, clat_buf, cfg->clat_plen, plat_buf, cfg->plat_plen);
 	if (cfg->flags & NAT64_LOG)
 		printf(" log");
 	if (cfg->flags & NAT64_ALLOW_PRIVATE)
@@ -473,28 +457,28 @@ nat64stl_show_cb(ipfw_nat64stl_cfg *cfg, const char *name, uint8_t set)
 }
 
 static int
-nat64stl_destroy_cb(ipfw_nat64stl_cfg *cfg, const char *name, uint8_t set)
+nat64clat_destroy_cb(ipfw_nat64clat_cfg *cfg, const char *name, uint8_t set)
 {
 
 	if (co.use_set != 0 && cfg->set != set)
 		return (ESRCH);
 
-	nat64stl_destroy(cfg->name, cfg->set);
+	nat64clat_destroy(cfg->name, cfg->set);
 	return (0);
 }
 
 
 /*
- * Compare nat64stl instances names.
+ * Compare nat64clat instances names.
  * Honor number comparison.
  */
 static int
 nat64name_cmp(const void *a, const void *b)
 {
-	ipfw_nat64stl_cfg *ca, *cb;
+	ipfw_nat64clat_cfg *ca, *cb;
 
-	ca = (ipfw_nat64stl_cfg *)a;
-	cb = (ipfw_nat64stl_cfg *)b;
+	ca = (ipfw_nat64clat_cfg *)a;
+	cb = (ipfw_nat64clat_cfg *)b;
 
 	if (ca->set > cb->set)
 		return (1);
@@ -504,17 +488,17 @@ nat64name_cmp(const void *a, const void *b)
 }
 
 /*
- * Retrieves nat64stl instance list from kernel,
+ * Retrieves nat64clat instance list from kernel,
  * optionally sorts it and calls requested function for each instance.
  *
  * Request: [ ipfw_obj_lheader ]
- * Reply: [ ipfw_obj_lheader ipfw_nat64stl_cfg x N ]
+ * Reply: [ ipfw_obj_lheader ipfw_nat64clat_cfg x N ]
  */
 static int
-nat64stl_foreach(nat64stl_cb_t *f, const char *name, uint8_t set, int sort)
+nat64clat_foreach(nat64clat_cb_t *f, const char *name, uint8_t set, int sort)
 {
 	ipfw_obj_lheader *olh;
-	ipfw_nat64stl_cfg *cfg;
+	ipfw_nat64clat_cfg *cfg;
 	size_t sz;
 	int i, error;
 
@@ -525,7 +509,7 @@ nat64stl_foreach(nat64stl_cb_t *f, const char *name, uint8_t set, int sort)
 			return (ENOMEM);
 
 		olh->size = sz;
-		if (do_get3(IP_FW_NAT64STL_LIST, &olh->opheader, &sz) != 0) {
+		if (do_get3(IP_FW_NAT64CLAT_LIST, &olh->opheader, &sz) != 0) {
 			sz = olh->size;
 			free(olh);
 			if (errno != ENOMEM)
@@ -537,10 +521,10 @@ nat64stl_foreach(nat64stl_cb_t *f, const char *name, uint8_t set, int sort)
 			qsort(olh + 1, olh->count, olh->objsize,
 			    nat64name_cmp);
 
-		cfg = (ipfw_nat64stl_cfg *)(olh + 1);
+		cfg = (ipfw_nat64clat_cfg *)(olh + 1);
 		for (i = 0; i < olh->count; i++) {
 			error = f(cfg, name, set); /* Ignore errors for now */
-			cfg = (ipfw_nat64stl_cfg *)((caddr_t)cfg +
+			cfg = (ipfw_nat64clat_cfg *)((caddr_t)cfg +
 			    olh->objsize);
 		}
 		free(olh);
