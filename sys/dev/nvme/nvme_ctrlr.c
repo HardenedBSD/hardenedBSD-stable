@@ -1056,11 +1056,7 @@ nvme_ctrlr_passthrough_cmd(struct nvme_controller *ctrlr,
 			buf->b_data = pt->buf;
 			buf->b_bufsize = pt->len;
 			buf->b_iocmd = pt->is_read ? BIO_READ : BIO_WRITE;
-#ifdef NVME_UNMAPPED_BIO_SUPPORT
 			if (vmapbuf(buf, 1) < 0) {
-#else
-			if (vmapbuf(buf) < 0) {
-#endif
 				ret = EFAULT;
 				goto err;
 			}
@@ -1075,6 +1071,8 @@ nvme_ctrlr_passthrough_cmd(struct nvme_controller *ctrlr,
 	/* Assume userspace already converted to little-endian */
 	req->cmd.opc = pt->cmd.opc;
 	req->cmd.fuse = pt->cmd.fuse;
+	req->cmd.rsvd2 = pt->cmd.rsvd2;
+	req->cmd.rsvd3 = pt->cmd.rsvd3;
 	req->cmd.cdw10 = pt->cmd.cdw10;
 	req->cmd.cdw11 = pt->cmd.cdw11;
 	req->cmd.cdw12 = pt->cmd.cdw12;
