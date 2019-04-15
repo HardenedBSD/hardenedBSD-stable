@@ -1761,75 +1761,10 @@ vm_map_find(vm_map_t map, vm_object_t object, vm_ooffset_t offset,
 		    alignment != 0, ("unexpected VMFS flag"));
 		min_addr = *addr;
 again:
-<<<<<<< HEAD
-		if (vm_map_findspace(map, min_addr, length, addr) ||
-		    (max_addr != 0 && *addr + length > max_addr)) {
+		*addr = vm_map_findspace(map, min_addr, length);
+		    if (max_addr != 0 && *addr + length > max_addr) {
 			rv = KERN_NO_SPACE;
 			goto done;
-=======
-		/*
-		 * When creating an anonymous mapping, try clustering
-		 * with an existing anonymous mapping first.
-		 *
-		 * We make up to two attempts to find address space
-		 * for a given find_space value. The first attempt may
-		 * apply randomization or may cluster with an existing
-		 * anonymous mapping. If this first attempt fails,
-		 * perform a first-fit search of the available address
-		 * space.
-		 *
-		 * If all tries failed, and find_space is
-		 * VMFS_OPTIMAL_SPACE, fallback to VMFS_ANY_SPACE.
-		 * Again enable clustering and randomization.
-		 */
-		try++;
-		MPASS(try <= 2);
-
-		if (try == 2) {
-			/*
-			 * Second try: we failed either to find a
-			 * suitable region for randomizing the
-			 * allocation, or to cluster with an existing
-			 * mapping.  Retry with free run.
-			 */
-			curr_min_addr = (map->flags & MAP_ASLR_IGNSTART) != 0 ?
-			    vm_map_min(map) : min_addr;
-			atomic_add_long(&aslr_restarts, 1);
-		}
-
-		if (try == 1 && en_aslr && !cluster) {
-			/*
-			 * Find space for allocation, including
-			 * gap needed for later randomization.
-			 */
-			pidx = MAXPAGESIZES > 1 && pagesizes[1] != 0 &&
-			    (find_space == VMFS_SUPER_SPACE || find_space ==
-			    VMFS_OPTIMAL_SPACE) ? 1 : 0;
-			gap = vm_map_max(map) > MAP_32BIT_MAX_ADDR &&
-			    (max_addr == 0 || max_addr > MAP_32BIT_MAX_ADDR) ?
-			    aslr_pages_rnd_64[pidx] : aslr_pages_rnd_32[pidx];
-			*addr = vm_map_findspace(map, curr_min_addr,
-			    length + gap * pagesizes[pidx]);
-			if (*addr + length + gap * pagesizes[pidx] >
-			    vm_map_max(map))
-				goto again;
-			/* And randomize the start address. */
-			*addr += (arc4random() % gap) * pagesizes[pidx];
-			if (max_addr != 0 && *addr + length > max_addr)
-				goto again;
-		} else {
-			*addr = vm_map_findspace(map, curr_min_addr, length);
-			if (*addr + length > vm_map_max(map) ||
-			    (max_addr != 0 && *addr + length > max_addr)) {
-				if (cluster) {
-					cluster = false;
-					MPASS(try == 1);
-					goto again;
-				}
-				rv = KERN_NO_SPACE;
-				goto done;
-			}
->>>>>>> origin/freebsd/12-stable/master
 		}
 		if (find_space != VMFS_ANY_SPACE &&
 		    (rv = vm_map_alignspace(map, object, offset, addr, length,
