@@ -816,8 +816,6 @@ fail:
 	return (error);
 }
 
-<<<<<<< HEAD
-=======
 static u_long
 __CONCAT(rnd_, __elfN(base))(vm_map_t map __unused, u_long minv, u_long maxv,
     u_int align)
@@ -1016,7 +1014,6 @@ __elfN(load_interp)(struct image_params *imgp, const Elf_Brandinfo *brand_info,
  */
 #define	ET_DYN_ADDR_RAND	1
 
->>>>>>> origin/freebsd/12-stable/master
 static int
 __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp)
 {
@@ -1025,22 +1022,10 @@ __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp)
 	const Elf_Phdr *phdr;
 	Elf_Auxargs *elf_auxargs;
 	struct vmspace *vmspace;
-<<<<<<< HEAD
-	const char *err_str, *newinterp;
-	char *interp, *interp_buf, *path;
-	Elf_Brandinfo *brand_info;
-	struct sysentvec *sv;
-	vm_prot_t prot;
-	u_long text_size, data_size, total_size, text_addr, data_addr;
-	u_long seg_size, seg_addr, addr, baddr, et_dyn_addr, entry, proghdr;
-=======
-	vm_map_t map;
 	char *interp;
 	Elf_Brandinfo *brand_info;
 	struct sysentvec *sv;
 	u_long addr, baddr, et_dyn_addr, entry, proghdr;
-	u_long maxalign, mapsz, maxv, maxv1;
->>>>>>> origin/freebsd/12-stable/master
 	uint32_t fctl0;
 	int32_t osrel;
 	bool free_interp;
@@ -1147,12 +1132,6 @@ __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp)
 		if (baddr == 0)
 			et_dyn_addr = ET_DYN_LOAD_ADDR;
 	}
-<<<<<<< HEAD
-	sv = brand_info->sysvec;
-	if (interp != NULL && brand_info->interp_newpath != NULL)
-		newinterp = brand_info->interp_newpath;
-=======
->>>>>>> origin/freebsd/12-stable/master
 
 	/*
 	 * Avoid a possible deadlock if the current address space is destroyed
@@ -1167,6 +1146,7 @@ __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp)
 	 */
 	VOP_UNLOCK(imgp->vp, 0);
 
+	sv = brand_info->sysvec;
 	error = exec_new_vmspace(imgp, sv);
 	imgp->proc->p_sysent = sv;
 
@@ -1201,15 +1181,7 @@ __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp)
 	if (error != 0)
 		goto ret;
 
-<<<<<<< HEAD
-	vmspace = imgp->proc->p_vmspace;
-	vmspace->vm_tsize = text_size >> PAGE_SHIFT;
-	vmspace->vm_taddr = (caddr_t)(uintptr_t)text_addr;
-	vmspace->vm_dsize = data_size >> PAGE_SHIFT;
-	vmspace->vm_daddr = (caddr_t)(uintptr_t)data_addr;
-=======
 	entry = (u_long)hdr->e_entry + et_dyn_addr;
->>>>>>> origin/freebsd/12-stable/master
 
 	/*
 	 * We load the dynamic linker where a userland call
@@ -1217,63 +1189,20 @@ __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp)
 	 * calculation is that it leaves room for the heap to grow to
 	 * its maximum allowed size.
 	 */
+	PROC_LOCK(imgp->proc);
+	vmspace = imgp->proc->p_vmspace;
 	addr = round_page((vm_offset_t)vmspace->vm_daddr + lim_max(td,
 	    RLIMIT_DATA));
-<<<<<<< HEAD
 #ifdef PAX_ASLR
 	pax_aslr_rtld(imgp->proc, &addr);
 #endif
 	PROC_UNLOCK(imgp->proc);
-=======
-	if ((map->flags & MAP_ASLR) != 0) {
-		maxv1 = maxv / 2 + addr / 2;
-		MPASS(maxv1 >= addr);	/* No overflow */
-		map->anon_loc = __CONCAT(rnd_, __elfN(base))(map, addr, maxv1,
-		    MAXPAGESIZES > 1 ? pagesizes[1] : pagesizes[0]);
-	} else {
-		map->anon_loc = addr;
-	}
->>>>>>> origin/freebsd/12-stable/master
-
 	imgp->entry_addr = entry;
 
 	if (interp != NULL) {
 		VOP_UNLOCK(imgp->vp, 0);
-<<<<<<< HEAD
-		if (brand_info->emul_path != NULL &&
-		    brand_info->emul_path[0] != '\0') {
-			path = malloc(MAXPATHLEN, M_TEMP, M_WAITOK);
-			snprintf(path, MAXPATHLEN, "%s%s",
-			    brand_info->emul_path, interp);
-			error = __elfN(load_file)(imgp->proc, path, &addr,
-			    &imgp->entry_addr, sv->sv_pagesize);
-			free(path, M_TEMP);
-			if (error == 0)
-				have_interp = TRUE;
-		}
-		if (!have_interp && newinterp != NULL &&
-		    (brand_info->interp_path == NULL ||
-		    strcmp(interp, brand_info->interp_path) == 0)) {
-			error = __elfN(load_file)(imgp->proc, newinterp, &addr,
-			    &imgp->entry_addr, sv->sv_pagesize);
-			if (error == 0)
-				have_interp = TRUE;
-		}
-		if (!have_interp) {
-			error = __elfN(load_file)(imgp->proc, interp, &addr,
-			    &imgp->entry_addr, sv->sv_pagesize);
-		}
-=======
-		if ((map->flags & MAP_ASLR) != 0) {
-			/* Assume that interpeter fits into 1/4 of AS */
-			maxv1 = maxv / 2 + addr / 2;
-			MPASS(maxv1 >= addr);	/* No overflow */
-			addr = __CONCAT(rnd_, __elfN(base))(map, addr,
-			    maxv1, PAGE_SIZE);
-		}
 		error = __elfN(load_interp)(imgp, brand_info, interp, &addr,
 		    &imgp->entry_addr);
->>>>>>> origin/freebsd/12-stable/master
 		vn_lock(imgp->vp, LK_EXCLUSIVE | LK_RETRY);
 		if (error != 0)
 			goto ret;
