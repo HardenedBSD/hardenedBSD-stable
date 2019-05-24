@@ -8375,7 +8375,6 @@ OLD_FILES+=usr/share/man/man8/ntpq.8.gz
 OLD_FILES+=usr/share/man/man8/ntptime.8.gz
 .endif
 
-<<<<<<< HEAD
 .if ${MK_OPENNTPD} == no
 OLD_FILES+=etc/ntpd.conf
 OLD_FILES+=etc/rc.d/openntpd
@@ -8385,10 +8384,7 @@ OLD_FILES+=usr/man/man8/ntpd.8.gz
 OLD_FILES+=usr/sbin/ntpctl
 .endif
 
-.if ${MK_OPENSSH} == no
-=======
 .if ${MK_OPENMP} == no
->>>>>>> origin/freebsd/12-stable/master
 .if ${MK_GCC} == no
 OLD_FILES+=usr/include/omp.h
 OLD_LIBS+=usr/lib/libgomp.so
