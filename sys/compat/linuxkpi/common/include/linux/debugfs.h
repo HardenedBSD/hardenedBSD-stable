@@ -1,13 +1,7 @@
 /*-
  * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
  *
- * Copyright (c) 2003 Networks Associates Technology, Inc.
- * All rights reserved.
- *
- * This software was developed for the FreeBSD Project by Network
- * Associates Laboratories, the Security Research Division of Network
- * Associates, Inc. under DARPA/SPAWAR contract N66001-01-C-8035
- * ("CBOSS"), as part of the DARPA CHATS research program.
+ * Copyright (c) 2016-2018, Matthew Macy <mmacy@freebsd.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,33 +23,29 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
+ * $FreeBSD$
  */
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
+#ifndef _LINUX_DEBUGFS_H_
+#define _LINUX_DEBUGFS_H_
 
-#include <sys/param.h>
-#include <sys/kernel.h>
-#include <sys/libkern.h>
-#include <sys/malloc.h>
+#include <linux/fs.h>
+#include <linux/seq_file.h>
 
-char *
-strdup_flags(const char *string, struct malloc_type *type, int flags)
-{
-	size_t len;
-	char *copy;
+#include <linux/types.h>
 
-	len = strlen(string) + 1;
-	copy = malloc(len, type, flags);
-	if (copy == NULL)
-		return (NULL);
-	bcopy(string, copy, len);
-	return (copy);
-}
+void debugfs_remove(struct dentry *dentry);
 
-char *
-strdup(const char *string, struct malloc_type *type)
-{
+struct dentry *debugfs_create_file(const char *name, umode_t mode,
+				   struct dentry *parent, void *data,
+				   const struct file_operations *fops);
 
-	return (strdup_flags(string, type, M_WAITOK));
-}
+struct dentry *debugfs_create_dir(const char *name, struct dentry *parent);
+
+struct dentry *debugfs_create_symlink(const char *name, struct dentry *parent,
+				      const char *dest);
+
+void debugfs_remove_recursive(struct dentry *dentry);
+
+#endif
