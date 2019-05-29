@@ -1096,6 +1096,14 @@ hw_mds_recalculate(void)
 	}
 }
 
+static void
+hw_mds_recalculate_boot(void *arg __unused)
+{
+
+	hw_mds_recalculate();
+}
+SYSINIT(mds_recalc, SI_SUB_SMP, SI_ORDER_ANY, hw_mds_recalculate_boot, NULL);
+
 static int
 sysctl_mds_disable_handler(SYSCTL_HANDLER_ARGS)
 {
