@@ -1,3 +1,11 @@
+[20190530] lot of fragile stuffs...
+__HardenedBSD_version = 1200059
+
+	Intel Hardware Vulnerability fixes
+	FreeBSD's ASR reverts
+	...
+
+
 [20180701] OpenSSL
 __HardenedBSD_version = 1200058
 
