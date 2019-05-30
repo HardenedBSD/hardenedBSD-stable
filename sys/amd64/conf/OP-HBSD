@@ -408,6 +408,7 @@ device		snd_hda			# Intel High Definition Audio
 device		coretemp
 device		cpuctl
 device		aesni
+device		tpm
 
 # sc related
 options		SC_DISABLE_REBOOT
