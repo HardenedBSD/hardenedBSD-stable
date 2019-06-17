@@ -502,12 +502,8 @@ __elfN(map_insert)(struct image_params *imgp, vm_map_t map, vm_object_t object,
 	} else {
 		vm_object_reference(object);
 		rv = vm_map_fixed(map, object, offset, start, end - start,
-<<<<<<< HEAD
-		    prot, maxprot, cow | MAP_CHECK_EXCL);
-=======
-		    prot, VM_PROT_ALL, cow | MAP_CHECK_EXCL |
+		    prot, maxprot, cow | MAP_CHECK_EXCL |
 		    (object != NULL ? MAP_VN_EXEC : 0));
->>>>>>> origin/freebsd/12-stable/master
 		if (rv != KERN_SUCCESS) {
 			locked = VOP_ISLOCKED(imgp->vp);
 			VOP_UNLOCK(imgp->vp, 0);
@@ -573,19 +569,8 @@ __elfN(load_section)(struct image_params *imgp, vm_ooffset_t offset,
 		cow = MAP_COPY_ON_WRITE | MAP_PREFAULT |
 		    (prot & VM_PROT_WRITE ? 0 : MAP_DISABLE_COREDUMP);
 
-<<<<<<< HEAD
-		rv = __elfN(map_insert)(imgp, map,
-				      object,
-				      file_addr,	/* file offset */
-				      map_addr,		/* virtual start */
-				      map_addr + map_len,/* virtual end */
-				      prot,
-				      prot,
-				      cow);
-=======
 		rv = __elfN(map_insert)(imgp, map, object, file_addr,
-		    map_addr, map_addr + map_len, prot, cow);
->>>>>>> origin/freebsd/12-stable/master
+		    map_addr, map_addr + map_len, prot, prot, cow);
 		if (rv != KERN_SUCCESS)
 			return (EINVAL);
 
