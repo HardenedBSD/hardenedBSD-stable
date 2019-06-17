@@ -502,13 +502,21 @@ __elfN(map_insert)(struct image_params *imgp, vm_map_t map, vm_object_t object,
 	} else {
 		vm_object_reference(object);
 		rv = vm_map_fixed(map, object, offset, start, end - start,
+<<<<<<< HEAD
 		    prot, maxprot, cow | MAP_CHECK_EXCL);
+=======
+		    prot, VM_PROT_ALL, cow | MAP_CHECK_EXCL |
+		    (object != NULL ? MAP_VN_EXEC : 0));
+>>>>>>> origin/freebsd/12-stable/master
 		if (rv != KERN_SUCCESS) {
 			locked = VOP_ISLOCKED(imgp->vp);
 			VOP_UNLOCK(imgp->vp, 0);
 			vm_object_deallocate(object);
 			vn_lock(imgp->vp, locked | LK_RETRY);
 			return (rv);
+		} else if (object != NULL) {
+			MPASS(imgp->vp->v_object == object);
+			VOP_SET_TEXT_CHECKED(imgp->vp);
 		}
 	}
 	return (KERN_SUCCESS);
@@ -565,6 +573,7 @@ __elfN(load_section)(struct image_params *imgp, vm_ooffset_t offset,
 		cow = MAP_COPY_ON_WRITE | MAP_PREFAULT |
 		    (prot & VM_PROT_WRITE ? 0 : MAP_DISABLE_COREDUMP);
 
+<<<<<<< HEAD
 		rv = __elfN(map_insert)(imgp, map,
 				      object,
 				      file_addr,	/* file offset */
@@ -573,6 +582,10 @@ __elfN(load_section)(struct image_params *imgp, vm_ooffset_t offset,
 				      prot,
 				      prot,
 				      cow);
+=======
+		rv = __elfN(map_insert)(imgp, map, object, file_addr,
+		    map_addr, map_addr + map_len, prot, cow);
+>>>>>>> origin/freebsd/12-stable/master
 		if (rv != KERN_SUCCESS)
 			return (EINVAL);
 
@@ -699,7 +712,7 @@ __elfN(load_file)(struct proc *p, const char *file, u_long *addr,
 	struct nameidata *nd;
 	struct vattr *attr;
 	struct image_params *imgp;
-	u_long flags, rbase;
+	u_long rbase;
 	u_long base_addr = 0;
 	int error;
 
@@ -727,10 +740,8 @@ __elfN(load_file)(struct proc *p, const char *file, u_long *addr,
 	imgp->object = NULL;
 	imgp->execlabel = NULL;
 
-	flags = FOLLOW | LOCKSHARED | LOCKLEAF;
-
-again:
-	NDINIT(nd, LOOKUP, flags, UIO_SYSSPACE, file, curthread);
+	NDINIT(nd, LOOKUP, FOLLOW | LOCKSHARED | LOCKLEAF, UIO_SYSSPACE, file,
+	    curthread);
 	if ((error = namei(nd)) != 0) {
 		nd->ni_vp = NULL;
 		goto fail;
@@ -744,27 +755,6 @@ again:
 	error = exec_check_permissions(imgp);
 	if (error)
 		goto fail;
-
-	/*
-	 * Also make certain that the interpreter stays the same,
-	 * so set its VV_TEXT flag, too.  Since this function is only
-	 * used to load the interpreter, the VV_TEXT is almost always
-	 * already set.
-	 */
-	if (VOP_IS_TEXT(nd->ni_vp) == 0) {
-		if (VOP_ISLOCKED(nd->ni_vp) != LK_EXCLUSIVE) {
-			/*
-			 * LK_UPGRADE could have resulted in dropping
-			 * the lock.  Just try again from the start,
-			 * this time with exclusive vnode lock.
-			 */
-			vput(nd->ni_vp);
-			flags &= ~LOCKSHARED;
-			goto again;
-		}
-
-		VOP_SET_TEXT(nd->ni_vp);
-	}
 
 	error = exec_map_first_page(imgp);
 	if (error)
@@ -808,9 +798,11 @@ fail:
 	if (imgp->firstpage)
 		exec_unmap_first_page(imgp);
 
-	if (nd->ni_vp)
+	if (nd->ni_vp) {
+		if (imgp->textset)
+			VOP_UNSET_TEXT_CHECKED(nd->ni_vp);
 		vput(nd->ni_vp);
-
+	}
 	free(tempdata, M_TEMP);
 
 	return (error);
@@ -953,7 +945,7 @@ __elfN(get_interp)(struct image_params *imgp, const Elf_Phdr *phdr,
 		if (interp == NULL) {
 			VOP_UNLOCK(imgp->vp, 0);
 			interp = malloc(interp_name_len + 1, M_TEMP, M_WAITOK);
-			vn_lock(imgp->vp, LK_EXCLUSIVE | LK_RETRY);
+			vn_lock(imgp->vp, LK_SHARED | LK_RETRY);
 		}
 
 		error = vn_rdwr(UIO_READ, imgp->vp, interp,
@@ -1179,7 +1171,7 @@ __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp)
 		}
 	}
 
-	vn_lock(imgp->vp, LK_EXCLUSIVE | LK_RETRY);
+	vn_lock(imgp->vp, LK_SHARED | LK_RETRY);
 	if (error != 0)
 		goto ret;
 
@@ -1213,7 +1205,7 @@ __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp)
 		VOP_UNLOCK(imgp->vp, 0);
 		error = __elfN(load_interp)(imgp, brand_info, interp, &addr,
 		    &imgp->entry_addr);
-		vn_lock(imgp->vp, LK_EXCLUSIVE | LK_RETRY);
+		vn_lock(imgp->vp, LK_SHARED | LK_RETRY);
 		if (error != 0)
 			goto ret;
 	} else
@@ -1226,7 +1218,7 @@ __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp)
 	if (elf_auxargs == NULL) {
 		VOP_UNLOCK(imgp->vp, 0);
 		elf_auxargs = malloc(sizeof(Elf_Auxargs), M_TEMP, M_WAITOK);
-		vn_lock(imgp->vp, LK_EXCLUSIVE | LK_RETRY);
+		vn_lock(imgp->vp, LK_SHARED | LK_RETRY);
 	}
 	elf_auxargs->execfd = -1;
 	elf_auxargs->phdr = proghdr + et_dyn_addr;
@@ -2513,7 +2505,7 @@ __elfN(parse_notes)(struct image_params *imgp, Elf_Note *checknote,
 		if (buf == NULL) {
 			VOP_UNLOCK(imgp->vp, 0);
 			buf = malloc(pnote->p_filesz, M_TEMP, M_WAITOK);
-			vn_lock(imgp->vp, LK_EXCLUSIVE | LK_RETRY);
+			vn_lock(imgp->vp, LK_SHARED | LK_RETRY);
 		}
 		error = vn_rdwr(UIO_READ, imgp->vp, buf, pnote->p_filesz,
 		    pnote->p_offset, UIO_SYSSPACE, IO_NODELOCKED,
