@@ -316,6 +316,7 @@ SUBDIR=	\
 	${_pst} \
 	pty  \
 	puc \
+	pwm \
 	${_qlxge} \
 	${_qlxgb} \
 	${_qlxgbe} \
