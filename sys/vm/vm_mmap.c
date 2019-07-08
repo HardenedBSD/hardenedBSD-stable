@@ -225,21 +225,9 @@ kern_mmap(struct thread *td, uintptr_t addr0, size_t size, int prot, int flags,
 	 * ld.so sometimes issues anonymous map requests with non-zero
 	 * pos.
 	 */
-<<<<<<< HEAD
-	if ((size == 0 && curproc->p_osrel >= P_OSREL_MAP_ANON) ||
+	if ((size == 0 && p->p_osrel >= P_OSREL_MAP_ANON) ||
 	    ((flags & MAP_ANON) != 0 && (fd != -1 || pos != 0)))
 		return (EINVAL);
-=======
-	if (!SV_CURPROC_FLAG(SV_AOUT)) {
-		if ((size == 0 && p->p_osrel >= P_OSREL_MAP_ANON) ||
-		    ((flags & MAP_ANON) != 0 && (fd != -1 || pos != 0)))
-			return (EINVAL);
-	} else {
-		if ((flags & MAP_ANON) != 0)
-			pos = 0;
-	}
->>>>>>> freebsd/12-stable/master
-
 	if (flags & MAP_STACK) {
 		if ((fd != -1) ||
 		    ((prot & (PROT_READ | PROT_WRITE)) != (PROT_READ | PROT_WRITE)))
