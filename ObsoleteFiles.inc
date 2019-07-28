@@ -170,6 +170,7 @@ OLD_FILES+=usr/lib/clang/7.0.1/lib/freebsd/libclang_rt.asan-x86_64.a
 OLD_FILES+=usr/lib/clang/7.0.1/lib/freebsd/libclang_rt.asan-x86_64.so
 OLD_FILES+=usr/lib/clang/7.0.1/lib/freebsd/libclang_rt.asan_cxx-i386.a
 OLD_FILES+=usr/lib/clang/7.0.1/lib/freebsd/libclang_rt.asan_cxx-x86_64.a
+OLD_FILES+=usr/lib/clang/7.0.1/lib/freebsd/libclang_rt.cfi-x86_64.a
 OLD_FILES+=usr/lib/clang/7.0.1/lib/freebsd/libclang_rt.msan-x86_64.a
 OLD_FILES+=usr/lib/clang/7.0.1/lib/freebsd/libclang_rt.msan_cxx-x86_64.a
 OLD_FILES+=usr/lib/clang/7.0.1/lib/freebsd/libclang_rt.profile-arm.a
