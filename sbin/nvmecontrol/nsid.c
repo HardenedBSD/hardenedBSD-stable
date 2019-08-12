@@ -1,8 +1,7 @@
 /*-
  * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
  *
- * Copyright (C) 2012-2013 Intel Corporation
- * All rights reserved.
+ * Copyright (C) 2019 Alexander Motin <mav@FreeBSD.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,47 +29,52 @@
 __FBSDID("$FreeBSD$");
 
 #include <sys/param.h>
-#include <sys/ioccom.h>
 
-#include <err.h>
-#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 
 #include "nvmecontrol.h"
+#include "comnd.h"
 
-static struct options {
-	const char *dev;
-} opt = {
-	.dev = NULL
+/* Tables for command line parsing */
+
+static cmd_fn_t gnsid;
+
+static struct nsid_options {
+	const char	*dev;
+} nsid_opt = {
+	.dev = NULL,
 };
 
-static const struct args args[] = {
-	{ arg_string, &opt.dev, "controller-id" },
+static const struct args nsid_args[] = {
+	{ arg_string, &nsid_opt.dev, "namespace-id" },
 	{ arg_none, NULL, NULL },
 };
 
-static void
-reset(const struct cmd *f, int argc, char *argv[])
-{
-	int	fd;
-
-	arg_parse(argc, argv, f);
-	open_dev(opt.dev, &fd, 1, 1);
-
-	if (ioctl(fd, NVME_RESET_CONTROLLER) < 0)
-		err(1, "reset request to %s failed", argv[optind]);
-
-	exit(0);
-}
-
-static struct cmd reset_cmd = {
-	.name = "reset",
-	.fn = reset,
-	.descr = "Perform a controller-level reset",
-	.args = args,
+static struct cmd nsid_cmd = {
+	.name = "nsid",
+	.fn = gnsid,
+	.descr = "Get controller and NSID for namespace",
+	.ctx_size = sizeof(nsid_opt),
+	.opts = NULL,
+	.args = nsid_args,
 };
 
-CMD_COMMAND(reset_cmd);
+CMD_COMMAND(nsid_cmd);
+
+static void
+gnsid(const struct cmd *f, int argc, char *argv[])
+{
+	char		*path;
+	int		fd;
+	uint32_t	nsid;
+
+	arg_parse(argc, argv, f);
+
+	open_dev(nsid_opt.dev, &fd, 1, 1);
+	get_nsid(fd, &path, &nsid);
+	close(fd);
+	printf("%s\t%u\n", path, nsid);
+	free(path);
+}
