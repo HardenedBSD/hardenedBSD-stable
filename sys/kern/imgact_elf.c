@@ -131,6 +131,44 @@ SYSCTL_INT(__CONCAT(_kern_elf, __ELF_WORD_SIZE), OID_AUTO,
     nxstack, CTLFLAG_RW, &__elfN(nxstack), 0,
     __XSTRING(__CONCAT(ELF, __ELF_WORD_SIZE)) ": enable non-executable stack");
 
+<<<<<<< HEAD
+=======
+#if __ELF_WORD_SIZE == 32
+#if defined(__amd64__)
+int i386_read_exec = 0;
+SYSCTL_INT(_kern_elf32, OID_AUTO, read_exec, CTLFLAG_RW, &i386_read_exec, 0,
+    "enable execution from readable segments");
+#endif
+#endif
+
+SYSCTL_NODE(__CONCAT(_kern_elf, __ELF_WORD_SIZE), OID_AUTO, aslr, CTLFLAG_RW, 0,
+    "");
+#define	ASLR_NODE_OID	__CONCAT(__CONCAT(_kern_elf, __ELF_WORD_SIZE), _aslr)
+
+static int __elfN(aslr_enabled) = 0;
+SYSCTL_INT(ASLR_NODE_OID, OID_AUTO, enable, CTLFLAG_RWTUN,
+    &__elfN(aslr_enabled), 0,
+    __XSTRING(__CONCAT(ELF, __ELF_WORD_SIZE))
+    ": enable address map randomization");
+
+static int __elfN(pie_aslr_enabled) = 0;
+SYSCTL_INT(ASLR_NODE_OID, OID_AUTO, pie_enable, CTLFLAG_RWTUN,
+    &__elfN(pie_aslr_enabled), 0,
+    __XSTRING(__CONCAT(ELF, __ELF_WORD_SIZE))
+    ": enable address map randomization for PIE binaries");
+
+static int __elfN(aslr_honor_sbrk) = 1;
+SYSCTL_INT(ASLR_NODE_OID, OID_AUTO, honor_sbrk, CTLFLAG_RW,
+    &__elfN(aslr_honor_sbrk), 0,
+    __XSTRING(__CONCAT(ELF, __ELF_WORD_SIZE)) ": assume sbrk is used");
+
+static int __elfN(aslr_stack_gap) = 3;
+SYSCTL_INT(ASLR_NODE_OID, OID_AUTO, stack_gap, CTLFLAG_RW,
+    &__elfN(aslr_stack_gap), 0,
+    __XSTRING(__CONCAT(ELF, __ELF_WORD_SIZE))
+    ": maximum percentage of main stack to waste on a random gap");
+
+>>>>>>> origin/freebsd/12-stable/master
 static Elf_Brandinfo *elf_brand_list[MAX_BRANDS];
 
 #define	aligned(a, t)	(rounddown2((u_long)(a), sizeof(t)) == (u_long)(a))
@@ -2648,4 +2686,24 @@ __elfN(untrans_prot)(vm_prot_t prot)
 	if (prot & VM_PROT_WRITE)
 		flags |= PF_W;
 	return (flags);
+}
+
+void
+__elfN(stackgap)(struct image_params *imgp, u_long *stack_base)
+{
+	u_long range, rbase, gap;
+	int pct;
+
+	if ((imgp->map_flags & MAP_ASLR) == 0)
+		return;
+	pct = __elfN(aslr_stack_gap);
+	if (pct == 0)
+		return;
+	if (pct > 50)
+		pct = 50;
+	range = imgp->eff_stack_sz * pct / 100;
+	arc4rand(&rbase, sizeof(rbase), 0);
+	gap = rbase % range;
+	gap &= ~(sizeof(u_long) - 1);
+	*stack_base -= gap;
 }
